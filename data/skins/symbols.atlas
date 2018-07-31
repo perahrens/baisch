@@ -1,0 +1,35 @@
+
+symbols.png
+size: 1079,1079
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+clubs
+  rotate: false
+  xy: 540, 0
+  size: 540, 540
+  orig: 540, 540
+  offset: 0, 0
+  index: -1
+diamonds
+  rotate: false
+  xy: 0, 540
+  size: 540, 540
+  orig: 540, 540
+  offset: 0, 0
+  index: -1
+hearts
+  rotate: false
+  xy: 540, 540
+  size: 54, 540
+  orig: 540, 540
+  offset: 0, 0
+  index: -1
+spades
+  rotate: false
+  xy: 0, 0
+  size: 540, 540
+  orig: 540, 540
+  offset: 0, 0
+  index: -1
+  

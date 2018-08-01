@@ -10,19 +10,19 @@ import javax.swing.event.ChangeListener;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.mygdx.game.heroes.BatteryTower;
-import com.mygdx.game.heroes.FortifiedTower;
-import com.mygdx.game.heroes.Hero;
-import com.mygdx.game.heroes.King;
-import com.mygdx.game.heroes.Lieutenant;
-import com.mygdx.game.heroes.Magician;
-import com.mygdx.game.heroes.Major;
-import com.mygdx.game.heroes.Mercenaries;
-import com.mygdx.game.heroes.Merchant;
-import com.mygdx.game.heroes.Priest;
-import com.mygdx.game.heroes.Reservists;
-import com.mygdx.game.heroes.Saboteurs;
-import com.mygdx.game.heroes.Spy;
+import com.mygdx.heroes.BatteryTower;
+import com.mygdx.heroes.FortifiedTower;
+import com.mygdx.heroes.Hero;
+import com.mygdx.heroes.King;
+import com.mygdx.heroes.Lieutenant;
+import com.mygdx.heroes.Magician;
+import com.mygdx.heroes.Major;
+import com.mygdx.heroes.Mercenaries;
+import com.mygdx.heroes.Merchant;
+import com.mygdx.heroes.Priest;
+import com.mygdx.heroes.Reservists;
+import com.mygdx.heroes.Saboteurs;
+import com.mygdx.heroes.Spy;
 
 public class GameState {
 

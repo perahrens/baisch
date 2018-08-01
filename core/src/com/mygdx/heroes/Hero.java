@@ -1,4 +1,4 @@
-package com.mygdx.game.heroes;
+package com.mygdx.heroes;
 
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.Sprite;

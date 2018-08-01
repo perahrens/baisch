@@ -559,32 +559,34 @@ public class GameScreen extends ScreenAdapter {
 			playerHeroes.get(j).addListener(new ClickListener() {
 				@Override
 				public void clicked(InputEvent event, float x, float y) {
-					System.out.println("Hero isSelected=" + refHero.isSelected());
-					//unselect all defense and king cards
-					gameState.getCurrentPlayer().getKingCard().setSelected(false);
-					for (int i = 1; i <= 3; i++) {
-						if (gameState.getCurrentPlayer().getDefCards().containsKey(i)) {
-							gameState.getCurrentPlayer().getDefCards().get(i).setSelected(false);
+					if (refHero.isReady()) {
+						System.out.println("Hero isSelected=" + refHero.isSelected());
+						//unselect all defense and king cards
+						gameState.getCurrentPlayer().getKingCard().setSelected(false);
+						for (int i = 1; i <= 3; i++) {
+							if (gameState.getCurrentPlayer().getDefCards().containsKey(i)) {
+								gameState.getCurrentPlayer().getDefCards().get(i).setSelected(false);
+							}
 						}
-					}
-					
-					//unselect all hand cards
-					for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
-						gameState.getCurrentPlayer().getHandCards().get(i).setSelected(false);
-					}
-					
-					//select current hero
-					if (refHero.isSelected()) {
-						//unselect selected hero
-						refHero.setSelected(false);
-					} else {
-						//unselect all other heroes and only select new one
-						for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
-							gameState.getCurrentPlayer().getHeroes().get(i).setSelected(false);
+						
+						//unselect all hand cards
+						for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
+							gameState.getCurrentPlayer().getHandCards().get(i).setSelected(false);
 						}
-						refHero.setSelected(true);
+						
+						//select current hero
+						if (refHero.isSelected()) {
+							//unselect selected hero
+							refHero.setSelected(false);
+						} else {
+							//unselect all other heroes and only select new one
+							for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
+								gameState.getCurrentPlayer().getHeroes().get(i).setSelected(false);
+							}
+							refHero.setSelected(true);
+						}
+						System.out.println("Hero  isSelected=" + refHero.isSelected());
 					}
-					System.out.println("Hero  isSelected=" + refHero.isSelected());
 				};
 			});
 			

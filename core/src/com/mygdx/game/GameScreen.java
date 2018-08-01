@@ -36,9 +36,9 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.mygdx.game.heroes.Hero;
-import com.mygdx.game.heroes.Magician;
-import com.mygdx.game.heroes.Spy;
+import com.mygdx.heroes.Hero;
+import com.mygdx.heroes.Magician;
+import com.mygdx.heroes.Spy;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {

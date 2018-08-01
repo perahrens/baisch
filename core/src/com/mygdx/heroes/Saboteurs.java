@@ -1,14 +1,14 @@
-package com.mygdx.game.heroes;
+package com.mygdx.heroes;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
-public class Lieutenant extends Hero {
+public class Saboteurs extends Hero {
 	
-	public Lieutenant() {
-		heroName = "Lieutenant";
-		heroID = "Lieut.";
-		sprite = atlas.createSprite("bk", -1);
+	public Saboteurs() {
+		heroName = "Saboteurs";
+		heroID = "Sabot.";
+		sprite = atlas.createSprite("bb", -1);
 
 		this.isSelected = false;
 

@@ -10,7 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
-import com.mygdx.game.heroes.Hero;
+import com.mygdx.heroes.Hero;
 
 public class Player {
 	

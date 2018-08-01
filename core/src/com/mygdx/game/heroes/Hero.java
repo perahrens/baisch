@@ -17,6 +17,8 @@ public class Hero extends Actor {
 	
 	protected boolean isHand = false;
 	final float scaleFactor = 1f;
+	
+	protected boolean isReady = true;
 
 	
 	@Override
@@ -56,6 +58,10 @@ public class Hero extends Actor {
 	
 	public void recover() {
 		
+	}
+	
+	public boolean isReady() {
+		return isReady;
 	}
 
 }

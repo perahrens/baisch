@@ -29,6 +29,7 @@ public class Spy extends Hero {
 	public void recover() {
 		spyAttacks = 1;
 		spyExtends = 1;
+		isReady = true;
 	}
 	
 	public int getSpyAttacks() {
@@ -48,6 +49,10 @@ public class Spy extends Hero {
 	
 	public void spyAttack() {
 		spyAttacks--;
+		if (spyAttacks == 0 && spyExtends == 0) {
+			isReady = false;
+			isSelected = false;
+		}
 	}
 
 }

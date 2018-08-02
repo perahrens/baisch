@@ -11,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.heroes.Hero;
+import com.mygdx.heroes.Major;
 
 public class Player {
 	
@@ -82,24 +83,80 @@ public class Player {
 	
 	public void takeDefCard(int position) {
 		System.out.println("takeDefCard()");
-		if (playerTurn.getTakeDefCard() > 0) {
+
+		//check if player has major
+		boolean hasMajor = false;
+		Major major = null;
+		for (int i = 0; i < heroes.size(); i++) {
+			if (heroes.get(i).getHeroName() == "Major") {
+				//Major found
+				major = (Major) heroes.get(i);
+				hasMajor = true;
+				break;
+			}
+		}
+		
+		boolean allowed = false;
+		if (hasMajor) {
+			if (major.getMobilizations() > 0) {
+				allowed = true;
+				major.mobilize();
+			}
+		} else {
+			if (playerTurn.getTakeDefCard() > 0) {
+				allowed = true;
+				playerTurn.decreaseTakeDefCard();
+			}
+		}
+		
+		if (allowed) {
 			addHandCard(defCards.get(position));
 			defCards.remove(position);
-			playerTurn.decreaseTakeDefCard();
 		} else {
-			System.out.println("No more allowed");
+			System.out.println("No more take actions allowed");
 		}
 	}
 	
-	public void setDefCard(Integer position) {
-		System.out.println("setDefCard()");
+	public void putDefCard(Integer position) {
+		System.out.println("putDefCard()");
 		
-		for (int i = 0; i < handCards.size(); i++ ) {
-			if (handCards.get(i).isSelected()) {
-				System.out.println("remove hand card");
-				addDefCard(position, handCards.get(i));
-				handCards.get(i).remove();
+		//check if player has major
+		boolean hasMajor = false;
+		Major major = null;
+		for (int i = 0; i < heroes.size(); i++) {
+			if (heroes.get(i).getHeroName() == "Major") {
+				//Major found
+				major = (Major) heroes.get(i);
+				hasMajor = true;
+				break;
 			}
+		}
+		
+		boolean allowed = false;
+		if (hasMajor) {
+			if (major.getMobilizations() > 0) {
+				allowed = true;
+				major.mobilize();
+			}
+		} else {
+			if (playerTurn.getPutDefCard() > 0) {
+				allowed = true;
+				playerTurn.decreasePutDefCard();
+			}
+		}
+		
+		if (allowed) {
+			Iterator<Card> handCardsIt = handCards.iterator();
+			while (handCardsIt.hasNext()) {
+				Card handCard = handCardsIt.next();
+				if (handCard.isSelected()) {
+					addDefCard(position, handCard);
+					handCard.setCovered(true);
+					handCardsIt.remove();
+				}
+			}
+		} else {
+			System.out.println("No more put actions allowed");
 		}
 	}
 	

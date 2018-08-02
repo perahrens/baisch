@@ -4,14 +4,14 @@ public class PlayerTurn {
 	int pickingDeckAttacks;
 	int attackCounter;
 	int takeDefCard;
-	int setDefCard;
+	int putDefCard;
 	String attackingSymbol;
 	
 	public PlayerTurn () {
 		pickingDeckAttacks = 1;
 		attackCounter = 0;
 		takeDefCard = 1;
-		setDefCard = 1;
+		putDefCard = 1;
 		attackingSymbol = "none";
 	}
 	
@@ -39,12 +39,12 @@ public class PlayerTurn {
 		return takeDefCard;
 	}
 	
-	public void decreaseSetDefCard () {
-		setDefCard -= 1;
+	public void decreasePutDefCard () {
+		putDefCard -= 1;
 	}
 	
-	public int getSetDefCard () {
-		return setDefCard;
+	public int getPutDefCard () {
+		return putDefCard;
 	}
 	
 	public void setAttackingSymbol(String symbol) {

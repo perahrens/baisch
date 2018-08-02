@@ -20,7 +20,8 @@ public class Spy extends Hero {
 		spyAttacks = 1;
 		spyExtends = 1;
 		
-		this.isSelected = false;
+		isSelectable = true;
+		isSelected = false;
 
 		setWidth(sprite.getWidth()*scaleFactor);
 		setHeight(sprite.getHeight()*scaleFactor);

@@ -8,7 +8,7 @@ public class Lieutenant extends Hero {
 	public Lieutenant() {
 		heroName = "Lieutenant";
 		heroID = "Lieut.";
-		sprite = atlas.createSprite("bk", -1);
+		sprite = atlas.createSprite("bn", -1);
 
 		this.isSelected = false;
 

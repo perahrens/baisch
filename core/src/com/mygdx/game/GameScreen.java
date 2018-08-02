@@ -366,17 +366,9 @@ public class GameScreen extends ScreenAdapter {
 							@Override
 							public void clicked(InputEvent event, float x, float y) {
 								//get selected hand cards
-								ArrayList<Card> selectedHandCards = gameState.getCurrentPlayer().getSelectedHandCards();
-								if (selectedHandCards.size() == 1) {
-									if (gameState.getCurrentPlayer().getPlayerTurn().getSetDefCard() > 0) {
-										for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
-											if (gameState.getCurrentPlayer().getHandCards().get(i).isSelected()) {
-												gameState.getCurrentPlayer().addDefCard(defCard.getPositionId(), gameState.getCurrentPlayer().getHandCards().get(i));
-												gameState.getCurrentPlayer().getHandCards().remove(i);
-												gameState.getCurrentPlayer().getDefCards().get(defCard.getPositionId()).setCovered(true);
-											}
-										}
-										gameState.getCurrentPlayer().getPlayerTurn().decreaseSetDefCard();
+								if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1) {
+									if (gameState.getCurrentPlayer().getPlayerTurn().getPutDefCard() > 0) {
+										gameState.getCurrentPlayer().putDefCard(defCard.getPositionId());
 										show();
 									} else {
 										System.out.println("no more put allowed");
@@ -544,7 +536,8 @@ public class GameScreen extends ScreenAdapter {
 			}
 			handStage.addActor(handCards.get(j));
 		}
-				
+		
+		//display all heroes of current player
 		for (int j = 0; j < playerHeroes.size(); j++) {
 			final Hero refHero = playerHeroes.get(j); 
 			

@@ -8,15 +8,38 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
 public class Major extends Hero {
 	
+	private int mobilizations;
+	
+	/*Major increases the number of put/take defense card actions
+	 *to takeDefCard + setDefCard = 3.
+	 */
+	
 	public Major() {
 		heroName = "Major";
 		heroID = "Major";
-		sprite = atlas.createSprite("wk", -1);
+		sprite = atlas.createSprite("wn", -1);
 
-		this.isSelected = false;
+		mobilizations = 3;
+		
+		isSelectable = false;
+		isSelected = false;
 
 		setWidth(sprite.getWidth()*scaleFactor);
 		setHeight(sprite.getHeight()*scaleFactor);
 		
 	}
+	
+	public void mobilize () {
+		mobilizations--;
+	}
+	
+	public int getMobilizations () {
+		return mobilizations;
+	}
+	
+	public void recover() {
+		isReady = true;
+		mobilizations = 3;
+	}
+	
 }

@@ -13,6 +13,7 @@ public class Hero extends Actor {
 	protected Sprite sprite;
 	protected TextureAtlas atlas = new TextureAtlas("data/skins/pieces.atlas");
 	
+	protected boolean isSelectable = false;
 	protected boolean isSelected;
 	
 	protected boolean isHand = false;

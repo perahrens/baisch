@@ -57,6 +57,10 @@ public class Hero extends Actor {
 		return isSelected;
 	}
 	
+	public boolean isSelectable() {
+		return isSelectable;
+	}
+	
 	public void recover() {
 		
 	}

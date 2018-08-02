@@ -38,6 +38,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.heroes.Hero;
 import com.mygdx.heroes.Magician;
+import com.mygdx.heroes.Merchant;
 import com.mygdx.heroes.Spy;
 
 //public class GameScreen extends AbstractScreen {
@@ -494,7 +495,7 @@ public class GameScreen extends ScreenAdapter {
 									Spy spy = (Spy) gameState.getCurrentPlayer().getHeroes().get(i);
 									if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
 											spy.getSpyExtends() > 0) {
-										spy.spyExtend();
+										//cast away selected card
 										Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
 										while (handCardIt.hasNext()) {
 											Card currCard = handCardIt.next();
@@ -504,6 +505,35 @@ public class GameScreen extends ScreenAdapter {
 												handCardIt.remove();
 											}
 										}
+										
+										//extends spy attacks
+										spy.spyExtend();
+									}
+								} else if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Merchant" &&
+										gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
+									Merchant merchant  = (Merchant) gameState.getCurrentPlayer().getHeroes().get(i);
+									if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
+											merchant.getTrades() > 0) {
+										Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
+										while (handCardIt.hasNext()) {
+											Card currCard = handCardIt.next();
+											if (currCard.isSelected()) {
+												System.out.println("Remove handcard " + currCard.getStrength());
+												gameState.getCemeteryDeck().addCard(currCard);
+												handCardIt.remove();
+											}
+										}
+										
+										//get new card from deck
+										merchant.trade();
+										gameState.getCurrentPlayer().addHandCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+										
+										//pop up dialog whether to keep or not
+										/*
+										boolean keepCard = false;
+										if (!keepCard) {
+											
+										}*/
 									}
 								}
 							}
@@ -552,7 +582,7 @@ public class GameScreen extends ScreenAdapter {
 			playerHeroes.get(j).addListener(new ClickListener() {
 				@Override
 				public void clicked(InputEvent event, float x, float y) {
-					if (refHero.isReady()) {
+					if (refHero.isReady() && refHero.isSelectable()) {
 						System.out.println("Hero isSelected=" + refHero.isSelected());
 						//unselect all defense and king cards
 						gameState.getCurrentPlayer().getKingCard().setSelected(false);

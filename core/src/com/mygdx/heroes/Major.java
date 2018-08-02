@@ -8,11 +8,11 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
 public class Major extends Hero {
 	
-	private int mobilizations;
-	
 	/*Major increases the number of put/take defense card actions
 	 *to takeDefCard + setDefCard = 3.
 	 */
+	
+	private int mobilizations;
 	
 	public Major() {
 		heroName = "Major";

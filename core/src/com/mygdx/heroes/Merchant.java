@@ -16,7 +16,10 @@ public class Merchant extends Hero {
 		heroID = "Merch.";
 		sprite = atlas.createSprite("wq", -1);
 
-		this.isSelected = false;
+		trades = 1;
+		
+		isSelectable = true;
+		isSelected = false;
 
 		setWidth(sprite.getWidth()*scaleFactor);
 		setHeight(sprite.getHeight()*scaleFactor);
@@ -29,7 +32,15 @@ public class Merchant extends Hero {
 	 *  if last trade, then make card visible for all players 
 	 */ 
 	public void trade() {
-		
+		trades--;
+	}
+	
+	public int getTrades() {
+		return trades;
+	}
+	
+	public void recover() {
+		trades = 1;
 	}
 
 }

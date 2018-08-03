@@ -39,6 +39,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.heroes.Hero;
 import com.mygdx.heroes.Magician;
 import com.mygdx.heroes.Merchant;
+import com.mygdx.heroes.Priest;
 import com.mygdx.heroes.Spy;
 
 //public class GameScreen extends AbstractScreen {
@@ -179,6 +180,7 @@ public class GameScreen extends ScreenAdapter {
 			//display hand cards
 			ArrayList<Card> handCards = players.get(i).getHandCards();
 			for (int j = 0; j < handCards.size(); j++) {
+				final Card handCard = handCards.get(j); 
 				handCards.get(j).setCovered(true);
 				handCards.get(j).setRotation(0);
 				handCards.get(j).setActive(false);
@@ -187,26 +189,56 @@ public class GameScreen extends ScreenAdapter {
 				handCards.get(j).setPosition(dice.getX(), dice.getY());
 			
 				switch (i) {
-						case 0:
-							handCards.get(j).setPosition(handCards.get(j).getX()+1.5f*dice.getWidth()+j*5f, handCards.get(j).getY());
-							break;
-						case 1:
-							handCards.get(j).setRotation(-90);
-							handCards.get(j).setPosition(handCards.get(j).getX(), handCards.get(j).getY()-2f*dice.getWidth()-j*5f);
-							break;
-						case 2:
-							handCards.get(j).setRotation(-180);
-							handCards.get(j).setPosition(handCards.get(j).getX()-2f*dice.getWidth()-j*5f, handCards.get(j).getY()-dice.getWidth());
-							break;
-						case 3:
-							handCards.get(j).setRotation(90);
-							handCards.get(j).setPosition(handCards.get(j).getX()-dice.getWidth(), handCards.get(j).getY()+dice.getWidth()+j*5f);
-							break;
-						default:
-							break;
-						}
+					case 0:
+						handCards.get(j).setPosition(handCards.get(j).getX()+1.5f*dice.getWidth()+j*5f, handCards.get(j).getY());
+						break;
+					case 1:
+						handCards.get(j).setRotation(-90);
+						handCards.get(j).setPosition(handCards.get(j).getX(), handCards.get(j).getY()-2f*dice.getWidth()-j*5f);
+						break;
+					case 2:
+						handCards.get(j).setRotation(-180);
+						handCards.get(j).setPosition(handCards.get(j).getX()-2f*dice.getWidth()-j*5f, handCards.get(j).getY()-dice.getWidth());
+						break;
+					case 3:
+						handCards.get(j).setRotation(90);
+						handCards.get(j).setPosition(handCards.get(j).getX()-dice.getWidth(), handCards.get(j).getY()+dice.getWidth()+j*5f);
+						break;
+					default:
+						break;
+				}
 				
-					gameStage.addActor(handCards.get(j));
+				//add listener for priest functionality
+				Array<EventListener> listeners = handCards.get(j).getListeners();
+				for (EventListener listener : listeners) {
+					handCards.get(j).removeListener(listener);
+				}
+				
+				handCards.get(j).addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						//check if current player has priest and is selected
+						for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
+							//if spy is selected, cast card away
+							if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Priest" &&
+									gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
+								Priest priest = (Priest) gameState.getCurrentPlayer().getHeroes().get(i);
+								if (priest.getConversionAttempts() > 0) {
+									//convert hand card of enemy
+									priest.conversionAttempt();
+									System.out.println("Check: Symbol is " + gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() + "vs" + handCard.getSymbol() );
+									if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() == handCard.getSymbol()) {
+										System.out.println("Success: Symbol is " + handCard.getSymbol());
+									} else {
+										System.out.println("Failed: Symbol is " + handCard.getSymbol());
+									}
+								}
+							}
+						}
+					}
+				});
+				
+				gameStage.addActor(handCards.get(j));
 			}
 			
 			//display king cards
@@ -450,93 +482,96 @@ public class GameScreen extends ScreenAdapter {
 	public void showHandStage (ArrayList<Player> players, Player currentPlayer) {
 		//draw hand status of active player
 		for (int i = 0; i < players.size(); i++) {
+			
 			ArrayList<Card> handCards = players.get(i).getHandCards();
 			for (int j = 0; j < handCards.size(); j++) {
 				
-				final Card refCard = handCards.get(j);
-				
-				Array<EventListener> listeners = handCards.get(j).getListeners();
-				for (EventListener listener : listeners) {
-					handCards.get(j).removeListener(listener);
-				}
-				
-				handCards.get(j).addListener(new ClickListener() {
-					@Override
-					public void clicked(InputEvent event, float x, float y) {
-						//unselect all defense and king cards
-						gameState.getCurrentPlayer().getKingCard().setSelected(false);
-						for (int i = 1; i <= 3; i++) {
-							if (gameState.getCurrentPlayer().getDefCards().containsKey(i)) {
-								gameState.getCurrentPlayer().getDefCards().get(i).setSelected(false);
+				if (players.get(i) == gameState.getCurrentPlayer()) { 
+					final Card refCard = handCards.get(j);
+					
+					Array<EventListener> listeners = handCards.get(j).getListeners();
+					for (EventListener listener : listeners) {
+						handCards.get(j).removeListener(listener);
+					}
+					
+					handCards.get(j).addListener(new ClickListener() {
+						@Override
+						public void clicked(InputEvent event, float x, float y) {
+							//unselect all defense and king cards
+							gameState.getCurrentPlayer().getKingCard().setSelected(false);
+							for (int i = 1; i <= 3; i++) {
+								if (gameState.getCurrentPlayer().getDefCards().containsKey(i)) {
+									gameState.getCurrentPlayer().getDefCards().get(i).setSelected(false);
+								}
 							}
-						}
-						
-						//select hand card
-						if (refCard.isSelected()) {
-							refCard.setSelected(false);
-						} else {
-							if (refCard.getSymbol() == gameState.getCurrentPlayer().getSelectedSymbol()) {
-								refCard.setSelected(true);
+							
+							//select hand card
+							if (refCard.isSelected()) {
+								refCard.setSelected(false);
 							} else {
-								for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
-									gameState.getCurrentPlayer().getHandCards().get(i).setSelected(false);
-								}
-								refCard.setSelected(true);
-								gameState.getCurrentPlayer().setSelectedSymbol(refCard.getSymbol());
-							}
-						}
-						
-						//check hero functions on hand cards
-						if (gameState.getCurrentPlayer().getSelectedHeroes().size() > 0) {
-							for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
-								//if spy is selected, cast card away
-								if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Spy" &&
-										gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
-									Spy spy = (Spy) gameState.getCurrentPlayer().getHeroes().get(i);
-									if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
-											spy.getSpyExtends() > 0) {
-										//cast away selected card
-										Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
-										while (handCardIt.hasNext()) {
-											Card currCard = handCardIt.next();
-											if (currCard.isSelected()) {
-												System.out.println("Remove handcard " + currCard.getStrength());
-												gameState.getCemeteryDeck().addCard(currCard);
-												handCardIt.remove();
-											}
-										}
-										
-										//extends spy attacks
-										spy.spyExtend();
+								if (refCard.getSymbol() == gameState.getCurrentPlayer().getSelectedSymbol()) {
+									refCard.setSelected(true);
+								} else {
+									for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
+										gameState.getCurrentPlayer().getHandCards().get(i).setSelected(false);
 									}
-								} else if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Merchant" &&
-										gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
-									Merchant merchant  = (Merchant) gameState.getCurrentPlayer().getHeroes().get(i);
-									if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
-											merchant.getTrades() > 0) {
-										Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
-										while (handCardIt.hasNext()) {
-											Card currCard = handCardIt.next();
-											if (currCard.isSelected()) {
-												System.out.println("Remove handcard " + currCard.getStrength());
-												gameState.getCemeteryDeck().addCard(currCard);
-												handCardIt.remove();
-											}
-										}
-										
-										//get new card from deck
-										merchant.trade();
-										Card newCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
-										gameState.getCurrentPlayer().addHandCard(newCard);
-										
-										newCard.setTradable(true);
-									}
+									refCard.setSelected(true);
+									gameState.getCurrentPlayer().setSelectedSymbol(refCard.getSymbol());
 								}
 							}
-							gameState.setUpdateState(true);
-						}
-					};
-				});
+							
+							//check hero functions on hand cards
+							if (gameState.getCurrentPlayer().getSelectedHeroes().size() > 0) {
+								for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
+									//if spy is selected, cast card away
+									if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Spy" &&
+											gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
+										Spy spy = (Spy) gameState.getCurrentPlayer().getHeroes().get(i);
+										if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
+												spy.getSpyExtends() > 0) {
+											//cast away selected card
+											Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
+											while (handCardIt.hasNext()) {
+												Card currCard = handCardIt.next();
+												if (currCard.isSelected()) {
+													System.out.println("Remove handcard " + currCard.getStrength());
+													gameState.getCemeteryDeck().addCard(currCard);
+													handCardIt.remove();
+												}
+											}
+											
+											//extends spy attacks
+											spy.spyExtend();
+										}
+									} else if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Merchant" &&
+											gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
+										Merchant merchant  = (Merchant) gameState.getCurrentPlayer().getHeroes().get(i);
+										if (gameState.getCurrentPlayer().getSelectedHandCards().size() == 1 &&
+												merchant.getTrades() > 0) {
+											Iterator<Card> handCardIt = gameState.getCurrentPlayer().getHandCards().iterator();
+											while (handCardIt.hasNext()) {
+												Card currCard = handCardIt.next();
+												if (currCard.isSelected()) {
+													System.out.println("Remove handcard " + currCard.getStrength());
+													gameState.getCemeteryDeck().addCard(currCard);
+													handCardIt.remove();
+												}
+											}
+											
+											//get new card from deck
+											merchant.trade();
+											Card newCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+											gameState.getCurrentPlayer().addHandCard(newCard);
+											
+											newCard.setTradable(true);
+										}
+									}
+								}
+								gameState.setUpdateState(true);
+							}
+						};
+					});
+				}
 				
 				handCards.get(j).setActive(false);
 				handCards.get(j).setSelected(false);
@@ -623,6 +658,15 @@ public class GameScreen extends ScreenAdapter {
 			
 			playerHeroes.get(j).setHand(true);
 			playerHeroes.get(j).setPosition(j*playerHeroes.get(j).getWidth(), 0);
+			
+			//if attacking symbol is given, priest should be selectable
+			if (refHero.getHeroName() == "Priest") {
+				if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() != "none" ) {
+					refHero.setSelectable(true);
+				} else {
+					refHero.setSelectable(false);
+				}
+			}
 			
 			Array<EventListener> listeners = playerHeroes.get(j).getListeners();
 			for (EventListener listener : listeners) {

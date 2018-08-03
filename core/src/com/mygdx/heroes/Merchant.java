@@ -33,6 +33,9 @@ public class Merchant extends Hero {
 	 */ 
 	public void trade() {
 		trades--;
+		if (trades == 0) {
+			isSelectable = false;
+		}
 	}
 	
 	public int getTrades() {
@@ -41,6 +44,7 @@ public class Merchant extends Hero {
 	
 	public void recover() {
 		trades = 1;
+		isSelectable = true;
 	}
 
 }

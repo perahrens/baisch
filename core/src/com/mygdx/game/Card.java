@@ -18,12 +18,15 @@ public class Card extends Actor {
 	
 	private int positionId;
 	
-	private boolean isSelected;
+	private boolean isSelected = false;
 	private boolean isCovered;
 	private boolean isActive;
-	private boolean isPlaceholder;
+	private boolean isPlaceholder = false;
 	
-	private boolean isRemoved;
+	private boolean isRemoved = false; //temporary information that card should be removed
+	
+	private boolean isSuspended = false; //suspended card can only be used next round
+	private boolean isTradable = false; //information that card can be traded again and should be overlaid with keep/cast button
 	
 	private float defWidth;
 	private float defHeight;
@@ -37,21 +40,19 @@ public class Card extends Actor {
 	public Card () {
 		sprite = atlas.createSprite("back", 3);
 		
-		this.symbol = "back";
-		this.index = 3;
+		symbol = "back";
+		index = 3;
 		
-		this.positionId = -1;
+		positionId = -1;
 		
-		this.isSelected = false;
-		this.isCovered = false;
-		this.isActive = false;
-		this.isPlaceholder = true;
-		this.isRemoved = false;
+		isCovered = false;
+		isActive = false;
+		isPlaceholder = true;
 		
-		this.defWidth = sprite.getWidth() * scaleFactor;
-		this.defHeight = sprite.getHeight() * scaleFactor;
+		defWidth = sprite.getWidth() * scaleFactor;
+		defHeight = sprite.getHeight() * scaleFactor;
 		
-		this.defColor = getColor(); 
+		defColor = getColor(); 
 		
 		setWidth(defWidth);
 		setHeight(defHeight);
@@ -65,24 +66,20 @@ public class Card extends Actor {
 		this.symbol = symbol;
 		this.index = index;
 		
-		this.positionId = -1;
+		positionId = -1;
 		
-		this.isSelected = false;
-		this.isCovered = false;
-		this.isActive = false;
-		this.isPlaceholder = false;
-		this.isRemoved = false;
+		isCovered = false;
+		isActive = false;
+		isPlaceholder = false;
 		
-		this.defWidth = sprite.getWidth() * scaleFactor;
-		this.defHeight = sprite.getHeight() * scaleFactor;
+		defWidth = sprite.getWidth() * scaleFactor;
+		defHeight = sprite.getHeight() * scaleFactor;
 
-		this.defColor = getColor();
+		defColor = getColor();
 		
 		setWidth(defWidth);
 		setHeight(defHeight);
 		setBounds(getX(), getY(), getWidth(), getHeight());
-		
-
 	}
 	
 	@Override
@@ -144,7 +141,7 @@ public class Card extends Actor {
 		this.isPlaceholder = isPlaceholder;
 	}
 	
-	public boolean getRemoved() {
+	public boolean isRemoved() {
 		return isRemoved;
 	}
 	
@@ -185,6 +182,14 @@ public class Card extends Actor {
 	
 	public boolean isCovered() {
 		return isCovered;
+	}
+	
+	public void setTradable(boolean isTradeable) {
+		this.isTradable = isTradeable;
+	}
+	
+	public boolean isTradeable () {
+		return isTradable;
 	}
 	
 	public void setRotation(int rotation) {

@@ -382,7 +382,7 @@ public class GameScreen extends ScreenAdapter {
 					}
 				}
 				
-				if (defCard.getRemoved()) {
+				if (defCard.isRemoved()) {
 					players.get(i).getDefCards().remove(j);
 					System.out.println("Def card removed!");
 				}
@@ -526,14 +526,10 @@ public class GameScreen extends ScreenAdapter {
 										
 										//get new card from deck
 										merchant.trade();
-										gameState.getCurrentPlayer().addHandCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+										Card newCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+										gameState.getCurrentPlayer().addHandCard(newCard);
 										
-										//pop up dialog whether to keep or not
-										/*
-										boolean keepCard = false;
-										if (!keepCard) {
-											
-										}*/
+										newCard.setTradable(true);
 									}
 								}
 							}
@@ -548,7 +544,7 @@ public class GameScreen extends ScreenAdapter {
 		}
 			
 		//draw heroes and handcards only for current player
-		ArrayList<Card> handCards = currentPlayer.getHandCards();
+		final ArrayList<Card> handCards = currentPlayer.getHandCards();
 		ArrayList<Hero> playerHeroes = currentPlayer.getHeroes();
 		currentPlayer.sortHandCards();
 		for (int j = 0; j < handCards.size(); j++) {
@@ -565,6 +561,60 @@ public class GameScreen extends ScreenAdapter {
 				handCards.get(j).setY(MyGdxGame.WIDTH/2-handCards.get(j).getHeight());
 			}
 			handStage.addActor(handCards.get(j));
+			
+			//add keep/trade buttons if card is tradeable
+			if (handCards.get(j).isTradeable()) {
+				final Card tradeableCard = handCards.get(j);
+				
+				TextButton keepCard = new TextButton("Keep", MyGdxGame.skin);
+				keepCard.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - keepCard.getWidth())/2f);
+				keepCard.setY(handCards.get(j).getY() + (handCards.get(j).getHeight() + keepCard.getHeight())/2f);
+				
+				TextButton tradeCard =  new TextButton("Trade", MyGdxGame.skin);
+				tradeCard.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - tradeCard.getWidth())/2f);
+				tradeCard.setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCard.getHeight())/2f);
+				
+				//remove old listeners
+				Array<EventListener> listeners = keepCard.getListeners();
+				for (EventListener listener : listeners) {
+					keepCard.removeListener(listener);
+				}
+				listeners = tradeCard.getListeners();
+				for (EventListener listener : listeners) {
+					tradeCard.removeListener(listener);
+				}
+				
+				keepCard.addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						tradeableCard.setTradable(false);
+						gameState.setUpdateState(true);
+					}
+				});
+				
+				tradeCard.addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						Iterator<Card> handCardsIt = gameState.getCurrentPlayer().getHandCards().iterator();
+						while (handCardsIt.hasNext()) {
+							Card handCard = handCardsIt.next();
+							if (handCard.isTradeable()) {
+								System.out.println("Remove tradeable card");
+								gameState.getCemeteryDeck().addCard(handCard);
+								handCardsIt.remove();
+							}
+						}
+						
+						Card newCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+						gameState.getCurrentPlayer().addHandCard(newCard);
+						tradeableCard.setTradable(false);
+						gameState.setUpdateState(true);
+					}
+				});
+				
+				handStage.addActor(keepCard);
+				handStage.addActor(tradeCard);
+			}
 		}
 		
 		//display all heroes of current player

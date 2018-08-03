@@ -57,6 +57,10 @@ public class Hero extends Actor {
 		return isSelected;
 	}
 	
+	public void setSelectable(boolean isSelectable) {
+		this.isSelectable = isSelectable;
+	}
+	
 	public boolean isSelectable() {
 		return isSelectable;
 	}

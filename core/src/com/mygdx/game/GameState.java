@@ -200,15 +200,18 @@ public class GameState {
 			}
 			
 			//add heroes
-			Hero hero1 = heroesSquare.getHero(2*i+2);
-			Hero hero2 = heroesSquare.getHero(2*i+3);
-			players.get(i).addHero(hero1);
-			players.get(i).addHero(hero2);
+			//Hero hero1 = heroesSquare.getHero(2*i+2);
+			//Hero hero2 = heroesSquare.getHero(2*i+3);
+			//players.get(i).addHero(hero1);
+			//players.get(i).addHero(hero2);
 			
 			for (int j = 0; j < 2; j++) {
 				cemeteryDeck.addCard(players.get(i).getLastHandCard());
 			}
 		}
+		
+		Hero magician = heroesSquare.getHero(12);
+		players.get(0).addHero(magician);
 	}
 	
 	public void throwDices() {

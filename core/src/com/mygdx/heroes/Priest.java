@@ -12,6 +12,7 @@ public class Priest extends Hero {
 		sprite = atlas.createSprite("wk", -1);
 
 		isSelected = false;
+		//priest becomes selectable when attacking symbol is defined
 		isSelectable = false;
 
 		setWidth(sprite.getWidth()*scaleFactor);

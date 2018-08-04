@@ -348,6 +348,29 @@ public class GameScreen extends ScreenAdapter {
 												System.out.println("Number spy attacks left = " + spy.getSpyAttacks());
 												defCard.setCovered(false);
 											}
+										} else if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Magician" &&
+												gameState.getCurrentPlayer().getHeroes().get(i).isSelected()) {
+											Magician magician = (Magician) gameState.getCurrentPlayer().getHeroes().get(i);
+											if (magician.getSpells() > 0) {
+												magician.castSpell();
+												
+												//loop over all def cards of player
+												for (int p = 0; p < gameState.getPlayers().size(); p++ ) {
+													for (int c = 1; c <= 3; c++) {
+														if (gameState.getPlayers().get(p).getDefCards().containsKey(c))  {
+															Card cDefCard =  gameState.getPlayers().get(p).getDefCards().get(c);
+															Card newDefCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+															if (cDefCard == defCard) {
+																newDefCard.setCovered(!defCard.isCovered());
+																gameState.getCemeteryDeck().addCard(defCard);
+																gameState.getPlayers().get(p).getDefCards().remove(c);
+																gameState.getPlayers().get(p).addDefCard(c, newDefCard);
+																gameState.setUpdateState(true);
+															}
+														}
+													}
+												}
+											}
 										}
 									}
 								}

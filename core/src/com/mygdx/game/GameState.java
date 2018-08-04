@@ -206,7 +206,7 @@ public class GameState {
 			players.get(i).addHero(hero2);
 			
 			for (int j = 0; j < 2; j++) {
-				//cemeteryDeck.addCard(players.get(i).getLastHandCard());
+				cemeteryDeck.addCard(players.get(i).getLastHandCard());
 			}
 		}
 	}

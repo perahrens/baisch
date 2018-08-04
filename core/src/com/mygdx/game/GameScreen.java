@@ -105,6 +105,16 @@ public class GameScreen extends ScreenAdapter {
 		
 		ArrayList<Player> players = gameState.getPlayers();
 		
+		/*/removed trash cards
+		for (int p = 0; p < gameState.getPlayers().size(); p++) {
+			for (int c = 0; c < gameState.getPlayers().get(p).getHandCards().size(); c++) {
+				if (gameState.getPlayers().get(p).getHandCards().get(c).isRemoved()) {
+					System.out.println("Remove trash card " + p + "-" + c);
+					gameState.getPlayers().get(p).getHandCards().remove(c);
+				}
+			}
+		}*/
+		
 		showGameStage(players, currentPlayer);
 		showHandStage(players, currentPlayer);
 		
@@ -180,7 +190,7 @@ public class GameScreen extends ScreenAdapter {
 			//display hand cards
 			ArrayList<Card> handCards = players.get(i).getHandCards();
 			for (int j = 0; j < handCards.size(); j++) {
-				final Card handCard = handCards.get(j); 
+				final Card handCard = (Card) handCards.get(j); 
 				handCards.get(j).setCovered(true);
 				handCards.get(j).setRotation(0);
 				handCards.get(j).setActive(false);
@@ -227,8 +237,24 @@ public class GameScreen extends ScreenAdapter {
 									//convert hand card of enemy
 									priest.conversionAttempt();
 									System.out.println("Check: Symbol is " + gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() + "vs" + handCard.getSymbol() );
-									if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() == handCard.getSymbol()) {
+									if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() == handCard.getSymbol() ||
+											handCard.getSymbol() == "joker") {
 										System.out.println("Success: Symbol is " + handCard.getSymbol());
+										priest.conversion();
+										
+										//loops over hand cards of all players and remove hand card from player
+										for (int p = 0; p < gameState.getPlayers().size(); p++) {
+											Iterator<Card> handCardsIt = gameState.getPlayers().get(p).getHandCards().iterator();
+											while (handCardsIt.hasNext()) {
+												Card cHandCard = handCardsIt.next();
+												if (handCard == cHandCard) {
+													handCardsIt.remove();
+												}
+											}
+										}
+										
+										gameState.getCurrentPlayer().addHandCard(handCard);
+										gameState.setUpdateState(true);
 									} else {
 										System.out.println("Failed: Symbol is " + handCard.getSymbol());
 									}
@@ -238,7 +264,7 @@ public class GameScreen extends ScreenAdapter {
 					}
 				});
 				
-				gameStage.addActor(handCards.get(j));
+				gameStage.addActor(handCard);
 			}
 			
 			//display king cards
@@ -571,10 +597,10 @@ public class GameScreen extends ScreenAdapter {
 							}
 						};
 					});
+					
+					handCards.get(j).setActive(false);
+					handCards.get(j).setSelected(false);
 				}
-				
-				handCards.get(j).setActive(false);
-				handCards.get(j).setSelected(false);
 			}
 		}
 			

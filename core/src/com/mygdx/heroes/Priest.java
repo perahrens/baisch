@@ -35,4 +35,8 @@ public class Priest extends Hero {
 		return conversionAttempts;
 	}
 	
+	public void conversion() {
+		conversionAttempts = 0;
+	}
+	
 }

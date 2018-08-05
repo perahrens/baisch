@@ -31,12 +31,12 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.heroes.Hero;
+import com.mygdx.heroes.King;
 import com.mygdx.heroes.Magician;
 import com.mygdx.heroes.Merchant;
 import com.mygdx.heroes.Priest;
@@ -282,44 +282,69 @@ public class GameScreen extends ScreenAdapter {
 				kingCard.removeListener(listener);
 			}
 			
-			kingCard.addListener(new ClickListener() {
-				@Override
-				public void clicked(InputEvent event, float x, float y) {
-					if (gameState.getCurrentPlayer().getSelectedHeroes().size() > 0) {
-						for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
-							if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Spy" &&
-									gameState.getCurrentPlayer().getHeroes().get(i).isSelected() ) {
-								Spy spy = (Spy) gameState.getCurrentPlayer().getHeroes().get(i);
-								//check if all def cards are uncovered
-								//first find player
-								System.out.println("this player will be ");
-								Player targetPlayer = gameState.getPlayers().get(0);;
-								for (int j = 0; i < gameState.getPlayers().size(); i++) {
-									if (gameState.getPlayers().get(j).getKingCard() == kingCard) {
-										System.out.println("this player " + gameState.getPlayers().get(j).getPlayerName());
-										targetPlayer = gameState.getPlayers().get(j);
-									}
-								}
-								
-								boolean allUncovered = true;
-								for (int j = 1; j <= 3; j++) {
-									if (targetPlayer.getDefCards().containsKey(j)) {
-										if (targetPlayer.getDefCards().get(j).isCovered()) {
-											allUncovered = false;
+			if (players.get(i) != currentPlayer) {
+				kingCard.addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						if (gameState.getCurrentPlayer().getSelectedHeroes().size() > 0) {
+							for (int i = 0; i < gameState.getCurrentPlayer().getHeroes().size(); i++) {
+								if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "Spy" &&
+										gameState.getCurrentPlayer().getHeroes().get(i).isSelected() ) {
+									Spy spy = (Spy) gameState.getCurrentPlayer().getHeroes().get(i);
+									//check if all def cards are uncovered
+									//first find player
+									System.out.println("this player will be ");
+									Player targetPlayer = gameState.getPlayers().get(0);;
+									for (int j = 0; i < gameState.getPlayers().size(); i++) {
+										if (gameState.getPlayers().get(j).getKingCard() == kingCard) {
+											System.out.println("this player " + gameState.getPlayers().get(j).getPlayerName());
+											targetPlayer = gameState.getPlayers().get(j);
 										}
 									}
-								}
-								
-								if (spy.getSpyAttacks() > 0 && allUncovered) {
-									spy.spyAttack();
-									System.out.println("Number spy attacks left = " + spy.getSpyAttacks());
-									kingCard.setCovered(false);
+									
+									boolean allUncovered = true;
+									for (int j = 1; j <= 3; j++) {
+										if (targetPlayer.getDefCards().containsKey(j)) {
+											if (targetPlayer.getDefCards().get(j).isCovered()) {
+												allUncovered = false;
+											}
+										}
+									}
+									
+									if (spy.getSpyAttacks() > 0 && allUncovered) {
+										spy.spyAttack();
+										System.out.println("Number spy attacks left = " + spy.getSpyAttacks());
+										kingCard.setCovered(false);
+									}
 								}
 							}
 						}
-					}
-				}}
-			);
+					}}
+				);
+			} else {
+				kingCard.addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						//unselect all handcards
+						for (int i = 0; i < gameState.getCurrentPlayer().getHandCards().size(); i++) {
+							gameState.getCurrentPlayer().getHandCards().get(i).setSelected(false);
+						}
+						
+						//select king card
+						if (kingCard.isSelected()) {
+							kingCard.setSelected(false);
+						} else {
+							gameState.getCurrentPlayer().getKingCard().setSelected(false);
+							for (int i = 1; i <= 3; i++) {
+								if (gameState.getCurrentPlayer().getDefCards().containsKey(i)) {
+									gameState.getCurrentPlayer().getDefCards().get(i).setSelected(false);
+								}
+							}
+							kingCard.setSelected(true);
+						}
+					};
+				});
+			}
 			
 			gameStage.addActor(kingCard);
 
@@ -371,6 +396,30 @@ public class GameScreen extends ScreenAdapter {
 													}
 												}
 											}
+										} else if (gameState.getCurrentPlayer().getHeroes().get(i).getHeroName() == "King" &&
+												gameState.getCurrentPlayer().getKingCard().isSelected() &&
+												(gameState.getCurrentPlayer().getKingCard().getSymbol() == gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() ||
+														gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() == "none")) {
+											System.out.println("king attack");
+											King king = (King) gameState.getCurrentPlayer().getHeroes().get(i);
+											king.royalAttack();
+											gameState.getCurrentPlayer().getPlayerTurn().setAttackingSymbol(gameState.getCurrentPlayer().getKingCard().getSymbol());
+											//cover up hero and enemy defense card
+											defCard.setCovered(false);
+											gameState.getCurrentPlayer().getKingCard().setCovered(false);
+											
+											int attackResult = gameState.getCurrentPlayer().royalAttack(defCard);
+											
+											if (attackResult == 2) {
+												gameState.getCurrentPlayer().addHandCard(defCard);
+												defCard.setRemoved(true);
+											} else if (attackResult == 1) {
+												//nothing happens
+											} else {
+												//TODO player lost
+											}
+											
+											gameState.setUpdateState(true);
 										}
 									}
 								}

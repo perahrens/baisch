@@ -1,19 +1,34 @@
 package com.mygdx.heroes;
 
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-
 public class King extends Hero {
+	private int royalAttacks = 1;
 	
 	public King() {
 		heroName = "King";
 		heroID = "King";
 		sprite = atlas.createSprite("bk", -1);
 
-		this.isSelected = false;
+		isSelected = false;
+		isSelectable = true;
 
 		setWidth(sprite.getWidth()*scaleFactor);
 		setHeight(sprite.getHeight()*scaleFactor);
-
+	}
+	
+	public void recover() {
+		royalAttacks = 1;
+		isSelectable = true;
+	}
+	
+	public int getRoyalAttacks() {
+		return royalAttacks;
+	}
+	
+	public void royalAttack() {
+		royalAttacks--;
+		if (royalAttacks == 0) {
+			isSelectable = false;
+			isSelected = false;
+		}
 	}
 }

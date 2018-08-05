@@ -223,6 +223,20 @@ public class Player {
 		return (attackSum > defenseStrength);
 	}
 	
+	public int royalAttack(Card defCard) {
+		int attackResult; //0 lost, 1 equal, 2 win
+		if (kingCard.getStrength() > defCard.getStrength()) {
+			attackResult = 2;
+		} else if (kingCard.getStrength() == defCard.getStrength()) {
+			attackResult = 1;
+		} else {
+			attackResult = 0;
+		}
+		
+		return attackResult;
+		
+	}
+	
 	public void attackPickingDeck (PickingDeck pickingDeck, PickingDeck pickingDeckOther, CardDeck cardDeck, CardDeck cemeteryDeck) {
 		System.out.println("attackPickingDeck");
 		ArrayList<Card> pickingCards = pickingDeck.getCards();

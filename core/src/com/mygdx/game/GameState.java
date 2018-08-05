@@ -210,8 +210,8 @@ public class GameState {
 			}
 		}
 		
-		Hero magician = heroesSquare.getHero(12);
-		players.get(0).addHero(magician);
+		Hero hero = heroesSquare.getHero(13);
+		players.get(0).addHero(hero);
 	}
 	
 	public void throwDices() {

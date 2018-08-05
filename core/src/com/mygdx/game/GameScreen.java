@@ -41,6 +41,7 @@ import com.mygdx.heroes.Magician;
 import com.mygdx.heroes.Merchant;
 import com.mygdx.heroes.Priest;
 import com.mygdx.heroes.Spy;
+import com.mygdx.listeners.OwnDefCardListener;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {
@@ -63,6 +64,26 @@ public class GameScreen extends ScreenAdapter {
 	private Label roundCounter;
 	
 	private TextButton finishTurn;
+	
+	//all listeners
+	//gameStage own objects
+	private OwnDefCardListener ownDefCardListener = new OwnDefCardListener();
+	private ClickListener gsOwnDefCardListener;
+	private ClickListener gsOwnKingCardListener;
+	private ClickListener gsOwnPlaceholderListener;
+	
+	//gameStage enemy objects
+	private ClickListener gsEnemyDefCardListener;
+	private ClickListener gsEnemyKingCardListener;
+	private ClickListener gsEnemyHandCardListener;
+	
+	//handStage
+	private ClickListener hsHandCardListener;
+	private ClickListener hsKeepCardListener;
+	private ClickListener hsTradeCardListener;
+	private ClickListener hsHeroListener;
+	private ClickListener hsFinishTurnListener;
+	private ClickListener hsHandImageListener;
 	
 	public GameScreen(Game game) {
 		//init game
@@ -104,16 +125,6 @@ public class GameScreen extends ScreenAdapter {
 		
 		
 		ArrayList<Player> players = gameState.getPlayers();
-		
-		/*/removed trash cards
-		for (int p = 0; p < gameState.getPlayers().size(); p++) {
-			for (int c = 0; c < gameState.getPlayers().get(p).getHandCards().size(); c++) {
-				if (gameState.getPlayers().get(p).getHandCards().get(c).isRemoved()) {
-					System.out.println("Remove trash card " + p + "-" + c);
-					gameState.getPlayers().get(p).getHandCards().remove(c);
-				}
-			}
-		}*/
 		
 		showGameStage(players, currentPlayer);
 		showHandStage(players, currentPlayer);
@@ -459,6 +470,9 @@ public class GameScreen extends ScreenAdapter {
 						
 						final Card refCard = defCard;
 						
+						defCard.addListener(ownDefCardListener);
+						
+						/*
 						defCard.addListener(new ClickListener() {
 							@Override
 							public void clicked(InputEvent event, float x, float y) {
@@ -480,7 +494,7 @@ public class GameScreen extends ScreenAdapter {
 									refCard.setSelected(true);
 								}
 							};
-						});
+						});*/
 					}
 				} else {
 					//create placeholder card

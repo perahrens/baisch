@@ -3,10 +3,6 @@ package com.mygdx.game;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.Map.Entry;
-
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -192,7 +188,6 @@ public class GameState {
       // add defCards
       for (int j = 1; j <= 3; j++) {
         Card defCard = players.get(i).getLastHandCard();
-        boolean isSelected = defCard.isSelected();
 
         defCard.setCovered(true);
         players.get(i).addDefCard(j, defCard);

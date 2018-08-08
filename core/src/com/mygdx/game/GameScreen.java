@@ -314,8 +314,6 @@ public class GameScreen extends ScreenAdapter {
               defCard.removeListener(listener);
             }
 
-            final Card refCard = defCard;
-
             ownDefCardListener = new OwnDefCardListener(defCard, gameState.getCurrentPlayer().getKingCard(),
                 gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards());
             defCard.addListener(ownDefCardListener);
@@ -574,7 +572,7 @@ public class GameScreen extends ScreenAdapter {
       handImage.removeListener(listener);
     }
     
-    handImageListener = new HandImageListener(gameState.getCurrentPlayer());
+    handImageListener = new HandImageListener(gameState, gameState.getCurrentPlayer());
     handImage.addListener(handImageListener);
 
     handStage.addActor(handImage);

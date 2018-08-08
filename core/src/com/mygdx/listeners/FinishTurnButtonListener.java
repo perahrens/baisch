@@ -17,6 +17,6 @@ public class FinishTurnButtonListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
     Player currentPlayer = gameState.getNextPlayer();
     System.out.println("Next player " + currentPlayer.getPlayerName());
-    // show();
+    gameState.setUpdateState(true);
   };
 }

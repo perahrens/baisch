@@ -5,13 +5,16 @@ import java.util.Map;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
+import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 
 public class HandImageListener extends ClickListener {
   
+  GameState gameState;
   Player player;
   
-  public HandImageListener(Player player) { 
+  public HandImageListener(GameState gameState, Player player) {
+    this.gameState = gameState;
     this.player = player;
   }
   
@@ -25,7 +28,7 @@ public class HandImageListener extends ClickListener {
         }
       }
     }
-    //show();
+    gameState.setUpdateState(true);
   };
 
 }

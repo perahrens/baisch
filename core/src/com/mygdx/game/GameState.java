@@ -6,19 +6,9 @@ import java.util.Iterator;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.mygdx.heroes.BatteryTower;
-import com.mygdx.heroes.FortifiedTower;
 import com.mygdx.heroes.Hero;
-import com.mygdx.heroes.King;
-import com.mygdx.heroes.Lieutenant;
-import com.mygdx.heroes.Magician;
-import com.mygdx.heroes.Major;
-import com.mygdx.heroes.Mercenaries;
-import com.mygdx.heroes.Merchant;
-import com.mygdx.heroes.Priest;
-import com.mygdx.heroes.Reservists;
-import com.mygdx.heroes.Saboteurs;
-import com.mygdx.heroes.Spy;
+import com.mygdx.listeners.CemeteryDeckListener;
+import com.mygdx.listeners.PickingDeckListener;
 
 public class GameState {
 
@@ -34,9 +24,11 @@ public class GameState {
   private HeroesSquare heroesSquare;
 
   private boolean updateState;
-
-  // private PickingDeck pickingDeckOne;
-  // private PickingDeck pickingDeckTwo;
+  
+  private PickingDeckListener pickingDeckListenerOne;
+  private PickingDeckListener pickingDeckListenerTwo;
+  
+  private CemeteryDeckListener cemeteryDeckListener; 
 
   public GameState(int numPlayers, int startCards) {
     roundNumber = 0;
@@ -85,95 +77,17 @@ public class GameState {
     } else {
       pickingDecks.get(1).addCard(card5);
     }
+    
+    pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1));
+    pickingDecks.get(0).addListener(pickingDeckListenerOne);
 
-    pickingDecks.get(0).addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (currentPlayer.getPlayerTurn().getPickingDeckAttacks() > 0) {
-          System.out.println("Selected handcards " + currentPlayer.getSelectedHandCards().size());
-          if (currentPlayer.getSelectedHandCards().size() > 0) {
-            if (currentPlayer.getPlayerTurn().getAttackingSymbol() == "none" || currentPlayer.getPlayerTurn()
-                .getAttackingSymbol() == currentPlayer.getSelectedHandCards().get(0).getSymbol()) {
-              currentPlayer.getPlayerTurn().decreasePickingDeckAttacks();
-              currentPlayer.attackPickingDeck(pickingDeckOneRef, pickingDeckTwoRef, cardDeck, cemeteryDeck);
-              Iterator<Card> handCardIt = currentPlayer.getHandCards().iterator();
-              while (handCardIt.hasNext()) {
-                Card currCard = handCardIt.next();
-                if (currCard.isSelected()) {
-                  System.out.println("Remove handcard " + currCard.getStrength());
-                  currentPlayer.getPlayerTurn().setAttackingSymbol(currCard.getSymbol());
-                  cemeteryDeck.addCard(currCard);
-                  handCardIt.remove();
-                }
-              }
-            }
-          }
-        } else {
-          System.out.println("No more picking attacks allowed");
-        }
-        setUpdateState(true);
-      };
-    });
-    pickingDecks.get(1).addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (currentPlayer.getPlayerTurn().getPickingDeckAttacks() > 0) {
-          System.out.println("Selected handcards " + currentPlayer.getSelectedHandCards().size());
-          if (currentPlayer.getSelectedHandCards().size() > 0) {
-            if (currentPlayer.getPlayerTurn().getAttackingSymbol() == "none" || currentPlayer.getPlayerTurn()
-                .getAttackingSymbol() == currentPlayer.getSelectedHandCards().get(0).getSymbol()) {
-              currentPlayer.getPlayerTurn().decreasePickingDeckAttacks();
-              currentPlayer.attackPickingDeck(pickingDeckTwoRef, pickingDeckOneRef, cardDeck, cemeteryDeck);
-              Iterator<Card> handCardIt = currentPlayer.getHandCards().iterator();
-              while (handCardIt.hasNext()) {
-                Card currCard = handCardIt.next();
-                if (currCard.isSelected()) {
-                  System.out.println("Remove handcard " + currCard.getStrength());
-                  currentPlayer.getPlayerTurn().setAttackingSymbol(currCard.getSymbol());
-                  cemeteryDeck.addCard(currCard);
-                  handCardIt.remove();
-                }
-              }
-            }
-          }
-        } else {
-          System.out.println("No more picking attacks allowed");
-        }
-        setUpdateState(true);
-      };
-    });
+    pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0));
+    pickingDecks.get(1).addListener(pickingDeckListenerTwo);
 
     // add cemetery deck listener
-    cemeteryDeck.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        System.out.println("Cemetery");
-        if (currentPlayer.getSelectedHandCards().size() > 0) {
-          Iterator<Card> handCardIt = currentPlayer.getHandCards().iterator();
-          while (handCardIt.hasNext()) {
-            Card currCard = handCardIt.next();
-            if (currCard.isSelected()) {
-              System.out.println("Remove handcard " + currCard.getStrength());
-              cemeteryDeck.addCard(currCard);
-              // if joker, get hero
-              if (currCard.getSymbol() == "joker") {
-                System.out.println("Get hero");
-                Card heroCard = cardDeck.getCard(cemeteryDeck);
-                System.out.println("Hero card is " + heroCard.getStrength());
-                Hero hero = heroesSquare.getHero(heroCard.getStrength());
-                if (hero != null) {
-                  currentPlayer.addHero(hero);
-                }
-                cemeteryDeck.addCard(heroCard);
-              }
-              handCardIt.remove();
-              setUpdateState(true);
-            }
-          }
-        }
-      }
-    });
-
+    cemeteryDeckListener = new CemeteryDeckListener(this);
+    cemeteryDeck.addListener(cemeteryDeckListener);
+    
     // start round
     throwDices();
 
@@ -261,6 +175,10 @@ public class GameState {
 
   public ArrayList<PickingDeck> getPickingDecks() {
     return pickingDecks;
+  }
+  
+  public HeroesSquare getHeroesSquare() {
+    return heroesSquare;
   }
 
   public void nextRound() {

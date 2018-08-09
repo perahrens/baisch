@@ -76,6 +76,9 @@ public class GameScreen extends ScreenAdapter {
 
   private TextButton finishTurnButton;
 
+  Player currentPlayer;
+  ArrayList<Player> players;
+
   // all listeners
   // gameStage own objects
   private OwnDefCardListener ownDefCardListener;
@@ -93,20 +96,12 @@ public class GameScreen extends ScreenAdapter {
   private KeepCardButtonListener keepCardButtonListener;
   private TradeCardButtonListener tradeCardButtonListener;
   private FinishTurnButtonListener finishTurnButtonListener;
-  private HandImageListener  handImageListener;
+  private HandImageListener handImageListener;
 
   public GameScreen(Game game) {
     // init game
     gameState = new GameState(4, 8);
     batch = new SpriteBatch();
-
-  }
-
-  @Override
-  public void show() {
-    System.out.println("show()");
-
-    Player currentPlayer = gameState.getCurrentPlayer();
 
     // create stages and input handlers
     gameStage = new Stage();
@@ -122,6 +117,20 @@ public class GameScreen extends ScreenAdapter {
     inMulti.addProcessor(handStage);
     Gdx.input.setInputProcessor(inMulti);
 
+  }
+
+  @Override
+  public void show() {
+    System.out.println("show()");
+    Gdx.app.log("Java Heap", String.valueOf(Gdx.app.getJavaHeap()));
+    Gdx.app.log("Native Heap", String.valueOf(Gdx.app.getNativeHeap()));
+
+    currentPlayer = gameState.getCurrentPlayer();
+    players = gameState.getPlayers();
+    
+    gameStage.clear();
+    handStage.clear();
+    
     // create stage backgrounds
     Image gameBck = new Image(MyGdxGame.skin, "white");
     gameBck.setFillParent(true);
@@ -132,8 +141,6 @@ public class GameScreen extends ScreenAdapter {
     handBck.setFillParent(true);
     handBck.setColor(1f, 1f, 1f, 0.5f);
     handStage.addActor(handBck);
-
-    ArrayList<Player> players = gameState.getPlayers();
 
     showGameStage(players, currentPlayer);
     showHandStage(players, currentPlayer);
@@ -463,7 +470,8 @@ public class GameScreen extends ScreenAdapter {
 
         TextButton tradeCardButton = new TextButton("Trade", MyGdxGame.skin);
         tradeCardButton.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - tradeCardButton.getWidth()) / 2f);
-        tradeCardButton.setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCardButton.getHeight()) / 2f);
+        tradeCardButton
+            .setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCardButton.getHeight()) / 2f);
 
         // remove old listeners
         Array<EventListener> listeners = keepCardButton.getListeners();
@@ -506,8 +514,7 @@ public class GameScreen extends ScreenAdapter {
       for (EventListener listener : listeners) {
         playerHeroes.get(j).removeListener(listener);
       }
-      
-      
+
       ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer());
       hero.addListener(ownHeroListener);
 
@@ -525,10 +532,10 @@ public class GameScreen extends ScreenAdapter {
     finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
-    
+
     finishTurnButtonListener = new FinishTurnButtonListener(gameState);
     finishTurnButton.addListener(finishTurnButtonListener);
-    
+
     handStage.addActor(myPlayerLabel);
 
     // add attacking symbol
@@ -571,7 +578,7 @@ public class GameScreen extends ScreenAdapter {
     for (EventListener listener : listeners) {
       handImage.removeListener(listener);
     }
-    
+
     handImageListener = new HandImageListener(gameState, gameState.getCurrentPlayer());
     handImage.addListener(handImageListener);
 
@@ -598,12 +605,6 @@ public class GameScreen extends ScreenAdapter {
     gameStage.getViewport().apply();
     gameStage.act(delta);
     gameStage.draw();
-
-    batch.begin();
-    // playerName.setColor(0f, 0f, 0f, 1.0f);
-    // playerName.draw(batch, "Player 1", Gdx.graphics.getWidth()/2f-25,
-    // playerName.getLineHeight());
-    batch.end();
 
     /* Lower division */
     Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());

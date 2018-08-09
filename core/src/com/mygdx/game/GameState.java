@@ -24,11 +24,11 @@ public class GameState {
   private HeroesSquare heroesSquare;
 
   private boolean updateState;
-  
+
   private PickingDeckListener pickingDeckListenerOne;
   private PickingDeckListener pickingDeckListenerTwo;
-  
-  private CemeteryDeckListener cemeteryDeckListener; 
+
+  private CemeteryDeckListener cemeteryDeckListener;
 
   public GameState(int numPlayers, int startCards) {
     roundNumber = 0;
@@ -77,7 +77,7 @@ public class GameState {
     } else {
       pickingDecks.get(1).addCard(card5);
     }
-    
+
     pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1));
     pickingDecks.get(0).addListener(pickingDeckListenerOne);
 
@@ -87,7 +87,7 @@ public class GameState {
     // add cemetery deck listener
     cemeteryDeckListener = new CemeteryDeckListener(this);
     cemeteryDeck.addListener(cemeteryDeckListener);
-    
+
     // start round
     throwDices();
 
@@ -176,7 +176,7 @@ public class GameState {
   public ArrayList<PickingDeck> getPickingDecks() {
     return pickingDecks;
   }
-  
+
   public HeroesSquare getHeroesSquare() {
     return heroesSquare;
   }

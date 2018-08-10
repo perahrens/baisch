@@ -60,7 +60,7 @@ public class EnemyDefCardListener extends ClickListener {
                     newDefCard.setCovered(!defCard.isCovered());
                     cemeteryDeck.addCard(defCard);
                     players.get(p).getDefCards().remove(c);
-                    players.get(p).addDefCard(c, newDefCard);
+                    players.get(p).addDefCard(c, newDefCard, 0);
                     //gameState.setUpdateState(true);
                   }
                 }

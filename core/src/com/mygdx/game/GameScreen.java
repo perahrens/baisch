@@ -269,7 +269,7 @@ public class GameScreen extends ScreenAdapter {
 
       // display king cards
       final Card kingCard = players.get(i).getKingCard();
-      kingCard.setMapPosition(i, 0);
+      kingCard.setMapPosition(i, 0, 0);
       // make own covered cards visible
       if (players.get(i) == currentPlayer) {
         kingCard.setActive(true);
@@ -329,13 +329,43 @@ public class GameScreen extends ScreenAdapter {
           System.out.println("Def card removed!");
         }
 
-        defCard.setMapPosition(i, j);
+        defCard.setMapPosition(i, j, 0);
         if (players.get(i) == currentPlayer) {
           defCard.setActive(true);
         } else {
           defCard.setActive(false);
         }
         gameStage.addActor(defCard);
+      }
+      
+      // display top defense cards
+      Map<Integer, Card> topDefCards = players.get(i).getTopDefCards();
+      for (int j = 1; j <= 3; j++) {
+        final Card topDefCard;
+        if (topDefCards.containsKey(j)) {
+          System.out.println("Top defense card " + j);
+          topDefCard = topDefCards.get(j);
+          topDefCard.removeAllListeners();
+          if (players.get(i) != currentPlayer) {
+            enemyDefCardListener = new EnemyDefCardListener(topDefCard, gameState.getCardDeck(),
+                gameState.getCemeteryDeck(), gameState.getCurrentPlayer(), gameState.getPlayers());
+            topDefCard.addListener(enemyDefCardListener);
+
+          } else {
+            ownDefCardListener = new OwnDefCardListener(topDefCard, gameState.getCurrentPlayer().getKingCard(),
+                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards(),
+                gameState.getCurrentPlayer(), gameState.getPlayers());
+            topDefCard.addListener(ownDefCardListener);
+          }
+          
+          topDefCard.setMapPosition(i, j, 1);
+          if (players.get(i) == currentPlayer) {
+            topDefCard.setActive(true);
+          } else {
+            topDefCard.setActive(false);
+          }
+          gameStage.addActor(topDefCard);
+        }
       }
 
       // display myPlayerLabel

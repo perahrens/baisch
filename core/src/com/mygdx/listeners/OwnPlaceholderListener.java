@@ -27,7 +27,7 @@ public class OwnPlaceholderListener extends ClickListener {
     // get selected hand cards
     if (player.getSelectedHandCards().size() == 1) {
       if (player.getPlayerTurn().getPutDefCard() > 0) {
-        player.putDefCard(placeholderCard.getPositionId());
+        player.putDefCard(placeholderCard.getPositionId(), 0);
         //show();
       } else {
         System.out.println("no more put allowed");

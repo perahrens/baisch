@@ -19,6 +19,7 @@ public class Player {
   String playerName;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
+  Map<Integer, Card> topDefCards;
   Card kingCard;
   ArrayList<Hero> heroes;
   Dice dice;
@@ -32,6 +33,7 @@ public class Player {
     playerName = name;
     handCards = new ArrayList<Card>();
     defCards = new HashMap<Integer, Card>();
+    topDefCards = new HashMap<Integer, Card>();
     heroes = new ArrayList<Hero>();
     dice = new Dice();
 
@@ -116,7 +118,7 @@ public class Player {
     }
   }
 
-  public void putDefCard(Integer position) {
+  public void putDefCard(Integer position, int level) {
     System.out.println("putDefCard()");
 
     // check if player has major
@@ -137,6 +139,8 @@ public class Player {
         allowed = true;
         major.mobilize();
       }
+    } else if (level == 1) {
+      allowed = true;
     } else {
       if (playerTurn.getPutDefCard() > 0) {
         allowed = true;
@@ -149,7 +153,7 @@ public class Player {
       while (handCardsIt.hasNext()) {
         Card handCard = handCardsIt.next();
         if (handCard.isSelected()) {
-          addDefCard(position, handCard);
+          addDefCard(position, handCard, level);
           handCard.setCovered(true);
           handCardsIt.remove();
         }
@@ -159,15 +163,18 @@ public class Player {
     }
   }
 
-  public void addDefCard(Integer position, Card card) {
+  public void addDefCard(Integer position, Card card, int level) {
     if (position >= 1 && position <= 3) {
 
-      card.setSelected(false);
-
-      Array<EventListener> listeners = card.getListeners();
-      for (EventListener listener : listeners) {
-        card.removeListener(listener);
+      final Map<Integer, Card> levelDefCards;
+      if (level == 0) {
+        levelDefCards = defCards;
+      } else {
+        levelDefCards = topDefCards;
       }
+
+      card.setSelected(false);
+      card.removeAllListeners();
 
       final Card refCard = card;
 
@@ -185,8 +192,8 @@ public class Player {
           } else {
             kingCard.setSelected(false);
             for (int i = 1; i <= 3; i++) {
-              if (defCards.containsKey(i)) {
-                defCards.get(i).setSelected(false);
+              if (levelDefCards.containsKey(i)) {
+                levelDefCards.get(i).setSelected(false);
               }
             }
             refCard.setSelected(true);
@@ -194,7 +201,7 @@ public class Player {
         };
       });
 
-      defCards.put(position, card);
+      levelDefCards.put(position, card);
     } else {
       // not allowed
     }
@@ -397,6 +404,10 @@ public class Player {
 
   public Map<Integer, Card> getDefCards() {
     return defCards;
+  }
+
+  public Map<Integer, Card> getTopDefCards() {
+    return topDefCards;
   }
 
   public ArrayList<Card> getHandCards() {

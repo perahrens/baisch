@@ -6,29 +6,49 @@ import java.util.Map;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
+import com.mygdx.game.Player;
+import com.mygdx.heroes.FortifiedTower;
 
 public class OwnDefCardListener extends ClickListener {
 
-  //cards of current player
+  // cards of current player
   Card selectedCard;
   Card kingCard;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
+  ArrayList<Player> players;
+  Player player;
 
   public OwnDefCardListener() {
   }
 
-  public OwnDefCardListener(Card selectedCard, Card kingCard, Map<Integer, Card> defCards, ArrayList<Card> handCards) {
+  public OwnDefCardListener(Card selectedCard, Card kingCard, Map<Integer, Card> defCards, ArrayList<Card> handCards,
+      Player player, ArrayList<Player> players) {
     this.selectedCard = selectedCard;
     this.kingCard = kingCard;
     this.defCards = defCards;
     this.handCards = handCards;
+    this.player = player;
+    this.players = players;
   }
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
 
-    System.out.println("clicked OwnDefCardListener");
+    // if F.Tower and hand card is selected, put hand card on top
+    if (player.getSelectedHeroes().size() > 0) {
+      for (int i = 0; i < player.getHeroes().size(); i++) {
+        if (player.getHeroes().get(i).getHeroName() == "Fortified Tower" && player.getHeroes().get(i).isSelected()
+            && player.getSelectedHandCards().size() == 1) {
+          System.out.println("Do F.Tower defend");
+          Card handCard = player.getSelectedHandCards().get(0);
+          FortifiedTower fortifiedTower = (FortifiedTower) player.getHeroes().get(i); 
+          if (fortifiedTower.getDefenseExpands() > 0 && handCard.getSymbol() == selectedCard.getSymbol() ) {
+            fortifiedTower.defenseExpand();
+          }
+        }
+      }
+    }
 
     // unselect all handcards
     for (int i = 0; i < handCards.size(); i++) {

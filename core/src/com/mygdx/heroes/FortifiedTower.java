@@ -4,16 +4,36 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
 public class FortifiedTower extends Hero {
-	
-	public FortifiedTower() {
-		heroName = "Fortified Tower";
-		heroID = "F. Tow.";
-		sprite = atlas.createSprite("br", -1);
+  private int defenseExpands = 1;
 
-		this.isSelected = false;
+  public FortifiedTower() {
+    heroName = "Fortified Tower";
+    heroID = "F. Tow.";
+    sprite = atlas.createSprite("br", -1);
 
-		setWidth(sprite.getWidth()*scaleFactor);
-		setHeight(sprite.getHeight()*scaleFactor);
-		
-	}
+    isSelected = false;
+    isSelectable = true;
+
+    setWidth(sprite.getWidth() * scaleFactor);
+    setHeight(sprite.getHeight() * scaleFactor);
+
+  }
+
+  public void recover() {
+    defenseExpands = 1;
+    isSelectable = true;
+  }
+
+  public int getDefenseExpands() {
+    return defenseExpands;
+  }
+
+  public void defenseExpand() {
+    defenseExpands--;
+    if (defenseExpands == 0) {
+      isSelectable = false;
+      isSelected = false;
+    }
+  }
+
 }

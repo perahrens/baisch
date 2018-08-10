@@ -118,7 +118,7 @@ public class GameState {
       }
     }
 
-    Hero hero = heroesSquare.getHero(13);
+    Hero hero = heroesSquare.getHero(11);
     players.get(0).addHero(hero);
   }
 

@@ -308,7 +308,8 @@ public class GameScreen extends ScreenAdapter {
 
           } else {
             ownDefCardListener = new OwnDefCardListener(defCard, gameState.getCurrentPlayer().getKingCard(),
-                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards());
+                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards(),
+                gameState.getCurrentPlayer(), gameState.getPlayers());
             defCard.addListener(ownDefCardListener);
           }
         } else {

@@ -12,27 +12,28 @@ public class Card extends Actor {
   Sprite sprite;
   TextureAtlas atlas = new TextureAtlas("data/skins/carddeck.atlas");
 
+  // card attributes
   private final String symbol;
   private final Integer index;
 
+  // location attributes
   private int positionId;
+  private int level = 0; // (0) bottom level is default; (1) top level relevant for fortified tower
 
+  // state attributes
   private boolean isSelected = false;
-  private boolean isCovered;
-  private boolean isActive;
+  private boolean isCovered = false;
+  private boolean isActive = false;
   private boolean isPlaceholder = false;
-
   private boolean isRemoved = false; // temporary information that card should be removed
-
   private boolean isSuspended = false; // suspended card can only be used next round
   private boolean isTradable = false; // information that card can be traded again and should be overlaid with
                                       // keep/cast button
 
+  // texture attributes
   private float defWidth;
   private float defHeight;
-
   private Color defColor;
-
   private final float scaleFactor = 0.22f;
   private float rotate = 0;
 
@@ -45,8 +46,6 @@ public class Card extends Actor {
 
     positionId = -1;
 
-    isCovered = false;
-    isActive = false;
     isPlaceholder = true;
 
     defWidth = sprite.getWidth() * scaleFactor;
@@ -67,10 +66,6 @@ public class Card extends Actor {
     this.index = index;
 
     positionId = -1;
-
-    isCovered = false;
-    isActive = false;
-    isPlaceholder = false;
 
     defWidth = sprite.getWidth() * scaleFactor;
     defHeight = sprite.getHeight() * scaleFactor;
@@ -209,7 +204,7 @@ public class Card extends Actor {
   public void dispose() {
     this.dispose();
   }
-  
+
   public void removeAllListeners() {
     Array<EventListener> listeners = getListeners();
     for (EventListener listener : listeners) {
@@ -240,8 +235,16 @@ public class Card extends Actor {
   public int getPositionId() {
     return positionId;
   }
+  
+  public int getLevel() {
+    return level;
+  }
+  
+  public void setLevel (int level) {
+    this.level = level;
+  }
 
-  public void setMapPosition(int player, int position) {
+  public void setMapPosition(int player, int position, int level) {
     setWidth(defWidth);
     setHeight(defHeight);
     isSelected = false;
@@ -256,6 +259,7 @@ public class Card extends Actor {
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         setY(getHeight());
+        setY(getY() + 0.25f * level * getHeight()); //level shift
         break;
       }
       break;
@@ -268,6 +272,7 @@ public class Card extends Actor {
         break;
       default:
         setX((getHeight() - getWidth()) / 2 + getHeight());
+        setX(getX() + 0.25f * level * getHeight()); //level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         rotate = -90;
         break;
@@ -283,6 +288,7 @@ public class Card extends Actor {
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         setY(MyGdxGame.WIDTH - 2f * getHeight());
+        setY(getY() - 0.25f * level * getHeight()); //level shift
         rotate = 180;
         break;
       }
@@ -296,6 +302,7 @@ public class Card extends Actor {
         break;
       default:
         setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - 2f * getHeight());
+        setX(getX() - 0.25f * level * getHeight()); //level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         rotate = 90;
         break;

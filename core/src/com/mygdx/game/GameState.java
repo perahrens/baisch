@@ -104,9 +104,13 @@ public class GameState {
         Card defCard = players.get(i).getLastHandCard();
 
         defCard.setCovered(true);
-        players.get(i).addDefCard(j, defCard);
+        players.get(i).addDefCard(j, defCard, 0);
       }
 
+      //Card defCard = players.get(i).getLastHandCard();
+      //defCard.setCovered(true);
+      //players.get(i).addDefCard(2, defCard, 1);
+      
       // add heroes
       // Hero hero1 = heroesSquare.getHero(2*i+2);
       // Hero hero2 = heroesSquare.getHero(2*i+3);

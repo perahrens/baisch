@@ -5,6 +5,8 @@ import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.EventListener;
+import com.badlogic.gdx.utils.Array;
 
 public class Card extends Actor {
   Sprite sprite;
@@ -206,6 +208,13 @@ public class Card extends Actor {
 
   public void dispose() {
     this.dispose();
+  }
+  
+  public void removeAllListeners() {
+    Array<EventListener> listeners = getListeners();
+    for (EventListener listener : listeners) {
+      removeListener(listener);
+    }
   }
 
   public void setDeckPosition() {

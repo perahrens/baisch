@@ -25,6 +25,7 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -59,25 +60,23 @@ public class GameScreen extends ScreenAdapter {
 
   private GameState gameState;
 
+  // screen objects
   InputMultiplexer inMulti;
   InputProcessor inProTop;
   InputProcessor inProBottom;
-
   private FitViewport fitVPGame;
   private FitViewport fitVPHand;
-
   private Stage gameStage;
   private Stage handStage;
-
-  private SpriteBatch batch;
+  private Image gameBck;
+  private Image handBck;
   private Label myPlayerLabel;
-
   private Label roundCounter;
-
   private TextButton finishTurnButton;
 
-  Player currentPlayer;
-  ArrayList<Player> players;
+  // game objects
+  private Player currentPlayer;
+  private ArrayList<Player> players;
 
   // all listeners
   // gameStage own objects
@@ -101,7 +100,6 @@ public class GameScreen extends ScreenAdapter {
   public GameScreen(Game game) {
     // init game
     gameState = new GameState(4, 8);
-    batch = new SpriteBatch();
 
     // create stages and input handlers
     gameStage = new Stage();
@@ -117,6 +115,17 @@ public class GameScreen extends ScreenAdapter {
     inMulti.addProcessor(handStage);
     Gdx.input.setInputProcessor(inMulti);
 
+    // create stage backgrounds
+    gameBck = new Image(MyGdxGame.skin, "white");
+    gameBck.setFillParent(true);
+    gameBck.setColor(0.85f, 0.73f, 0.55f, 1);
+    gameStage.addActor(gameBck);
+
+    handBck = new Image(MyGdxGame.skin, "white");
+    handBck.setFillParent(true);
+    handBck.setColor(1f, 1f, 1f, 0.5f);
+    handStage.addActor(handBck);
+
   }
 
   @Override
@@ -127,19 +136,11 @@ public class GameScreen extends ScreenAdapter {
 
     currentPlayer = gameState.getCurrentPlayer();
     players = gameState.getPlayers();
-    
+
     gameStage.clear();
     handStage.clear();
-    
-    // create stage backgrounds
-    Image gameBck = new Image(MyGdxGame.skin, "white");
-    gameBck.setFillParent(true);
-    gameBck.setColor(0.85f, 0.73f, 0.55f, 1);
-    gameStage.addActor(gameBck);
 
-    Image handBck = new Image(MyGdxGame.skin, "white");
-    handBck.setFillParent(true);
-    handBck.setColor(1f, 1f, 1f, 0.5f);
+    gameStage.addActor(gameBck);
     handStage.addActor(handBck);
 
     showGameStage(players, currentPlayer);
@@ -257,10 +258,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         // add listener for priest functionality
-        Array<EventListener> listeners = handCards.get(j).getListeners();
-        for (EventListener listener : listeners) {
-          handCards.get(j).removeListener(listener);
-        }
+        handCard.removeAllListeners();
 
         enemyHandCardListener = new EnemyHandCardListener(handCard, gameState.getCurrentPlayer(),
             gameState.getPlayers());
@@ -279,10 +277,7 @@ public class GameScreen extends ScreenAdapter {
         kingCard.setActive(false);
       }
 
-      Array<EventListener> kingListeners = kingCard.getListeners();
-      for (EventListener listener : kingListeners) {
-        kingCard.removeListener(listener);
-      }
+      kingCard.removeAllListeners();
 
       if (players.get(i) != currentPlayer) {
 
@@ -305,22 +300,13 @@ public class GameScreen extends ScreenAdapter {
         if (defCards.containsKey(j)) {
           defCard = defCards.get(j);
           defCard.setPlaceholder(false);
+          defCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
-            Array<EventListener> listeners = defCard.getListeners();
-            for (EventListener listener : listeners) {
-              defCard.removeListener(listener);
-            }
-
             enemyDefCardListener = new EnemyDefCardListener(defCard, gameState.getCardDeck(),
                 gameState.getCemeteryDeck(), gameState.getCurrentPlayer(), gameState.getPlayers());
             defCard.addListener(enemyDefCardListener);
 
           } else {
-            Array<EventListener> listeners = defCard.getListeners();
-            for (EventListener listener : listeners) {
-              defCard.removeListener(listener);
-            }
-
             ownDefCardListener = new OwnDefCardListener(defCard, gameState.getCurrentPlayer().getKingCard(),
                 gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards());
             defCard.addListener(ownDefCardListener);
@@ -328,12 +314,7 @@ public class GameScreen extends ScreenAdapter {
         } else {
           // create placeholder card
           defCard = new Card();
-          ;
-
-          Array<EventListener> listeners = defCard.getListeners();
-          for (EventListener listener : listeners) {
-            defCard.removeListener(listener);
-          }
+          defCard.removeAllListeners();
 
           // listener for placeholder card
           if (players.get(i) == currentPlayer) {
@@ -425,11 +406,7 @@ public class GameScreen extends ScreenAdapter {
 
         if (players.get(i) == gameState.getCurrentPlayer()) {
           final Card handCard = handCards.get(j);
-
-          Array<EventListener> listeners = handCards.get(j).getListeners();
-          for (EventListener listener : listeners) {
-            handCards.get(j).removeListener(listener);
-          }
+          handCard.removeAllListeners();
 
           ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
               gameState.getCemeteryDeck());
@@ -474,14 +451,8 @@ public class GameScreen extends ScreenAdapter {
             .setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCardButton.getHeight()) / 2f);
 
         // remove old listeners
-        Array<EventListener> listeners = keepCardButton.getListeners();
-        for (EventListener listener : listeners) {
-          keepCardButton.removeListener(listener);
-        }
-        listeners = tradeCardButton.getListeners();
-        for (EventListener listener : listeners) {
-          tradeCardButton.removeListener(listener);
-        }
+        removeAllListeners(keepCardButton);
+        removeAllListeners(tradeCardButton);
 
         keepCardButtonListener = new KeepCardButtonListener(tradeableCard);
         keepCardButton.addListener(keepCardButtonListener);
@@ -510,10 +481,7 @@ public class GameScreen extends ScreenAdapter {
         }
       }
 
-      Array<EventListener> listeners = playerHeroes.get(j).getListeners();
-      for (EventListener listener : listeners) {
-        playerHeroes.get(j).removeListener(listener);
-      }
+      hero.removeAllListeners();
 
       ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer());
       hero.addListener(ownHeroListener);
@@ -574,10 +542,7 @@ public class GameScreen extends ScreenAdapter {
     handImage.setBounds(handImage.getX(), handImage.getY(), handImage.getWidth() / 5f, handImage.getHeight() / 5f);
     handImage.setPosition(Gdx.graphics.getWidth() - (myPlayerLabel.getWidth() + handImage.getWidth()), 0);
 
-    Array<EventListener> listeners = handImage.getListeners();
-    for (EventListener listener : listeners) {
-      handImage.removeListener(listener);
-    }
+    removeAllListeners(handImage);
 
     handImageListener = new HandImageListener(gameState, gameState.getCurrentPlayer());
     handImage.addListener(handImageListener);
@@ -614,6 +579,13 @@ public class GameScreen extends ScreenAdapter {
     handStage.getViewport().apply();
     handStage.act(delta);
     handStage.draw();
+  }
+
+  public void removeAllListeners(Actor actor) {
+    Array<EventListener> listeners = actor.getListeners();
+    for (EventListener listener : listeners) {
+      actor.removeListener(listener);
+    }
   }
 
   @Override

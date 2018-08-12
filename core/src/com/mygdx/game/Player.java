@@ -113,6 +113,10 @@ public class Player {
     if (allowed) {
       addHandCard(defCards.get(position));
       defCards.remove(position);
+      if (topDefCards.containsKey(position)) {
+        addHandCard(topDefCards.get(position));
+        topDefCards.remove(position);
+      }
     } else {
       System.out.println("No more take actions allowed");
     }
@@ -222,6 +226,35 @@ public class Player {
     int defenseStrength = defCard.getStrength();
     if (defCard.getSymbol() == "joker") {
       defenseStrength = 1;
+    }
+
+    System.out.println("Attack enemy defense card " + attackSum + " <> " + defenseStrength);
+
+    return (attackSum > defenseStrength);
+  }
+
+  public boolean attackEnemyDefense(Card defCard, Card topDefCard) {
+    // make sum of selected handcards
+    int attackSum = 0;
+    Iterator<Card> handCardsIt = handCards.iterator();
+    while (handCardsIt.hasNext()) {
+      Card handCard = handCardsIt.next();
+      if (handCard.isSelected()) {
+        attackSum += handCard.getStrength();
+      }
+    }
+
+    // Joker cards have value 1 in defense
+    int defenseStrength = 0;
+    if (defCard.getSymbol() == "joker") {
+      defenseStrength++;
+    } else {
+      defenseStrength += defCard.getStrength();
+    }
+    if (topDefCard.getSymbol() == "joker") {
+      defenseStrength++;
+    } else {
+      defenseStrength += topDefCard.getStrength();
     }
 
     System.out.println("Attack enemy defense card " + attackSum + " <> " + defenseStrength);

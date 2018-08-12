@@ -21,9 +21,15 @@ public class HandImageListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
     Map<Integer, Card> defCards = player.getDefCards();
+    Map<Integer, Card> topDefCards = player.getTopDefCards();
     for (int j = 1; j <= 3; j++) {
       if (defCards.containsKey(j)) {
         if (defCards.get(j).isSelected()) {
+          player.takeDefCard(j);
+        }
+      }
+      if (topDefCards.containsKey(j)) {
+        if (topDefCards.get(j).isSelected()) {
           player.takeDefCard(j);
         }
       }

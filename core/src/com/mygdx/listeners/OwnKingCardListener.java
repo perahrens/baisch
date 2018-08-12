@@ -8,21 +8,24 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 
 public class OwnKingCardListener extends ClickListener {
-  
-  //cards of current player
+
+  // cards of current player
   Card kingCard;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
-  
+  Map<Integer, Card> topDefCards;
+
   public OwnKingCardListener() {
   }
 
-  public OwnKingCardListener(Card kingCard, Map<Integer, Card> defCards, ArrayList<Card> handCards) {
+  public OwnKingCardListener(Card kingCard, Map<Integer, Card> defCards, Map<Integer, Card> topDefCards,
+      ArrayList<Card> handCards) {
     this.kingCard = kingCard;
     this.defCards = defCards;
+    this.topDefCards = topDefCards;
     this.handCards = handCards;
   }
-  
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     // unselect all handcards
@@ -39,9 +42,12 @@ public class OwnKingCardListener extends ClickListener {
         if (defCards.containsKey(i)) {
           defCards.get(i).setSelected(false);
         }
+        if (topDefCards.containsKey(i)) {
+          topDefCards.get(i).setSelected(false);
+        }
       }
       kingCard.setSelected(true);
     }
   };
-  
+
 }

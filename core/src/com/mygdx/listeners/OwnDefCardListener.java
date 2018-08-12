@@ -16,17 +16,19 @@ public class OwnDefCardListener extends ClickListener {
   Card kingCard;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
+  Map<Integer, Card> topDefCards;
   ArrayList<Player> players;
   Player player;
 
   public OwnDefCardListener() {
   }
 
-  public OwnDefCardListener(Card selectedCard, Card kingCard, Map<Integer, Card> defCards, ArrayList<Card> handCards,
-      Player player, ArrayList<Player> players) {
+  public OwnDefCardListener(Card selectedCard, Card kingCard, Map<Integer, Card> defCards,
+      Map<Integer, Card> topDefCards, ArrayList<Card> handCards, Player player, ArrayList<Player> players) {
     this.selectedCard = selectedCard;
     this.kingCard = kingCard;
     this.defCards = defCards;
+    this.topDefCards = topDefCards;
     this.handCards = handCards;
     this.player = player;
     this.players = players;
@@ -64,6 +66,9 @@ public class OwnDefCardListener extends ClickListener {
         for (int i = 1; i <= 3; i++) {
           if (defCards.containsKey(i)) {
             defCards.get(i).setSelected(false);
+          }
+          if (topDefCards.containsKey(i)) {
+            topDefCards.get(i).setSelected(false);
           }
         }
         selectedCard.setSelected(true);

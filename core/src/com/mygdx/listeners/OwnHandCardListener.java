@@ -36,6 +36,9 @@ public class OwnHandCardListener extends ClickListener {
       if (player.getDefCards().containsKey(i)) {
         player.getDefCards().get(i).setSelected(false);
       }
+      if (player.getTopDefCards().containsKey(i)) {
+        player.getTopDefCards().get(i).setSelected(false);
+      }
     }
 
     // select hand card

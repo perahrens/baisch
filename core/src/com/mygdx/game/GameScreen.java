@@ -286,7 +286,8 @@ public class GameScreen extends ScreenAdapter {
         kingCard.addListener(enemyKingCardListener);
       } else {
         ownKingCardListener = new OwnKingCardListener(gameState.getCurrentPlayer().getKingCard(),
-            gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards());
+            gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
+            gameState.getCurrentPlayer().getHandCards());
 
         kingCard.addListener(ownKingCardListener);
       }
@@ -308,8 +309,8 @@ public class GameScreen extends ScreenAdapter {
 
           } else {
             ownDefCardListener = new OwnDefCardListener(defCard, gameState.getCurrentPlayer().getKingCard(),
-                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards(),
-                gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
+                gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers());
             defCard.addListener(ownDefCardListener);
           }
         } else {
@@ -337,13 +338,12 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
       }
-      
+
       // display top defense cards
       Map<Integer, Card> topDefCards = players.get(i).getTopDefCards();
       for (int j = 1; j <= 3; j++) {
         final Card topDefCard;
         if (topDefCards.containsKey(j)) {
-          System.out.println("Top defense card " + j);
           topDefCard = topDefCards.get(j);
           topDefCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
@@ -353,11 +353,11 @@ public class GameScreen extends ScreenAdapter {
 
           } else {
             ownDefCardListener = new OwnDefCardListener(topDefCard, gameState.getCurrentPlayer().getKingCard(),
-                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getHandCards(),
-                gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
+                gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers());
             topDefCard.addListener(ownDefCardListener);
           }
-          
+
           topDefCard.setMapPosition(i, j, 1);
           if (players.get(i) == currentPlayer) {
             topDefCard.setActive(true);

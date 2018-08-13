@@ -505,7 +505,7 @@ public class GameScreen extends ScreenAdapter {
 
       // if attacking symbol is given, priest should be selectable
       if (hero.getHeroName() == "Priest") {
-        if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol() != "none") {
+        if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol()[0] != "none") {
           hero.setSelectable(true);
         } else {
           hero.setSelectable(false);
@@ -538,10 +538,9 @@ public class GameScreen extends ScreenAdapter {
     handStage.addActor(myPlayerLabel);
 
     // add attacking symbol
-    String attackingSymbol = currentPlayer.getPlayerTurn().getAttackingSymbol();
+    String attackingSymbol = currentPlayer.getPlayerTurn().getAttackingSymbol()[0];
     Texture symbolTexture;
     TextureRegion symbolRegion;
-
     if (attackingSymbol == "hearts") {
       symbolTexture = new Texture(Gdx.files.internal("data/skins/hearts.png"));
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
@@ -565,6 +564,32 @@ public class GameScreen extends ScreenAdapter {
     symbolImage.setPosition(Gdx.graphics.getWidth() - symbolImage.getWidth(),
         finishTurnButton.getHeight() + myPlayerLabel.getHeight());
     handStage.addActor(symbolImage);
+
+    String attackingSymbolExt = currentPlayer.getPlayerTurn().getAttackingSymbol()[1];
+    if (attackingSymbolExt != "none") {
+      Texture symbolTextureExt = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
+      TextureRegion symbolRegionExt = new TextureRegion(symbolTexture, 0, 0, 342, 512);
+      if (attackingSymbolExt == "hearts") {
+        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/hearts.png"));
+        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
+      } else if (attackingSymbolExt == "diamonds") {
+        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
+        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
+      } else if (attackingSymbolExt == "clubs") {
+        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/clubs.png"));
+        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
+      } else if (attackingSymbolExt == "spades") {
+        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/spades.png"));
+        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
+      }
+
+      Image symbolImageExt = new Image(symbolRegionExt);
+      symbolImageExt.setBounds(symbolImageExt.getX(), symbolImageExt.getY(), symbolImageExt.getWidth() / 10f,
+          symbolImageExt.getHeight() / 10f);
+      symbolImageExt.setPosition(Gdx.graphics.getWidth() - 1.5f * symbolImage.getWidth(),
+          finishTurnButton.getHeight() + myPlayerLabel.getHeight());
+      handStage.addActor(symbolImageExt);
+    }
 
     // add hand image
     Texture handTexture = new Texture(Gdx.files.internal("data/skins/hand.png"));

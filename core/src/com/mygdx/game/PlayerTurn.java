@@ -5,14 +5,13 @@ public class PlayerTurn {
   int attackCounter;
   int takeDefCard;
   int putDefCard;
-  String attackingSymbol;
+  String[] attackingSymbol = {"none","none"};
 
   public PlayerTurn() {
     pickingDeckAttacks = 1;
     attackCounter = 0;
     takeDefCard = 1;
     putDefCard = 1;
-    attackingSymbol = "none";
   }
 
   public void decreasePickingDeckAttacks() {
@@ -47,13 +46,20 @@ public class PlayerTurn {
     return putDefCard;
   }
 
-  public void setAttackingSymbol(String symbol) {
+  public void setAttackingSymbol(String symbol, boolean extended) {
     if (symbol != "joker") {
-      attackingSymbol = symbol;
+      attackingSymbol[0] = symbol;
+      if (extended) {
+        System.out.println("extended");
+        if (symbol == "hearts") attackingSymbol[1] = "diamonds";
+        if (symbol == "diamonds") attackingSymbol[1] = "hearts";
+        if (symbol == "spades") attackingSymbol[1] = "clubs";
+        if (symbol == "clubs") attackingSymbol[1] = "spades";
+      }
     }
   }
 
-  public String getAttackingSymbol() {
+  public String[] getAttackingSymbol() {
     return attackingSymbol;
   }
 

@@ -19,14 +19,14 @@ public class Player {
   String playerName;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
-  Map<Integer, Card> topDefCards;
+  Map<Integer, Card> topDefCards; // defense cards from fortified tower
   Card kingCard;
   ArrayList<Hero> heroes;
   Dice dice;
 
   PlayerTurn playerTurn;
 
-  String selectedSymbol;
+  String selectedSymbol; // enables the selection of hand cards of the same symbol
 
   public Player(String name) {
     // init inventar
@@ -275,10 +275,10 @@ public class Player {
     return attackResult;
 
   }
-  
+
   public int royalAttack(Card defCard, Card topDefCard) {
     int attackResult; // 0 lost, 1 equal, 2 win
-    
+
     // Joker cards have value 1 in defense
     int defenseStrength = 0;
     if (defCard.getSymbol() == "joker") {
@@ -291,7 +291,7 @@ public class Player {
     } else {
       defenseStrength += topDefCard.getStrength();
     }
-    
+
     if (kingCard.getStrength() > defenseStrength) {
       attackResult = 2;
     } else if (kingCard.getStrength() == defenseStrength) {
@@ -523,6 +523,16 @@ public class Player {
 
   public void setSelectedSymbol(String symbol) {
     selectedSymbol = symbol;
+  }
+
+  public boolean hasHero(String heroName) {
+    boolean hasHero = false;
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroes.get(i).getHeroName() == heroName) {
+        hasHero = true;
+      }
+    }
+    return hasHero;
   }
 
 }

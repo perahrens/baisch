@@ -36,9 +36,7 @@ public class EnemyHandCardListener extends ClickListener {
         if (priest.getConversionAttempts() > 0) {
           // convert hand card of enemy
           priest.conversionAttempt();
-          System.out.println("Check: Symbol is " + player.getPlayerTurn().getAttackingSymbol()
-                  + "vs" + handCard.getSymbol());
-          if (player.getPlayerTurn().getAttackingSymbol() == handCard.getSymbol()
+          if (player.getPlayerTurn().getAttackingSymbol()[0] == handCard.getSymbol()
               || handCard.getSymbol() == "joker") {
             System.out.println("Success: Symbol is " + handCard.getSymbol());
             priest.conversion();

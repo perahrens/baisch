@@ -29,6 +29,7 @@ public class Card extends Actor {
   private boolean isSuspended = false; // suspended card can only be used next round
   private boolean isTradable = false; // information that card can be traded again and should be overlaid with
                                       // keep/cast button
+  private boolean isSabotaged = false; // information that card is blocked by a saboteur and can not be used by the player
 
   // texture attributes
   private float defWidth;
@@ -187,6 +188,14 @@ public class Card extends Actor {
 
   public boolean isTradeable() {
     return isTradable;
+  }
+  
+  public void setSabotaged(boolean isSabotaged) {
+    this.isSabotaged = isSabotaged;
+  }
+  
+  public boolean isSabotaged() {
+    return isSabotaged;
   }
 
   public void setRotation(int rotation) {

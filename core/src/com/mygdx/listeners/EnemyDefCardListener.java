@@ -97,12 +97,13 @@ public class EnemyDefCardListener extends ClickListener {
             }
           }
         } else if (player.getHeroes().get(i).getHeroName() == "King" && player.getKingCard().isSelected()
-            && (player.getKingCard().getSymbol() == player.getPlayerTurn().getAttackingSymbol()
-                || player.getPlayerTurn().getAttackingSymbol() == "none")) {
+            && (player.getKingCard().getSymbol() == player.getPlayerTurn().getAttackingSymbol()[0]
+                || player.getKingCard().getSymbol() == player.getPlayerTurn().getAttackingSymbol()[1]
+                || player.getPlayerTurn().getAttackingSymbol()[0] == "none")) {
           System.out.println("king attack");
           King king = (King) player.getHeroes().get(i);
           king.royalAttack();
-          player.getPlayerTurn().setAttackingSymbol(player.getKingCard().getSymbol());
+          player.getPlayerTurn().setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Lieutenant"));
           // cover up hero and enemy defense card
           defCard.setCovered(false);
           player.getKingCard().setCovered(false);
@@ -143,9 +144,10 @@ public class EnemyDefCardListener extends ClickListener {
 
     // attack enemy defense
     if (player.getSelectedHandCards().size() > 0) {
-      if (player.getPlayerTurn().getAttackingSymbol() == "none"
-          || player.getPlayerTurn().getAttackingSymbol() == player.getSelectedHandCards().get(0).getSymbol()) {
-        player.getPlayerTurn().setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol());
+      if (player.getPlayerTurn().getAttackingSymbol()[0] == "none"
+          || player.getPlayerTurn().getAttackingSymbol()[0] == player.getSelectedHandCards().get(0).getSymbol()
+          || player.getPlayerTurn().getAttackingSymbol()[1] == player.getSelectedHandCards().get(0).getSymbol()) {
+        player.getPlayerTurn().setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(), player.hasHero("Lieutenant"));
 
         // check if defense card is fortified
         boolean attackSuccess;

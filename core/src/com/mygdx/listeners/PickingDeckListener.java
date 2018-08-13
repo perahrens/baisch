@@ -28,8 +28,9 @@ public class PickingDeckListener extends ClickListener {
     if (currentPlayer.getPlayerTurn().getPickingDeckAttacks() > 0) {
       System.out.println("Selected handcards " + currentPlayer.getSelectedHandCards().size());
       if (currentPlayer.getSelectedHandCards().size() > 0) {
-        if (currentPlayer.getPlayerTurn().getAttackingSymbol() == "none" || currentPlayer.getPlayerTurn()
-            .getAttackingSymbol() == currentPlayer.getSelectedHandCards().get(0).getSymbol()) {
+        if (currentPlayer.getPlayerTurn().getAttackingSymbol()[0] == "none" 
+            || currentPlayer.getPlayerTurn().getAttackingSymbol()[0] == currentPlayer.getSelectedHandCards().get(0).getSymbol()
+            || currentPlayer.getPlayerTurn().getAttackingSymbol()[1] == currentPlayer.getSelectedHandCards().get(0).getSymbol()) {
           currentPlayer.getPlayerTurn().decreasePickingDeckAttacks();
           currentPlayer.attackPickingDeck(thisPickingDeck, otherPickingDeck, gameState.getCardDeck(),
               gameState.getCemeteryDeck());
@@ -38,7 +39,7 @@ public class PickingDeckListener extends ClickListener {
             Card currCard = handCardIt.next();
             if (currCard.isSelected()) {
               System.out.println("Remove handcard " + currCard.getStrength());
-              currentPlayer.getPlayerTurn().setAttackingSymbol(currCard.getSymbol());
+              currentPlayer.getPlayerTurn().setAttackingSymbol(currCard.getSymbol(), currentPlayer.hasHero("Lieutenant"));
               gameState.getCemeteryDeck().addCard(currCard);
               handCardIt.remove();
             }

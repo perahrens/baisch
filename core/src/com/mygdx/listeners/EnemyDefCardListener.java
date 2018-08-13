@@ -12,6 +12,7 @@ import com.mygdx.game.Player;
 import com.mygdx.heroes.King;
 import com.mygdx.heroes.Magician;
 import com.mygdx.heroes.Priest;
+import com.mygdx.heroes.Saboteurs;
 import com.mygdx.heroes.Spy;
 
 public class EnemyDefCardListener extends ClickListener {
@@ -64,6 +65,11 @@ public class EnemyDefCardListener extends ClickListener {
             spy.spyAttack();
             System.out.println("Number spy attacks left = " + spy.getSpyAttacks());
             defCard.setCovered(false);
+          }
+        } else if (player.getHeroes().get(i).getHeroName() == "Saboteurs" && player.getHeroes().get(i).isSelected()) {
+          Saboteurs saboteurs = (Saboteurs) player.getHeroes().get(i);
+          if (saboteurs.isReady()) {
+            saboteurs.sabotage();
           }
         } else if (player.getHeroes().get(i).getHeroName() == "Magician" && player.getHeroes().get(i).isSelected()) {
           Magician magician = (Magician) player.getHeroes().get(i);
@@ -147,7 +153,8 @@ public class EnemyDefCardListener extends ClickListener {
       if (player.getPlayerTurn().getAttackingSymbol()[0] == "none"
           || player.getPlayerTurn().getAttackingSymbol()[0] == player.getSelectedHandCards().get(0).getSymbol()
           || player.getPlayerTurn().getAttackingSymbol()[1] == player.getSelectedHandCards().get(0).getSymbol()) {
-        player.getPlayerTurn().setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(), player.hasHero("Lieutenant"));
+        player.getPlayerTurn().setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(),
+            player.hasHero("Lieutenant"));
 
         // check if defense card is fortified
         boolean attackSuccess;

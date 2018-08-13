@@ -299,6 +299,7 @@ public class GameScreen extends ScreenAdapter {
       for (int j = 1; j <= 3; j++) {
         final Card defCard;
         if (defCards.containsKey(j)) {
+          //card is a valid defense card
           defCard = defCards.get(j);
           defCard.setPlaceholder(false);
           defCard.removeAllListeners();

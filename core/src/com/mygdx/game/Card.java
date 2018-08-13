@@ -255,11 +255,13 @@ public class Card extends Actor {
       case 0:
         setX((MyGdxGame.WIDTH - getWidth()) / 2);
         setY(0);
+        rotate = 0;
         break;
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         setY(getHeight());
         setY(getY() + 0.25f * level * getHeight()); //level shift
+        rotate = 0;
         break;
       }
       break;

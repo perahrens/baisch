@@ -98,11 +98,29 @@ public class EnemyDefCardListener extends ClickListener {
           defCard.setCovered(false);
           player.getKingCard().setCovered(false);
 
-          int attackResult = player.royalAttack(defCard);
+          // check if defense card is fortified
+          int attackResult;
+          int positionId = defCard.getPositionId();
+          Card topDefCard = null;
+          if (topDefCards.containsKey(positionId)) {
+            defCard = defCards.get(positionId);
+            topDefCard = topDefCards.get(positionId);
+
+            defCard.setCovered(false);
+            topDefCard.setCovered(false);
+            attackResult = player.royalAttack(defCard, topDefCard);
+          } else {
+            defCard.setCovered(false);
+            attackResult = player.royalAttack(defCard);
+          }
 
           if (attackResult == 2) {
             player.addHandCard(defCard);
             defCard.setRemoved(true);
+            if (topDefCard != null) {
+              player.addHandCard(topDefCard);
+              topDefCard.setRemoved(true);
+            }
           } else if (attackResult == 1) {
             // nothing happens
           } else {
@@ -124,7 +142,6 @@ public class EnemyDefCardListener extends ClickListener {
         boolean attackSuccess;
         int positionId = defCard.getPositionId();
         Card topDefCard = null;
-        System.out.println("Size is = " + topDefCards.size());
         if (topDefCards.containsKey(positionId)) {
           defCard = defCards.get(positionId);
           topDefCard = topDefCards.get(positionId);

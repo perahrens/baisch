@@ -275,6 +275,34 @@ public class Player {
     return attackResult;
 
   }
+  
+  public int royalAttack(Card defCard, Card topDefCard) {
+    int attackResult; // 0 lost, 1 equal, 2 win
+    
+    // Joker cards have value 1 in defense
+    int defenseStrength = 0;
+    if (defCard.getSymbol() == "joker") {
+      defenseStrength++;
+    } else {
+      defenseStrength += defCard.getStrength();
+    }
+    if (topDefCard.getSymbol() == "joker") {
+      defenseStrength++;
+    } else {
+      defenseStrength += topDefCard.getStrength();
+    }
+    
+    if (kingCard.getStrength() > defenseStrength) {
+      attackResult = 2;
+    } else if (kingCard.getStrength() == defenseStrength) {
+      attackResult = 1;
+    } else {
+      attackResult = 0;
+    }
+
+    return attackResult;
+
+  }
 
   public void attackPickingDeck(PickingDeck pickingDeck, PickingDeck pickingDeckOther, CardDeck cardDeck,
       CardDeck cemeteryDeck) {

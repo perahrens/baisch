@@ -130,6 +130,9 @@ public class GameState {
     
     hero = heroesSquare.getHero(12);
     players.get(2).addHero(hero);
+    
+    hero = heroesSquare.getHero(13);
+    players.get(3).addHero(hero);
   }
 
   public void throwDices() {

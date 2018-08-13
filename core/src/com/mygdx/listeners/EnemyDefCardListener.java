@@ -75,12 +75,21 @@ public class EnemyDefCardListener extends ClickListener {
               for (int c = 1; c <= 3; c++) {
                 if (players.get(p).getDefCards().containsKey(c)) {
                   Card cDefCard = players.get(p).getDefCards().get(c);
-                  Card newDefCard = cardDeck.getCard(cemeteryDeck);
+                  Card cTopDefCard = players.get(p).getTopDefCards().get(c);
                   if (cDefCard == defCard) {
+                    Card newDefCard = cardDeck.getCard(cemeteryDeck);
                     newDefCard.setCovered(!defCard.isCovered());
                     cemeteryDeck.addCard(defCard);
                     players.get(p).getDefCards().remove(c);
                     players.get(p).addDefCard(c, newDefCard, 0);
+                    // gameState.setUpdateState(true);
+                  }
+                  if (cTopDefCard == defCard) {
+                    Card newDefCard = cardDeck.getCard(cemeteryDeck);
+                    newDefCard.setCovered(!defCard.isCovered());
+                    cemeteryDeck.addCard(defCard);
+                    players.get(p).getTopDefCards().remove(c);
+                    players.get(p).addDefCard(c, newDefCard, 1);
                     // gameState.setUpdateState(true);
                   }
                 }

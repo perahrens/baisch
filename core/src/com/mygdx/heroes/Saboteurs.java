@@ -27,20 +27,23 @@ public class Saboteurs extends Hero {
       else if (saboteurStates[i] == 3)
         saboteurStates[0] = 0; // provide repaired saboteur
     }
-    isSelectable = true;
+    if (isAvailable()) {
+      isReady = true;
+    }
   }
 
-  public boolean isReady() {
-    boolean isReady = false;
+  // is one saboteur ready to use
+  public boolean isAvailable() {
+    boolean isAvailable = false;
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 0) {
-        isReady = true;
+        isAvailable = true;
         break;
       }
     }
-    return isReady;
+    return isAvailable;
   }
-  
+
   public void callback() {
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 1) {
@@ -48,8 +51,20 @@ public class Saboteurs extends Hero {
         break;
       }
     }
+    if (isAvailable()) {
+      isReady = true;
+    }
   }
-  
+
+  public void destroy() {
+    for (int i = 0; i < saboteurStates.length; i++) {
+      if (saboteurStates[i] == 1) {
+        saboteurStates[i] = 2;
+        break;
+      }
+    }
+  }
+
   public void sabotage() {
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 0) {
@@ -57,9 +72,9 @@ public class Saboteurs extends Hero {
         break;
       }
     }
-    if (!isReady()) {
+    if (!isAvailable()) {
       isSelected = false;
-      isSelectable = false;
+      isReady = false;
     }
   }
 

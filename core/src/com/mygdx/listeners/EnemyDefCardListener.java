@@ -68,8 +68,9 @@ public class EnemyDefCardListener extends ClickListener {
           }
         } else if (player.getHeroes().get(i).getHeroName() == "Saboteurs" && player.getHeroes().get(i).isSelected()) {
           Saboteurs saboteurs = (Saboteurs) player.getHeroes().get(i);
-          if (saboteurs.isReady()) {
+          if (saboteurs.isAvailable() && !defCard.isSabotaged()) {
             saboteurs.sabotage();
+            defCard.setSabotaged(true);
           }
         } else if (player.getHeroes().get(i).getHeroName() == "Magician" && player.getHeroes().get(i).isSelected()) {
           Magician magician = (Magician) player.getHeroes().get(i);

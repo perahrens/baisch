@@ -21,7 +21,7 @@ public class Hero extends Actor {
   protected boolean isHand = false;
   final float scaleFactor = 1f;
 
-  protected boolean isReady = true;
+  protected boolean isReady = true; // can hero still be used this turn
 
   @Override
   public void draw(Batch batch, float parentAlpha) {

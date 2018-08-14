@@ -53,6 +53,7 @@ import com.mygdx.listeners.OwnHandCardListener;
 import com.mygdx.listeners.OwnHeroListener;
 import com.mygdx.listeners.OwnKingCardListener;
 import com.mygdx.listeners.OwnPlaceholderListener;
+import com.mygdx.listeners.SabotagedImageListener;
 import com.mygdx.listeners.TradeCardButtonListener;
 
 //public class GameScreen extends AbstractScreen {
@@ -83,6 +84,7 @@ public class GameScreen extends ScreenAdapter {
   private OwnDefCardListener ownDefCardListener;
   private OwnKingCardListener ownKingCardListener;
   private OwnPlaceholderListener ownPlaceholderListener;
+  private SabotagedImageListener sabotagedImageListener;
 
   // gameStage enemy objects
   private EnemyDefCardListener enemyDefCardListener;
@@ -299,7 +301,7 @@ public class GameScreen extends ScreenAdapter {
       for (int j = 1; j <= 3; j++) {
         final Card defCard;
         if (defCards.containsKey(j)) {
-          //card is a valid defense card
+          // card is a valid defense card
           defCard = defCards.get(j);
           defCard.setPlaceholder(false);
           defCard.removeAllListeners();
@@ -338,6 +340,28 @@ public class GameScreen extends ScreenAdapter {
           defCard.setActive(false);
         }
         gameStage.addActor(defCard);
+
+        // check if card is sabotaged
+        if (defCard.isSabotaged()) {
+          // show saboteur spite
+          // add hand image
+          Texture sabotagedTexture = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
+          TextureRegion sabotagedRegion = new TextureRegion(sabotagedTexture, 0, 0, 64, 64);
+          Image sabotagedImage = new Image(sabotagedRegion);
+          sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(), sabotagedImage.getWidth() / 2f,
+              sabotagedImage.getHeight() / 2f);
+          // set to center of def card
+          sabotagedImage.setPosition(defCard.getX(), defCard.getY());
+          sabotagedImage.setX(sabotagedImage.getX() + defCard.getWidth() / 2f - sabotagedImage.getWidth() / 2f);
+          sabotagedImage.setY(sabotagedImage.getY() + defCard.getHeight() / 2f - sabotagedImage.getHeight() / 2f);
+
+          // add listener to take back own saboteurs
+          removeAllListeners(sabotagedImage);
+          sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer);
+          sabotagedImage.addListener(sabotagedImageListener);
+
+          gameStage.addActor(sabotagedImage);
+        }
       }
 
       // display top defense cards

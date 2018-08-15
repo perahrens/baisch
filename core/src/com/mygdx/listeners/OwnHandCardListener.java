@@ -7,6 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.CardDeck;
 import com.mygdx.game.Player;
+import com.mygdx.heroes.Mercenaries;
 import com.mygdx.heroes.Merchant;
 import com.mygdx.heroes.Spy;
 
@@ -30,31 +31,6 @@ public class OwnHandCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
-    // unselect all defense and king cards
-    player.getKingCard().setSelected(false);
-    for (int i = 1; i <= 3; i++) {
-      if (player.getDefCards().containsKey(i)) {
-        player.getDefCards().get(i).setSelected(false);
-      }
-      if (player.getTopDefCards().containsKey(i)) {
-        player.getTopDefCards().get(i).setSelected(false);
-      }
-    }
-
-    // select hand card
-    if (handCard.isSelected()) {
-      handCard.setSelected(false);
-    } else {
-      if (handCard.getSymbol() == player.getSelectedSymbol()) {
-        handCard.setSelected(true);
-      } else {
-        for (int i = 0; i < player.getHandCards().size(); i++) {
-          player.getHandCards().get(i).setSelected(false);
-        }
-        handCard.setSelected(true);
-        player.setSelectedSymbol(handCard.getSymbol());
-      }
-    }
 
     // check hero functions on hand cards
     if (player.getSelectedHeroes().size() > 0) {
@@ -97,9 +73,42 @@ public class OwnHandCardListener extends ClickListener {
 
             newCard.setTradable(true);
           }
+        } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries"
+            && player.getHeroes().get(i).isSelected()) {
+          Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
+          if (mercenaries.isAvailable()) {
+            mercenaries.operate();
+            handCard.addBoosted(1);
+          }
         }
       }
       // gameState.setUpdateState(true);
+    } else {
+      // unselect all defense and king cards
+      player.getKingCard().setSelected(false);
+      for (int i = 1; i <= 3; i++) {
+        if (player.getDefCards().containsKey(i)) {
+          player.getDefCards().get(i).setSelected(false);
+        }
+        if (player.getTopDefCards().containsKey(i)) {
+          player.getTopDefCards().get(i).setSelected(false);
+        }
+      }
+
+      // select hand card
+      if (handCard.isSelected()) {
+        handCard.setSelected(false);
+      } else {
+        if (handCard.getSymbol() == player.getSelectedSymbol()) {
+          handCard.setSelected(true);
+        } else {
+          for (int i = 0; i < player.getHandCards().size(); i++) {
+            player.getHandCards().get(i).setSelected(false);
+          }
+          handCard.setSelected(true);
+          player.setSelectedSymbol(handCard.getSymbol());
+        }
+      }
     }
   };
 

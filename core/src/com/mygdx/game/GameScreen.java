@@ -1,53 +1,34 @@
 package com.mygdx.game;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
-import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.heroes.Hero;
-import com.mygdx.heroes.King;
-import com.mygdx.heroes.Magician;
-import com.mygdx.heroes.Merchant;
-import com.mygdx.heroes.Priest;
-import com.mygdx.heroes.Spy;
+import com.mygdx.heroes.Mercenaries;
 import com.mygdx.listeners.EnemyDefCardListener;
 import com.mygdx.listeners.EnemyHandCardListener;
 import com.mygdx.listeners.EnemyKingCardListener;
 import com.mygdx.listeners.FinishTurnButtonListener;
 import com.mygdx.listeners.HandImageListener;
 import com.mygdx.listeners.KeepCardButtonListener;
+import com.mygdx.listeners.MercenaryImageListener;
 import com.mygdx.listeners.OwnDefCardListener;
 import com.mygdx.listeners.OwnHandCardListener;
 import com.mygdx.listeners.OwnHeroListener;
@@ -85,6 +66,7 @@ public class GameScreen extends ScreenAdapter {
   private OwnKingCardListener ownKingCardListener;
   private OwnPlaceholderListener ownPlaceholderListener;
   private SabotagedImageListener sabotagedImageListener;
+  private MercenaryImageListener mercenaryImageListener;
 
   // gameStage enemy objects
   private EnemyDefCardListener enemyDefCardListener;
@@ -172,6 +154,9 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Card> cemeteryCards = gameState.getCemeteryDeck().getCards();
     for (int i = 0; i < cemeteryCards.size(); i++) {
       Card cemeteryCard = cemeteryCards.get(i);
+      if (cemeteryCard.getBoosted() > 0) {
+        cemeteryCard.unboost(players);
+      }
       cemeteryCard.setCemeteryPosition();
       cemeteryCard.setY(cemeteryCard.getY() + i * 0.3f);
       gameStage.addActor(cemeteryCard);
@@ -287,14 +272,42 @@ public class GameScreen extends ScreenAdapter {
             gameState.getPlayers());
         kingCard.addListener(enemyKingCardListener);
       } else {
-        ownKingCardListener = new OwnKingCardListener(gameState.getCurrentPlayer().getKingCard(),
-            gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
-            gameState.getCurrentPlayer().getHandCards());
+        ownKingCardListener = new OwnKingCardListener(gameState, currentPlayer,
+            gameState.getCurrentPlayer().getKingCard(), gameState.getCurrentPlayer().getDefCards(),
+            gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards());
 
         kingCard.addListener(ownKingCardListener);
       }
 
       gameStage.addActor(kingCard);
+
+      if (kingCard.getBoosted() > 0) {
+        // show saboteur spite
+        Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
+        TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+        Image mercenaryImage = new Image(mercenaryRegion);
+        mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(), mercenaryImage.getWidth() / 20f,
+            mercenaryImage.getHeight() / 20f);
+        // set to center of def card
+        mercenaryImage.setPosition(kingCard.getX(), kingCard.getY());
+        mercenaryImage.setX(mercenaryImage.getX() + kingCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
+        mercenaryImage.setY(mercenaryImage.getY() + kingCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
+
+        // add listener to take back own mercenaries
+        removeAllListeners(mercenaryImage);
+        mercenaryImageListener = new MercenaryImageListener(gameState, kingCard, currentPlayer);
+        mercenaryImage.addListener(mercenaryImageListener);
+
+        gameStage.addActor(mercenaryImage);
+
+        // boost counter in center
+        String boostCount = String.valueOf(kingCard.getBoosted());
+        Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
+        boostCountLabel.setColor(Color.GOLD);
+        boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+
+        gameStage.addActor(boostCountLabel);
+      }
 
       // display defense cards and placeholders
       Map<Integer, Card> defCards = players.get(i).getDefCards();
@@ -311,7 +324,7 @@ public class GameScreen extends ScreenAdapter {
             defCard.addListener(enemyDefCardListener);
 
           } else {
-            ownDefCardListener = new OwnDefCardListener(defCard, gameState.getCurrentPlayer().getKingCard(),
+            ownDefCardListener = new OwnDefCardListener(gameState, defCard, gameState.getCurrentPlayer().getKingCard(),
                 gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
                 gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers());
             defCard.addListener(ownDefCardListener);
@@ -344,7 +357,6 @@ public class GameScreen extends ScreenAdapter {
         // check if card is sabotaged
         if (defCard.isSabotaged()) {
           // show saboteur spite
-          // add hand image
           Texture sabotagedTexture = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
           TextureRegion sabotagedRegion = new TextureRegion(sabotagedTexture, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
@@ -362,6 +374,34 @@ public class GameScreen extends ScreenAdapter {
 
           gameStage.addActor(sabotagedImage);
         }
+
+        if (defCard.getBoosted() > 0) {
+          // show saboteur spite
+          Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
+          TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+          Image mercenaryImage = new Image(mercenaryRegion);
+          mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(), mercenaryImage.getWidth() / 20f,
+              mercenaryImage.getHeight() / 20f);
+          // set to center of def card
+          mercenaryImage.setPosition(defCard.getX(), defCard.getY());
+          mercenaryImage.setX(mercenaryImage.getX() + defCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
+          mercenaryImage.setY(mercenaryImage.getY() + defCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
+
+          // add listener to take back own mercenaries
+          removeAllListeners(mercenaryImage);
+          mercenaryImageListener = new MercenaryImageListener(gameState, defCard, currentPlayer);
+          mercenaryImage.addListener(mercenaryImageListener);
+
+          gameStage.addActor(mercenaryImage);
+
+          // boost counter in center
+          String boostCount = String.valueOf(defCard.getBoosted());
+          Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
+          boostCountLabel.setColor(Color.GOLD);
+          boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+
+          gameStage.addActor(boostCountLabel);
+        }
       }
 
       // display top defense cards
@@ -377,9 +417,10 @@ public class GameScreen extends ScreenAdapter {
             topDefCard.addListener(enemyDefCardListener);
 
           } else {
-            ownDefCardListener = new OwnDefCardListener(topDefCard, gameState.getCurrentPlayer().getKingCard(),
-                gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
-                gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers());
+            ownDefCardListener = new OwnDefCardListener(gameState, topDefCard,
+                gameState.getCurrentPlayer().getKingCard(), gameState.getCurrentPlayer().getDefCards(),
+                gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards(),
+                gameState.getCurrentPlayer(), gameState.getPlayers());
             topDefCard.addListener(ownDefCardListener);
           }
 
@@ -479,19 +520,48 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Hero> playerHeroes = currentPlayer.getHeroes();
     currentPlayer.sortHandCards();
     for (int j = 0; j < handCards.size(); j++) {
-      handCards.get(j).setCovered(false);
-      handCards.get(j).setActive(true);
-      handCards.get(j).setRotation(0);
-      handCards.get(j).setWidth(handCards.get(j).getDefWidth() * 2);
-      handCards.get(j).setHeight(handCards.get(j).getDefHeight() * 2);
+      Card handcard = handCards.get(j);
+      handcard.setCovered(false);
+      handcard.setActive(true);
+      handcard.setRotation(0);
+      handcard.setWidth(handcard.getDefWidth() * 2);
+      handcard.setHeight(handcard.getDefHeight() * 2);
       if (j < 5) {
-        handCards.get(j).setX(j * handCards.get(j).getWidth());
-        handCards.get(j).setY(MyGdxGame.WIDTH / 2);
+        handcard.setX(j * handcard.getWidth());
+        handcard.setY(MyGdxGame.WIDTH / 2);
       } else {
-        handCards.get(j).setX((j - 5) * handCards.get(j).getWidth());
-        handCards.get(j).setY(MyGdxGame.WIDTH / 2 - handCards.get(j).getHeight());
+        handcard.setX((j - 5) * handcard.getWidth());
+        handcard.setY(MyGdxGame.WIDTH / 2 - handcard.getHeight());
       }
-      handStage.addActor(handCards.get(j));
+      handStage.addActor(handcard);
+
+      if (handcard.getBoosted() > 0) {
+        // show saboteur spite
+        Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
+        TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+        Image mercenaryImage = new Image(mercenaryRegion);
+        mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(), mercenaryImage.getWidth() / 10f,
+            mercenaryImage.getHeight() / 10f);
+        // set to center of def card
+        mercenaryImage.setPosition(handcard.getX(), handcard.getY());
+        mercenaryImage.setX(mercenaryImage.getX() + handcard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
+        mercenaryImage.setY(mercenaryImage.getY() + handcard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
+
+        // add listener to take back own mercenaries
+        removeAllListeners(mercenaryImage);
+        mercenaryImageListener = new MercenaryImageListener(gameState, handcard, currentPlayer);
+        mercenaryImage.addListener(mercenaryImageListener);
+
+        handStage.addActor(mercenaryImage);
+
+        // boost counter in center
+        String boostCount = String.valueOf(handcard.getBoosted());
+        Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
+        boostCountLabel.setColor(Color.GOLD);
+        boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+
+        handStage.addActor(boostCountLabel);
+      }
 
       // add keep/trade buttons if card is tradeable
       if (handCards.get(j).isTradeable()) {
@@ -525,8 +595,8 @@ public class GameScreen extends ScreenAdapter {
     for (int j = 0; j < playerHeroes.size(); j++) {
       final Hero hero = playerHeroes.get(j);
 
-      playerHeroes.get(j).setHand(true);
-      playerHeroes.get(j).setPosition(j * playerHeroes.get(j).getWidth(), 0);
+      hero.setHand(true);
+      hero.setPosition(j * hero.getWidth(), 0);
 
       // if attacking symbol is given, priest should be selectable
       if (hero.getHeroName() == "Priest") {
@@ -542,13 +612,22 @@ public class GameScreen extends ScreenAdapter {
       ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer());
       hero.addListener(ownHeroListener);
 
-      Label heroLabel = new Label(playerHeroes.get(j).getHeroID(), MyGdxGame.skin);
-      heroLabel.setPosition(
-          j * playerHeroes.get(j).getWidth() + (playerHeroes.get(j).getWidth() - heroLabel.getWidth()) / 2,
-          playerHeroes.get(j).getHeight());
+      Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
+      heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
 
-      handStage.addActor(playerHeroes.get(j));
+      handStage.addActor(hero);
       handStage.addActor(heroLabel);
+
+      if (hero.getHeroName() == "Mercenaries") {
+        // ready counter in center
+        Mercenaries mercenaries = (Mercenaries) hero;
+        String readyCount = String.valueOf(mercenaries.countReady());
+        Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
+        readyCountLabel.setColor(Color.GOLD);
+        readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f, hero.getY());
+        
+        handStage.addActor(readyCountLabel);
+      }
     }
 
     // turn info and button

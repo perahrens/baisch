@@ -8,7 +8,7 @@ import com.mygdx.game.Player;
 import com.mygdx.heroes.Mercenaries;
 
 public class MercenaryImageListener extends ClickListener {
-  
+
   GameState gameState;
   Card defCard; // sabotaged def card
   Player player;

@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.heroes.Hero;
 import com.mygdx.listeners.CemeteryDeckListener;
 import com.mygdx.listeners.PickingDeckListener;
@@ -57,8 +55,8 @@ public class GameState {
     // fill picking decks with 5 cards
     pickingDecks.add(new PickingDeck());
     pickingDecks.add(new PickingDeck());
-    final PickingDeck pickingDeckOneRef = pickingDecks.get(0);
-    final PickingDeck pickingDeckTwoRef = pickingDecks.get(1);
+    //final PickingDeck pickingDeckOneRef = pickingDecks.get(0);
+    //final PickingDeck pickingDeckTwoRef = pickingDecks.get(1);
 
     Card card1 = cardDeck.getCard(cemeteryDeck); // open picking card
     Card card2 = cardDeck.getCard(cemeteryDeck); // open picking card
@@ -107,10 +105,10 @@ public class GameState {
         players.get(i).addDefCard(j, defCard, 0);
       }
 
-      //Card defCard = players.get(i).getLastHandCard();
-      //defCard.setCovered(true);
-      //players.get(i).addDefCard(2, defCard, 1);
-      
+      // Card defCard = players.get(i).getLastHandCard();
+      // defCard.setCovered(true);
+      // players.get(i).addDefCard(2, defCard, 1);
+
       // add heroes
       // Hero hero1 = heroesSquare.getHero(2*i+2);
       // Hero hero2 = heroesSquare.getHero(2*i+3);
@@ -124,13 +122,13 @@ public class GameState {
 
     Hero hero = heroesSquare.getHero(2);
     players.get(0).addHero(hero);
-    
+
     hero = heroesSquare.getHero(4);
     players.get(1).addHero(hero);
-    
+
     hero = heroesSquare.getHero(12);
     players.get(2).addHero(hero);
-    
+
     hero = heroesSquare.getHero(13);
     players.get(3).addHero(hero);
   }

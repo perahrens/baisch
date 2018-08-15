@@ -11,7 +11,6 @@ import com.mygdx.game.CardDeck;
 import com.mygdx.game.Player;
 import com.mygdx.heroes.King;
 import com.mygdx.heroes.Magician;
-import com.mygdx.heroes.Priest;
 import com.mygdx.heroes.Saboteurs;
 import com.mygdx.heroes.Spy;
 

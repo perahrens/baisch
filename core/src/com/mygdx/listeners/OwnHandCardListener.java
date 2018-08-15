@@ -73,8 +73,7 @@ public class OwnHandCardListener extends ClickListener {
 
             newCard.setTradable(true);
           }
-        } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries"
-            && player.getHeroes().get(i).isSelected()) {
+        } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
           Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
           if (mercenaries.isAvailable()) {
             mercenaries.operate();

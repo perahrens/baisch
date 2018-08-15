@@ -1,36 +1,36 @@
 package com.mygdx.heroes;
 
 public class Magician extends Hero {
-	private int spells = 1;
-	
-	public Magician() {
-		heroName = "Magician";
-		heroID = "Magic.";
-		sprite = atlas.createSprite("bq", -1);
+  private int spells = 1;
 
-		isSelected = false;
-		isSelectable = true;
+  public Magician() {
+    heroName = "Magician";
+    heroID = "Magic.";
+    sprite = atlas.createSprite("bq", -1);
 
-		setWidth(sprite.getWidth()*scaleFactor);
-		setHeight(sprite.getHeight()*scaleFactor);
+    isSelected = false;
+    isSelectable = true;
 
-	}
-	
-	public void recover() {
-		spells = 1;
-		isSelectable = true;
-	}
-	
-	public void castSpell() {
-		spells--;
-		if (spells == 0) {
-			isSelectable = false;
-			isSelected = false;
-		}
-	}
-	
-	public int getSpells() {
-		return spells;
-	}
+    setWidth(sprite.getWidth() * scaleFactor);
+    setHeight(sprite.getHeight() * scaleFactor);
+
+  }
+
+  public void recover() {
+    spells = 1;
+    isSelectable = true;
+  }
+
+  public void castSpell() {
+    spells--;
+    if (spells == 0) {
+      isSelectable = false;
+      isSelected = false;
+    }
+  }
+
+  public int getSpells() {
+    return spells;
+  }
 
 }

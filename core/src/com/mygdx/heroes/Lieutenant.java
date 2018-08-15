@@ -1,8 +1,5 @@
 package com.mygdx.heroes;
 
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-
 public class Lieutenant extends Hero {
 
   /*

@@ -1,50 +1,42 @@
 package com.mygdx.heroes;
 
-import com.badlogic.gdx.graphics.g2d.Batch;
-import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.mygdx.game.MyGdxGame;
-
 public class Merchant extends Hero {
-	private int trades;
+  private int trades;
 
-	public Merchant() {
-		heroName = "Merchant";
-		heroID = "Merch.";
-		sprite = atlas.createSprite("wq", -1);
+  public Merchant() {
+    heroName = "Merchant";
+    heroID = "Merch.";
+    sprite = atlas.createSprite("wq", -1);
 
-		trades = 1;
-		
-		isSelectable = true;
-		isSelected = false;
+    trades = 1;
 
-		setWidth(sprite.getWidth()*scaleFactor);
-		setHeight(sprite.getHeight()*scaleFactor);
-		
-	}
-	
-	/* if hero is selected and handcard is selected
-	 *  cast away handcard and get new handcard from deck
-	 *  decrement number of trades
-	 *  if last trade, then make card visible for all players 
-	 */ 
-	public void trade() {
-		trades--;
-		if (trades == 0) {
-			isSelectable = false;
-		}
-	}
-	
-	public int getTrades() {
-		return trades;
-	}
-	
-	public void recover() {
-		trades = 1;
-		isSelectable = true;
-	}
+    isSelectable = true;
+    isSelected = false;
+
+    setWidth(sprite.getWidth() * scaleFactor);
+    setHeight(sprite.getHeight() * scaleFactor);
+
+  }
+
+  /*
+   * if hero is selected and handcard is selected cast away handcard and get new
+   * handcard from deck decrement number of trades if last trade, then make card
+   * visible for all players
+   */
+  public void trade() {
+    trades--;
+    if (trades == 0) {
+      isSelectable = false;
+    }
+  }
+
+  public int getTrades() {
+    return trades;
+  }
+
+  public void recover() {
+    trades = 1;
+    isSelectable = true;
+  }
 
 }

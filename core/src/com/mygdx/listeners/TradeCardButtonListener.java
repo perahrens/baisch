@@ -9,16 +9,16 @@ import com.mygdx.game.CardDeck;
 import com.mygdx.game.Player;
 
 public class TradeCardButtonListener extends ClickListener {
-  
+
   Card tradeableCard;
   Player player;
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
-  
+
   public TradeCardButtonListener() {
     // TODO Auto-generated constructor stub
   }
-  
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     Iterator<Card> handCardsIt = player.getHandCards().iterator();
@@ -34,7 +34,7 @@ public class TradeCardButtonListener extends ClickListener {
     Card newCard = cardDeck.getCard(cemeteryDeck);
     player.addHandCard(newCard);
     tradeableCard.setTradable(false);
-    //gameState.setUpdateState(true);
+    // gameState.setUpdateState(true);
   }
 
 }

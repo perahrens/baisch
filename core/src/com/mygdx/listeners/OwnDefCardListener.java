@@ -87,8 +87,8 @@ public class OwnDefCardListener extends ClickListener {
 
       }
     }
-    
-    //gameState.setUpdateState(true);
+
+    // gameState.setUpdateState(true);
 
   };
 

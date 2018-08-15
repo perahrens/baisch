@@ -9,15 +9,15 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 
 public class HandImageListener extends ClickListener {
-  
+
   GameState gameState;
   Player player;
-  
+
   public HandImageListener(GameState gameState, Player player) {
     this.gameState = gameState;
     this.player = player;
   }
-  
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     Map<Integer, Card> defCards = player.getDefCards();

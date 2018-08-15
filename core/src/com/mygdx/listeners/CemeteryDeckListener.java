@@ -12,13 +12,13 @@ import com.mygdx.game.Player;
 import com.mygdx.heroes.Hero;
 
 public class CemeteryDeckListener extends ClickListener {
-  
+
   GameState gameState;
-  
+
   public CemeteryDeckListener(GameState gameState) {
     this.gameState = gameState;
   }
-  
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     System.out.println("Cemetery");
@@ -50,6 +50,5 @@ public class CemeteryDeckListener extends ClickListener {
       }
     }
   }
-
 
 }

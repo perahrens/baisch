@@ -1,5 +1,7 @@
 package com.mygdx.game;
 
+import java.util.ArrayList;
+
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.Sprite;
@@ -7,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.utils.Array;
+import com.mygdx.heroes.Mercenaries;
 
 public class Card extends Actor {
   Sprite sprite;
@@ -26,10 +29,13 @@ public class Card extends Actor {
   private boolean isActive = false;
   private boolean isPlaceholder = false;
   private boolean isRemoved = false; // temporary information that card should be removed
-  private boolean isSuspended = false; // suspended card can only be used next round
+  // private boolean isSuspended = false; // suspended card can only be used next
+  // round
   private boolean isTradable = false; // information that card can be traded again and should be overlaid with
                                       // keep/cast button
-  private boolean isSabotaged = false; // information that card is blocked by a saboteur and can not be used by the player
+  private boolean isSabotaged = false; // information that card is blocked by a saboteur and can not be used by the
+                                       // player
+  private int boosted = 0; // boosted by mercenary
 
   // texture attributes
   private float defWidth;
@@ -171,6 +177,7 @@ public class Card extends Actor {
       strength = 14;
     if (symbol == "joker")
       strength = 999;
+    strength += getBoosted();
     return strength;
   }
 
@@ -189,17 +196,43 @@ public class Card extends Actor {
   public boolean isTradeable() {
     return isTradable;
   }
-  
+
   public void setSabotaged(boolean isSabotaged) {
     this.isSabotaged = isSabotaged;
   }
-  
+
   public boolean isSabotaged() {
     return isSabotaged;
   }
 
   public void setRotation(int rotation) {
     this.rotate = rotation;
+  }
+
+  public void addBoosted(int boost) {
+    boosted += boost; // can be positive or negative
+  }
+
+  public int getBoosted() {
+    return boosted;
+  }
+
+  // set mercenaries back to owner
+  public void unboost(ArrayList<Player> players) {
+    for (int i = 0; i < players.size(); i++) {
+      if (players.get(i).hasHero("Mercenaries")) {
+        for (int j = 0; j < players.get(j).getHeroes().size(); j++) {
+          if (players.get(j).getHeroes().get(j).getHeroName() == "Mercenaries") {
+            Mercenaries mercenaries = (Mercenaries) players.get(j).getHeroes().get(j);
+            while (getBoosted() > 0) {
+              mercenaries.destroy();
+              addBoosted(-1);
+            }
+          }
+        }
+      }
+    }
+
   }
 
   public float getDefWidth() {
@@ -244,12 +277,12 @@ public class Card extends Actor {
   public int getPositionId() {
     return positionId;
   }
-  
+
   public int getLevel() {
     return level;
   }
-  
-  public void setLevel (int level) {
+
+  public void setLevel(int level) {
     this.level = level;
   }
 
@@ -269,7 +302,7 @@ public class Card extends Actor {
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         setY(getHeight());
-        setY(getY() + 0.25f * level * getHeight()); //level shift
+        setY(getY() + 0.25f * level * getHeight()); // level shift
         rotate = 0;
         break;
       }
@@ -283,7 +316,7 @@ public class Card extends Actor {
         break;
       default:
         setX((getHeight() - getWidth()) / 2 + getHeight());
-        setX(getX() + 0.25f * level * getHeight()); //level shift
+        setX(getX() + 0.25f * level * getHeight()); // level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         rotate = -90;
         break;
@@ -299,7 +332,7 @@ public class Card extends Actor {
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         setY(MyGdxGame.WIDTH - 2f * getHeight());
-        setY(getY() - 0.25f * level * getHeight()); //level shift
+        setY(getY() - 0.25f * level * getHeight()); // level shift
         rotate = 180;
         break;
       }
@@ -313,7 +346,7 @@ public class Card extends Actor {
         break;
       default:
         setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - 2f * getHeight());
-        setX(getX() - 0.25f * level * getHeight()); //level shift
+        setX(getX() - 0.25f * level * getHeight()); // level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         rotate = 90;
         break;

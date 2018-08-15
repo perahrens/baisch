@@ -1,14 +1,8 @@
 package com.mygdx.heroes;
 
-import com.badlogic.gdx.graphics.g2d.Batch;
-import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-
 public class Mercenaries extends Hero {
 
-  // (0) ready (1) defending (2) dead
+  // (0) ready (1) in use (2) dead
   private int[] mercenaryStates = { 0, 0, 0, 0, 2, 2, 2, 2 };
 
   public Mercenaries() {
@@ -16,7 +10,8 @@ public class Mercenaries extends Hero {
     heroID = "Merc.";
     sprite = atlas.createSprite("wp", -1);
 
-    this.isSelected = false;
+    isSelected = false;
+    isSelectable = true;
 
     setWidth(sprite.getWidth() * scaleFactor);
     setHeight(sprite.getHeight() * scaleFactor);
@@ -33,6 +28,64 @@ public class Mercenaries extends Hero {
       if (heals == 0) {
         break;
       }
+    }
+    if (isAvailable()) {
+      isReady = true;
+    }
+  }
+
+  public int countReady() {
+    int readyCount = 0;
+    for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 0) {
+        readyCount++;
+      }
+    }
+    return readyCount;
+  }
+
+  public boolean isAvailable() {
+    boolean isAvailable = false;
+    for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 0) {
+        isAvailable = true;
+        break;
+      }
+    }
+    return isAvailable;
+  }
+
+  public void callback() {
+    for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 1) {
+        mercenaryStates[i] = 0;
+        break;
+      }
+    }
+    if (isAvailable()) {
+      isReady = true;
+    }
+  }
+
+  public void destroy() {
+    for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 1) {
+        mercenaryStates[i] = 2;
+        break;
+      }
+    }
+  }
+
+  public void operate() {
+    for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 0) {
+        mercenaryStates[i] = 1;
+        break;
+      }
+    }
+    if (!isAvailable()) {
+      isSelected = false;
+      isReady = false;
     }
   }
 

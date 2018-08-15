@@ -9,27 +9,25 @@ import com.mygdx.game.Player;
 import com.mygdx.heroes.Spy;
 
 public class EnemyKingCardListener extends ClickListener {
-  
+
   Card kingCard;
   Player player;
   ArrayList<Player> players;
-  
-  
+
   public EnemyKingCardListener() {
   }
-  
+
   public EnemyKingCardListener(Card kingCard, Player player, ArrayList<Player> players) {
     this.kingCard = kingCard;
     this.player = player;
     this.players = players;
   }
-  
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     if (player.getSelectedHeroes().size() > 0) {
       for (int i = 0; i < player.getHeroes().size(); i++) {
-        if (player.getHeroes().get(i).getHeroName() == "Spy"
-            && player.getHeroes().get(i).isSelected()) {
+        if (player.getHeroes().get(i).getHeroName() == "Spy" && player.getHeroes().get(i).isSelected()) {
           Spy spy = (Spy) player.getHeroes().get(i);
           // check if all def cards are uncovered
           // first find player

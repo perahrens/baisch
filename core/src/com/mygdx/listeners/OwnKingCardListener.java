@@ -23,8 +23,8 @@ public class OwnKingCardListener extends ClickListener {
   public OwnKingCardListener() {
   }
 
-  public OwnKingCardListener(GameState gameState, Player player, Card kingCard, Map<Integer, Card> defCards, Map<Integer, Card> topDefCards,
-      ArrayList<Card> handCards) {
+  public OwnKingCardListener(GameState gameState, Player player, Card kingCard, Map<Integer, Card> defCards,
+      Map<Integer, Card> topDefCards, ArrayList<Card> handCards) {
     this.gameState = gameState;
     this.player = player;
     this.kingCard = kingCard;
@@ -38,8 +38,7 @@ public class OwnKingCardListener extends ClickListener {
 
     if (player.getSelectedHeroes().size() > 0) {
       for (int i = 0; i < player.getHeroes().size(); i++) {
-        if (player.getHeroes().get(i).getHeroName() == "Mercenaries"
-            && player.getHeroes().get(i).isSelected()) {
+        if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
           Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
           if (mercenaries.isAvailable()) {
             mercenaries.operate();

@@ -1,13 +1,5 @@
 package com.mygdx.heroes;
 
-import com.badlogic.gdx.graphics.g2d.Batch;
-import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.mygdx.game.MyGdxGame;
-
 public class Spy extends Hero {
   private int spyAttacks;
   private int spyExtends;

@@ -16,6 +16,7 @@ import com.mygdx.heroes.Major;
 public class Player {
 
   // inventar
+  boolean isAlive;
   String playerName;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
@@ -30,6 +31,7 @@ public class Player {
 
   public Player(String name) {
     // init inventar
+    isAlive = true;
     playerName = name;
     handCards = new ArrayList<Card>();
     defCards = new HashMap<Integer, Card>();
@@ -523,6 +525,10 @@ public class Player {
 
   public void setSelectedSymbol(String symbol) {
     selectedSymbol = symbol;
+  }
+  
+  public void setDead() {
+    this.isAlive = false;
   }
 
   public boolean hasHero(String heroName) {

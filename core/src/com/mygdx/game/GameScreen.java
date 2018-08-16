@@ -268,7 +268,7 @@ public class GameScreen extends ScreenAdapter {
 
       if (players.get(i) != currentPlayer) {
 
-        enemyKingCardListener = new EnemyKingCardListener(kingCard, gameState.getCurrentPlayer(),
+        enemyKingCardListener = new EnemyKingCardListener(gameState, kingCard, gameState.getCurrentPlayer(),
             gameState.getPlayers());
         kingCard.addListener(enemyKingCardListener);
       } else {

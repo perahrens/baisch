@@ -55,8 +55,8 @@ public class GameState {
     // fill picking decks with 5 cards
     pickingDecks.add(new PickingDeck());
     pickingDecks.add(new PickingDeck());
-    //final PickingDeck pickingDeckOneRef = pickingDecks.get(0);
-    //final PickingDeck pickingDeckTwoRef = pickingDecks.get(1);
+    // final PickingDeck pickingDeckOneRef = pickingDecks.get(0);
+    // final PickingDeck pickingDeckTwoRef = pickingDecks.get(1);
 
     Card card1 = cardDeck.getCard(cemeteryDeck); // open picking card
     Card card2 = cardDeck.getCard(cemeteryDeck); // open picking card
@@ -154,7 +154,12 @@ public class GameState {
   }
 
   public ArrayList<Player> getPlayers() {
-    return players;
+    ArrayList<Player> alivePlayers = new ArrayList<Player>();
+    for (int i = 0; i < players.size(); i++) {
+      if (players.get(i).isAlive)
+        alivePlayers.add(players.get(i));
+    }
+    return alivePlayers;
   }
 
   public Player getCurrentPlayer() {

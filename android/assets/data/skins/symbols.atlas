@@ -21,7 +21,7 @@ diamonds
 hearts
   rotate: false
   xy: 540, 540
-  size: 540, 540
+  size: 54, 540
   orig: 540, 540
   offset: 0, 0
   index: -1

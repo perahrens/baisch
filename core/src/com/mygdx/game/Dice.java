@@ -1,7 +1,5 @@
 package com.mygdx.game;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -16,7 +14,8 @@ public class Dice extends Actor {
   final float scaleFactor = 0.1f;
 
   public Dice() {
-    this.number = ThreadLocalRandom.current().nextInt(1, 6 + 1);
+    //number = ThreadLocalRandom.current().nextInt(1, 6 + 1);
+    number = 1;
     sprite = atlas.createSprite("side", number);
 
     setWidth(sprite.getWidth() * scaleFactor);
@@ -46,7 +45,8 @@ public class Dice extends Actor {
   }
 
   public void roll() {
-    this.number = ThreadLocalRandom.current().nextInt(1, 6 + 1);
+    //number = ThreadLocalRandom.current().nextInt(1, 6 + 1);
+    number = 1;
     sprite = atlas.createSprite("side", number);
   }
 

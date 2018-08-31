@@ -2,9 +2,9 @@ package com.mygdx.game;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Input.Buttons;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -54,7 +54,8 @@ public class Relicts extends ApplicationAdapter implements InputProcessor {
 		sprite.setScale(1f);
 		attack = new Timer();
 		attack.scheduleTask(new Task() {
-			public void run() {
+			@Override
+      public void run() {
 				if (frame >= 8) {
 					frame = 0;
 					if (zeile == 1 ) {

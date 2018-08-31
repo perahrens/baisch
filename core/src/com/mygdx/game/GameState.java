@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
-import com.mygdx.heroes.Hero;
-import com.mygdx.listeners.CemeteryDeckListener;
-import com.mygdx.listeners.PickingDeckListener;
+import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.listeners.CemeteryDeckListener;
+import com.mygdx.game.listeners.PickingDeckListener;
 
 public class GameState {
 

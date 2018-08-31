@@ -10,8 +10,8 @@ import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
-import com.mygdx.heroes.Hero;
-import com.mygdx.heroes.Major;
+import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Major;
 
 public class Player {
 
@@ -37,7 +37,7 @@ public class Player {
     defCards = new HashMap<Integer, Card>();
     topDefCards = new HashMap<Integer, Card>();
     heroes = new ArrayList<Hero>();
-    dice = new Dice();
+    //dice = new Dice();
 
     playerTurn = new PlayerTurn();
 

@@ -1,5 +1,9 @@
 package com.mygdx.game;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
@@ -11,7 +15,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 
+import io.socket.client.IO;
+import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
+
 public class MyGdxGame extends Game implements InputProcessor {
+  private Socket socket;
   public final static float HEIGHT = 800;
   public final static float WIDTH = 450;
 
@@ -21,22 +30,22 @@ public class MyGdxGame extends Game implements InputProcessor {
   static Skin skin;
   static Stage stage;
 
-  private Label welcome;
-  private Label baisch;
-  private TextArea userName;
-  private TextButton button;
-
   @Override
   public void create() {
 
-    camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    batch = new SpriteBatch();
+    // camera = new OrthographicCamera(Gdx.graphics.getWidth(),
+    // Gdx.graphics.getHeight());
+    // batch = new SpriteBatch();
     stage = new Stage();
     Gdx.input.setInputProcessor(stage);
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
-    setScreen(new MenuScreen(this));
+    connectSocket();
+    
+    setScreen(new MenuScreen(this, socket));
+    
+    //configSocketEvents();
 
   }
 
@@ -87,6 +96,15 @@ public class MyGdxGame extends Game implements InputProcessor {
   public boolean scrolled(int amount) {
     // TODO Auto-generated method stub
     return false;
+  }
+
+  public void connectSocket() {
+    try {
+      socket = IO.socket("http://localhost:8082");
+      socket.connect();
+    } catch (Exception e) {
+      System.out.println(e);
+    }
   }
 
 }

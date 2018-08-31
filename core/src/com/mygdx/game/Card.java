@@ -9,7 +9,7 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.utils.Array;
-import com.mygdx.heroes.Mercenaries;
+import com.mygdx.game.heroes.Mercenaries;
 
 public class Card extends Actor {
   Sprite sprite;

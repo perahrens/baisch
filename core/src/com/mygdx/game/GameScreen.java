@@ -20,22 +20,22 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.mygdx.heroes.Hero;
-import com.mygdx.heroes.Mercenaries;
-import com.mygdx.listeners.EnemyDefCardListener;
-import com.mygdx.listeners.EnemyHandCardListener;
-import com.mygdx.listeners.EnemyKingCardListener;
-import com.mygdx.listeners.FinishTurnButtonListener;
-import com.mygdx.listeners.HandImageListener;
-import com.mygdx.listeners.KeepCardButtonListener;
-import com.mygdx.listeners.MercenaryImageListener;
-import com.mygdx.listeners.OwnDefCardListener;
-import com.mygdx.listeners.OwnHandCardListener;
-import com.mygdx.listeners.OwnHeroListener;
-import com.mygdx.listeners.OwnKingCardListener;
-import com.mygdx.listeners.OwnPlaceholderListener;
-import com.mygdx.listeners.SabotagedImageListener;
-import com.mygdx.listeners.TradeCardButtonListener;
+import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.listeners.EnemyDefCardListener;
+import com.mygdx.game.listeners.EnemyHandCardListener;
+import com.mygdx.game.listeners.EnemyKingCardListener;
+import com.mygdx.game.listeners.FinishTurnButtonListener;
+import com.mygdx.game.listeners.HandImageListener;
+import com.mygdx.game.listeners.KeepCardButtonListener;
+import com.mygdx.game.listeners.MercenaryImageListener;
+import com.mygdx.game.listeners.OwnDefCardListener;
+import com.mygdx.game.listeners.OwnHandCardListener;
+import com.mygdx.game.listeners.OwnHeroListener;
+import com.mygdx.game.listeners.OwnKingCardListener;
+import com.mygdx.game.listeners.OwnPlaceholderListener;
+import com.mygdx.game.listeners.SabotagedImageListener;
+import com.mygdx.game.listeners.TradeCardButtonListener;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {
@@ -212,7 +212,7 @@ public class GameScreen extends ScreenAdapter {
       // display hand cards
       ArrayList<Card> handCards = players.get(i).getHandCards();
       for (int j = 0; j < handCards.size(); j++) {
-        final Card handCard = (Card) handCards.get(j);
+        final Card handCard = handCards.get(j);
         handCards.get(j).setCovered(true);
         handCards.get(j).setRotation(0);
         handCards.get(j).setActive(false);

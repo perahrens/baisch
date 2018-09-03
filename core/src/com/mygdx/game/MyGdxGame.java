@@ -1,23 +1,15 @@
 package com.mygdx.game;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
 
 public class MyGdxGame extends Game implements InputProcessor {
   private Socket socket;
@@ -42,10 +34,10 @@ public class MyGdxGame extends Game implements InputProcessor {
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
     connectSocket();
-    
+
     setScreen(new MenuScreen(this, socket));
-    
-    //configSocketEvents();
+
+    // configSocketEvents();
 
   }
 

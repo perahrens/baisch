@@ -1,28 +1,35 @@
 package com.mygdx.game;
 
+import java.util.ArrayList;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Timer;
+import com.badlogic.gdx.utils.Timer.Task;
 
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 
 public class MenuScreen extends AbstractScreen {
+
+  private Socket socket;
 
   private Stage menuStage;
   private MenuState menuState;
@@ -30,16 +37,22 @@ public class MenuScreen extends AbstractScreen {
   private Label loggedInCount;
   private TextArea userName;
   private TextButton button;
-  
+
   private Group group;
 
   private Texture logoTexture;
   private TextureRegion logoRegion;
   private Image logoImage;
 
-  public MenuScreen(final Game game, Socket socket) {
+  private int currentUsersCount;
+  private boolean updateScreen = false;
+  boolean timerStarted = false;
+
+  public MenuScreen(final Game game, final Socket socket) {
     super(game);
-    
+
+    this.socket = socket;
+
     menuStage = new Stage();
 
     // init game
@@ -71,6 +84,7 @@ public class MenuScreen extends AbstractScreen {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         // game.setScreen(new GameScreen(game));
+        socket.emit("setUserReady", menuState.getMyUserID());
         System.out.println("test");
       };
     });
@@ -81,76 +95,10 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(group);
     menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
 
+    currentUsersCount = menuState.getUsers().size();
+
     Gdx.input.setInputProcessor(menuStage);
 
-  }
-
-  public void configSocketEvents(Socket socket) {
-    socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
-
-      @Override
-      public void call(Object... args) {
-        // TODO Auto-generated method stub
-        Gdx.app.log("SocketIO", "Connected");
-      }
-    }).on("socketID", new Emitter.Listener() {
-
-      @Override
-      public void call(Object... args) {
-        // TODO Auto-generated method stub
-        JSONObject data = (JSONObject) args[0];
-        try {
-          String id = data.getString("id");
-          Gdx.app.log("SocketIO", "My ID: " + id);
-        } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error getting ID");
-        }
-      }
-    }).on("newPlayer", new Emitter.Listener() {
-
-      @Override
-      public void call(Object... args) {
-        // TODO Auto-generated method stub
-        JSONObject data = (JSONObject) args[0];
-        try {
-          String id = data.getString("id");
-          Gdx.app.log("SocketIO", "New Player connected: " + id);
-        } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error getting new player ID ");
-        }
-      }
-    }).on("playerDisconnected", new Emitter.Listener() {
-
-      @Override
-      public void call(Object... args) {
-        // TODO Auto-generated method stub
-        JSONObject data = (JSONObject) args[0];
-        try {
-          String id = data.getString("id");
-          Gdx.app.log("SocketIO", "Player disconnected: " + id);
-        } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error disconnecting player ID ");
-        }
-      }
-    }).on("getPlayers", new Emitter.Listener() {
-
-      @Override
-      public void call(Object... args) {
-        // TODO Auto-generated method stub
-        JSONArray objects = (JSONArray) args[0];
-        try {
-          for (int i = 0; i < objects.length(); i++) {
-            String playerName = ((String) objects.getJSONObject(i).getString("id"));
-            Player player = new Player(playerName);
-            menuState.addPlayer(player);
-            Gdx.app.log("SocketIO", "Get players " + playerName);
-          }
-        } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error getting new player ID ");
-        }
-        Gdx.app.log("SocketIO", "Numger of players = " + menuState.getPlayers().size());
-      }
-    });
   }
 
   public void create() {
@@ -159,8 +107,74 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void show() {
-    // TODO Auto-generated method stub
+    menuStage.clear();
 
+    // logged in count
+    loggedInCount = new Label("Logged in users: " + currentUsersCount, MyGdxGame.skin);
+    loggedInCount.setPosition(0, 0);
+
+    // table with all logged in users
+    Table loggedInUserTable = new Table(MyGdxGame.skin);
+    ArrayList<User> loggedInUsers = menuState.getUsers();
+
+    Label headLine1 = new Label("User ID", MyGdxGame.skin);
+    headLine1.setFontScale(1.2f);
+    Label headLine2 = new Label("Status", MyGdxGame.skin);
+    headLine2.setFontScale(1.2f);
+
+    loggedInUserTable.add(headLine1);
+    loggedInUserTable.add(headLine2);
+    loggedInUserTable.row();
+
+    for (int i = 0; i < loggedInUsers.size(); i++) {
+      User user = loggedInUsers.get(i);
+      Label userIDLabel = new Label(user.getUserID() + "      ", MyGdxGame.skin);
+
+      if (user.getUserID().equals(menuState.getMyUserID())) {
+        userIDLabel.setColor(Color.GOLD);
+      }
+
+      Label isReady;
+      if (user.isReady()) {
+        isReady = new Label("GO", MyGdxGame.skin);
+        isReady.setColor(Color.GREEN);
+      } else {
+        isReady = new Label("WAIT", MyGdxGame.skin);
+        isReady.setColor(Color.RED);
+      }
+
+      loggedInUserTable.add(userIDLabel);
+      loggedInUserTable.add(isReady);
+      loggedInUserTable.row();
+    }
+
+    loggedInUserTable.setPosition(200, 300);
+
+    // check if all players are ready
+    if (menuState.allReady() && !timerStarted) {
+      System.out.println("All players ready...");
+      socket.emit("startTimer", 5);
+      menuState.setTimeToStart(5);
+      Timer.schedule(new Task() {
+        @Override
+        public void run() {
+          show();
+          System.out.println("timeToStart= " + menuState.getTimeToStart());
+        }
+      }, 0, 1);
+      timerStarted = true;
+    }
+
+    Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
+    if (timerStarted) {
+      timerLabel = new Label("Time to start ... " + menuState.getTimeToStart(), MyGdxGame.skin);
+    }
+    timerLabel.setPosition(200, 0);
+
+    menuStage.addActor(group);
+    menuStage.addActor(timerLabel);
+    menuStage.addActor(loggedInUserTable);
+    menuStage.addActor(loggedInCount);
   }
 
   @Override
@@ -168,15 +182,22 @@ public class MenuScreen extends AbstractScreen {
     // System.out.println("render menu screen");
     Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-    
-    menuStage.clear();
 
-    // logged in count
-    loggedInCount = new Label("Logged in users: " + menuState.getPlayers().size(), MyGdxGame.skin);
-    loggedInCount.setPosition(0, 0);
+    if (currentUsersCount != menuState.getUsers().size()) {
+      currentUsersCount = menuState.getUsers().size();
+      show();
+    }
 
-    menuStage.addActor(group);
-    menuStage.addActor(loggedInCount);
+    if (updateScreen) {
+      updateScreen = false;
+      show();
+    }
+
+    if (menuState.getTimeToStart() <= 0 && timerStarted) {
+      Timer.instance().clear();
+      socket.emit("checkTimer", 0);
+      timerStarted = false;
+    }
 
     menuStage.draw();
   }
@@ -209,6 +230,93 @@ public class MenuScreen extends AbstractScreen {
   public void dispose() {
     // TODO Auto-generated method stub
 
+  }
+
+  public void configSocketEvents(Socket socket) {
+    socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        Gdx.app.log("SocketIO", "Connected");
+      }
+    }).on("socketID", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          String myUserID = data.getString("id");
+          menuState.setMyUserID(myUserID);
+          Gdx.app.log("SocketIO", "My ID: " + myUserID);
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error getting ID");
+        }
+      }
+    }).on("newUser", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          String id = data.getString("id");
+          Gdx.app.log("SocketIO", "New User connected: " + id);
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error getting new user ID ");
+        }
+      }
+    }).on("userDisconnected", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          String id = data.getString("id");
+          Gdx.app.log("SocketIO", "User disconnected: " + id);
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error disconnecting user ID ");
+        }
+      }
+    }).on("getUsers", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONArray objects = (JSONArray) args[0];
+        try {
+          menuState.clearUsers();
+          for (int i = 0; i < objects.length(); i++) {
+            String userID = ((String) objects.getJSONObject(i).getString("id"));
+            boolean isReady = ((boolean) objects.getJSONObject(i).getBoolean("isReady"));
+            User user = new User(userID);
+            user.setReady(isReady);
+            menuState.addUser(user);
+            updateScreen = true;
+            Gdx.app.log("SocketIO", "Get users " + userID + " " + isReady);
+          }
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error getting new user ID ");
+        }
+        Gdx.app.log("SocketIO", "Number of users = " + menuState.getUsers().size());
+      }
+    }).on("userReady", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          String id = data.getString("id");
+          ArrayList<User> users = menuState.getUsers();
+          for (int i = 0; i < users.size(); i++) {
+            if (users.get(i).getUserID().equals(id)) {
+              users.get(i).setReady(true);
+              System.out.println(users.get(i).isReady());
+            }
+          }
+          Gdx.app.log("SocketIO", "User ready: " + id);
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error ready user ID ");
+        }
+      }
+    });
   }
 
 }

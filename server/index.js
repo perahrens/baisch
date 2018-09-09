@@ -50,11 +50,13 @@ io.on('connection', function(socket) {
     clearInterval(timer);
     timer = setInterval(function() {
       timeToStart--;
+      socket.emit('updateTimer', { seconds: timeToStart });
+      socket.broadcast.emit('updateTimer', { seconds: timeToStart });
       console.log("Seconds left ... " + timeToStart)
       if (timeToStart == 0) {
         console.log("Timer finished, broadcast to users");
-        socket.emit('startGame', {});
-        socket.broadcast.emit('startGame', {});
+        socket.emit('startGame', { id: socket.id });
+        socket.broadcast.emit('startGame', { id: socket.id });
         clearInterval(timer);
       }
     }, 1000);

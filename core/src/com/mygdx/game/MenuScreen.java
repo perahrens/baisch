@@ -155,14 +155,12 @@ public class MenuScreen extends AbstractScreen {
       System.out.println("All players ready...");
       socket.emit("startTimer", 5);
       menuState.setTimeToStart(5);
-      Timer.schedule(new Task() {
-        @Override
-        public void run() {
-          show();
-          System.out.println("timeToStart= " + menuState.getTimeToStart());
-        }
-      }, 0, 1);
       timerStarted = true;
+    }
+    
+    if (!menuState.allReady() && timerStarted) {
+      timerStarted = false;
+      menuState.setTimeToStart(5);
     }
 
     Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
@@ -314,6 +312,32 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "User ready: " + id);
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error ready user ID ");
+        }
+      }
+    }).on("startGame", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          String id = data.getString("id");
+          Gdx.app.log("SocketIO", "Start game!");
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error starting game!");
+        }
+      }
+    }).on("updateTimer", new Emitter.Listener() {
+
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          int timeToStart = data.getInt("seconds");
+          menuState.setTimeToStart(timeToStart);
+          Gdx.app.log("SocketIO", "Seconds to start game: " + timeToStart);
+          show();
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error in timer!");
         }
       }
     });

@@ -79,34 +79,135 @@ The goal of the game is to be the last player remaining. A player is considered 
 
 #### Mercenaries
 
-![img.png](images/mercenaries.png)
-
-The player receives four starting figures. At the beginning of each turn, four of the maximum 
-eight Mercenaries are drawn. During the turn, any number of Mercenaries can be used to reinforce an attack, with one Mercenary counting as one attack point. After the attack, the Mercenaries are put back and are no longer available to the player. At the end of the turn, Mercenaries can be placed on defense cards to reinforce them. If the respective defense card is defeated, the corresponding Mercenaries are also defeated.
+<div style="display: flex; align-items: center;">
+    <img src="images/mercenaries.png" alt="Image description" width="200" style="margin-right: 10px;">
+    <div style="flex: 1;">
+        The player receives four starting figures. At the beginning of each turn, four of the maximum eight Mercenaries are drawn. During the turn, any number of Mercenaries can be used to reinforce an attack, with one Mercenary counting as one attack point. After the attack, the Mercenaries are put back and are no longer available to the player. At the end of the turn, Mercenaries can be placed on defense cards to reinforce them. If the respective defense card is defeated, the corresponding Mercenaries are also defeated.
+    </div>
+</div>
 
 #### Spy
 
+<div style="display: flex; align-items: center;">
+    <img src="images/spy.png" alt="Image description" width="200" style="margin-right: 10px;">
+    <div style="flex: 1;">
+        With the Spy, the player can reveal a facedown defense card of an opponent during their turn. If the player discards one of their hand cards, they can reveal two more cards. If an opponent has no more defense cards to reveal, their King can also be uncovered.
+    </div>
+</div>
+
 #### General
 
-#### White Tower
+<div style="display: flex; align-items: center;">
+    <img src="images/general.png" alt="Image description" width="200" style="margin-right: 10px;">
+    <div style="flex: 1;">
+        The General allows the player to mobilize their defense cards more quickly. The player 
+can take three actions, with one action corresponding to placing or removing a defense card.
+    </div>
+</div>
+
+#### Battery Tower
+
+<div style="display: flex; align-items: center;">
+    <img src="images/batterytower.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        The Battery Tower allows the player to decline an attack. The attacking player no longer 
+has 
+access to the corresponding attack cards during their turn. After a blocked attack, the Battery 
+Tower can no longer be used and must be reactivated during the owner's next turn. The attacking 
+player can keep the attack cards face down during the attack as long as the Battery Tower is 
+still active.
+    </div>
+</div>
+
 
 #### Merchant
 
+<div style="display: flex; align-items: center;">
+    <img src="images/merchant.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        The Merchant allows the player to discard any hand card and draw a new card from the stack during their turn. The discarded card is then visible to the other players, while the newly acquired card can remain face down.
+    </div>
+</div>
+
 #### Priest
+
+<div style="display: flex; align-items: center;">
+    <img src="images/priest.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        After the player has initiated an attack, thus setting the attack symbol for their turn, they can use the ability of the Priest. The player can now draw a card from the hand cards of any opponent. If the symbol matches the attack symbol, the player may keep the card; otherwise, they must return it. If the first attempt fails, the process can be repeated once. The second card can also be drawn from a different opponent.
+    </div>
+</div>
 
 ### Dark Force
 
 #### Reservists
 
+<div style="display: flex; align-items: center;">
+    <img src="images/reservists.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        The player receives two Reservists upon acquiring the Hero. At the beginning of each turn, 
+two more of the four Reservists can be enlisted. Reservists can be used to enhance attacks, with each Reservist counting as one attack point and no longer being available to the player after the attack. Reservists can also be used for post-attack reinforcement. Thus, a narrowly lost attack can still turn into a successful attack
+    </div>
+</div>
+
 #### Saboteurs
 
-#### Black Horse
+<div style="display: flex; align-items: center;">
+    <img src="images/saboteurs.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        During their turn, the player can place Saboteurs on the opponent's defense cards, whether they are face up or face down. The cards are thus blocked for the respective opponent and cannot be drawn by them during their turn. If the card is defeated, the besieging Saboteur returns to the owning player.
+    </div>
+</div>
 
-#### Black Tower
+#### Lieutenant
+
+<div style="display: flex; align-items: center;">
+    <img src="images/lieutenant.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        The Field Marshal allows the player to use defense cards directly for the attack. The first card played in this manner determines the attack symbol for the subsequent attacks from the defense cards. The defense cards can be combined with each other in this case. Defense cards laid during the turn can also be used for the attack.
+    </div>
+</div>
+
+#### Fortified Tower
+
+<div style="display: flex; align-items: center;">
+    <img src="images/fortifiedtower.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        With the Watchtower, the player can, during their turn, place a card face down on one of their defense cards. The symbols must match. If the card is attacked, both defense cards are revealed, and their values are counted together as the defense value. If the card is spied upon, only the top card is revealed. When picking up the defense cards, both cards must be added to the hand cards, and this is counted as one action.
+    </div>
+</div>
 
 #### Mage
 
-#### King
+![img.png](images/mage.png)
+
+<div style="display: flex; align-items: center;">
+    <img src="images/mage.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        With the Magician, the player can, during their turn, remove an opponent's defense card and replace it with a new one from the stack. If the card was previously face down, the new card is placed face up, and vice versa.
+    </div>
+</div>
+
+#### Warlord
+
+![img.png](images/warlord.png)
+
+<div style="display: flex; align-items: center;">
+    <img src="images/warlord.png" alt="Image description" width="200" style="margin-right: 
+10px;">
+    <div style="flex: 1;">
+        The Warlord allows the player to initiate a direct attack with the King. The stack 
+cannot be attacked in this case, and the King cannot be combined with other attack cards. The King's symbol must match the current attack symbol. If the defense and attack values are equal, nothing happens. If the King's value is lower than the defense value, the player loses. The King can be reinforced with Mercenaries and Reservists.
+    </div>
+</div>
 
 ## Variants
 

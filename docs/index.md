@@ -3,7 +3,8 @@
 ## Preparation
 
 The game components include a complete deck of 52 cards and three Jokers. 
-Additionally, chess pieces are required, and their attributes are described in the Heroes section.
+Additionally, chess pieces are required, and their attributes are described in the [Heroes](#heroes) 
+section.
 
 At the beginning of the game, each player receives eight cards. Then each player:
 - selects two cards to be thrown on the graveyard

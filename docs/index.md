@@ -78,6 +78,11 @@ The goal of the game is to be the last player remaining. A player is considered 
 
 #### Mercenaries
 
+![img.png](images/mercenaries.png)
+
+The player receives four starting figures. At the beginning of each turn, four of the maximum 
+eight Mercenaries are drawn. During the turn, any number of Mercenaries can be used to reinforce an attack, with one Mercenary counting as one attack point. After the attack, the Mercenaries are put back and are no longer available to the player. At the end of the turn, Mercenaries can be placed on defense cards to reinforce them. If the respective defense card is defeated, the corresponding Mercenaries are also defeated.
+
 #### Spy
 
 #### General

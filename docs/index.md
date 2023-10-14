@@ -186,8 +186,6 @@ two more of the four Reservists can be enlisted. Reservists can be used to enhan
 
 #### Mage
 
-![img.png](images/mage.png)
-
 <div style="display: flex; align-items: center;">
     <img src="images/mage.png" alt="Image description" width="200" style="margin-right: 
 10px;">
@@ -197,8 +195,6 @@ two more of the four Reservists can be enlisted. Reservists can be used to enhan
 </div>
 
 #### Warlord
-
-![img.png](images/warlord.png)
 
 <div style="display: flex; align-items: center;">
     <img src="images/warlord.png" alt="Image description" width="200" style="margin-right: 

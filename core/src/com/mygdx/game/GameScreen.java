@@ -749,6 +749,13 @@ public class GameScreen extends ScreenAdapter {
   public void render(float delta) {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
+    // Block all input when it is not this client's turn
+    if (gameState.getCurrentPlayer() == currentPlayer) {
+      Gdx.input.setInputProcessor(inMulti);
+    } else {
+      Gdx.input.setInputProcessor(null);
+    }
+
     // check if gameState has changed
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);

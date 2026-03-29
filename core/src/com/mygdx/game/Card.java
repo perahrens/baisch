@@ -16,8 +16,15 @@ public class Card extends Actor {
   TextureAtlas atlas = new TextureAtlas("data/skins/carddeck.atlas");
 
   // card attributes
-  private final String symbol;
-  private final Integer index;
+  private String symbol = null;
+  private Integer index = null;
+  public void setIndex(int idx) {
+    this.index = idx;
+  }
+
+  public Integer getIndex() {
+    return this.index;
+  }
 
   // location attributes
   private int positionId;
@@ -63,6 +70,18 @@ public class Card extends Actor {
     setWidth(defWidth);
     setHeight(defHeight);
     setBounds(getX(), getY(), getWidth(), getHeight());
+  }
+
+  // Factory method: construct a Card from a server card ID (1-52).
+  // ID 1-13 = clubs 1-13, 14-26 = diamonds 1-13, 27-39 = hearts 1-13, 40-52 = spades 1-13.
+  public static Card fromCardId(int cardId) {
+    final String[] suits = { "clubs", "diamonds", "hearts", "spades" };
+    if (cardId >= 1 && cardId <= 52) {
+      int suitIndex = (cardId - 1) / 13;
+      int cardIndex = (cardId - 1) % 13 + 1;
+      return new Card(suits[suitIndex], cardIndex);
+    }
+    return new Card(); // fallback placeholder
   }
 
   // standard playing card
@@ -167,9 +186,6 @@ public class Card extends Actor {
     return this.symbol;
   }
 
-  public int getIndex() {
-    return this.index;
-  }
 
   public int getStrength() {
     int strength = index;
@@ -221,9 +237,9 @@ public class Card extends Actor {
   public void unboost(ArrayList<Player> players) {
     for (int i = 0; i < players.size(); i++) {
       if (players.get(i).hasHero("Mercenaries")) {
-        for (int j = 0; j < players.get(j).getHeroes().size(); j++) {
-          if (players.get(j).getHeroes().get(j).getHeroName() == "Mercenaries") {
-            Mercenaries mercenaries = (Mercenaries) players.get(j).getHeroes().get(j);
+        for (int j = 0; j < players.get(i).getHeroes().size(); j++) {
+          if ("Mercenaries".equals(players.get(i).getHeroes().get(j).getHeroName())) {
+            Mercenaries mercenaries = (Mercenaries) players.get(i).getHeroes().get(j);
             while (getBoosted() > 0) {
               mercenaries.destroy();
               addBoosted(-1);

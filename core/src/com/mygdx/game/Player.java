@@ -37,7 +37,7 @@ public class Player {
     defCards = new HashMap<Integer, Card>();
     topDefCards = new HashMap<Integer, Card>();
     heroes = new ArrayList<Hero>();
-    //dice = new Dice();
+  dice = new Dice();
 
     playerTurn = new PlayerTurn();
 
@@ -58,8 +58,8 @@ public class Player {
     card.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        // unselect all defense and king cards
-        kingCard.setSelected(false);
+        // Defensive: only unselect kingCard if not null
+        if (kingCard != null) kingCard.setSelected(false);
         for (int i = 1; i <= 3; i++) {
           if (defCards.containsKey(i)) {
             defCards.get(i).setSelected(false);
@@ -80,7 +80,7 @@ public class Player {
             selectedSymbol = refCard.getSymbol();
           }
         }
-      };
+      }
     });
   }
 

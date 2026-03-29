@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.listeners.CemeteryDeckListener;
 import com.mygdx.game.listeners.PickingDeckListener;
@@ -27,6 +30,65 @@ public class GameState {
   private PickingDeckListener pickingDeckListenerTwo;
 
   private CemeteryDeckListener cemeteryDeckListener;
+
+  // Constructor for centralized (server-driven) game state.
+  // Players already have their hand cards from the server.
+  // deckJson contains the remaining card IDs in the same order the server holds them.
+  public GameState(ArrayList<Player> players, JSONArray deckJson) {
+    roundNumber = 0;
+    this.players = players;
+    roundOrder = new ArrayList<Player>(players);
+    pickingDecks = new ArrayList<PickingDeck>();
+    cemeteryDeck = new CardDeck(true);
+    heroesSquare = new HeroesSquare();
+    updateState = false;
+
+    // Rebuild card deck from server-provided remaining IDs
+    cardDeck = new CardDeck(true); // empty
+    try {
+      for (int i = 0; i < deckJson.length(); i++) {
+        cardDeck.addCard(Card.fromCardId(deckJson.getInt(i)));
+      }
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
+
+    // Assign king cards, defense cards, heroes from hand (deterministic for all clients)
+    doRandomSetup(players.size());
+
+    // Fill picking decks from the server deck
+    pickingDecks.add(new PickingDeck());
+    pickingDecks.add(new PickingDeck());
+    Card card1 = cardDeck.getCard(cemeteryDeck);
+    Card card2 = cardDeck.getCard(cemeteryDeck);
+    Card card3 = cardDeck.getCard(cemeteryDeck);
+    Card card4 = cardDeck.getCard(cemeteryDeck);
+    Card card5 = cardDeck.getCard(cemeteryDeck);
+    card3.setCovered(true);
+    card4.setCovered(true);
+    card5.setCovered(true);
+    pickingDecks.get(0).addCard(card1);
+    pickingDecks.get(1).addCard(card2);
+    pickingDecks.get(0).addCard(card3);
+    pickingDecks.get(1).addCard(card4);
+    if (card1.getStrength() < card2.getStrength()) {
+      pickingDecks.get(0).addCard(card5);
+    } else {
+      pickingDecks.get(1).addCard(card5);
+    }
+
+    pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1));
+    pickingDecks.get(0).addListener(pickingDeckListenerOne);
+
+    pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0));
+    pickingDecks.get(1).addListener(pickingDeckListenerTwo);
+
+    cemeteryDeckListener = new CemeteryDeckListener(this);
+    cemeteryDeck.addListener(cemeteryDeckListener);
+
+    // Determine starting player by dice
+    throwDices();
+  }
 
   public GameState(int numPlayers, int startCards) {
     roundNumber = 0;
@@ -93,6 +155,7 @@ public class GameState {
 
   // for tests
   public void doRandomSetup(int numPlayers) {
+    int[] heroIndices = {2, 4, 12, 13};
     for (int i = 0; i < numPlayers; i++) {
       // set kingCard
       players.get(i).setKingCard(players.get(i).getLastHandCard());
@@ -100,37 +163,20 @@ public class GameState {
       // add defCards
       for (int j = 1; j <= 3; j++) {
         Card defCard = players.get(i).getLastHandCard();
-
         defCard.setCovered(true);
         players.get(i).addDefCard(j, defCard, 0);
       }
 
-      // Card defCard = players.get(i).getLastHandCard();
-      // defCard.setCovered(true);
-      // players.get(i).addDefCard(2, defCard, 1);
-
-      // add heroes
-      // Hero hero1 = heroesSquare.getHero(2*i+2);
-      // Hero hero2 = heroesSquare.getHero(2*i+3);
-      // players.get(i).addHero(hero1);
-      // players.get(i).addHero(hero2);
+      // add heroes (assign if available)
+      if (i < heroIndices.length) {
+        Hero hero = heroesSquare.getHero(heroIndices[i]);
+        players.get(i).addHero(hero);
+      }
 
       for (int j = 0; j < 2; j++) {
         cemeteryDeck.addCard(players.get(i).getLastHandCard());
       }
     }
-
-    Hero hero = heroesSquare.getHero(2);
-    players.get(0).addHero(hero);
-
-    hero = heroesSquare.getHero(4);
-    players.get(1).addHero(hero);
-
-    hero = heroesSquare.getHero(12);
-    players.get(2).addHero(hero);
-
-    hero = heroesSquare.getHero(13);
-    players.get(3).addHero(hero);
   }
 
   public void throwDices() {

@@ -212,6 +212,10 @@ public class GameState {
     return currentPlayer;
   }
 
+  public int getCurrentPlayerIndex() {
+    return players.indexOf(currentPlayer);
+  }
+
   public Player getNextPlayer() {
     Player nextPlayer;
     if (currentPlayerIt.hasNext()) {

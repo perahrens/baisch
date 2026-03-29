@@ -78,6 +78,12 @@ io.on('connection', function(socket) {
       clearInterval(timer);
     }
   });
+
+  socket.on('finishTurn', function(data) {
+    var nextPlayerIndex = data.nextPlayerIndex;
+    console.log("Turn finished, next player index: " + nextPlayerIndex);
+    io.emit('turnChanged', { currentPlayerIndex: nextPlayerIndex });
+  });
   
   users.push(new user(socket.id));
   socket.emit('getUsers', users);

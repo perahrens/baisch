@@ -38,6 +38,9 @@ import com.mygdx.game.listeners.OwnKingCardListener;
 import com.mygdx.game.listeners.OwnPlaceholderListener;
 import com.mygdx.game.listeners.SabotagedImageListener;
 import com.mygdx.game.listeners.TradeCardButtonListener;
+import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
+import org.json.JSONException;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {
@@ -85,9 +88,11 @@ public class GameScreen extends ScreenAdapter {
 
   private int playerIndex;
   private JSONObject centralizedState;
+  private Socket socket;
 
   // New constructor for centralized state
-  public GameScreen(Game game, JSONObject centralizedState, int playerIndex) {
+  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
+    this.socket = socket;
   System.out.println("[GameScreen] Constructor called");
   System.out.println("[GameScreen] Received playerIndex: " + playerIndex);
   System.out.println("[GameScreen] Received centralizedState: " + centralizedState.toString());
@@ -146,8 +151,31 @@ public class GameScreen extends ScreenAdapter {
       System.out.println("[GameScreen] Parsed " + players.size() + " players from centralized state.");
       System.out.println("[GameScreen] Assigned player index: " + playerIndex);
 
-      // Initialize gameState from the pre-parsed players and the server's remaining deck
-      gameState = new GameState(players, centralizedState.getJSONArray("deck"));
+    // Initialize gameState from the pre-parsed players and the server's remaining deck
+    gameState = new GameState(players, centralizedState.getJSONArray("deck"));
+
+    // Listen for turn-change events broadcast by the server
+    socket.on("turnChanged", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        org.json.JSONObject data = (org.json.JSONObject) args[0];
+        try {
+          final int currentPlayerIndex = data.getInt("currentPlayerIndex");
+          Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+              // Advance gameState turns until it matches the server-authoritative index
+              while (gameState.getCurrentPlayer() != gameState.getPlayers().get(currentPlayerIndex)) {
+                gameState.getNextPlayer();
+              }
+              gameState.setUpdateState(true);
+            }
+          });
+        } catch (JSONException e) {
+          e.printStackTrace();
+        }
+      }
+    });
     } catch (org.json.JSONException e) {
       e.printStackTrace();
     }
@@ -671,7 +699,7 @@ public class GameScreen extends ScreenAdapter {
     // Only enable finish-turn button when it is this player's turn
     finishTurnButton.setVisible(isMyTurn);
 
-    finishTurnButtonListener = new FinishTurnButtonListener(gameState);
+    finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
     finishTurnButton.addListener(finishTurnButtonListener);
 
     handStage.addActor(myPlayerLabel);

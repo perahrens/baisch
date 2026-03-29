@@ -230,7 +230,7 @@ public class MenuScreen extends AbstractScreen {
 
   }
 
-  public void configSocketEvents(Socket socket) {
+  public void configSocketEvents(final Socket socket) {
     socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
 
       @Override
@@ -326,7 +326,7 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-              game.setScreen(new GameScreen(game, gameState, playerIndex));
+              game.setScreen(new GameScreen(game, gameState, playerIndex, socket));
             }
           });
         } catch (JSONException e) {

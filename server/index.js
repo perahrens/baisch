@@ -2,9 +2,12 @@ var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
+
 var users = [];
 var timeToStart;
 var timer;
+var GameState = require('./gameState');
+var gameState = null;
 
 server.listen(8082, function() {
   console.log("Server is now running... ");
@@ -55,8 +58,15 @@ io.on('connection', function(socket) {
       console.log("Seconds left ... " + timeToStart)
       if (timeToStart == 0) {
         console.log("Timer finished, broadcast to users");
-        socket.emit('startGame', { id: socket.id });
-        socket.broadcast.emit('startGame', { id: socket.id });
+        // Centralize game state and assign player indices
+        gameState = new GameState(users);
+        users.forEach((user, idx) => {
+          const playerState = {
+            playerIndex: idx,
+            gameState: gameState
+          };
+          io.to(user.id).emit('gameState', playerState);
+        });
         clearInterval(timer);
       }
     }, 1000);
@@ -67,6 +77,12 @@ io.on('connection', function(socket) {
       console.log("Timer stopped!");
       clearInterval(timer);
     }
+  });
+
+  socket.on('finishTurn', function(data) {
+    var nextPlayerIndex = data.nextPlayerIndex;
+    console.log("Turn finished, next player index: " + nextPlayerIndex);
+    io.emit('turnChanged', { currentPlayerIndex: nextPlayerIndex });
   });
   
   users.push(new user(socket.id));

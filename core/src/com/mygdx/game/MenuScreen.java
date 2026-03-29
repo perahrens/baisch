@@ -230,7 +230,7 @@ public class MenuScreen extends AbstractScreen {
 
   }
 
-  public void configSocketEvents(Socket socket) {
+  public void configSocketEvents(final Socket socket) {
     socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
 
       @Override
@@ -314,19 +314,27 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error ready user ID ");
         }
       }
-    }).on("startGame", new Emitter.Listener() {
-
+    })
+    .on("gameState", new Emitter.Listener() {
       @Override
       public void call(Object... args) {
         JSONObject data = (JSONObject) args[0];
         try {
-          String id = data.getString("id");
-          Gdx.app.log("SocketIO", "Start game!");
+          final int playerIndex = data.getInt("playerIndex");
+          final JSONObject gameState = data.getJSONObject("gameState");
+          Gdx.app.log("SocketIO", "Received centralized game state, playerIndex: " + playerIndex);
+          Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+              game.setScreen(new GameScreen(game, gameState, playerIndex, socket));
+            }
+          });
         } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error starting game!");
+          Gdx.app.log("SocketIO", "Error parsing centralized game state!");
         }
       }
-    }).on("updateTimer", new Emitter.Listener() {
+    })
+    .on("updateTimer", new Emitter.Listener() {
 
       @Override
       public void call(Object... args) {

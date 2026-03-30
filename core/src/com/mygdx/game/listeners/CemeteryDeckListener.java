@@ -2,6 +2,9 @@ package com.mygdx.game.listeners;
 
 import java.util.Iterator;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
@@ -33,8 +36,9 @@ public class CemeteryDeckListener extends ClickListener {
         if (currCard.isSelected()) {
           System.out.println("Remove handcard " + currCard.getStrength());
           cemeteryDeck.addCard(currCard);
-          // if joker, get hero
-          if (currCard.getSymbol() == "joker") {
+          boolean isJoker = "joker".equals(currCard.getSymbol());
+          int drawFromDeck = 0;
+          if (isJoker) {
             System.out.println("Get hero");
             Card heroCard = cardDeck.getCard(cemeteryDeck);
             System.out.println("Hero card is " + heroCard.getStrength());
@@ -43,8 +47,22 @@ public class CemeteryDeckListener extends ClickListener {
               currentPlayer.addHero(hero);
             }
             cemeteryDeck.addCard(heroCard);
+            drawFromDeck = 1;
           }
           handCardIt.remove();
+          if (gameState.getSocket() != null) {
+            try {
+              JSONObject payload = new JSONObject();
+              payload.put("playerIdx", gameState.getPlayers().indexOf(currentPlayer));
+              JSONArray cardIds = new JSONArray();
+              cardIds.put(currCard.getCardId());
+              payload.put("cardIds", cardIds);
+              payload.put("drawFromDeck", drawFromDeck);
+              gameState.getSocket().emit("addToCemetery", payload);
+            } catch (Exception e) {
+              e.printStackTrace();
+            }
+          }
           gameState.setUpdateState(true);
         }
       }

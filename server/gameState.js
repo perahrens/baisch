@@ -98,13 +98,20 @@ class GameState {
       this.cemetery.push(cardId);
     }
     if (success) {
+      // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
       const otherIdx = 1 - deckIdx;
-      if (this.deck.length > 0) this.pickingDecks[otherIdx].push({ id: this.deck.pop(), covered: false });
+      // Add one face-DOWN card to the other deck (deck B grows by one hidden card)
+      if (this.deck.length > 0) this.pickingDecks[otherIdx].push({ id: this.deck.pop(), covered: true });
+      // Rebuild plundered deck: one face-up card (visible) + one face-down card on top
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: false });
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
     } else {
+      // Keep the attacked (top) card face-up after a failed plunder,
+      // then add a new face-down card on top.
+      const deck = this.pickingDecks[deckIdx];
+      if (deck.length > 0) deck[deck.length - 1].covered = false;
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
     }
   }

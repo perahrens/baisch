@@ -58,14 +58,12 @@ io.on('connection', function(socket) {
       console.log("Seconds left ... " + timeToStart)
       if (timeToStart == 0) {
         console.log("Timer finished, broadcast to users");
-        // Centralize game state and assign player indices
         gameState = new GameState(users);
         users.forEach((user, idx) => {
-          const playerState = {
+          io.to(user.id).emit('gameState', {
             playerIndex: idx,
-            gameState: gameState
-          };
-          io.to(user.id).emit('gameState', playerState);
+            gameState: gameState.serialize()
+          });
         });
         clearInterval(timer);
       }
@@ -80,9 +78,33 @@ io.on('connection', function(socket) {
   });
 
   socket.on('finishTurn', function(data) {
-    var nextPlayerIndex = data.nextPlayerIndex;
-    console.log("Turn finished, next player index: " + nextPlayerIndex);
-    io.emit('turnChanged', { currentPlayerIndex: nextPlayerIndex });
+    console.log("Turn finished, next player index: " + data.nextPlayerIndex);
+    gameState.finishTurn(data.nextPlayerIndex);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  socket.on('putDefCard', function(data) {
+    console.log("putDefCard: playerIdx=" + data.playerIdx + " pos=" + data.positionId + " cardId=" + data.cardId);
+    gameState.putDefCard(data.playerIdx, data.positionId, data.cardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  socket.on('addToCemetery', function(data) {
+    console.log("addToCemetery: playerIdx=" + data.playerIdx + " cardIds=" + data.cardIds + " draw=" + data.drawFromDeck);
+    gameState.addToCemetery(data.playerIdx, data.cardIds || [], data.drawFromDeck || 0);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  socket.on('plunderResolved', function(data) {
+    console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
+    gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || []);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  socket.on('defAttackResolved', function(data) {
+    console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
+    gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || []);
+    io.emit('stateUpdate', gameState.serialize());
   });
   
   users.push(new user(socket.id));

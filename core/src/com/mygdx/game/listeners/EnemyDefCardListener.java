@@ -1,18 +1,15 @@
 package com.mygdx.game.listeners;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Map;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.CardDeck;
+import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
-import com.mygdx.game.heroes.King;
-import com.mygdx.game.heroes.Magician;
-import com.mygdx.game.heroes.Saboteurs;
-import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.PlayerTurn;
 
 public class EnemyDefCardListener extends ClickListener {
 
@@ -21,6 +18,7 @@ public class EnemyDefCardListener extends ClickListener {
   CardDeck cemeteryDeck;
   ArrayList<Player> players;
   Player player;
+  GameState gameState;
 
   public EnemyDefCardListener() {
   }
@@ -34,166 +32,91 @@ public class EnemyDefCardListener extends ClickListener {
     this.players = players;
   }
 
-  @Override
-  public void clicked(InputEvent event, float x, float y) {
-    Map<Integer, Card> defCards = players.get(0).getDefCards();
-    Map<Integer, Card> topDefCards = players.get(0).getTopDefCards();
-    for (int p = 0; p < players.size(); p++) {
-      for (int c = 1; c <= 3; c++) {
-        if (players.get(p).getDefCards().containsKey(c)) { // || players.get(p).getTopDefCards().containsKey(c)) {
-          if (players.get(p).getDefCards().get(c) == defCard) {
-            defCards = players.get(p).getDefCards();
-            if (players.get(p).getTopDefCards().containsKey(c)) {
-              topDefCards = players.get(p).getTopDefCards();
-            }
-          } else if (players.get(p).getTopDefCards().containsKey(c)) {
-            if (players.get(p).getTopDefCards().get(c) == defCard) {
-              defCards = players.get(p).getDefCards();
-              topDefCards = players.get(p).getTopDefCards();
-            }
-          }
-        }
-      }
-    }
-
-    if (player.getSelectedHeroes().size() > 0) {
-      for (int i = 0; i < player.getHeroes().size(); i++) {
-        if (player.getHeroes().get(i).getHeroName() == "Spy" && player.getHeroes().get(i).isSelected()) {
-          Spy spy = (Spy) player.getHeroes().get(i);
-          if (spy.getSpyAttacks() > 0) {
-            spy.spyAttack();
-            System.out.println("Number spy attacks left = " + spy.getSpyAttacks());
-            defCard.setCovered(false);
-          }
-        } else if (player.getHeroes().get(i).getHeroName() == "Saboteurs" && player.getHeroes().get(i).isSelected()) {
-          Saboteurs saboteurs = (Saboteurs) player.getHeroes().get(i);
-          if (saboteurs.isAvailable() && !defCard.isSabotaged()) {
-            saboteurs.sabotage();
-            defCard.setSabotaged(true);
-          }
-        } else if (player.getHeroes().get(i).getHeroName() == "Magician" && player.getHeroes().get(i).isSelected()) {
-          Magician magician = (Magician) player.getHeroes().get(i);
-          if (magician.getSpells() > 0) {
-            magician.castSpell();
-
-            // loop over all def cards of player
-            for (int p = 0; p < players.size(); p++) {
-              for (int c = 1; c <= 3; c++) {
-                if (players.get(p).getDefCards().containsKey(c)) {
-                  Card cDefCard = players.get(p).getDefCards().get(c);
-                  Card cTopDefCard = players.get(p).getTopDefCards().get(c);
-                  if (cDefCard == defCard) {
-                    Card newDefCard = cardDeck.getCard(cemeteryDeck);
-                    newDefCard.setCovered(!defCard.isCovered());
-                    cemeteryDeck.addCard(defCard);
-                    players.get(p).getDefCards().remove(c);
-                    players.get(p).addDefCard(c, newDefCard, 0);
-                    // gameState.setUpdateState(true);
-                  }
-                  if (cTopDefCard == defCard) {
-                    Card newDefCard = cardDeck.getCard(cemeteryDeck);
-                    newDefCard.setCovered(!defCard.isCovered());
-                    cemeteryDeck.addCard(defCard);
-                    players.get(p).getTopDefCards().remove(c);
-                    players.get(p).addDefCard(c, newDefCard, 1);
-                    // gameState.setUpdateState(true);
-                  }
-                }
-              }
-            }
-          }
-        } else if (player.getHeroes().get(i).getHeroName() == "King" && player.getKingCard().isSelected()
-            && (player.getKingCard().getSymbol() == player.getPlayerTurn().getAttackingSymbol()[0]
-                || player.getKingCard().getSymbol() == player.getPlayerTurn().getAttackingSymbol()[1]
-                || player.getPlayerTurn().getAttackingSymbol()[0] == "none")) {
-          System.out.println("king attack");
-          King king = (King) player.getHeroes().get(i);
-          king.royalAttack();
-          player.getPlayerTurn().setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Lieutenant"));
-          // cover up hero and enemy defense card
-          defCard.setCovered(false);
-          player.getKingCard().setCovered(false);
-
-          // check if defense card is fortified
-          int attackResult;
-          int positionId = defCard.getPositionId();
-          Card topDefCard = null;
-          if (topDefCards.containsKey(positionId)) {
-            defCard = defCards.get(positionId);
-            topDefCard = topDefCards.get(positionId);
-
-            defCard.setCovered(false);
-            topDefCard.setCovered(false);
-            attackResult = player.royalAttack(defCard, topDefCard);
-          } else {
-            defCard.setCovered(false);
-            attackResult = player.royalAttack(defCard);
-          }
-
-          if (attackResult == 2) {
-            player.addHandCard(defCard);
-            defCard.setRemoved(true);
-            if (topDefCard != null) {
-              player.addHandCard(topDefCard);
-              topDefCard.setRemoved(true);
-            }
-          } else if (attackResult == 1) {
-            // nothing happens
-          } else {
-            // TODO player lost
-          }
-
-          // gameState.setUpdateState(true);
-        }
-      }
-    }
-
-    // attack enemy defense
-    if (player.getSelectedHandCards().size() > 0) {
-      if (player.getPlayerTurn().getAttackingSymbol()[0] == "none"
-          || player.getPlayerTurn().getAttackingSymbol()[0] == player.getSelectedHandCards().get(0).getSymbol()
-          || player.getPlayerTurn().getAttackingSymbol()[1] == player.getSelectedHandCards().get(0).getSymbol()) {
-        player.getPlayerTurn().setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(),
-            player.hasHero("Lieutenant"));
-
-        // check if defense card is fortified
-        boolean attackSuccess;
-        int positionId = defCard.getPositionId();
-        Card topDefCard = null;
-        if (topDefCards.containsKey(positionId)) {
-          defCard = defCards.get(positionId);
-          topDefCard = topDefCards.get(positionId);
-
-          defCard.setCovered(false);
-          topDefCard.setCovered(false);
-          attackSuccess = player.attackEnemyDefense(defCard, topDefCard);
-        } else {
-          defCard.setCovered(false);
-          attackSuccess = player.attackEnemyDefense(defCard);
-        }
-
-        // selected hand cards to cemetery deck
-        Iterator<Card> handCardIt = player.getHandCards().iterator();
-        while (handCardIt.hasNext()) {
-          Card currCard = handCardIt.next();
-          if (currCard.isSelected()) {
-            cemeteryDeck.addCard(currCard);
-            handCardIt.remove();
-          }
-        }
-
-        if (attackSuccess) {
-          player.addHandCard(defCard);
-          defCard.setRemoved(true);
-          if (topDefCard != null) {
-            player.addHandCard(topDefCard);
-            topDefCard.setRemoved(true);
-          }
-        }
-
-        // gameState.setUpdateState(true);
-      }
-    }
+  public EnemyDefCardListener(Card defCard, GameState gameState, Player player, ArrayList<Player> players) {
+    this.defCard = defCard;
+    this.gameState = gameState;
+    this.cardDeck = gameState.getCardDeck();
+    this.cemeteryDeck = gameState.getCemeteryDeck();
+    this.player = player;
+    this.players = players;
   }
 
+  @Override
+  public void clicked(InputEvent event, float x, float y) {
+    // Ignore taps while ANY preview overlay is active
+    PlayerTurn pt = player.getPlayerTurn();
+    if (pt.isPlunderPending() || pt.isAttackPending()) return;
+
+    // Find which player and slot owns this defCard
+    int targetPlayerIdx = -1;
+    int positionId = -1;
+    int level = -1;
+    Player targetPlayer = null;
+    Map<Integer, Card> targetDefCards = null;
+    Map<Integer, Card> targetTopDefCards = null;
+
+    outer:
+    for (int p = 0; p < players.size(); p++) {
+      for (int c = 1; c <= 3; c++) {
+        if (players.get(p).getDefCards().containsKey(c) && players.get(p).getDefCards().get(c) == defCard) {
+          targetPlayerIdx = p;
+          positionId = c;
+          level = 0;
+          targetPlayer = players.get(p);
+          targetDefCards = targetPlayer.getDefCards();
+          targetTopDefCards = targetPlayer.getTopDefCards();
+          break outer;
+        }
+        if (players.get(p).getTopDefCards().containsKey(c) && players.get(p).getTopDefCards().get(c) == defCard) {
+          targetPlayerIdx = p;
+          positionId = c;
+          level = 1;
+          targetPlayer = players.get(p);
+          targetDefCards = targetPlayer.getDefCards();
+          targetTopDefCards = targetPlayer.getTopDefCards();
+          break outer;
+        }
+      }
+    }
+    if (targetPlayer == null) return;
+
+    // Only proceed with a normal hand-card attack
+    if (player.getSelectedHandCards().size() == 0) return;
+    String selectedSymbol = player.getSelectedHandCards().get(0).getSymbol();
+    if (pt.getAttackingSymbol()[0] != "none"
+        && pt.getAttackingSymbol()[0] != selectedSymbol
+        && pt.getAttackingSymbol()[1] != selectedSymbol) return;
+
+    // Snapshot attacking cards
+    ArrayList<Card> attackSnapshot = new ArrayList<Card>(player.getSelectedHandCards());
+
+    // Reveal the targeted defense card
+    defCard.setCovered(false);
+    Card topDefCard = (level == 0 && targetTopDefCards.containsKey(positionId))
+        ? targetTopDefCards.get(positionId) : null;
+    if (topDefCard != null) topDefCard.setCovered(false);
+
+    // Compute result
+    boolean success;
+    if (topDefCard != null) {
+      success = player.attackEnemyDefense(defCard, topDefCard);
+    } else {
+      success = player.attackEnemyDefense(defCard);
+    }
+
+    // Store preview state
+    pt.setAttackingSymbol(selectedSymbol, player.hasHero("Lieutenant"));
+    pt.setPendingAttackCards(attackSnapshot);
+    ArrayList<Card> defCardList = new ArrayList<Card>();
+    defCardList.add(defCard);
+    if (topDefCard != null) defCardList.add(topDefCard);
+    pt.setPendingAttackDefCards(defCardList);
+    pt.setAttackTargetPlayerIdx(targetPlayerIdx);
+    pt.setAttackTargetPositionId(positionId);
+    pt.setAttackTargetLevel(level);
+    pt.setAttackSuccess(success);
+    pt.setAttackPending(true);
+
+    if (gameState != null) gameState.setUpdateState(true);
+  }
 }

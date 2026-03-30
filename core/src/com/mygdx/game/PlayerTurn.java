@@ -1,5 +1,7 @@
 package com.mygdx.game;
 
+import java.util.ArrayList;
+
 public class PlayerTurn {
   int pickingDeckAttacks;
   int attackCounter;
@@ -62,5 +64,64 @@ public class PlayerTurn {
   public String[] getAttackingSymbol() {
     return attackingSymbol;
   }
+
+  // --- Plunder preview state ---
+  private boolean plunderPending = false;
+  private boolean plunderSuccess = false;
+  private ArrayList<Card> pendingAttackCards = new ArrayList<Card>();
+  private int pendingPickingDeckIndex = -1;
+
+  public boolean isPlunderPending() {
+    return plunderPending;
+  }
+
+  public void setPlunderPending(boolean pending) {
+    this.plunderPending = pending;
+  }
+
+  public boolean isPlunderSuccess() {
+    return plunderSuccess;
+  }
+
+  public void setPlunderSuccess(boolean success) {
+    this.plunderSuccess = success;
+  }
+
+  public ArrayList<Card> getPendingAttackCards() {
+    return pendingAttackCards;
+  }
+
+  public void setPendingAttackCards(ArrayList<Card> cards) {
+    this.pendingAttackCards = cards;
+  }
+
+  public int getPendingPickingDeckIndex() {
+    return pendingPickingDeckIndex;
+  }
+
+  public void setPendingPickingDeckIndex(int index) {
+    this.pendingPickingDeckIndex = index;
+  }
+
+  // --- Defense attack preview state ---
+  private boolean attackPending = false;
+  private boolean attackSuccess = false;
+  private ArrayList<Card> pendingAttackDefCards = new ArrayList<Card>(); // [defCard] or [defCard, topDefCard]
+  private int attackTargetPlayerIdx = -1;
+  private int attackTargetPositionId = -1;
+  private int attackTargetLevel = -1;
+
+  public boolean isAttackPending() { return attackPending; }
+  public void setAttackPending(boolean v) { this.attackPending = v; }
+  public boolean isAttackSuccess() { return attackSuccess; }
+  public void setAttackSuccess(boolean v) { this.attackSuccess = v; }
+  public ArrayList<Card> getPendingAttackDefCards() { return pendingAttackDefCards; }
+  public void setPendingAttackDefCards(ArrayList<Card> cards) { this.pendingAttackDefCards = cards; }
+  public int getAttackTargetPlayerIdx() { return attackTargetPlayerIdx; }
+  public void setAttackTargetPlayerIdx(int v) { this.attackTargetPlayerIdx = v; }
+  public int getAttackTargetPositionId() { return attackTargetPositionId; }
+  public void setAttackTargetPositionId(int v) { this.attackTargetPositionId = v; }
+  public int getAttackTargetLevel() { return attackTargetLevel; }
+  public void setAttackTargetLevel(int v) { this.attackTargetLevel = v; }
 
 }

@@ -167,6 +167,10 @@ public class GameScreen extends ScreenAdapter {
 
   public void showGameStage(ArrayList<Player> players, Player currentPlayer) {
     Card infoCard = new Card();
+    float cardW = infoCard.getDefWidth();
+    float cardH = infoCard.getDefHeight();
+    // Collect hand count labels to be added LAST (on top of all card actors)
+    ArrayList<Label> handCountLabels = new ArrayList<Label>();
 
     // draw round number
     roundCounter = new Label("Round " + gameState.getRoundNumber(), MyGdxGame.skin);
@@ -174,11 +178,11 @@ public class GameScreen extends ScreenAdapter {
     roundCounter.setPosition(0, Gdx.graphics.getWidth() - roundCounter.getHeight());
     gameStage.addActor(roundCounter);
 
-    // draw whose turn it is
+    // draw whose turn it is — directly below the round counter
     Label turnLabel = new Label(gameState.getCurrentPlayer().getPlayerName() + "'s turn", MyGdxGame.skin);
     turnLabel.setColor(Color.GOLD);
-    turnLabel.setPosition(roundCounter.getX() + roundCounter.getWidth() + 10,
-        Gdx.graphics.getWidth() - turnLabel.getHeight());
+    turnLabel.setPosition(roundCounter.getX(),
+        roundCounter.getY() - turnLabel.getHeight());
     gameStage.addActor(turnLabel);
 
     // draw card deck and cemetery
@@ -248,48 +252,83 @@ public class GameScreen extends ScreenAdapter {
       dice.setMapPosition(i);
       gameStage.addActor(dice);
 
-      // display hand cards
+      // Hand deck: to the RIGHT of the king card from the player's perspective,
+      // rotated 90° relative to the player's card orientation,
+      // gap = one card length (cardH) between king's near edge and deck's near edge.
+      //
+      // "Right" maps to screen directions:
+      //   P0 (faces up)    → +X   P1 (faces right) → -Y
+      //   P2 (faces down)  → -X   P3 (faces left)  → +Y
+      //
+      // King positions (setMapPosition position=0):
+      //   P0 center: (WIDTH/2,       H/2)
+      //   P1 center: (H/2,           WIDTH/2)
+      //   P2 center: (WIDTH/2,       WIDTH-H/2)
+      //   P3 center: (WIDTH-H/2,     WIDTH/2)
+      //
+      // For rot 90°: visual box centred at (anchorX+W/2, anchorY+H/2),
+      //              half-extents H/2 (horizontal) and W/2 (vertical).
+      // For rot 0°/180°: visual box = [anchorX, anchorX+W] × [anchorY, anchorY+H].
       ArrayList<Card> handCards = players.get(i).getHandCards();
-      for (int j = 0; j < handCards.size(); j++) {
-        final Card handCard = handCards.get(j);
-        handCards.get(j).setCovered(true);
-        handCards.get(j).setRotation(0);
-        handCards.get(j).setActive(false);
-        handCards.get(j).setSelected(false);
-        handCards.get(j).setSize(handCards.get(j).getDefWidth(), handCards.get(j).getDefHeight());
-        handCards.get(j).setPosition(dice.getX(), dice.getY());
-
+      if (handCards.size() > 0) {
+        // Gap between king's near edge and deck's near edge = cardW/2.
+        // "Right" from each player's perspective maps to these screen directions:
+        //   P0 (+X), P1 (-Y), P2 (-X), P3 (+Y).
+        // For rot 90°: visual_left  = anchorX + W/2 - H/2
+        //              visual_right = anchorX + W/2 + H/2
+        // For rot 0°/180°: visual top = anchorY + H, visual bottom = anchorY
+        float deckX, deckY;
+        int deckRot;
         switch (i) {
-        case 0:
-          handCards.get(j).setPosition(handCards.get(j).getX() + 1.5f * dice.getWidth() + j * 5f,
-              handCards.get(j).getY());
+        case 0: // king right visual edge = (WIDTH+W)/2; deck visual left = king_right + W/2
+          deckX = (MyGdxGame.WIDTH + cardW) / 2f + cardW / 2f + (cardH - cardW) / 2f;
+          deckY = 0f;
+          deckRot = 90;
           break;
-        case 1:
-          handCards.get(j).setRotation(-90);
-          handCards.get(j).setPosition(handCards.get(j).getX(),
-              handCards.get(j).getY() - 2f * dice.getWidth() - j * 5f);
+        case 1: // king visual bottom = WIDTH/2 - W/2; deck top (anchorY+H) = king_bottom - W/2
+          deckX = (cardH - cardW) / 2f;
+          deckY = MyGdxGame.WIDTH / 2f - cardW - cardH;
+          deckRot = 0;
           break;
-        case 2:
-          handCards.get(j).setRotation(-180);
-          handCards.get(j).setPosition(handCards.get(j).getX() - 2f * dice.getWidth() - j * 5f,
-              handCards.get(j).getY() - dice.getWidth());
+        case 2: // king visual left = (WIDTH-H)/2; deck visual right = king_left - W/2
+          deckX = (MyGdxGame.WIDTH - cardH) / 2f - cardW / 2f - (cardH + cardW) / 2f;
+          deckY = MyGdxGame.WIDTH - cardH;
+          deckRot = 90;
           break;
-        case 3:
-          handCards.get(j).setRotation(90);
-          handCards.get(j).setPosition(handCards.get(j).getX() - dice.getWidth(),
-              handCards.get(j).getY() + dice.getWidth() + j * 5f);
+        case 3: // king visual top = WIDTH/2 + W/2; deck visual bottom (anchorY) = king_top + W/2
+          deckX = MyGdxGame.WIDTH - cardH / 2f - cardW / 2f;
+          deckY = MyGdxGame.WIDTH / 2f + cardW;
+          deckRot = 180;
           break;
         default:
-          break;
+          deckX = 0; deckY = 0; deckRot = 0; break;
         }
 
-        // add listener for priest functionality
-        handCard.removeAllListeners();
-        enemyHandCardListener = new EnemyHandCardListener(handCard, gameState.getCurrentPlayer(),
-            gameState.getPlayers());
-        handCard.addListener(enemyHandCardListener);
+        for (int j = 0; j < handCards.size(); j++) {
+          final Card handCard = handCards.get(j);
+          handCard.setCovered(true);
+          handCard.setRotation(deckRot);
+          handCard.setActive(false);
+          handCard.setSelected(false);
+          handCard.setSize(cardW, cardH);
+          handCard.setPosition(deckX + j * 0.3f, deckY + j * 0.3f);
+          handCard.removeAllListeners();
+          enemyHandCardListener = new EnemyHandCardListener(handCard, gameState.getCurrentPlayer(),
+              gameState.getPlayers());
+          handCard.addListener(enemyHandCardListener);
+          gameStage.addActor(handCard);
+        }
 
-        gameStage.addActor(handCard);
+        // Count label only for other players (not the local player).
+        // Centred directly on the deck visual centre: (anchorX+W/2, anchorY+H/2).
+        if (i != playerIndex) {
+          Label handCountLabel = new Label(String.valueOf(handCards.size()), MyGdxGame.skin);
+          handCountLabel.setColor(Color.BLACK);
+          float lw = handCountLabel.getPrefWidth();
+          float lh = handCountLabel.getPrefHeight();
+          handCountLabel.setPosition(deckX + cardW / 2f - lw / 2f, deckY + cardH / 2f - lh / 2f);
+          handCountLabels.add(handCountLabel);
+        }
       }
 
       // display king cards
@@ -505,6 +544,11 @@ public class GameScreen extends ScreenAdapter {
       }
 
       gameStage.addActor(playerLabel);
+    }
+
+    // Add hand count labels AFTER all player actors so they render on top
+    for (Label lbl : handCountLabels) {
+      gameStage.addActor(lbl);
     }
 
     // Plunder preview overlay — added LAST so it renders on top of everything

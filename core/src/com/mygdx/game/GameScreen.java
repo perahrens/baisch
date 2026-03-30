@@ -1,6 +1,7 @@
 
 package com.mygdx.game;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -19,8 +20,12 @@ import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
+import com.mygdx.game.PickingDeck;
+import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
@@ -93,92 +98,29 @@ public class GameScreen extends ScreenAdapter {
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
     this.socket = socket;
-  System.out.println("[GameScreen] Constructor called");
-  System.out.println("[GameScreen] Received playerIndex: " + playerIndex);
-  System.out.println("[GameScreen] Received centralizedState: " + centralizedState.toString());
     this.playerIndex = playerIndex;
     this.centralizedState = centralizedState;
 
-    // Parse players and hands from centralized state
-  players = new ArrayList<Player>();
-  System.out.println("[GameScreen] Parsing players from centralized state...");
-    try {
-  org.json.JSONArray playersJson = centralizedState.getJSONArray("players");
-  System.out.println("[GameScreen] playersJson.length() = " + playersJson.length());
-      for (int i = 0; i < playersJson.length(); i++) {
-        org.json.JSONObject playerObj = playersJson.getJSONObject(i);
-        int idx = playerObj.getInt("index");
-  Player p = new Player("Player " + idx);
-  System.out.println("[GameScreen] Parsing player index: " + idx);
-        // Parse hand cards for this player
-        ArrayList<Card> handCards = new ArrayList<Card>();
-  org.json.JSONArray handJson = playerObj.getJSONArray("hand");
-  System.out.println("[GameScreen] Player " + idx + " hand size: " + handJson.length());
-        for (int h = 0; h < handJson.length(); h++) {
-          int cardId = handJson.getInt(h);
-          Card card = Card.fromCardId(cardId);
-          handCards.add(card);
-          System.out.println("[GameScreen]   Added cardId: " + cardId);
-        }
-        p.handCards = handCards;
-        players.add(p);
-      }
+    // Build all game state from the server-provided authoritative state
+    gameState = new GameState(centralizedState);
+    gameState.setSocket(socket);
+    players = gameState.getPlayers();
+    currentPlayer = players.get(playerIndex);
 
-      // Parse board (if present)
-      // Example: board is an array of card ids
-  ArrayList<Card> boardCards = new ArrayList<Card>();
-  System.out.println("[GameScreen] Parsing board from centralized state...");
-      if (centralizedState.has("board")) {
-        org.json.JSONArray boardJson = centralizedState.getJSONArray("board");
-        System.out.println("[GameScreen] boardJson.length() = " + boardJson.length());
-        for (int b = 0; b < boardJson.length(); b++) {
-          int cardId = boardJson.getInt(b);
-          Card card = Card.fromCardId(cardId);
-          boardCards.add(card);
-          System.out.println("[GameScreen]   Added board cardId: " + cardId);
-        }
-      }
-      // Store boardCards if needed for rendering
-
-      // Assign currentPlayer
-      if (playerIndex >= 0 && playerIndex < players.size()) {
-        currentPlayer = players.get(playerIndex);
-        System.out.println("[GameScreen] Assigned currentPlayer: " + currentPlayer.getPlayerName());
-      } else {
-        currentPlayer = null;
-        System.out.println("[GameScreen] Invalid playerIndex, currentPlayer set to null");
-      }
-      System.out.println("[GameScreen] Parsed " + players.size() + " players from centralized state.");
-      System.out.println("[GameScreen] Assigned player index: " + playerIndex);
-
-    // Initialize gameState from the pre-parsed players and the server's remaining deck
-    gameState = new GameState(players, centralizedState.getJSONArray("deck"));
-
-    // Listen for turn-change events broadcast by the server
-    socket.on("turnChanged", new Emitter.Listener() {
+    // Single stateUpdate listener — replaces all specific sync events
+    socket.on("stateUpdate", new Emitter.Listener() {
       @Override
       public void call(Object... args) {
-        org.json.JSONObject data = (org.json.JSONObject) args[0];
-        try {
-          final int currentPlayerIndex = data.getInt("currentPlayerIndex");
-          Gdx.app.postRunnable(new Runnable() {
-            @Override
-            public void run() {
-              // Advance gameState turns until it matches the server-authoritative index
-              while (gameState.getCurrentPlayer() != gameState.getPlayers().get(currentPlayerIndex)) {
-                gameState.getNextPlayer();
-              }
-              gameState.setUpdateState(true);
-            }
-          });
-        } catch (JSONException e) {
-          e.printStackTrace();
-        }
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            applyStateUpdate(data);
+            gameState.setUpdateState(true);
+          }
+        });
       }
     });
-    } catch (org.json.JSONException e) {
-      e.printStackTrace();
-    }
 
     // Initialize stages
     gameStage = new Stage();
@@ -405,8 +347,8 @@ public class GameScreen extends ScreenAdapter {
           defCard.setPlaceholder(false);
           defCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
-            enemyDefCardListener = new EnemyDefCardListener(defCard, gameState.getCardDeck(),
-                gameState.getCemeteryDeck(), gameState.getCurrentPlayer(), gameState.getPlayers());
+            enemyDefCardListener = new EnemyDefCardListener(defCard, gameState,
+                gameState.getCurrentPlayer(), gameState.getPlayers());
             defCard.addListener(enemyDefCardListener);
           } else {
             ownDefCardListener = new OwnDefCardListener(gameState, defCard, gameState.getCurrentPlayer().getKingCard(),
@@ -418,7 +360,7 @@ public class GameScreen extends ScreenAdapter {
           defCard = new Card();
           defCard.removeAllListeners();
           if (players.get(i) == currentPlayer) {
-            ownPlaceholderListener = new OwnPlaceholderListener(defCard, gameState.getCurrentPlayer());
+            ownPlaceholderListener = new OwnPlaceholderListener(defCard, gameState.getCurrentPlayer(), gameState);
             defCard.addListener(ownPlaceholderListener);
           }
         }
@@ -481,8 +423,8 @@ public class GameScreen extends ScreenAdapter {
           topDefCard = topDefCards.get(j);
           topDefCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
-            enemyDefCardListener = new EnemyDefCardListener(topDefCard, gameState.getCardDeck(),
-                gameState.getCemeteryDeck(), gameState.getCurrentPlayer(), gameState.getPlayers());
+            enemyDefCardListener = new EnemyDefCardListener(topDefCard, gameState,
+                gameState.getCurrentPlayer(), gameState.getPlayers());
             topDefCard.addListener(enemyDefCardListener);
           } else {
             ownDefCardListener = new OwnDefCardListener(gameState, topDefCard,
@@ -563,6 +505,128 @@ public class GameScreen extends ScreenAdapter {
       }
 
       gameStage.addActor(playerLabel);
+    }
+
+    // Plunder preview overlay — added LAST so it renders on top of everything
+    if (currentPlayer.getPlayerTurn().isPlunderPending()) {
+      final Player plunderPlayer = currentPlayer;
+      final PlayerTurn pt = plunderPlayer.getPlayerTurn();
+      final boolean plunderSuccess = pt.isPlunderSuccess();
+
+      // Semi-transparent black tint over the whole board; catches any tap to confirm
+      Image overlay = new Image(MyGdxGame.skin, "white");
+      overlay.setFillParent(true);
+      overlay.setColor(0f, 0f, 0f, 0.45f);
+      overlay.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          final int deckIdx = pt.getPendingPickingDeckIndex();
+          PickingDeck thisD = gameState.getPickingDecks().get(deckIdx);
+          PickingDeck otherD = gameState.getPickingDecks().get(1 - deckIdx);
+          if (plunderSuccess) {
+            Iterator<Card> it = thisD.getCards().iterator();
+            while (it.hasNext()) { plunderPlayer.addHandCard(it.next()); it.remove(); }
+            otherD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+            thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+            thisD.getCards().get(thisD.getCards().size() - 1).setCovered(false);
+            thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+          } else {
+            thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+          }
+          for (Card c : pt.getPendingAttackCards()) {
+            plunderPlayer.getHandCards().remove(c);
+            gameState.getCemeteryDeck().addCard(c);
+          }
+          pt.getPendingAttackCards().clear();
+          pt.setPlunderPending(false);
+          // Broadcast to server (server applies + broadcasts stateUpdate to all)
+          try {
+            org.json.JSONObject emitData = new org.json.JSONObject();
+            emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
+            emitData.put("deckIndex", deckIdx);
+            emitData.put("success", plunderSuccess);
+            org.json.JSONArray atkIdArr = new org.json.JSONArray();
+            for (Card c : pt.getPendingAttackCards()) atkIdArr.put(c.getCardId());
+            emitData.put("attackCardIds", atkIdArr);
+            socket.emit("plunderResolved", emitData);
+          } catch (JSONException e) {
+            e.printStackTrace();
+          }
+          gameState.setUpdateState(true);
+        }
+      });
+
+      // Result label on top of the tint
+      Label plunderResultLabel = new Label(
+          plunderSuccess ? "SUCCESS!  Tap anywhere to claim the cards."
+                        : "FAILED.  Tap anywhere to continue.",
+          MyGdxGame.skin);
+      plunderResultLabel.setColor(plunderSuccess ? Color.GREEN : Color.RED);
+      plunderResultLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - plunderResultLabel.getPrefWidth() / 2f,
+          MyGdxGame.WIDTH / 2f);
+
+      gameStage.addActor(overlay);
+      gameStage.addActor(plunderResultLabel);
+    }
+
+    // Defense-attack preview overlay — added LAST so it renders on top
+    if (currentPlayer.getPlayerTurn().isAttackPending()) {
+      final Player atkPlayer = currentPlayer;
+      final PlayerTurn apt = atkPlayer.getPlayerTurn();
+      final boolean atkSuccess = apt.isAttackSuccess();
+
+      Image atkOverlay = new Image(MyGdxGame.skin, "white");
+      atkOverlay.setFillParent(true);
+      atkOverlay.setColor(0f, 0f, 0f, 0.45f);
+      atkOverlay.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          // Discard attacking hand cards
+          for (Card c : apt.getPendingAttackCards()) {
+            atkPlayer.getHandCards().remove(c);
+            gameState.getCemeteryDeck().addCard(c);
+          }
+          // Apply result to defender
+          if (atkSuccess) {
+            for (Card dc : apt.getPendingAttackDefCards()) {
+              dc.setRemoved(true);
+              atkPlayer.addHandCard(dc);
+            }
+          }
+          // Broadcast to server (server applies + broadcasts stateUpdate to all)
+          try {
+            org.json.JSONObject emitData = new org.json.JSONObject();
+            emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
+            emitData.put("targetPlayerIdx", apt.getAttackTargetPlayerIdx());
+            emitData.put("positionId", apt.getAttackTargetPositionId());
+            emitData.put("level", apt.getAttackTargetLevel());
+            emitData.put("success", atkSuccess);
+            org.json.JSONArray atkIds = new org.json.JSONArray();
+            for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
+            emitData.put("attackCardIds", atkIds);
+            socket.emit("defAttackResolved", emitData);
+          } catch (JSONException e) {
+            e.printStackTrace();
+          }
+          apt.getPendingAttackCards().clear();
+          apt.getPendingAttackDefCards().clear();
+          apt.setAttackPending(false);
+          gameState.setUpdateState(true);
+        }
+      });
+
+      Label atkResultLabel = new Label(
+          atkSuccess ? "ATTACK SUCCESS!  Tap to claim the defense card."
+                     : "ATTACK FAILED.  Tap to continue.",
+          MyGdxGame.skin);
+      atkResultLabel.setColor(atkSuccess ? Color.GREEN : Color.RED);
+      atkResultLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - atkResultLabel.getPrefWidth() / 2f,
+          MyGdxGame.WIDTH / 2f);
+
+      gameStage.addActor(atkOverlay);
+      gameStage.addActor(atkResultLabel);
     }
   }
 
@@ -696,6 +760,41 @@ public class GameScreen extends ScreenAdapter {
     turnIndicatorLabel.setColor(isMyTurn ? Color.GREEN : Color.RED);
     turnIndicatorLabel.setPosition(0, 0);
     handStage.addActor(turnIndicatorLabel);
+
+    // Action availability indicators (only relevant when it is this player's turn)
+    if (isMyTurn) {
+      PlayerTurn pt = currentPlayer.getPlayerTurn();
+      float lineH = turnIndicatorLabel.getPrefHeight() + 2;
+      float statusY = lineH;
+
+      boolean canPlunder = pt.getPickingDeckAttacks() > 0;
+      Label plunderLabel = new Label("Plunder: " + (canPlunder ? "available" : "used"), MyGdxGame.skin);
+      plunderLabel.setColor(canPlunder ? Color.GREEN : Color.GRAY);
+      plunderLabel.setPosition(0, statusY);
+      handStage.addActor(plunderLabel);
+      statusY += lineH;
+
+      boolean canTakeDef = pt.getTakeDefCard() > 0;
+      Label takeDefLabel = new Label("Def (take): " + (canTakeDef ? "available" : "used"), MyGdxGame.skin);
+      takeDefLabel.setColor(canTakeDef ? Color.GREEN : Color.GRAY);
+      takeDefLabel.setPosition(0, statusY);
+      handStage.addActor(takeDefLabel);
+      statusY += lineH;
+
+      boolean canPutDef = pt.getPutDefCard() > 0;
+      Label putDefLabel = new Label("Def (put): " + (canPutDef ? "available" : "used"), MyGdxGame.skin);
+      putDefLabel.setColor(canPutDef ? Color.GREEN : Color.GRAY);
+      putDefLabel.setPosition(0, statusY);
+      handStage.addActor(putDefLabel);
+      statusY += lineH;
+
+      boolean canKingAttack = currentPlayer.getDefCards().isEmpty() && currentPlayer.getTopDefCards().isEmpty();
+      Label kingAtkLabel = new Label("King Atk: " + (canKingAttack ? "available" : "need def=0"), MyGdxGame.skin);
+      kingAtkLabel.setColor(canKingAttack ? Color.GREEN : Color.GRAY);
+      kingAtkLabel.setPosition(0, statusY);
+      handStage.addActor(kingAtkLabel);
+    }
+
     // Only enable finish-turn button when it is this player's turn
     finishTurnButton.setVisible(isMyTurn);
 
@@ -771,6 +870,79 @@ public class GameScreen extends ScreenAdapter {
 
     handStage.addActor(handImage);
     handStage.addActor(finishTurnButton);
+  }
+
+  // Apply a server-authoritative stateUpdate to local game state.
+  // Clears and refills card collections in-place (preserves deck/cemetery/pickingDeck listener objects).
+  private void applyStateUpdate(JSONObject state) {
+    try {
+      // 1. Advance current player if changed
+      int serverCurrentIdx = state.getInt("currentPlayerIndex");
+      gameState.setCurrentPlayer(serverCurrentIdx);
+
+      // 2. Rebuild main deck
+      JSONArray deckJson = state.getJSONArray("deck");
+      gameState.getCardDeck().getCards().clear();
+      for (int i = 0; i < deckJson.length(); i++) {
+        gameState.getCardDeck().getCards().add(Card.fromCardId(deckJson.getInt(i)));
+      }
+
+      // 3. Rebuild cemetery
+      JSONArray cemJson = state.getJSONArray("cemetery");
+      gameState.getCemeteryDeck().getCards().clear();
+      for (int i = 0; i < cemJson.length(); i++) {
+        gameState.getCemeteryDeck().getCards().add(Card.fromCardId(cemJson.getInt(i)));
+      }
+
+      // 4. Rebuild each player's hand, defCards, topDefCards
+      JSONArray playersJson = state.getJSONArray("players");
+      for (int i = 0; i < playersJson.length(); i++) {
+        JSONObject pj = playersJson.getJSONObject(i);
+        Player p = gameState.getPlayers().get(pj.getInt("index"));
+
+        p.getHandCards().clear();
+        JSONArray handJson = pj.getJSONArray("hand");
+        for (int h = 0; h < handJson.length(); h++) {
+          p.getHandCards().add(Card.fromCardId(handJson.getInt(h)));
+        }
+
+        p.getDefCards().clear();
+        JSONObject defJson = pj.getJSONObject("defCards");
+        Iterator<String> defKeys = defJson.keys();
+        while (defKeys.hasNext()) {
+          String key = defKeys.next();
+          Card dc = Card.fromCardId(defJson.getInt(key));
+          dc.setCovered(true);
+          p.getDefCards().put(Integer.parseInt(key), dc);
+        }
+
+        p.getTopDefCards().clear();
+        JSONObject topDefJson = pj.getJSONObject("topDefCards");
+        Iterator<String> topKeys = topDefJson.keys();
+        while (topKeys.hasNext()) {
+          String key = topKeys.next();
+          Card tdc = Card.fromCardId(topDefJson.getInt(key));
+          tdc.setCovered(true);
+          p.getTopDefCards().put(Integer.parseInt(key), tdc);
+        }
+      }
+
+      // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)
+      JSONArray pickJson = state.getJSONArray("pickingDecks");
+      for (int i = 0; i < Math.min(pickJson.length(), gameState.getPickingDecks().size()); i++) {
+        JSONArray pdJson = pickJson.getJSONArray(i);
+        gameState.getPickingDecks().get(i).getCards().clear();
+        for (int j = 0; j < pdJson.length(); j++) {
+          JSONObject co = pdJson.getJSONObject(j);
+          Card c = Card.fromCardId(co.getInt("id"));
+          c.setCovered(co.getBoolean("covered"));
+          gameState.getPickingDecks().get(i).addCard(c);
+        }
+      }
+
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override

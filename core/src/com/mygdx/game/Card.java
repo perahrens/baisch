@@ -294,6 +294,16 @@ public class Card extends Actor {
     return positionId;
   }
 
+  public int getCardId() {
+    final String[] suits = { "clubs", "diamonds", "hearts", "spades" };
+    for (int i = 0; i < suits.length; i++) {
+      if (suits[i].equals(symbol)) {
+        return i * 13 + index;
+      }
+    }
+    return -1;
+  }
+
   public int getLevel() {
     return level;
   }

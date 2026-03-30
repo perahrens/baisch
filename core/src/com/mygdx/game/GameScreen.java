@@ -575,7 +575,9 @@ public class GameScreen extends ScreenAdapter {
             thisD.getCards().get(thisD.getCards().size() - 1).setCovered(false);
             thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
           } else {
-            thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+            Card newPickCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+            newPickCard.setCovered(true);
+            thisD.addCard(newPickCard);
           }
           for (Card c : pt.getPendingAttackCards()) {
             plunderPlayer.getHandCards().remove(c);

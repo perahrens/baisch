@@ -89,12 +89,11 @@ public class EnemyDefCardListener extends ClickListener {
     // King can only be used when the player has no defense cards
     if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
 
-    if (!kingSelected) {
-      String selectedSymbol = player.getSelectedHandCards().get(0).getSymbol();
-      if (pt.getAttackingSymbol()[0] != "none"
-          && pt.getAttackingSymbol()[0] != selectedSymbol
-          && pt.getAttackingSymbol()[1] != selectedSymbol) return;
-    }
+    // Symbol constraint — applies to both hand and king attacks
+    String attackSymbol = kingSelected ? player.getKingCard().getSymbol() : player.getSelectedHandCards().get(0).getSymbol();
+    if (pt.getAttackingSymbol()[0] != "none"
+        && pt.getAttackingSymbol()[0] != attackSymbol
+        && pt.getAttackingSymbol()[1] != attackSymbol) return;
 
     // Snapshot attacking cards (empty for king attacks — king is not a hand card)
     ArrayList<Card> attackSnapshot = kingSelected
@@ -126,6 +125,9 @@ public class EnemyDefCardListener extends ClickListener {
     // Store preview state
     if (!kingSelected) {
       pt.setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(), player.hasHero("Lieutenant"));
+    } else {
+      // King attacks also lock the attack symbol (treated same as hand cards)
+      pt.setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Lieutenant"));
     }
     pt.setKingUsed(kingSelected);
     pt.setPendingAttackCards(attackSnapshot);

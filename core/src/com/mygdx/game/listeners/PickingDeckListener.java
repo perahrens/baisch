@@ -43,27 +43,32 @@ public class PickingDeckListener extends ClickListener {
         if (kingSelected && pt.isKingUsedThisTurn()) return;
         // King can only be used when the player has no defense cards
         if (kingSelected && (!currentPlayer.getDefCards().isEmpty() || !currentPlayer.getTopDefCards().isEmpty())) return;
+
+        // Symbol constraint — king attacks also set/check the attack symbol
+        String attackSymbol = kingSelected ? currentPlayer.getKingCard().getSymbol()
+            : currentPlayer.getSelectedHandCards().get(0).getSymbol();
+        if (!kingSelected || !"joker".equals(attackSymbol)) {
+          if (pt.getAttackingSymbol()[0] != "none"
+              && pt.getAttackingSymbol()[0] != attackSymbol
+              && pt.getAttackingSymbol()[1] != attackSymbol) return;
+        }
+
         int attackSum;
         ArrayList<Card> snapshot;
 
         if (kingSelected) {
-          // King attack: king card is the attacker, no symbol restriction, no hand cards spent
           attackSum = currentPlayer.getKingCard().getStrength();
           snapshot = new ArrayList<Card>();
           pt.setKingUsed(true);
+          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
         } else {
-          String selectedSymbol = currentPlayer.getSelectedHandCards().get(0).getSymbol();
-          if (pt.getAttackingSymbol()[0] != "none"
-              && pt.getAttackingSymbol()[0] != selectedSymbol
-              && pt.getAttackingSymbol()[1] != selectedSymbol) {
-            return;
-          }
           snapshot = new ArrayList<Card>(currentPlayer.getSelectedHandCards());
           attackSum = 0;
           for (Card c : snapshot) {
             attackSum += c.getStrength();
           }
           pt.setKingUsed(false);
+          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
         }
 
         pt.setPendingAttackCards(snapshot);
@@ -76,10 +81,6 @@ public class PickingDeckListener extends ClickListener {
 
         System.out.println("Attack with " + attackSum + " defense is " + topCard.getStrength());
 
-        if (!kingSelected) {
-          // Only lock the symbol for normal hand-card attacks
-          pt.setAttackingSymbol(snapshot.get(0).getSymbol(), currentPlayer.hasHero("Lieutenant"));
-        }
         pt.decreasePickingDeckAttacks();
         pt.setPlunderPending(true);
         pt.setPlunderSuccess(attackSum > topCard.getStrength());

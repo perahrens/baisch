@@ -8,6 +8,27 @@ var timeToStart;
 var timer;
 var GameState = require('./gameState');
 var gameState = null;
+var winnerHandled = false;
+
+function checkAndHandleWinner(io) {
+  if (!gameState || winnerHandled) return;
+  const winner = gameState.checkWinner();
+  if (winner >= 0) {
+    winnerHandled = true;
+    console.log("Winner found: player " + winner + " — restarting in 5 seconds");
+    // stateUpdate with winnerIndex already broadcast by the caller; schedule restart
+    setTimeout(function() {
+      winnerHandled = false;
+      gameState = new GameState(users);
+      users.forEach(function(user, idx) {
+        io.to(user.id).emit('gameState', {
+          playerIndex: idx,
+          gameState: gameState.serialize()
+        });
+      });
+    }, 5000);
+  }
+}
 
 server.listen(8082, function() {
   console.log("Server is now running... ");
@@ -58,6 +79,7 @@ io.on('connection', function(socket) {
       console.log("Seconds left ... " + timeToStart)
       if (timeToStart == 0) {
         console.log("Timer finished, broadcast to users");
+        winnerHandled = false;
         gameState = new GameState(users);
         users.forEach((user, idx) => {
           io.to(user.id).emit('gameState', {
@@ -105,12 +127,21 @@ io.on('connection', function(socket) {
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false);
     io.emit('stateUpdate', gameState.serialize());
+    checkAndHandleWinner(io);
   });
 
   socket.on('defAttackResolved', function(data) {
     console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
     gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false);
     io.emit('stateUpdate', gameState.serialize());
+    checkAndHandleWinner(io);
+  });
+
+  socket.on('kingAttackResolved', function(data) {
+    console.log("kingAttackResolved: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " success=" + data.success);
+    gameState.kingAttackResolved(data.attackerIdx, data.defenderIdx, data.success, data.attackCardIds || [], data.kingUsed || false);
+    io.emit('stateUpdate', gameState.serialize());
+    checkAndHandleWinner(io);
   });
   
   users.push(new user(socket.id));

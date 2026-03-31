@@ -132,6 +132,28 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Restart listener: server sends a fresh gameState when a new game begins
+    final Game theGame = game;
+    final Socket theSocket = socket;
+    socket.on("gameState", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int newPlayerIndex = data.getInt("playerIndex");
+              org.json.JSONObject newState = data.getJSONObject("gameState");
+              theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket));
+            } catch (Exception e) {
+              e.printStackTrace();
+            }
+          }
+        });
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
     fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
@@ -659,6 +681,7 @@ public class GameScreen extends ScreenAdapter {
       final Player atkPlayer = currentPlayer;
       final PlayerTurn apt = atkPlayer.getPlayerTurn();
       final boolean atkSuccess = apt.isAttackSuccess();
+      final boolean targetIsKing = apt.isAttackTargetIsKing();
 
       Image atkOverlay = new Image(MyGdxGame.skin, "white");
       atkOverlay.setFillParent(true);
@@ -671,47 +694,75 @@ public class GameScreen extends ScreenAdapter {
             atkPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
-          // Apply result to defender
-          if (atkSuccess) {
-            for (Card dc : apt.getPendingAttackDefCards()) {
-              dc.setRemoved(true);
-              atkPlayer.addHandCard(dc);
+          if (targetIsKing) {
+            // King-on-king or hand-cards-on-king attack
+            if (atkSuccess) {
+              // Defender is eliminated; state update from server will reflect this
+              Player defender = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
+              defender.setOut(true);
+              if (apt.isKingUsed()) atkPlayer.getKingCard().setCovered(false);
+            } else {
+              if (apt.isKingUsed()) {
+                atkPlayer.getKingCard().setCovered(false);
+                atkPlayer.setOut(true);
+              }
             }
-            if (apt.isKingUsed()) atkPlayer.getKingCard().setCovered(false);
+            try {
+              org.json.JSONObject emitData = new org.json.JSONObject();
+              emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
+              emitData.put("defenderIdx", apt.getAttackTargetPlayerIdx());
+              emitData.put("success", atkSuccess);
+              emitData.put("kingUsed", apt.isKingUsed());
+              org.json.JSONArray atkIds = new org.json.JSONArray();
+              for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
+              emitData.put("attackCardIds", atkIds);
+              socket.emit("kingAttackResolved", emitData);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
           } else {
-            if (apt.isKingUsed()) {
-              atkPlayer.getKingCard().setCovered(false);
-              atkPlayer.setOut(true);
+            // Regular defense card attack
+            if (atkSuccess) {
+              for (Card dc : apt.getPendingAttackDefCards()) {
+                dc.setRemoved(true);
+                atkPlayer.addHandCard(dc);
+              }
+              if (apt.isKingUsed()) atkPlayer.getKingCard().setCovered(false);
+            } else {
+              if (apt.isKingUsed()) {
+                atkPlayer.getKingCard().setCovered(false);
+                atkPlayer.setOut(true);
+              }
             }
-          }
-          // Broadcast to server (server applies + broadcasts stateUpdate to all)
-          try {
-            org.json.JSONObject emitData = new org.json.JSONObject();
-            emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
-            emitData.put("targetPlayerIdx", apt.getAttackTargetPlayerIdx());
-            emitData.put("positionId", apt.getAttackTargetPositionId());
-            emitData.put("level", apt.getAttackTargetLevel());
-            emitData.put("success", atkSuccess);
-            emitData.put("kingUsed", apt.isKingUsed());
-            org.json.JSONArray atkIds = new org.json.JSONArray();
-            for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
-            emitData.put("attackCardIds", atkIds);
-            socket.emit("defAttackResolved", emitData);
-          } catch (JSONException e) {
-            e.printStackTrace();
+            try {
+              org.json.JSONObject emitData = new org.json.JSONObject();
+              emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
+              emitData.put("targetPlayerIdx", apt.getAttackTargetPlayerIdx());
+              emitData.put("positionId", apt.getAttackTargetPositionId());
+              emitData.put("level", apt.getAttackTargetLevel());
+              emitData.put("success", atkSuccess);
+              emitData.put("kingUsed", apt.isKingUsed());
+              org.json.JSONArray atkIds = new org.json.JSONArray();
+              for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
+              emitData.put("attackCardIds", atkIds);
+              socket.emit("defAttackResolved", emitData);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+            apt.getPendingAttackDefCards().clear();
           }
           apt.getPendingAttackCards().clear();
-          apt.getPendingAttackDefCards().clear();
           apt.setAttackPending(false);
+          apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
           gameState.setUpdateState(true);
         }
       });
 
-      Label atkResultLabel = new Label(
-          atkSuccess ? "ATTACK SUCCESS!  Tap to claim the defense card."
-                     : "ATTACK FAILED.  Tap to continue.",
-          MyGdxGame.skin);
+      String resultText = targetIsKing
+          ? (atkSuccess ? "KING DEFEATED!  Tap to claim." : "KING ATTACK FAILED.  Tap to continue.")
+          : (atkSuccess ? "ATTACK SUCCESS!  Tap to claim the defense card." : "ATTACK FAILED.  Tap to continue.");
+      Label atkResultLabel = new Label(resultText, MyGdxGame.skin);
       atkResultLabel.setColor(atkSuccess ? Color.GREEN : Color.RED);
       atkResultLabel.setPosition(
           MyGdxGame.WIDTH / 2f - atkResultLabel.getPrefWidth() / 2f,
@@ -719,6 +770,29 @@ public class GameScreen extends ScreenAdapter {
 
       gameStage.addActor(atkOverlay);
       gameStage.addActor(atkResultLabel);
+    }
+
+    // Winner overlay — shown on top of everything when a winner is determined
+    if (gameState.getWinnerIndex() >= 0) {
+      Image winOverlay = new Image(MyGdxGame.skin, "white");
+      winOverlay.setFillParent(true);
+      winOverlay.setColor(0f, 0f, 0f, 0.75f);
+      gameStage.addActor(winOverlay);
+
+      Player winner = gameState.getPlayers().get(gameState.getWinnerIndex());
+      Label winLabel = new Label(winner.getPlayerName() + " WINS!", MyGdxGame.skin);
+      winLabel.setColor(Color.GOLD);
+      winLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - winLabel.getPrefWidth() / 2f,
+          MyGdxGame.WIDTH / 2f + winLabel.getPrefHeight());
+      gameStage.addActor(winLabel);
+
+      Label restartLabel = new Label("New game starting in 5 seconds...", MyGdxGame.skin);
+      restartLabel.setColor(Color.WHITE);
+      restartLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - restartLabel.getPrefWidth() / 2f,
+          MyGdxGame.WIDTH / 2f - restartLabel.getPrefHeight());
+      gameStage.addActor(restartLabel);
     }
   }
 
@@ -1037,6 +1111,9 @@ public class GameScreen extends ScreenAdapter {
           gameState.getPickingDecks().get(i).addCard(c);
         }
       }
+
+      // 6. Winner index
+      gameState.setWinnerIndex(state.optInt("winnerIndex", -1));
 
     } catch (JSONException e) {
       e.printStackTrace();

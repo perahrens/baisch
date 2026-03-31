@@ -184,6 +184,34 @@ class GameState {
     this.currentPlayerIndex = next;
   }
 
+  checkWinner() {
+    const alive = this.players.filter(p => !p.isOut);
+    return alive.length === 1 ? alive[0].index : -1;
+  }
+
+  kingAttackResolved(attackerIdx, defenderIdx, success, attackCardIds, kingUsed) {
+    const attacker = this.players[attackerIdx];
+    const defender = this.players[defenderIdx];
+    for (const cardId of attackCardIds) {
+      const i = attacker.hand.indexOf(cardId);
+      if (i !== -1) attacker.hand.splice(i, 1);
+      this.cemetery.push(cardId);
+    }
+    if (kingUsed) attacker.kingCovered = false;
+    if (success) {
+      // Defender loses their king and is eliminated; attacker gains their cards
+      defender.isOut = true;
+      for (const cardId of defender.hand) attacker.hand.push(cardId);
+      defender.hand = [];
+      if (defender.kingCard !== null) {
+        attacker.hand.push(defender.kingCard);
+        defender.kingCard = null;
+      }
+    } else {
+      if (kingUsed) attacker.isOut = true;
+    }
+  }
+
   serialize() {
     return {
       currentPlayerIndex: this.currentPlayerIndex,
@@ -201,6 +229,7 @@ class GameState {
         isOut: p.isOut || false,
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
+      winnerIndex: this.checkWinner(),
     };
   }
 }

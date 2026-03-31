@@ -16,6 +16,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -95,6 +96,7 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject centralizedState;
   private Socket socket;
   private JSONArray activityLog = new JSONArray();
+  private boolean logExpanded = false;
 
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
@@ -226,30 +228,6 @@ public class GameScreen extends ScreenAdapter {
     turnLabel.setPosition(roundCounter.getX(),
         roundCounter.getY() - turnLabel.getHeight());
     gameStage.addActor(turnLabel);
-
-    // Activity log — top-right corner, last 5 entries, green=success / red=failure / black=neutral
-    try {
-      float logLineH = roundCounter.getPrefHeight() + 1f;
-      float logY = MyGdxGame.WIDTH - logLineH;
-      int firstEntry = Math.max(0, activityLog.length() - 5);
-      for (int li = firstEntry; li < activityLog.length(); li++) {
-        JSONObject entry = activityLog.getJSONObject(li);
-        String entryText = entry.optString("text", "");
-        boolean entryNeutral = entry.optBoolean("neutral", false);
-        boolean entrySuccess = entry.optBoolean("success", true);
-        Label logLabel = new Label(entryText, MyGdxGame.skin);
-        if (entryNeutral) {
-          logLabel.setColor(Color.BLACK);
-        } else {
-          logLabel.setColor(entrySuccess ? new Color(0.2f, 0.8f, 0.2f, 1f) : new Color(0.9f, 0.2f, 0.2f, 1f));
-        }
-        logLabel.setPosition(MyGdxGame.WIDTH - logLabel.getPrefWidth() - 2f, logY);
-        gameStage.addActor(logLabel);
-        logY -= logLineH;
-      }
-    } catch (JSONException e) {
-      e.printStackTrace();
-    }
 
     // draw card deck and cemetery
     ArrayList<Card> deckCards = gameState.getCardDeck().getCards();
@@ -818,6 +796,79 @@ public class GameScreen extends ScreenAdapter {
           MyGdxGame.WIDTH / 2f - restartLabel.getPrefWidth() / 2f,
           MyGdxGame.WIDTH / 2f - restartLabel.getPrefHeight());
       gameStage.addActor(restartLabel);
+    }
+
+    // Activity log panel — added LAST so it renders on top of everything.
+    // Dark box, top-right corner; 50% scale by default, 100% on mouse hover.
+    if (activityLog.length() > 0) {
+      try {
+        final float padding = 6f;
+        final float lineH = roundCounter.getPrefHeight() + 4f;
+        int firstEntry = Math.max(0, activityLog.length() - 5);
+        int count = activityLog.length() - firstEntry;
+
+        float maxLabelW = 0f;
+        Label[] entryLabels = new Label[count];
+        Color[] entryColors = new Color[count];
+        for (int li = 0; li < count; li++) {
+          JSONObject entry = activityLog.getJSONObject(firstEntry + li);
+          String entryText = entry.optString("text", "");
+          boolean entryNeutral = entry.optBoolean("neutral", false);
+          boolean entrySuccess = entry.optBoolean("success", true);
+          Label lbl = new Label(entryText, MyGdxGame.skin);
+          lbl.pack();
+          maxLabelW = Math.max(maxLabelW, lbl.getWidth());
+          Color lc = entryNeutral
+              ? new Color(0.85f, 0.85f, 0.85f, 1f)
+              : (entrySuccess ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+          entryLabels[li] = lbl;
+          entryColors[li] = lc;
+        }
+
+        float fullW = maxLabelW + 2f * padding;
+        float fullH = count * lineH + 2f * padding;
+
+        final Group logGroup = new Group();
+        logGroup.setTransform(true);
+        logGroup.setSize(fullW, fullH);
+
+        Image logBg = new Image(MyGdxGame.skin, "white");
+        logBg.setColor(0.12f, 0.12f, 0.18f, 0.90f);
+        logBg.setSize(fullW, fullH);
+        logGroup.addActor(logBg);
+
+        float ly = fullH - padding - lineH;
+        for (int li = 0; li < count; li++) {
+          Label lbl = entryLabels[li];
+          lbl.setColor(entryColors[li]);
+          lbl.setPosition(padding, ly + (lineH - lbl.getHeight()) * 0.5f);
+          logGroup.addActor(lbl);
+          ly -= lineH;
+        }
+
+        logGroup.setOrigin(fullW, fullH);
+        logGroup.setPosition(MyGdxGame.WIDTH - fullW, MyGdxGame.WIDTH - fullH);
+        logGroup.setScale(logExpanded ? 1f : 0.5f);
+
+        logGroup.addListener(new ClickListener() {
+          @Override
+          public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+            if (pointer != -1) return;
+            logExpanded = true;
+            logGroup.setScale(1f);
+          }
+          @Override
+          public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+            if (pointer != -1) return;
+            logExpanded = false;
+            logGroup.setScale(0.5f);
+          }
+        });
+
+        gameStage.addActor(logGroup);
+      } catch (JSONException e) {
+        e.printStackTrace();
+      }
     }
   }
 

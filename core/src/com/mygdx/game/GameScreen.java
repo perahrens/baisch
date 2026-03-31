@@ -603,7 +603,6 @@ public class GameScreen extends ScreenAdapter {
             plunderPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
-          pt.getPendingAttackCards().clear();
           pt.setPlunderPending(false);
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
@@ -620,6 +619,7 @@ public class GameScreen extends ScreenAdapter {
           } catch (JSONException e) {
             e.printStackTrace();
           }
+          pt.getPendingAttackCards().clear();
           gameState.setUpdateState(true);
         }
       });

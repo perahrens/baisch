@@ -13,7 +13,8 @@ import com.mygdx.game.heroes.Mercenaries;
 
 public class Card extends Actor {
   Sprite sprite;
-  TextureAtlas atlas = new TextureAtlas("data/skins/carddeck.atlas");
+  private boolean spriteIsBack = false;
+  static TextureAtlas atlas = new TextureAtlas("data/skins/carddeck.atlas");
 
   // card attributes
   private String symbol = null;
@@ -105,7 +106,14 @@ public class Card extends Actor {
 
   @Override
   public void draw(Batch batch, float parentAlpha) {
-    sprite = atlas.createSprite(symbol, index);
+    // Only re-fetch the sprite when the covered+active state demands the card-back sprite,
+    // otherwise keep the sprite that was set in the constructor. This avoids allocating a
+    // new AtlasSprite on every draw call.
+    if (isCovered && !isActive) {
+      if (!spriteIsBack) { sprite = atlas.createSprite("back", 1); spriteIsBack = true; }
+    } else {
+      if (spriteIsBack || sprite == null) { sprite = atlas.createSprite(symbol, index); spriteIsBack = false; }
+    }
     Color color = defColor;
     batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);
     if (isPlaceholder) {
@@ -122,8 +130,7 @@ public class Card extends Actor {
             // set dark
           }
         } else {
-          // set red
-          sprite = atlas.createSprite("back", 1);
+          // covered + not active → back sprite (already set at top of method)
           if (isSelected) {
             // not selectable --> attack
           } else {

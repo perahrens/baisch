@@ -95,6 +95,16 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject centralizedState;
   private Socket socket;
 
+  // Textures cached once to avoid leaking a new Texture on every show() call
+  private Texture texMercenary;
+  private Texture texSabotaged;
+  private Texture texHand;
+  private Texture texHearts;
+  private Texture texDiamonds;
+  private Texture texClubs;
+  private Texture texSpades;
+  private Texture texSomeSymbol;
+
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
     this.socket = socket;
@@ -115,11 +125,7 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            try {
-              applyStateUpdate(data);
-            } catch (Exception e) {
-              Gdx.app.error("GameScreen", "CRASH in applyStateUpdate: " + e.toString(), e);
-            }
+            applyStateUpdate(data);
             gameState.setUpdateState(true);
           }
         });
@@ -149,6 +155,15 @@ public class GameScreen extends ScreenAdapter {
     handBck.setFillParent(true);
     handBck.setColor(1f, 1f, 1f, 0.5f);
     handStage.addActor(handBck);
+
+    texMercenary  = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
+    texSabotaged  = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
+    texHand       = new Texture(Gdx.files.internal("data/skins/hand.png"));
+    texHearts     = new Texture(Gdx.files.internal("data/skins/hearts.png"));
+    texDiamonds   = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
+    texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
+    texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
+    texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
   }
 
   @Override
@@ -348,6 +363,10 @@ public class GameScreen extends ScreenAdapter {
 
       // display king cards
       final Card kingCard = players.get(i).getKingCard();
+      if (kingCard == null) {
+        Gdx.app.error("GameScreen", "kingCard is null for player " + i);
+        continue;
+      }
       kingCard.setMapPosition(i, 0, 0);
       // make own covered cards visible
       if (players.get(i) == currentPlayer) {
@@ -372,8 +391,7 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(kingCard);
 
       if (kingCard.getBoosted() > 0) {
-        Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
-        TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+        TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
         Image mercenaryImage = new Image(mercenaryRegion);
         mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(), mercenaryImage.getWidth() / 20f,
             mercenaryImage.getHeight() / 20f);
@@ -433,8 +451,7 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(defCard);
 
         if (defCard.isSabotaged()) {
-          Texture sabotagedTexture = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
-          TextureRegion sabotagedRegion = new TextureRegion(sabotagedTexture, 0, 0, 64, 64);
+          TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
           sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
               sabotagedImage.getWidth() / 5f, sabotagedImage.getHeight() / 5f);
@@ -448,8 +465,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         if (defCard.getBoosted() > 0) {
-          Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
-          TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+          TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
           Image mercenaryImage = new Image(mercenaryRegion);
           mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(),
               mercenaryImage.getWidth() / 20f, mercenaryImage.getHeight() / 20f);
@@ -744,8 +760,7 @@ public class GameScreen extends ScreenAdapter {
       handStage.addActor(handcard);
 
       if (handcard.getBoosted() > 0) {
-        Texture mercenaryTexture = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
-        TextureRegion mercenaryRegion = new TextureRegion(mercenaryTexture, 0, 0, 512, 512);
+        TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
         Image mercenaryImage = new Image(mercenaryRegion);
         mercenaryImage.setBounds(mercenaryImage.getX(), mercenaryImage.getY(), mercenaryImage.getWidth() / 10f,
             mercenaryImage.getHeight() / 10f);
@@ -884,19 +899,19 @@ public class GameScreen extends ScreenAdapter {
     Texture symbolTexture;
     TextureRegion symbolRegion;
     if (attackingSymbol == "hearts") {
-      symbolTexture = new Texture(Gdx.files.internal("data/skins/hearts.png"));
+      symbolTexture = texHearts;
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
     } else if (attackingSymbol == "diamonds") {
-      symbolTexture = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
+      symbolTexture = texDiamonds;
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
     } else if (attackingSymbol == "clubs") {
-      symbolTexture = new Texture(Gdx.files.internal("data/skins/clubs.png"));
+      symbolTexture = texClubs;
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
     } else if (attackingSymbol == "spades") {
-      symbolTexture = new Texture(Gdx.files.internal("data/skins/spades.png"));
+      symbolTexture = texSpades;
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
     } else {
-      symbolTexture = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
+      symbolTexture = texSomeSymbol;
       symbolRegion = new TextureRegion(symbolTexture, 0, 0, 342, 512);
     }
 
@@ -909,19 +924,19 @@ public class GameScreen extends ScreenAdapter {
 
     String attackingSymbolExt = currentPlayer.getPlayerTurn().getAttackingSymbol()[1];
     if (attackingSymbolExt != "none") {
-      Texture symbolTextureExt = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
+      Texture symbolTextureExt = texSomeSymbol;
       TextureRegion symbolRegionExt = new TextureRegion(symbolTexture, 0, 0, 342, 512);
       if (attackingSymbolExt == "hearts") {
-        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/hearts.png"));
+        symbolTextureExt = texHearts;
         symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
       } else if (attackingSymbolExt == "diamonds") {
-        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
+        symbolTextureExt = texDiamonds;
         symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
       } else if (attackingSymbolExt == "clubs") {
-        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/clubs.png"));
+        symbolTextureExt = texClubs;
         symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
       } else if (attackingSymbolExt == "spades") {
-        symbolTextureExt = new Texture(Gdx.files.internal("data/skins/spades.png"));
+        symbolTextureExt = texSpades;
         symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
       }
 
@@ -934,8 +949,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Add hand image
-    Texture handTexture = new Texture(Gdx.files.internal("data/skins/hand.png"));
-    TextureRegion handRegion = new TextureRegion(handTexture, 0, 0, 512, 512);
+    TextureRegion handRegion = new TextureRegion(texHand, 0, 0, 512, 512);
     Image handImage = new Image(handRegion);
     handImage.setBounds(handImage.getX(), handImage.getY(), handImage.getWidth() / 5f, handImage.getHeight() / 5f);
     handImage.setPosition(Gdx.graphics.getWidth() - (myPlayerLabel.getWidth() + handImage.getWidth()), 0);
@@ -1039,11 +1053,7 @@ public class GameScreen extends ScreenAdapter {
     // check if gameState has changed
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
-      try {
-        show();
-      } catch (Exception e) {
-        Gdx.app.error("GameScreen", "CRASH in show(): " + e.toString(), e);
-      }
+      show();
     }
 
     /* Upper division */

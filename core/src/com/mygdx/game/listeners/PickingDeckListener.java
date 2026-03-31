@@ -34,37 +34,57 @@ public class PickingDeckListener extends ClickListener {
 
     if (pt.getPickingDeckAttacks() > 0) {
       System.out.println("Selected handcards " + currentPlayer.getSelectedHandCards().size());
-      if (currentPlayer.getSelectedHandCards().size() > 0) {
-        String selectedSymbol = currentPlayer.getSelectedHandCards().get(0).getSymbol();
-        if (pt.getAttackingSymbol()[0] == "none"
-            || pt.getAttackingSymbol()[0] == selectedSymbol
-            || pt.getAttackingSymbol()[1] == selectedSymbol) {
 
-          // Snapshot selected cards before the redraw deselects them
-          ArrayList<Card> snapshot = new ArrayList<Card>(currentPlayer.getSelectedHandCards());
-          pt.setPendingAttackCards(snapshot);
-          pt.setPendingPickingDeckIndex(deckIndex);
+      boolean kingSelected = currentPlayer.getKingCard() != null && currentPlayer.getKingCard().isSelected();
+      boolean hasHandCards = currentPlayer.getSelectedHandCards().size() > 0;
 
-          // Compute attack sum
-          int attackSum = 0;
+      if (kingSelected || hasHandCards) {
+        // King can only be used once per turn
+        if (kingSelected && pt.isKingUsedThisTurn()) return;
+        // King can only be used when the player has no defense cards
+        if (kingSelected && (!currentPlayer.getDefCards().isEmpty() || !currentPlayer.getTopDefCards().isEmpty())) return;
+        int attackSum;
+        ArrayList<Card> snapshot;
+
+        if (kingSelected) {
+          // King attack: king card is the attacker, no symbol restriction, no hand cards spent
+          attackSum = currentPlayer.getKingCard().getStrength();
+          snapshot = new ArrayList<Card>();
+          pt.setKingUsed(true);
+        } else {
+          String selectedSymbol = currentPlayer.getSelectedHandCards().get(0).getSymbol();
+          if (pt.getAttackingSymbol()[0] != "none"
+              && pt.getAttackingSymbol()[0] != selectedSymbol
+              && pt.getAttackingSymbol()[1] != selectedSymbol) {
+            return;
+          }
+          snapshot = new ArrayList<Card>(currentPlayer.getSelectedHandCards());
+          attackSum = 0;
           for (Card c : snapshot) {
             attackSum += c.getStrength();
           }
-
-          // Reveal the top card of this harvest deck
-          ArrayList<Card> pickingCards = thisPickingDeck.getCards();
-          Card topCard = pickingCards.get(pickingCards.size() - 1);
-          topCard.setCovered(false);
-
-          System.out.println("Attack with " + attackSum + " defense is " + topCard.getStrength());
-
-          pt.decreasePickingDeckAttacks();
-          pt.setAttackingSymbol(selectedSymbol, currentPlayer.hasHero("Lieutenant"));
-          pt.setPlunderPending(true);
-          pt.setPlunderSuccess(attackSum > topCard.getStrength());
-
-          gameState.setUpdateState(true);
+          pt.setKingUsed(false);
         }
+
+        pt.setPendingAttackCards(snapshot);
+        pt.setPendingPickingDeckIndex(deckIndex);
+
+        // Reveal the top card of this harvest deck
+        ArrayList<Card> pickingCards = thisPickingDeck.getCards();
+        Card topCard = pickingCards.get(pickingCards.size() - 1);
+        topCard.setCovered(false);
+
+        System.out.println("Attack with " + attackSum + " defense is " + topCard.getStrength());
+
+        if (!kingSelected) {
+          // Only lock the symbol for normal hand-card attacks
+          pt.setAttackingSymbol(snapshot.get(0).getSymbol(), currentPlayer.hasHero("Lieutenant"));
+        }
+        pt.decreasePickingDeckAttacks();
+        pt.setPlunderPending(true);
+        pt.setPlunderSuccess(attackSum > topCard.getStrength());
+
+        gameState.setUpdateState(true);
       }
     } else {
       System.out.println("No more picking attacks allowed");

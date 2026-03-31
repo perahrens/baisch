@@ -124,4 +124,14 @@ public class PlayerTurn {
   public int getAttackTargetLevel() { return attackTargetLevel; }
   public void setAttackTargetLevel(int v) { this.attackTargetLevel = v; }
 
+  // --- King attack flag ---
+  private boolean kingUsed = false;
+  public boolean isKingUsed() { return kingUsed; }
+  public void setKingUsed(boolean v) { this.kingUsed = v; }
+
+  // Tracks whether king was spent at any point this turn (never reset mid-turn)
+  private boolean kingUsedThisTurn = false;
+  public boolean isKingUsedThisTurn() { return kingUsedThisTurn; }
+  public void setKingUsedThisTurn(boolean v) { this.kingUsedThisTurn = v; }
+
 }

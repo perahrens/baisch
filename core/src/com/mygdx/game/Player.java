@@ -17,6 +17,7 @@ public class Player {
 
   // inventar
   boolean isAlive;
+  boolean isOut = false;
   String playerName;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
@@ -456,6 +457,14 @@ public class Player {
 
     kingCard.setCovered(true);
     this.kingCard = kingCard;
+  }
+
+  public boolean isOut() {
+    return isOut;
+  }
+
+  public void setOut(boolean out) {
+    this.isOut = out;
   }
 
   public Card getLastHandCard() {

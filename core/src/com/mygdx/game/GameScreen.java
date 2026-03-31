@@ -115,7 +115,11 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            applyStateUpdate(data);
+            try {
+              applyStateUpdate(data);
+            } catch (Exception e) {
+              Gdx.app.error("GameScreen", "CRASH in applyStateUpdate: " + e.toString(), e);
+            }
             gameState.setUpdateState(true);
           }
         });
@@ -232,14 +236,16 @@ public class GameScreen extends ScreenAdapter {
         pickingCards.get(j).setY(pickingCards.get(j).getY() + 0.2f * (j) * pickingCards.get(j).getDefHeight());
         gameStage.addActor(pickingCards.get(j));
       }
-      pickingDecks.get(i).setX(MyGdxGame.WIDTH / 2 - pickingCards.get(0).getDefWidth() / 2
-          + (2 * i - 1) * 0.8f * pickingCards.get(0).getDefWidth());
-      pickingDecks.get(i).setY(MyGdxGame.WIDTH / 2 - pickingCards.get(0).getDefHeight() / 2
-          + (2 * i - 1) * 0.8f * pickingCards.get(0).getDefWidth());
-      pickingDecks.get(i).setWidth(pickingCards.get(0).getDefWidth());
-      pickingDecks.get(i).setHeight(pickingCards.get(0).getDefHeight());
-      pickingDecks.get(i).setRotation(45);
-      gameStage.addActor(pickingDecks.get(i));
+      if (!pickingCards.isEmpty()) {
+        pickingDecks.get(i).setX(MyGdxGame.WIDTH / 2 - pickingCards.get(0).getDefWidth() / 2
+            + (2 * i - 1) * 0.8f * pickingCards.get(0).getDefWidth());
+        pickingDecks.get(i).setY(MyGdxGame.WIDTH / 2 - pickingCards.get(0).getDefHeight() / 2
+            + (2 * i - 1) * 0.8f * pickingCards.get(0).getDefWidth());
+        pickingDecks.get(i).setWidth(pickingCards.get(0).getDefWidth());
+        pickingDecks.get(i).setHeight(pickingCards.get(0).getDefHeight());
+        pickingDecks.get(i).setRotation(45);
+        gameStage.addActor(pickingDecks.get(i));
+      }
     }
 
     // draw game status of players
@@ -251,6 +257,15 @@ public class GameScreen extends ScreenAdapter {
       Dice dice = players.get(i).getDice();
       dice.setMapPosition(i);
       gameStage.addActor(dice);
+
+      // Skip all card rendering for eliminated players
+      if (players.get(i).isOut()) {
+        Label outLabel = new Label(players.get(i).getPlayerName() + " OUT", MyGdxGame.skin);
+        outLabel.setColor(Color.RED);
+        outLabel.setPosition(dice.getX() + dice.getWidth() + 2f, dice.getY());
+        gameStage.addActor(outLabel);
+        continue;
+      }
 
       // Hand deck: to the RIGHT of the king card from the player's perspective,
       // rotated 90° relative to the player's card orientation,
@@ -574,10 +589,15 @@ public class GameScreen extends ScreenAdapter {
             thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
             thisD.getCards().get(thisD.getCards().size() - 1).setCovered(false);
             thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
+            if (pt.isKingUsed()) plunderPlayer.getKingCard().setCovered(false);
           } else {
             Card newPickCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
             newPickCard.setCovered(true);
             thisD.addCard(newPickCard);
+            if (pt.isKingUsed()) {
+              plunderPlayer.getKingCard().setCovered(false);
+              plunderPlayer.setOut(true);
+            }
           }
           for (Card c : pt.getPendingAttackCards()) {
             plunderPlayer.getHandCards().remove(c);
@@ -585,12 +605,14 @@ public class GameScreen extends ScreenAdapter {
           }
           pt.getPendingAttackCards().clear();
           pt.setPlunderPending(false);
+          if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
           try {
             org.json.JSONObject emitData = new org.json.JSONObject();
             emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
             emitData.put("deckIndex", deckIdx);
             emitData.put("success", plunderSuccess);
+            emitData.put("kingUsed", pt.isKingUsed());
             org.json.JSONArray atkIdArr = new org.json.JSONArray();
             for (Card c : pt.getPendingAttackCards()) atkIdArr.put(c.getCardId());
             emitData.put("attackCardIds", atkIdArr);
@@ -628,7 +650,7 @@ public class GameScreen extends ScreenAdapter {
       atkOverlay.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          // Discard attacking hand cards
+          // Discard attacking hand cards (empty for king attacks)
           for (Card c : apt.getPendingAttackCards()) {
             atkPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
@@ -639,6 +661,12 @@ public class GameScreen extends ScreenAdapter {
               dc.setRemoved(true);
               atkPlayer.addHandCard(dc);
             }
+            if (apt.isKingUsed()) atkPlayer.getKingCard().setCovered(false);
+          } else {
+            if (apt.isKingUsed()) {
+              atkPlayer.getKingCard().setCovered(false);
+              atkPlayer.setOut(true);
+            }
           }
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
           try {
@@ -648,6 +676,7 @@ public class GameScreen extends ScreenAdapter {
             emitData.put("positionId", apt.getAttackTargetPositionId());
             emitData.put("level", apt.getAttackTargetLevel());
             emitData.put("success", atkSuccess);
+            emitData.put("kingUsed", apt.isKingUsed());
             org.json.JSONArray atkIds = new org.json.JSONArray();
             for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
             emitData.put("attackCardIds", atkIds);
@@ -658,6 +687,7 @@ public class GameScreen extends ScreenAdapter {
           apt.getPendingAttackCards().clear();
           apt.getPendingAttackDefCards().clear();
           apt.setAttackPending(false);
+          if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
           gameState.setUpdateState(true);
         }
       });
@@ -971,6 +1001,10 @@ public class GameScreen extends ScreenAdapter {
           tdc.setCovered(true);
           p.getTopDefCards().put(Integer.parseInt(key), tdc);
         }
+
+        // Apply king card covered state and out flag
+        p.setOut(pj.optBoolean("isOut", false));
+        if (p.getKingCard() != null) p.getKingCard().setCovered(pj.optBoolean("kingCovered", true));
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)
@@ -1005,7 +1039,11 @@ public class GameScreen extends ScreenAdapter {
     // check if gameState has changed
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
-      show();
+      try {
+        show();
+      } catch (Exception e) {
+        Gdx.app.error("GameScreen", "CRASH in show(): " + e.toString(), e);
+      }
     }
 
     /* Upper division */

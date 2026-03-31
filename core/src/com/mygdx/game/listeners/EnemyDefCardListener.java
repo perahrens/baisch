@@ -80,15 +80,26 @@ public class EnemyDefCardListener extends ClickListener {
     }
     if (targetPlayer == null) return;
 
-    // Only proceed with a normal hand-card attack
-    if (player.getSelectedHandCards().size() == 0) return;
-    String selectedSymbol = player.getSelectedHandCards().get(0).getSymbol();
-    if (pt.getAttackingSymbol()[0] != "none"
-        && pt.getAttackingSymbol()[0] != selectedSymbol
-        && pt.getAttackingSymbol()[1] != selectedSymbol) return;
+    // Only proceed if king card or hand cards are selected
+    boolean kingSelected = player.getKingCard() != null && player.getKingCard().isSelected();
+    if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
 
-    // Snapshot attacking cards
-    ArrayList<Card> attackSnapshot = new ArrayList<Card>(player.getSelectedHandCards());
+    // King can only be used once per turn
+    if (kingSelected && pt.isKingUsedThisTurn()) return;
+    // King can only be used when the player has no defense cards
+    if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
+
+    if (!kingSelected) {
+      String selectedSymbol = player.getSelectedHandCards().get(0).getSymbol();
+      if (pt.getAttackingSymbol()[0] != "none"
+          && pt.getAttackingSymbol()[0] != selectedSymbol
+          && pt.getAttackingSymbol()[1] != selectedSymbol) return;
+    }
+
+    // Snapshot attacking cards (empty for king attacks — king is not a hand card)
+    ArrayList<Card> attackSnapshot = kingSelected
+        ? new ArrayList<Card>()
+        : new ArrayList<Card>(player.getSelectedHandCards());
 
     // Reveal the targeted defense card
     defCard.setCovered(false);
@@ -98,14 +109,25 @@ public class EnemyDefCardListener extends ClickListener {
 
     // Compute result
     boolean success;
-    if (topDefCard != null) {
+    if (kingSelected) {
+      int attackSum = player.getKingCard().getStrength();
+      int defenseStrength = 0;
+      if ("joker".equals(defCard.getSymbol())) defenseStrength += 1; else defenseStrength += defCard.getStrength();
+      if (topDefCard != null) {
+        if ("joker".equals(topDefCard.getSymbol())) defenseStrength += 1; else defenseStrength += topDefCard.getStrength();
+      }
+      success = attackSum > defenseStrength;
+    } else if (topDefCard != null) {
       success = player.attackEnemyDefense(defCard, topDefCard);
     } else {
       success = player.attackEnemyDefense(defCard);
     }
 
     // Store preview state
-    pt.setAttackingSymbol(selectedSymbol, player.hasHero("Lieutenant"));
+    if (!kingSelected) {
+      pt.setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(), player.hasHero("Lieutenant"));
+    }
+    pt.setKingUsed(kingSelected);
     pt.setPendingAttackCards(attackSnapshot);
     ArrayList<Card> defCardList = new ArrayList<Card>();
     defCardList.add(defCard);

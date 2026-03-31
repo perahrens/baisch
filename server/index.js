@@ -89,6 +89,12 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  socket.on('takeDefCard', function(data) {
+    console.log("takeDefCard: playerIdx=" + data.playerIdx + " pos=" + data.positionId);
+    gameState.takeDefCard(data.playerIdx, data.positionId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   socket.on('addToCemetery', function(data) {
     console.log("addToCemetery: playerIdx=" + data.playerIdx + " cardIds=" + data.cardIds + " draw=" + data.drawFromDeck);
     gameState.addToCemetery(data.playerIdx, data.cardIds || [], data.drawFromDeck || 0);
@@ -97,13 +103,13 @@ io.on('connection', function(socket) {
 
   socket.on('plunderResolved', function(data) {
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
-    gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || []);
+    gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false);
     io.emit('stateUpdate', gameState.serialize());
   });
 
   socket.on('defAttackResolved', function(data) {
     console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
-    gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || []);
+    gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false);
     io.emit('stateUpdate', gameState.serialize());
   });
   

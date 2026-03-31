@@ -41,6 +41,8 @@ class GameState {
   doSetup() {
     for (const p of this.players) {
       p.kingCard = p.hand.pop();
+      p.kingCovered = true;
+      p.isOut = false;
       for (let j = 1; j <= 3; j++) p.defCards[j] = p.hand.pop();
       for (let j = 0; j < 2; j++) this.cemetery.push(p.hand.pop());
     }
@@ -71,6 +73,20 @@ class GameState {
 
   // ---- Action methods ----
 
+  takeDefCard(playerIdx, positionId) {
+    const p = this.players[playerIdx];
+    const cardId = p.defCards[positionId];
+    if (cardId !== undefined) {
+      p.hand.push(cardId);
+      delete p.defCards[positionId];
+    }
+    const topCardId = p.topDefCards[positionId];
+    if (topCardId !== undefined) {
+      p.hand.push(topCardId);
+      delete p.topDefCards[positionId];
+    }
+  }
+
   putDefCard(playerIdx, positionId, cardId) {
     const p = this.players[playerIdx];
     const i = p.hand.indexOf(cardId);
@@ -90,13 +106,14 @@ class GameState {
     }
   }
 
-  plunderResolved(attackerIdx, deckIdx, success, attackCardIds) {
+  plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed) {
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
       if (i !== -1) attacker.hand.splice(i, 1);
       this.cemetery.push(cardId);
     }
+    if (kingUsed) attacker.kingCovered = false;
     if (success) {
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
@@ -108,6 +125,7 @@ class GameState {
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: false });
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
     } else {
+      if (kingUsed) attacker.isOut = true;
       // Keep the attacked (top) card face-up after a failed plunder,
       // then add a new face-down card on top.
       const deck = this.pickingDecks[deckIdx];
@@ -116,7 +134,7 @@ class GameState {
     }
   }
 
-  defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds) {
+  defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds, kingUsed) {
     const attacker = this.players[attackerIdx];
     const defender = this.players[defenderIdx];
     for (const cardId of attackCardIds) {
@@ -124,6 +142,7 @@ class GameState {
       if (i !== -1) attacker.hand.splice(i, 1);
       this.cemetery.push(cardId);
     }
+    if (kingUsed) attacker.kingCovered = false;
     if (success) {
       if (level === 0) {
         const defCardId = defender.defCards[positionId];
@@ -134,6 +153,8 @@ class GameState {
         const topCardId = defender.topDefCards[positionId];
         if (topCardId !== undefined) { attacker.hand.push(topCardId); delete defender.topDefCards[positionId]; }
       }
+    } else {
+      if (kingUsed) attacker.isOut = true;
     }
   }
 
@@ -152,6 +173,8 @@ class GameState {
         defCards: Object.assign({}, p.defCards),
         topDefCards: Object.assign({}, p.topDefCards),
         kingCard: p.kingCard,
+        kingCovered: p.kingCovered !== undefined ? p.kingCovered : true,
+        isOut: p.isOut || false,
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
     };

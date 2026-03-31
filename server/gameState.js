@@ -14,6 +14,7 @@ class GameState {
     }));
     this.pickingDecks = [[], []]; // each entry: { id, covered }
     this.currentPlayerIndex = 0;
+    this.log = []; // activity log: [{ text, success }, ...], max 5 entries
     this.dealCards(8);
     this.doSetup();
     this.initPickingDecks();
@@ -48,6 +49,11 @@ class GameState {
       p.defCardsCovered = { 1: true, 2: true, 3: true };
       p.topDefCardsCovered = {};
     }
+  }
+
+  pushLog(text, success, neutral = false) {
+    this.log.push({ text, success, neutral });
+    if (this.log.length > 5) this.log.shift();
   }
 
   cardStrength(cardId) {
@@ -89,6 +95,7 @@ class GameState {
       delete p.topDefCards[positionId];
       if (p.topDefCardsCovered) delete p.topDefCardsCovered[positionId];
     }
+    this.pushLog(`P${playerIdx} took shield [${positionId}] to hand`, true, true);
   }
 
   putDefCard(playerIdx, positionId, cardId) {
@@ -98,6 +105,7 @@ class GameState {
     p.defCards[positionId] = cardId;
     if (!p.defCardsCovered) p.defCardsCovered = {};
     p.defCardsCovered[positionId] = true; // newly placed card is always face-down
+    this.pushLog(`P${playerIdx} placed shield at [${positionId}]`, true, true);
   }
 
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
@@ -121,6 +129,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      this.pushLog(`P${attackerIdx} plundered deck ${deckIdx + 1}!`, true);
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -131,6 +140,7 @@ class GameState {
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: false });
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
     } else {
+      this.pushLog(`P${attackerIdx} plunder on deck ${deckIdx + 1} failed`, false);
       if (kingUsed) attacker.isOut = true;
       // Keep the attacked (top) card face-up after a failed plunder,
       // then add a new face-down card on top.
@@ -150,6 +160,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      this.pushLog(`P${attackerIdx} broke P${defenderIdx}'s shield [${positionId}]`, true);
       if (level === 0) {
         const defCardId = defender.defCards[positionId];
         if (defCardId !== undefined) { attacker.hand.push(defCardId); delete defender.defCards[positionId]; }
@@ -160,6 +171,7 @@ class GameState {
         if (topCardId !== undefined) { attacker.hand.push(topCardId); delete defender.topDefCards[positionId]; }
       }
     } else {
+      this.pushLog(`P${attackerIdx} missed P${defenderIdx}'s shield [${positionId}]`, false);
       if (kingUsed) attacker.isOut = true;
       // Mark attacked card(s) as revealed (face-up) — they stay in defCards but must remain visible
       if (!defender.defCardsCovered) defender.defCardsCovered = {};
@@ -199,6 +211,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      this.pushLog(`P${attackerIdx} defeated P${defenderIdx}!`, true);
       // Defender loses their king and is eliminated; attacker gains their cards
       defender.isOut = true;
       for (const cardId of defender.hand) attacker.hand.push(cardId);
@@ -208,6 +221,7 @@ class GameState {
         defender.kingCard = null;
       }
     } else {
+      this.pushLog(`P${attackerIdx} king assault on P${defenderIdx} failed`, false);
       if (kingUsed) attacker.isOut = true;
     }
   }
@@ -230,6 +244,7 @@ class GameState {
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),
+      log: [...this.log],
     };
   }
 }

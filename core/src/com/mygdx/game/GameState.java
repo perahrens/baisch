@@ -32,6 +32,10 @@ public class GameState {
 
   private Socket socket;
 
+  private int winnerIndex = -1;
+  public int getWinnerIndex() { return winnerIndex; }
+  public void setWinnerIndex(int idx) { this.winnerIndex = idx; }
+
   private PickingDeckListener pickingDeckListenerOne;
   private PickingDeckListener pickingDeckListenerTwo;
 

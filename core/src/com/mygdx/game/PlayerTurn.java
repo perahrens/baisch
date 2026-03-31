@@ -134,4 +134,9 @@ public class PlayerTurn {
   public boolean isKingUsedThisTurn() { return kingUsedThisTurn; }
   public void setKingUsedThisTurn(boolean v) { this.kingUsedThisTurn = v; }
 
+  // True when the attack overlay is targeting an enemy's king card (not a def card)
+  private boolean attackTargetIsKing = false;
+  public boolean isAttackTargetIsKing() { return attackTargetIsKing; }
+  public void setAttackTargetIsKing(boolean v) { this.attackTargetIsKing = v; }
+
 }

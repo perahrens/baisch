@@ -998,21 +998,25 @@ public class GameScreen extends ScreenAdapter {
 
         p.getDefCards().clear();
         JSONObject defJson = pj.getJSONObject("defCards");
+        JSONObject defCoveredJson = pj.optJSONObject("defCardsCovered");
         Iterator<String> defKeys = defJson.keys();
         while (defKeys.hasNext()) {
           String key = defKeys.next();
           Card dc = Card.fromCardId(defJson.getInt(key));
-          dc.setCovered(true);
+          boolean covered = defCoveredJson == null || defCoveredJson.optBoolean(key, true);
+          dc.setCovered(covered);
           p.getDefCards().put(Integer.parseInt(key), dc);
         }
 
         p.getTopDefCards().clear();
         JSONObject topDefJson = pj.getJSONObject("topDefCards");
+        JSONObject topDefCoveredJson = pj.optJSONObject("topDefCardsCovered");
         Iterator<String> topKeys = topDefJson.keys();
         while (topKeys.hasNext()) {
           String key = topKeys.next();
           Card tdc = Card.fromCardId(topDefJson.getInt(key));
-          tdc.setCovered(true);
+          boolean topCovered = topDefCoveredJson == null || topDefCoveredJson.optBoolean(key, true);
+          tdc.setCovered(topCovered);
           p.getTopDefCards().put(Integer.parseInt(key), tdc);
         }
 

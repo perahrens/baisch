@@ -94,6 +94,7 @@ public class GameScreen extends ScreenAdapter {
   private int playerIndex;
   private JSONObject centralizedState;
   private Socket socket;
+  private JSONArray activityLog = new JSONArray();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
@@ -225,6 +226,30 @@ public class GameScreen extends ScreenAdapter {
     turnLabel.setPosition(roundCounter.getX(),
         roundCounter.getY() - turnLabel.getHeight());
     gameStage.addActor(turnLabel);
+
+    // Activity log — top-right corner, last 5 entries, green=success / red=failure / black=neutral
+    try {
+      float logLineH = roundCounter.getPrefHeight() + 1f;
+      float logY = MyGdxGame.WIDTH - logLineH;
+      int firstEntry = Math.max(0, activityLog.length() - 5);
+      for (int li = firstEntry; li < activityLog.length(); li++) {
+        JSONObject entry = activityLog.getJSONObject(li);
+        String entryText = entry.optString("text", "");
+        boolean entryNeutral = entry.optBoolean("neutral", false);
+        boolean entrySuccess = entry.optBoolean("success", true);
+        Label logLabel = new Label(entryText, MyGdxGame.skin);
+        if (entryNeutral) {
+          logLabel.setColor(Color.BLACK);
+        } else {
+          logLabel.setColor(entrySuccess ? new Color(0.2f, 0.8f, 0.2f, 1f) : new Color(0.9f, 0.2f, 0.2f, 1f));
+        }
+        logLabel.setPosition(MyGdxGame.WIDTH - logLabel.getPrefWidth() - 2f, logY);
+        gameStage.addActor(logLabel);
+        logY -= logLineH;
+      }
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
 
     // draw card deck and cemetery
     ArrayList<Card> deckCards = gameState.getCardDeck().getCards();
@@ -1114,6 +1139,10 @@ public class GameScreen extends ScreenAdapter {
 
       // 6. Winner index
       gameState.setWinnerIndex(state.optInt("winnerIndex", -1));
+
+      // 7. Activity log
+      JSONArray logJson = state.optJSONArray("log");
+      if (logJson != null) activityLog = logJson;
 
     } catch (JSONException e) {
       e.printStackTrace();

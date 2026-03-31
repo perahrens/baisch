@@ -45,6 +45,8 @@ class GameState {
       p.isOut = false;
       for (let j = 1; j <= 3; j++) p.defCards[j] = p.hand.pop();
       for (let j = 0; j < 2; j++) this.cemetery.push(p.hand.pop());
+      p.defCardsCovered = { 1: true, 2: true, 3: true };
+      p.topDefCardsCovered = {};
     }
   }
 
@@ -79,11 +81,13 @@ class GameState {
     if (cardId !== undefined) {
       p.hand.push(cardId);
       delete p.defCards[positionId];
+      if (p.defCardsCovered) delete p.defCardsCovered[positionId];
     }
     const topCardId = p.topDefCards[positionId];
     if (topCardId !== undefined) {
       p.hand.push(topCardId);
       delete p.topDefCards[positionId];
+      if (p.topDefCardsCovered) delete p.topDefCardsCovered[positionId];
     }
   }
 
@@ -92,6 +96,8 @@ class GameState {
     const i = p.hand.indexOf(cardId);
     if (i !== -1) p.hand.splice(i, 1);
     p.defCards[positionId] = cardId;
+    if (!p.defCardsCovered) p.defCardsCovered = {};
+    p.defCardsCovered[positionId] = true; // newly placed card is always face-down
   }
 
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
@@ -155,6 +161,15 @@ class GameState {
       }
     } else {
       if (kingUsed) attacker.isOut = true;
+      // Mark attacked card(s) as revealed (face-up) — they stay in defCards but must remain visible
+      if (!defender.defCardsCovered) defender.defCardsCovered = {};
+      if (!defender.topDefCardsCovered) defender.topDefCardsCovered = {};
+      if (level === 0) {
+        defender.defCardsCovered[positionId] = false;
+        if (defender.topDefCards[positionId] !== undefined) defender.topDefCardsCovered[positionId] = false;
+      } else {
+        defender.topDefCardsCovered[positionId] = false;
+      }
     }
   }
 
@@ -171,7 +186,9 @@ class GameState {
         index: p.index,
         hand: [...p.hand],
         defCards: Object.assign({}, p.defCards),
+        defCardsCovered: Object.assign({}, p.defCardsCovered || {}),
         topDefCards: Object.assign({}, p.topDefCards),
+        topDefCardsCovered: Object.assign({}, p.topDefCardsCovered || {}),
         kingCard: p.kingCard,
         kingCovered: p.kingCovered !== undefined ? p.kingCovered : true,
         isOut: p.isOut || false,

@@ -19,8 +19,12 @@ public class FinishTurnButtonListener extends ClickListener {
     this.socket = socket;
   }
 
+  private boolean fired = false;
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (fired) return;
+    fired = true;
     Player nextPlayer = gameState.getNextPlayer();
     System.out.println("Next player " + nextPlayer.getPlayerName());
     int nextPlayerIndex = gameState.getCurrentPlayerIndex();

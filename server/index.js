@@ -78,8 +78,8 @@ io.on('connection', function(socket) {
   });
 
   socket.on('finishTurn', function(data) {
-    console.log("Turn finished, next player index: " + data.nextPlayerIndex);
-    gameState.finishTurn(data.nextPlayerIndex);
+    console.log("Turn finished by player index: " + data.currentPlayerIndex);
+    gameState.finishTurn(data.currentPlayerIndex);
     io.emit('stateUpdate', gameState.serialize());
   });
 

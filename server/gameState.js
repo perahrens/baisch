@@ -173,8 +173,15 @@ class GameState {
     }
   }
 
-  finishTurn(nextPlayerIndex) {
-    this.currentPlayerIndex = nextPlayerIndex;
+  finishTurn(currentPlayerIndex) {
+    // Advance to the next non-eliminated player (server is authoritative)
+    const n = this.players.length;
+    let next = (currentPlayerIndex + 1) % n;
+    let safety = 0;
+    while (this.players[next].isOut && next !== currentPlayerIndex && safety++ < n) {
+      next = (next + 1) % n;
+    }
+    this.currentPlayerIndex = next;
   }
 
   serialize() {

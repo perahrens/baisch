@@ -52,8 +52,10 @@ public class Spy extends Hero {
     spyAttacks--;
     if (spyAttacks <= 0) {
       spyAttacks = 0;
-      isReady = false;
-      isSelected = false; // auto-deselect when out of actions
+      if (spyExtends == 0) {
+        isReady = false;
+      }
+      isSelected = false; // auto-deselect when out of flip actions
     }
   }
 

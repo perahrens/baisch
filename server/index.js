@@ -161,6 +161,11 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('mercDefBoost', data);
   });
 
+  // Relay spy flip to all OTHER clients.
+  socket.on('spyFlip', function(data) {
+    socket.broadcast.emit('spyFlip', data);
+  });
+
   users.push(new user(socket.id));
   socket.emit('getUsers', users);
   socket.broadcast.emit('getUsers', users);

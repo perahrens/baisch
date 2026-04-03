@@ -2,6 +2,7 @@ package com.mygdx.game.heroes;
 
 public class Spy extends Hero {
   private int spyAttacks;
+  private int spyMaxAttacks;
   private int spyExtends;
 
   public Spy() {
@@ -10,6 +11,7 @@ public class Spy extends Hero {
     sprite = atlas.createSprite("wb", -1);
 
     spyAttacks = 1;
+    spyMaxAttacks = 1;
     spyExtends = 1;
 
     isSelectable = true;
@@ -22,6 +24,7 @@ public class Spy extends Hero {
   @Override
   public void recover() {
     spyAttacks = 1;
+    spyMaxAttacks = 1;
     spyExtends = 1;
     isReady = true;
   }
@@ -30,22 +33,27 @@ public class Spy extends Hero {
     return spyAttacks;
   }
 
+  public int getSpyMaxAttacks() {
+    return spyMaxAttacks;
+  }
+
   public int getSpyExtends() {
     return spyExtends;
   }
 
   public void spyExtend() {
-    // when hand card is casted away
+    // sacrifice a card: spend the extend charge, gain +2 actions
     spyExtends--;
-    spyAttacks++;
-    spyAttacks++;
+    spyAttacks += 2;
+    spyMaxAttacks = Math.min(spyMaxAttacks + 2, 3);
   }
 
   public void spyAttack() {
     spyAttacks--;
-    if (spyAttacks == 0 && spyExtends == 0) {
+    if (spyAttacks <= 0) {
+      spyAttacks = 0;
       isReady = false;
-      // isSelected intentionally NOT cleared — OwnHeroListener handles deselection
+      isSelected = false; // auto-deselect when out of actions
     }
   }
 

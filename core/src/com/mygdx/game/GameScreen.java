@@ -157,6 +157,30 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Another player acquired a hero — apply it to the local game state.
+    final int myPlayerIndex = playerIndex;
+    socket.on("heroAcquired", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int pIdx = data.getInt("playerIndex");
+              String heroName = data.getString("heroName");
+              if (pIdx != myPlayerIndex) {
+                gameState.applyHeroAcquired(pIdx, heroName);
+              }
+              gameState.setUpdateState(true);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        });
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
     fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
@@ -798,6 +822,48 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(restartLabel);
     }
 
+    // Hero selection overlay — shown when the local player must choose a hero
+    // (drawn card was an Ace or another Joker). Renders on top of the game board.
+    if (currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
+      final PlayerTurn hspt = currentPlayer.getPlayerTurn();
+      final java.util.ArrayList<Hero> choices = hspt.getHeroChoices();
+
+      Image hsOverlay = new Image(MyGdxGame.skin, "white");
+      hsOverlay.setFillParent(true);
+      hsOverlay.setColor(0f, 0f, 0f, 0.78f);
+      gameStage.addActor(hsOverlay);
+
+      Label hsTitle = new Label("Choose your Hero:", MyGdxGame.skin);
+      hsTitle.setColor(Color.GOLD);
+      hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
+      gameStage.addActor(hsTitle);
+
+      // Layout hero buttons in rows of 4
+      float btnW    = MyGdxGame.WIDTH / 5f;
+      float btnGapX = MyGdxGame.WIDTH * 0.05f;
+      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      float startY  = MyGdxGame.WIDTH * 0.62f;
+      float rowH    = 0f;
+
+      for (int ci = 0; ci < choices.size(); ci++) {
+        final Hero choice = choices.get(ci);
+        TextButton heroBtn = new TextButton(choice.getHeroName(), MyGdxGame.skin);
+        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
+        int col = ci % 4;
+        int row = ci / 4;
+        heroBtn.setWidth(btnW);
+        heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
+        heroBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            Hero consumed = gameState.getHeroesSquare().consumeHeroByName(choice.getHeroName());
+            if (consumed != null) completeHeroAcquisition(consumed);
+          }
+        });
+        gameStage.addActor(heroBtn);
+      }
+    }
+
     // Activity log panel — added LAST so it renders on top of everything.
     // Dark box, top-right corner; 50% scale by default, 100% on mouse hover.
     if (activityLog.length() > 0) {
@@ -1034,6 +1100,28 @@ public class GameScreen extends ScreenAdapter {
       kingAtkLabel.setColor(canKingAttack ? Color.GREEN : Color.GRAY);
       kingAtkLabel.setPosition(0, statusY);
       handStage.addActor(kingAtkLabel);
+      statusY += lineH;
+
+      // "Sacrifice Joker" button — visible when the player has a joker in hand
+      // and no hero selection is already pending.
+      if (!currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
+        Card jokerInHand = null;
+        for (Card hc : handCards) {
+          if ("joker".equals(hc.getSymbol())) { jokerInHand = hc; break; }
+        }
+        if (jokerInHand != null) {
+          final Card theJoker = jokerInHand;
+          TextButton heroBtn = new TextButton("Sacrifice Joker: Get Hero", MyGdxGame.skin);
+          heroBtn.setPosition(0, statusY);
+          heroBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              performJokerSacrifice(theJoker);
+            }
+          });
+          handStage.addActor(heroBtn);
+        }
+      }
     }
 
     // Only enable finish-turn button when it is this player's turn
@@ -1236,6 +1324,96 @@ public class GameScreen extends ScreenAdapter {
     handStage.act(delta);
     handStage.draw();
   }
+
+  // ---- Joker sacrifice / hero acquisition ----
+
+  /**
+   * Sacrifice a joker card to draw a card that determines which hero the player receives.
+   * Card index 2-13 → direct hero; Ace → choose by colour; Joker → free choice.
+   */
+  private void performJokerSacrifice(Card jokerCard) {
+    // Remove the joker from hand and send it to the cemetery.
+    currentPlayer.getHandCards().remove(jokerCard);
+    gameState.getCemeteryDeck().addCard(jokerCard);
+    // Store joker ID so completeHeroAcquisition can include it in the emit.
+    currentPlayer.getPlayerTurn().setPendingJokerCardId(jokerCard.getCardId());
+
+    // Draw a card from the deck to determine the hero.
+    Card drawnCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+    // Guard: if deck was empty we get a placeholder — bail out gracefully.
+    if (drawnCard == null || drawnCard.isPlaceholder()) {
+      gameState.setUpdateState(true);
+      return;
+    }
+    int drawnIndex   = drawnCard.getIndex();
+    String drawnSym  = drawnCard.getSymbol();
+    // Drawn card goes to the cemetery after its purpose is served.
+    gameState.getCemeteryDeck().addCard(drawnCard);
+
+    // Notify the server so all clients’ decks stay in sync.
+    try {
+      JSONObject emitData = new JSONObject();
+      emitData.put("playerIdx",   playerIndex);
+      emitData.put("jokerCardId", jokerCard.getCardId());
+      emitData.put("drawnCardId", drawnCard.getCardId());
+      socket.emit("jokerSacrifice", emitData);
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
+
+    HeroesSquare hs = gameState.getHeroesSquare();
+
+    if ("joker".equals(drawnSym)) {
+      // Another joker drawn — free choice from ALL remaining heroes.
+      triggerHeroChoice(hs.getAvailableAllHeroes());
+    } else if (drawnIndex == 1) {
+      // Ace: red suits (hearts/diamonds) → white heroes; black → black heroes.
+      boolean isRed = "hearts".equals(drawnSym) || "diamonds".equals(drawnSym);
+      java.util.ArrayList<Hero> choices = isRed
+          ? hs.getAvailableWhiteHeroes()
+          : hs.getAvailableBlackHeroes();
+      if (choices.isEmpty()) choices = hs.getAvailableAllHeroes(); // fallback
+      triggerHeroChoice(choices);
+    } else {
+      // Direct hero assignment by card index (2-13).
+      Hero hero = hs.getHeroByCardIndex(drawnIndex);
+      if (hero == null) {
+        // That hero is already taken — let the player choose from remaining.
+        java.util.ArrayList<Hero> choices = hs.getAvailableAllHeroes();
+        if (!choices.isEmpty()) triggerHeroChoice(choices);
+        else gameState.setUpdateState(true);
+      } else {
+        completeHeroAcquisition(hero);
+      }
+    }
+  }
+
+  /** Set heroSelectionPending so the selection overlay appears on next render. */
+  private void triggerHeroChoice(java.util.ArrayList<Hero> choices) {
+    if (choices.isEmpty()) { gameState.setUpdateState(true); return; }
+    currentPlayer.getPlayerTurn().setHeroChoices(choices);
+    currentPlayer.getPlayerTurn().setHeroSelectionPending(true);
+    gameState.setUpdateState(true);
+  }
+
+  /** Finalise hero acquisition: add hero to player, emit to server, trigger redraw. */
+  private void completeHeroAcquisition(Hero hero) {
+    currentPlayer.addHero(hero);
+    currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
+    currentPlayer.getPlayerTurn().getHeroChoices().clear();
+    try {
+      JSONObject emitData = new JSONObject();
+      emitData.put("playerIndex", playerIndex);
+      emitData.put("heroName",    hero.getHeroName());
+      emitData.put("jokerCardId", currentPlayer.getPlayerTurn().getPendingJokerCardId());
+      socket.emit("heroAcquired", emitData);
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
+    gameState.setUpdateState(true);
+  }
+
+  // ---- end hero acquisition ----
 
   public void removeAllListeners(Actor actor) {
     Array<EventListener> listeners = actor.getListeners();

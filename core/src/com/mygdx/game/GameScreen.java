@@ -201,6 +201,31 @@ public class GameScreen extends ScreenAdapter {
     });
 
     // Handle incoming mercenary defense boost from another client
+    // Spy flip relay: another player used spy to reveal one of our defense cards
+    socket.on("spyFlip", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int tIdx = data.getInt("targetPlayerIdx");
+              int slot = data.getInt("slot");
+              int level = data.getInt("level");
+              Player p = gameState.getPlayers().get(tIdx);
+              Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
+              Card c = cards.get(slot);
+              if (c != null) c.setCovered(false);
+              gameState.setUpdateState(true);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        });
+      }
+    });
+
     socket.on("mercDefBoost", new Emitter.Listener() {
       @Override
       public void call(Object... args) {
@@ -525,7 +550,7 @@ public class GameScreen extends ScreenAdapter {
           defCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
             enemyDefCardListener = new EnemyDefCardListener(defCard, gameState,
-                gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer(), gameState.getPlayers(), socket, playerIndex);
             defCard.addListener(enemyDefCardListener);
           } else {
             ownDefCardListener = new OwnDefCardListener(gameState, defCard, gameState.getCurrentPlayer().getKingCard(),
@@ -601,7 +626,7 @@ public class GameScreen extends ScreenAdapter {
           topDefCard.removeAllListeners();
           if (players.get(i) != currentPlayer) {
             enemyDefCardListener = new EnemyDefCardListener(topDefCard, gameState,
-                gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer(), gameState.getPlayers(), socket, playerIndex);
             topDefCard.addListener(enemyDefCardListener);
           } else {
             ownDefCardListener = new OwnDefCardListener(gameState, topDefCard,

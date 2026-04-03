@@ -6,6 +6,7 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Spy;
 
 public class OwnHeroListener extends ClickListener {
 
@@ -26,7 +27,11 @@ public class OwnHeroListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
-    if (hero.isReady() && hero.isSelectable()) {
+    // Spy can be clicked even when isReady==false, as long as it has extends left (sacrifice mode)
+    boolean spyExtendMode = hero.getHeroName() == "Spy" && !hero.isReady()
+        && ((Spy) hero).getSpyExtends() > 0 && hero.isSelectable();
+
+    if ((hero.isReady() && hero.isSelectable()) || spyExtendMode) {
 
       // ---- Mercenaries attack mode: hand cards selected + click hero = +1 bonus ----
       if (hero.getHeroName() == "Mercenaries" && player.getSelectedHandCards().size() > 0) {

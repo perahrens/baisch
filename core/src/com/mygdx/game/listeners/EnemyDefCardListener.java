@@ -13,6 +13,9 @@ import com.mygdx.game.PlayerTurn;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
+import io.socket.client.Socket;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class EnemyDefCardListener extends ClickListener {
 
@@ -22,6 +25,8 @@ public class EnemyDefCardListener extends ClickListener {
   ArrayList<Player> players;
   Player player;
   GameState gameState;
+  Socket socket;
+  int playerIdx;
 
   public EnemyDefCardListener() {
   }
@@ -44,6 +49,13 @@ public class EnemyDefCardListener extends ClickListener {
     this.players = players;
   }
 
+  public EnemyDefCardListener(Card defCard, GameState gameState, Player player, ArrayList<Player> players,
+      Socket socket, int playerIdx) {
+    this(defCard, gameState, player, players);
+    this.socket = socket;
+    this.playerIdx = playerIdx;
+  }
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     // Ignore taps while ANY preview overlay is active
@@ -59,6 +71,7 @@ public class EnemyDefCardListener extends ClickListener {
             && player.getSelectedHandCards().isEmpty()) {
           defCard.setCovered(false);
           spy.spyAttack();
+          emitSpyFlip();
           if (gameState != null) gameState.setUpdateState(true);
         }
         return;
@@ -177,4 +190,34 @@ public class EnemyDefCardListener extends ClickListener {
 
     if (gameState != null) gameState.setUpdateState(true);
   }
+
+  private void emitSpyFlip() {
+    if (socket == null) return;
+    // Find target player index and slot for this defCard
+    for (int p = 0; p < players.size(); p++) {
+      for (int c = 1; c <= 3; c++) {
+        if (players.get(p).getDefCards().containsKey(c) && players.get(p).getDefCards().get(c) == defCard) {
+          try {
+            JSONObject data = new JSONObject();
+            data.put("targetPlayerIdx", p);
+            data.put("slot", c);
+            data.put("level", 0);
+            socket.emit("spyFlip", data);
+          } catch (JSONException e) { e.printStackTrace(); }
+          return;
+        }
+        if (players.get(p).getTopDefCards().containsKey(c) && players.get(p).getTopDefCards().get(c) == defCard) {
+          try {
+            JSONObject data = new JSONObject();
+            data.put("targetPlayerIdx", p);
+            data.put("slot", c);
+            data.put("level", 1);
+            socket.emit("spyFlip", data);
+          } catch (JSONException e) { e.printStackTrace(); }
+          return;
+        }
+      }
+    }
+  }
+
 }

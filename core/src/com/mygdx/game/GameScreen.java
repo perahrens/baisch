@@ -107,6 +107,10 @@ public class GameScreen extends ScreenAdapter {
   private Texture texClubs;
   private Texture texSpades;
   private Texture texSomeSymbol;
+  private Texture texSword;
+  private Texture texCrone;
+  private Texture texShieldCheck;
+  private Texture texArrowDownShield;
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
@@ -213,6 +217,10 @@ public class GameScreen extends ScreenAdapter {
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
     texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
+    texSword           = new Texture(Gdx.files.internal("data/skins/sword.png"));
+    texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
+    texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
+    texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
   }
 
   @Override
@@ -864,6 +872,48 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
+    // Sword overlay on both harvest decks when plunder is available — added late so it sits above all cards.
+    // Crone overlay on own king card when king attack is possible.
+    if (gameState.getCurrentPlayer() == currentPlayer) {
+      PlayerTurn ptGame = currentPlayer.getPlayerTurn();
+
+      if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isPlunderPending()) {
+        ArrayList<PickingDeck> swordDecks = gameState.getPickingDecks();
+        for (int si = 0; si < swordDecks.size(); si++) {
+          ArrayList<Card> sCards = swordDecks.get(si).getCards();
+          if (!sCards.isEmpty()) {
+            Card topCard = sCards.get(sCards.size() - 1);
+            float iconSize = topCard.getDefWidth() * 0.55f;
+            float cx = topCard.getX() + topCard.getDefWidth() / 2f;
+            float cy = topCard.getY() + topCard.getDefHeight() / 2f;
+            Image swordImg = new Image(new TextureRegion(texSword, 0, 0, texSword.getWidth(), texSword.getHeight())) {
+              @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+            };
+            swordImg.setSize(iconSize, iconSize);
+            swordImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
+            gameStage.addActor(swordImg);
+          }
+        }
+      }
+
+      boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
+          && currentPlayer.getTopDefCards().isEmpty()
+          && !ptGame.isKingUsedThisTurn()
+          && !ptGame.isAttackPending();
+      if (canKingAtk && currentPlayer.getKingCard() != null) {
+        Card kc = currentPlayer.getKingCard();
+        float iconSize = kc.getDefWidth() * 0.55f;
+        float cx = kc.getX() + kc.getDefWidth() / 2f;
+        float cy = kc.getY() + kc.getDefHeight() / 2f;
+        Image croneImg = new Image(new TextureRegion(texCrone, 0, 0, texCrone.getWidth(), texCrone.getHeight())) {
+          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+        };
+        croneImg.setSize(iconSize, iconSize);
+        croneImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
+        gameStage.addActor(croneImg);
+      }
+    }
+
     // Activity log panel — added LAST so it renders on top of everything.
     // Dark box, top-right corner; 50% scale by default, 100% on mouse hover.
     if (activityLog.length() > 0) {
@@ -1061,66 +1111,26 @@ public class GameScreen extends ScreenAdapter {
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
 
-    // Turn indicator: show clearly if it is this player's turn or not
+    // Turn indicator
     boolean isMyTurn = (gameState.getCurrentPlayer() == currentPlayer);
-    Label turnIndicatorLabel = new Label(isMyTurn ? "Your turn!" : gameState.getCurrentPlayer().getPlayerName() + "'s turn", MyGdxGame.skin);
-    turnIndicatorLabel.setColor(isMyTurn ? Color.GREEN : Color.RED);
-    turnIndicatorLabel.setPosition(0, 0);
-    handStage.addActor(turnIndicatorLabel);
 
-    // Action availability indicators (only relevant when it is this player's turn)
-    if (isMyTurn) {
-      PlayerTurn pt = currentPlayer.getPlayerTurn();
-      float lineH = turnIndicatorLabel.getPrefHeight() + 2;
-      float statusY = lineH;
-
-      boolean canPlunder = pt.getPickingDeckAttacks() > 0;
-      Label plunderLabel = new Label("Plunder: " + (canPlunder ? "available" : "used"), MyGdxGame.skin);
-      plunderLabel.setColor(canPlunder ? Color.GREEN : Color.GRAY);
-      plunderLabel.setPosition(0, statusY);
-      handStage.addActor(plunderLabel);
-      statusY += lineH;
-
-      boolean canTakeDef = pt.getTakeDefCard() > 0;
-      Label takeDefLabel = new Label("Def (take): " + (canTakeDef ? "available" : "used"), MyGdxGame.skin);
-      takeDefLabel.setColor(canTakeDef ? Color.GREEN : Color.GRAY);
-      takeDefLabel.setPosition(0, statusY);
-      handStage.addActor(takeDefLabel);
-      statusY += lineH;
-
-      boolean canPutDef = pt.getPutDefCard() > 0;
-      Label putDefLabel = new Label("Def (put): " + (canPutDef ? "available" : "used"), MyGdxGame.skin);
-      putDefLabel.setColor(canPutDef ? Color.GREEN : Color.GRAY);
-      putDefLabel.setPosition(0, statusY);
-      handStage.addActor(putDefLabel);
-      statusY += lineH;
-
-      boolean canKingAttack = currentPlayer.getDefCards().isEmpty() && currentPlayer.getTopDefCards().isEmpty();
-      Label kingAtkLabel = new Label("King Atk: " + (canKingAttack ? "available" : "need def=0"), MyGdxGame.skin);
-      kingAtkLabel.setColor(canKingAttack ? Color.GREEN : Color.GRAY);
-      kingAtkLabel.setPosition(0, statusY);
-      handStage.addActor(kingAtkLabel);
-      statusY += lineH;
-
-      // "Sacrifice Joker" button — visible when the player has a joker in hand
-      // and no hero selection is already pending.
-      if (!currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
-        Card jokerInHand = null;
-        for (Card hc : handCards) {
-          if ("joker".equals(hc.getSymbol())) { jokerInHand = hc; break; }
-        }
-        if (jokerInHand != null) {
-          final Card theJoker = jokerInHand;
-          TextButton heroBtn = new TextButton("Sacrifice Joker: Get Hero", MyGdxGame.skin);
-          heroBtn.setPosition(0, statusY);
-          heroBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-              performJokerSacrifice(theJoker);
-            }
-          });
-          handStage.addActor(heroBtn);
-        }
+    // "Sacrifice Joker" button — only on your turn, bottom-left of hand stage
+    if (isMyTurn && !currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
+      Card jokerInHand = null;
+      for (Card hc : handCards) {
+        if ("joker".equals(hc.getSymbol())) { jokerInHand = hc; break; }
+      }
+      if (jokerInHand != null) {
+        final Card theJoker = jokerInHand;
+        TextButton heroBtn = new TextButton("Sacrifice Joker: Get Hero", MyGdxGame.skin);
+        heroBtn.setPosition(0, 0);
+        heroBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            performJokerSacrifice(theJoker);
+          }
+        });
+        handStage.addActor(heroBtn);
       }
     }
 
@@ -1197,6 +1207,38 @@ public class GameScreen extends ScreenAdapter {
     handImage.addListener(handImageListener);
 
     handStage.addActor(handImage);
+
+    // Shield indicators to the left of the hand image (stacked vertically):
+    //   arrow-down-shield = take defense card available (bottom slot)
+    //   shield-check-f    = put defense card available (top slot)
+    if (isMyTurn) {
+      PlayerTurn ptHand = currentPlayer.getPlayerTurn();
+      float iconSize = handImage.getHeight() / 3f;
+      float iconX = handImage.getX() - iconSize - 2f;
+      float slot0Y = handImage.getY();              // bottom icon
+      float slot1Y = handImage.getY() + iconSize;   // top icon
+      if (ptHand.getTakeDefCard() > 0) {
+        Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
+            0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
+          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+        };
+        arrowShieldImg.setSize(iconSize, iconSize);
+        arrowShieldImg.setPosition(iconX, slot0Y);
+        arrowShieldImg.setColor(Color.GREEN);
+        handStage.addActor(arrowShieldImg);
+      }
+      if (ptHand.getPutDefCard() > 0) {
+        Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
+            0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
+          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+        };
+        shieldCheckImg.setSize(iconSize, iconSize);
+        shieldCheckImg.setPosition(iconX, slot1Y);
+        shieldCheckImg.setColor(Color.GREEN);
+        handStage.addActor(shieldCheckImg);
+      }
+    }
+
     handStage.addActor(finishTurnButton);
   }
 

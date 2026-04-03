@@ -23,6 +23,8 @@ class GameState {
   generateCards() {
     let cards = [];
     for (let i = 1; i <= 52; i++) cards.push(i);
+    // IDs 53, 54, 55 = joker cards
+    cards.push(53); cards.push(54); cards.push(55);
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];

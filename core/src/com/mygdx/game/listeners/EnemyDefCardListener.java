@@ -89,11 +89,13 @@ public class EnemyDefCardListener extends ClickListener {
     // King can only be used when the player has no defense cards
     if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
 
-    // Symbol constraint — applies to both hand and king attacks
+    // Symbol constraint — joker bypasses; other cards must match the set symbol
     String attackSymbol = kingSelected ? player.getKingCard().getSymbol() : player.getSelectedHandCards().get(0).getSymbol();
-    if (pt.getAttackingSymbol()[0] != "none"
-        && pt.getAttackingSymbol()[0] != attackSymbol
-        && pt.getAttackingSymbol()[1] != attackSymbol) return;
+    if (!"joker".equals(attackSymbol)) {
+      if (pt.getAttackingSymbol()[0] != "none"
+          && pt.getAttackingSymbol()[0] != attackSymbol
+          && pt.getAttackingSymbol()[1] != attackSymbol) return;
+    }
 
     // Snapshot attacking cards (empty for king attacks — king is not a hand card)
     ArrayList<Card> attackSnapshot = kingSelected

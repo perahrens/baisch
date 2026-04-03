@@ -58,9 +58,12 @@ public class EnemyKingCardListener extends ClickListener {
     // Symbol constraint — king attacks use the king's own symbol (same as hand cards)
     Card attackCard = kingSelected ? player.getKingCard() : player.getSelectedHandCards().get(0);
     String symbol = attackCard.getSymbol();
-    if (pt.getAttackingSymbol()[0] != "none"
-        && pt.getAttackingSymbol()[0] != symbol
-        && pt.getAttackingSymbol()[1] != symbol) return;
+    // Symbol constraint — joker bypasses; other cards must match the set symbol
+    if (!"joker".equals(symbol)) {
+      if (pt.getAttackingSymbol()[0] != "none"
+          && pt.getAttackingSymbol()[0] != symbol
+          && pt.getAttackingSymbol()[1] != symbol) return;
+    }
 
     // Lock attack symbol (same treatment as hand card attacks)
     pt.setAttackingSymbol(symbol, player.hasHero("Lieutenant"));

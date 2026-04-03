@@ -30,6 +30,7 @@ import com.mygdx.game.PickingDeck;
 import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
@@ -98,6 +99,10 @@ public class GameScreen extends ScreenAdapter {
   private int playerIndex;
   private JSONObject centralizedState;
   private Socket socket;
+  // Battery Tower: stored when this local player is the defender and must allow/deny
+  private JSONObject pendingBatteryDefCheck = null;
+  // Battery Tower: card IDs revealed to the defender after they allow or deny
+  private org.json.JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
   private boolean logExpanded = false;
 
@@ -222,6 +227,114 @@ public class GameScreen extends ScreenAdapter {
             } catch (JSONException e) {
               e.printStackTrace();
             }
+          }
+        });
+      }
+    });
+
+    socket.on("batteryDefenseCheck", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int targetIdx = data.getInt("targetPlayerIdx");
+              // Only the targeted defender shows the Allow/Deny UI
+              if (targetIdx == myPlayerIndex) {
+                Player me = gameState.getPlayers().get(myPlayerIndex);
+                BatteryTower bt = null;
+                for (int i = 0; i < me.getHeroes().size(); i++) {
+                  if (me.getHeroes().get(i).getHeroName() == "Battery Tower") {
+                    bt = (BatteryTower) me.getHeroes().get(i);
+                    break;
+                  }
+                }
+                if (bt != null && bt.getCharges() > 0) {
+                  pendingBatteryDefCheck = data;
+                  gameState.setUpdateState(true);
+                } else {
+                  // No charges — auto-allow
+                  try {
+                    org.json.JSONObject allow = new org.json.JSONObject();
+                    allow.put("attackerIdx", data.getInt("attackerIdx"));
+                    theSocket.emit("batteryAllowAttack", allow);
+                  } catch (JSONException ex) { ex.printStackTrace(); }
+                }
+              }
+            } catch (JSONException e) { e.printStackTrace(); }
+          }
+        });
+      }
+    });
+
+    socket.on("batteryAllowAttack", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int attackerIdx = data.getInt("attackerIdx");
+              if (attackerIdx == myPlayerIndex) {
+                PlayerTurn pt = gameState.getCurrentPlayer().getPlayerTurn();
+                // Reveal the cards now that the attack is allowed
+                if (pt.isAttackTargetIsKing()) {
+                  int defIdx = pt.getAttackTargetPlayerIdx();
+                  if (defIdx >= 0) {
+                    Card kc = gameState.getPlayers().get(defIdx).getKingCard();
+                    if (kc != null) kc.setCovered(false);
+                  }
+                } else {
+                  for (Card dc : pt.getPendingAttackDefCards()) dc.setCovered(false);
+                }
+                pt.setBatteryWaiting(false);
+                gameState.setUpdateState(true);
+              }
+            } catch (JSONException e) { e.printStackTrace(); }
+          }
+        });
+      }
+    });
+
+    socket.on("batteryDenyAttack", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int attackerIdx = data.getInt("attackerIdx");
+              if (attackerIdx == myPlayerIndex) {
+                PlayerTurn pt = gameState.getCurrentPlayer().getPlayerTurn();
+                // Cancel the attack, lock only the cards used in the attack
+                pt.setAttackPending(false);
+                pt.setBatteryWaiting(false);
+                pt.setBatteryDenied(true);
+                pt.setAttackTargetIsKing(false);
+                // Save denied card IDs (by ID not reference — survives stateUpdate hand rebuild)
+                ArrayList<Integer> deniedIds = new ArrayList<Integer>();
+                for (Card c : pt.getPendingAttackCards()) deniedIds.add(c.getCardId());
+                pt.setBatteryDeniedAttackCardIds(deniedIds);
+                pt.getPendingAttackCards().clear();
+                pt.getPendingAttackDefCards().clear();
+                // Re-cover the revealed def cards (attack was denied)
+                Player targetP = gameState.getPlayers().get(data.getInt("targetPlayerIdx"));
+                int posId = data.getInt("positionId");
+                if (posId >= 1) {
+                  Card dc = targetP.getDefCards().get(posId);
+                  if (dc != null) dc.setCovered(true);
+                  Card tdc = targetP.getTopDefCards().get(posId);
+                  if (tdc != null) tdc.setCovered(true);
+                }
+                Card tkc = targetP.getKingCard();
+                if (data.optBoolean("isKing", false) && tkc != null) tkc.setCovered(true);
+              }
+              gameState.setUpdateState(true);
+            } catch (JSONException e) { e.printStackTrace(); }
           }
         });
       }
@@ -510,7 +623,7 @@ public class GameScreen extends ScreenAdapter {
 
       if (players.get(i) != currentPlayer) {
         enemyKingCardListener = new EnemyKingCardListener(gameState, kingCard, gameState.getCurrentPlayer(),
-            gameState.getPlayers());
+            gameState.getPlayers(), socket, playerIndex);
         kingCard.addListener(enemyKingCardListener);
       } else {
         ownKingCardListener = new OwnKingCardListener(gameState, currentPlayer,
@@ -799,12 +912,16 @@ public class GameScreen extends ScreenAdapter {
       final boolean atkSuccess = apt.isAttackSuccess();
       final boolean targetIsKing = apt.isAttackTargetIsKing();
 
+      final boolean batteryWaiting = apt.isBatteryWaiting();
+
       Image atkOverlay = new Image(MyGdxGame.skin, "white");
       atkOverlay.setFillParent(true);
       atkOverlay.setColor(0f, 0f, 0f, 0.45f);
       atkOverlay.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
+          // If waiting for Battery Tower defender decision, block dismiss
+          if (batteryWaiting) return;
           // Discard attacking hand cards (empty for king attacks)
           for (Card c : apt.getPendingAttackCards()) {
             atkPlayer.getHandCards().remove(c);
@@ -880,17 +997,124 @@ public class GameScreen extends ScreenAdapter {
         }
       });
 
-      String resultText = targetIsKing
+      String normalText = targetIsKing
           ? (atkSuccess ? "KING DEFEATED!  Tap to claim." : "KING ATTACK FAILED.  Tap to continue.")
           : (atkSuccess ? "ATTACK SUCCESS!  Tap to claim the defense card." : "ATTACK FAILED.  Tap to continue.");
+      String resultText = batteryWaiting ? "Waiting for defender..." : normalText;
       Label atkResultLabel = new Label(resultText, MyGdxGame.skin);
-      atkResultLabel.setColor(atkSuccess ? Color.GREEN : Color.RED);
+      atkResultLabel.setColor(batteryWaiting ? Color.YELLOW : (atkSuccess ? Color.GREEN : Color.RED));
       atkResultLabel.setPosition(
           MyGdxGame.WIDTH / 2f - atkResultLabel.getPrefWidth() / 2f,
           MyGdxGame.WIDTH / 2f);
 
       gameStage.addActor(atkOverlay);
       gameStage.addActor(atkResultLabel);
+    }
+
+    // Battery Tower defender overlay — shown when this player must allow or deny an attack
+    if (pendingBatteryDefCheck != null) {
+      final JSONObject btCheck = pendingBatteryDefCheck;
+      Image btOverlay = new Image(MyGdxGame.skin, "white");
+      btOverlay.setFillParent(true);
+      btOverlay.setColor(0f, 0f, 0.4f, 0.7f);
+      gameStage.addActor(btOverlay);
+
+      Label btTitle = new Label("Battery Tower! Incoming attack — fire?", MyGdxGame.skin);
+      btTitle.setColor(Color.YELLOW);
+      btTitle.setPosition(MyGdxGame.WIDTH / 2f - btTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.6f);
+      gameStage.addActor(btTitle);
+
+      TextButton allowBtn = new TextButton("Allow", MyGdxGame.skin);
+      allowBtn.setWidth(MyGdxGame.WIDTH / 4f);
+      allowBtn.setPosition(MyGdxGame.WIDTH / 2f - allowBtn.getWidth() - 8f, MyGdxGame.WIDTH * 0.5f);
+      allowBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          try {
+            pendingBatteryResultCards = btCheck.optJSONArray("attackCardIds");
+            pendingBatteryDefCheck = null;
+            org.json.JSONObject resp = new org.json.JSONObject();
+            resp.put("attackerIdx", btCheck.getInt("attackerIdx"));
+            socket.emit("batteryAllowAttack", resp);
+          } catch (JSONException e) { e.printStackTrace(); }
+          gameState.setUpdateState(true);
+        }
+      });
+      gameStage.addActor(allowBtn);
+
+      TextButton denyBtn = new TextButton("Deny (Fire!)", MyGdxGame.skin);
+      denyBtn.setWidth(MyGdxGame.WIDTH / 4f);
+      denyBtn.setPosition(MyGdxGame.WIDTH / 2f + 8f, MyGdxGame.WIDTH * 0.5f);
+      denyBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          // Spend the charge
+          Player me = gameState.getPlayers().get(playerIndex);
+          for (int i = 0; i < me.getHeroes().size(); i++) {
+            if (me.getHeroes().get(i).getHeroName() == "Battery Tower") {
+              ((BatteryTower) me.getHeroes().get(i)).fire();
+              break;
+            }
+          }
+          try {
+            org.json.JSONObject resp = new org.json.JSONObject();
+            resp.put("attackerIdx", btCheck.getInt("attackerIdx"));
+            resp.put("targetPlayerIdx", btCheck.getInt("targetPlayerIdx"));
+            resp.put("positionId", btCheck.getInt("positionId"));
+            resp.put("isKing", btCheck.optBoolean("isKing", false));
+            org.json.JSONArray atkExpIds = btCheck.optJSONArray("attackCardIds");
+            if (atkExpIds != null) resp.put("attackCardIds", atkExpIds);
+            socket.emit("batteryDenyAttack", resp);
+            pendingBatteryResultCards = atkExpIds;
+            pendingBatteryDefCheck = null;
+          } catch (JSONException e) { e.printStackTrace(); }
+          gameState.setUpdateState(true);
+        }
+      });
+      gameStage.addActor(denyBtn);
+    }
+
+    // Battery Tower result overlay — shown to the defender after they allow or deny
+    if (pendingBatteryResultCards != null) {
+      final org.json.JSONArray resultCards = pendingBatteryResultCards;
+      Image btResOverlay = new Image(MyGdxGame.skin, "white");
+      btResOverlay.setFillParent(true);
+      btResOverlay.setColor(0f, 0f, 0f, 0.6f);
+      gameStage.addActor(btResOverlay);
+
+      Label btResTitle = new Label("Attack cards used:", MyGdxGame.skin);
+      btResTitle.setColor(Color.YELLOW);
+      btResTitle.setPosition(MyGdxGame.WIDTH / 2f - btResTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.62f);
+      gameStage.addActor(btResTitle);
+
+      try {
+        Card sampleCard = new Card();
+        float cw = sampleCard.getDefWidth() * 1.5f;
+        float ch = sampleCard.getDefHeight() * 1.5f;
+        float totalW = resultCards.length() * cw + (resultCards.length() - 1) * 4f;
+        float startX = MyGdxGame.WIDTH / 2f - totalW / 2f;
+        float cardY = MyGdxGame.WIDTH * 0.68f;
+        for (int ai = 0; ai < resultCards.length(); ai++) {
+          Card rc = Card.fromCardId(resultCards.getInt(ai));
+          rc.setCovered(false);
+          rc.setWidth(cw);
+          rc.setHeight(ch);
+          rc.setPosition(startX + ai * (cw + 4f), cardY);
+          gameStage.addActor(rc);
+        }
+      } catch (JSONException ignored) {}
+
+      TextButton btResDismiss = new TextButton("OK", MyGdxGame.skin);
+      btResDismiss.setWidth(MyGdxGame.WIDTH / 4f);
+      btResDismiss.setPosition(MyGdxGame.WIDTH / 2f - btResDismiss.getWidth() / 2f, MyGdxGame.WIDTH * 0.5f);
+      btResDismiss.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          pendingBatteryResultCards = null;
+          gameState.setUpdateState(true);
+        }
+      });
+      gameStage.addActor(btResDismiss);
     }
 
     // Winner overlay — shown on top of everything when a winner is determined
@@ -1082,9 +1306,13 @@ public class GameScreen extends ScreenAdapter {
         if (players.get(i) == gameState.getCurrentPlayer()) {
           final Card handCard = handCards.get(j);
           handCard.removeAllListeners();
-          ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
-              gameState.getCemeteryDeck(), gameState);
-          handCard.addListener(ownHandCardListener);
+          // If battery tower denied this turn, lock only the specific cards used in the denied attack
+          boolean isDeniedCard = gameState.getCurrentPlayer().getPlayerTurn().getBatteryDeniedAttackCardIds().contains(handCard.getCardId());
+          if (!isDeniedCard) {
+            ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
+                gameState.getCemeteryDeck(), gameState);
+            handCard.addListener(ownHandCardListener);
+          }
           handCards.get(j).setActive(false);
         }
       }
@@ -1094,10 +1322,14 @@ public class GameScreen extends ScreenAdapter {
     final ArrayList<Card> handCards = currentPlayer.getHandCards();
     ArrayList<Hero> playerHeroes = currentPlayer.getHeroes();
     currentPlayer.sortHandCards();
+    ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
+
     for (int j = 0; j < handCards.size(); j++) {
       Card handcard = handCards.get(j);
       handcard.setCovered(false);
       handcard.setActive(true);
+      if (deniedCardIds.contains(handcard.getCardId())) handcard.setColor(0.4f, 0.4f, 0.4f, 1f);
+      else handcard.setColor(Color.WHITE);
       handcard.setRotation(0);
       handcard.setWidth(handcard.getDefWidth() * 2);
       handcard.setHeight(handcard.getDefHeight() * 2);
@@ -1187,6 +1419,15 @@ public class GameScreen extends ScreenAdapter {
         spyCountLabel.setColor(Color.CYAN);
         spyCountLabel.setPosition(hero.getX() + hero.getWidth() - spyCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(spyCountLabel);
+      }
+
+      if (hero.getHeroName() == "Battery Tower") {
+        BatteryTower bt = (BatteryTower) hero;
+        String btCount = bt.getCharges() + "/1";
+        Label btCountLabel = new Label(btCount, MyGdxGame.skin);
+        btCountLabel.setColor(Color.YELLOW);
+        btCountLabel.setPosition(hero.getX() + hero.getWidth() - btCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(btCountLabel);
       }
 
       if (hero.getHeroName() == "Major") {
@@ -1369,8 +1610,14 @@ public class GameScreen extends ScreenAdapter {
   // Clears and refills card collections in-place (preserves deck/cemetery/pickingDeck listener objects).
   private void applyStateUpdate(JSONObject state) {
     try {
-      // 1. Advance current player if changed
+      // 1. Advance current player if changed; clear per-turn exposed state on transition
       int serverCurrentIdx = state.getInt("currentPlayerIndex");
+      int prevCurrentIdx = gameState.getCurrentPlayerIndex();
+      if (prevCurrentIdx != serverCurrentIdx) {
+        Player prevPlayer = gameState.getPlayers().get(prevCurrentIdx);
+        prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
+        prevPlayer.getPlayerTurn().setBatteryDenied(false);
+      }
       gameState.setCurrentPlayer(serverCurrentIdx);
 
       // 2. Rebuild main deck
@@ -1486,8 +1733,9 @@ public class GameScreen extends ScreenAdapter {
   public void render(float delta) {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-    // Block all input when it is not this client's turn
-    if (gameState.getCurrentPlayer() == currentPlayer) {
+    // Block all input when it is not this client's turn,
+    // EXCEPT when a Battery Tower intercept awaits the defender's decision
+    if (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null) {
       Gdx.input.setInputProcessor(inMulti);
     } else {
       Gdx.input.setInputProcessor(null);

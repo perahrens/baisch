@@ -8,8 +8,12 @@ import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
+import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import io.socket.client.Socket;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class EnemyKingCardListener extends ClickListener {
 
@@ -17,6 +21,8 @@ public class EnemyKingCardListener extends ClickListener {
   Card kingCard;
   Player player;
   ArrayList<Player> players;
+  Socket socket;
+  int playerIdx;
 
   public EnemyKingCardListener() {
   }
@@ -26,6 +32,13 @@ public class EnemyKingCardListener extends ClickListener {
     this.kingCard = kingCard;
     this.player = player;
     this.players = players;
+  }
+
+  public EnemyKingCardListener(GameState gameState, Card kingCard, Player player, ArrayList<Player> players,
+      Socket socket, int playerIdx) {
+    this(gameState, kingCard, player, players);
+    this.socket = socket;
+    this.playerIdx = playerIdx;
   }
 
   @Override
@@ -81,8 +94,10 @@ public class EnemyKingCardListener extends ClickListener {
     int defStr = "joker".equals(kingCard.getSymbol()) ? 1 : kingCard.getStrength();
     boolean success = attackSum > defStr;
 
-    // Reveal the defender's king
-    kingCard.setCovered(false);
+    // Reveal the defender's king — only if no Battery Tower intercept will happen
+    if (socket == null) {
+      kingCard.setCovered(false);
+    }
 
     // Snapshot attacking cards (empty for king-uses-own-king attacks)
     ArrayList<Card> attackSnapshot = kingSelected ? new ArrayList<Card>() : new ArrayList<Card>(player.getSelectedHandCards());
@@ -111,6 +126,26 @@ public class EnemyKingCardListener extends ClickListener {
     }
 
     pt.setAttackPending(true);
+
+    // Check if the defender has a Battery Tower with charges — if so, intercept
+    // Always notify the defender so they can intercept with Battery Tower if they have one.
+    // The defender's side auto-allows (emits batteryAllowAttack) if they have no Battery Tower.
+    if (socket != null) {
+      pt.setBatteryWaiting(true);
+      try {
+        JSONObject data = new JSONObject();
+        data.put("attackerIdx", playerIdx);
+        data.put("targetPlayerIdx", defenderIdx);
+        data.put("positionId", -1);
+        data.put("level", -1);
+        data.put("isKing", true);
+        data.put("success", success);
+        org.json.JSONArray atkIds = new org.json.JSONArray();
+        for (Card c : attackSnapshot) atkIds.put(c.getCardId());
+        data.put("attackCardIds", atkIds);
+        socket.emit("batteryDefenseCheck", data);
+      } catch (JSONException e) { e.printStackTrace(); }
+    }
 
     if (gameState != null) gameState.setUpdateState(true);
   }

@@ -440,7 +440,10 @@ public class GameScreen extends ScreenAdapter {
           handCard.setCovered(true);
           handCard.setRotation(deckRot);
           handCard.setActive(false);
-          handCard.setSelected(false);
+          // Only deselect cards for other players — current player's cards keep their selection
+          if (players.get(i) != currentPlayer) {
+            handCard.setSelected(false);
+          }
           handCard.setSize(cardW, cardH);
           handCard.setPosition(deckX + j * 0.3f, deckY + j * 0.3f);
           handCard.removeAllListeners();
@@ -841,20 +844,6 @@ public class GameScreen extends ScreenAdapter {
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
-          // Spend any mercenaries that were committed to this attack (operate→destroy so they
-          // return to the pool next turn via recover(), but are unavailable for the rest of this turn).
-          if (apt.getMercenaryAttackBonus() > 0) {
-            for (Hero h : atkPlayer.getHeroes()) {
-              if (h.getHeroName() == "Mercenaries") {
-                Mercenaries merc = (Mercenaries) h;
-                for (int mi = 0; mi < apt.getMercenaryAttackBonus(); mi++) {
-                  merc.destroy();
-                }
-                break;
-              }
-            }
-            apt.resetMercenaryAttackBonus();
-          }
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
             c.setSelected(false);
@@ -1167,17 +1156,18 @@ public class GameScreen extends ScreenAdapter {
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;
         int atkBonus = currentPlayer.getPlayerTurn().getMercenaryAttackBonus();
-        // x/8 counter label
+        // x/8 counter label — right-aligned to the hero sprite's right edge
         String readyCount = mercenaries.countReady() + "/8";
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
         readyCountLabel.setColor(Color.GOLD);
-        readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f - readyCountLabel.getPrefWidth() / 2f, hero.getY());
+        float indicatorX = hero.getX() + hero.getWidth() - readyCountLabel.getPrefWidth();
+        readyCountLabel.setPosition(indicatorX, hero.getY());
         handStage.addActor(readyCountLabel);
         // Red +x label above x/8 when there is a pending attack bonus
         if (atkBonus > 0) {
           Label atkBonusLabel = new Label("+" + atkBonus, MyGdxGame.skin);
           atkBonusLabel.setColor(Color.RED);
-          atkBonusLabel.setPosition(hero.getX() + hero.getWidth() / 2f - atkBonusLabel.getPrefWidth() / 2f,
+          atkBonusLabel.setPosition(hero.getX() + hero.getWidth() - atkBonusLabel.getPrefWidth(),
               hero.getY() + readyCountLabel.getPrefHeight() + 2f);
           handStage.addActor(atkBonusLabel);
         }

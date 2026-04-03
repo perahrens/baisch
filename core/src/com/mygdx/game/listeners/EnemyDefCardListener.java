@@ -10,6 +10,8 @@ import com.mygdx.game.CardDeck;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
+import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Mercenaries;
 
 public class EnemyDefCardListener extends ClickListener {
 
@@ -141,6 +143,20 @@ public class EnemyDefCardListener extends ClickListener {
     pt.setAttackTargetPositionId(positionId);
     pt.setAttackTargetLevel(level);
     pt.setAttackSuccess(success);
+
+    // Consume mercenary attack bonus immediately when attack is committed
+    int mercBonus = pt.getMercenaryAttackBonus();
+    if (mercBonus > 0) {
+      for (Hero h : player.getHeroes()) {
+        if (h.getHeroName() == "Mercenaries") {
+          Mercenaries merc = (Mercenaries) h;
+          for (int mi = 0; mi < mercBonus; mi++) merc.destroy();
+          break;
+        }
+      }
+      pt.resetMercenaryAttackBonus();
+    }
+
     pt.setAttackPending(true);
 
     if (gameState != null) gameState.setUpdateState(true);

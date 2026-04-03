@@ -4,6 +4,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Mercenaries;
 
 public class OwnHeroListener extends ClickListener {
 
@@ -19,6 +20,19 @@ public class OwnHeroListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
     if (hero.isReady() && hero.isSelectable()) {
       System.out.println("Hero isSelected=" + hero.isSelected());
+
+      // Mercenaries special case: if hand cards are already selected, each click
+      // adds +1 mercenary to the pending attack instead of toggling selection.
+      if (hero.getHeroName() == "Mercenaries" && player.getSelectedHandCards().size() > 0) {
+        Mercenaries mercenaries = (Mercenaries) hero;
+        if (mercenaries.isAvailable()) {
+          mercenaries.operate();
+          player.getPlayerTurn().incrementMercenaryAttackBonus();
+          System.out.println("Mercenary added to attack. Bonus=" + player.getPlayerTurn().getMercenaryAttackBonus());
+        }
+        return;
+      }
+
       // unselect all defense and king cards
       player.getKingCard().setSelected(false);
       for (int i = 1; i <= 3; i++) {

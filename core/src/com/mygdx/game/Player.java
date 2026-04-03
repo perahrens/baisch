@@ -224,6 +224,7 @@ public class Player {
         attackSum += handCard.getStrength();
       }
     }
+    attackSum += playerTurn.getMercenaryAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = defCard.getStrength();
@@ -246,6 +247,7 @@ public class Player {
         attackSum += handCard.getStrength();
       }
     }
+    attackSum += playerTurn.getMercenaryAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = 0;

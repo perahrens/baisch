@@ -39,7 +39,15 @@ public class OwnHandCardListener extends ClickListener {
 
     // check hero functions on hand cards (Spy, Merchant — but NOT Mercenaries here;
     // Mercenaries attack bonus is added by clicking the hero while hand cards are selected)
-    if (player.getSelectedHeroes().size() > 0) {
+    boolean spyOrMerchantSelected = false;
+    for (int i = 0; i < player.getHeroes().size(); i++) {
+      String hn = player.getHeroes().get(i).getHeroName();
+      if ((hn == "Spy" || hn == "Merchant") && player.getHeroes().get(i).isSelected()) {
+        spyOrMerchantSelected = true;
+        break;
+      }
+    }
+    if (spyOrMerchantSelected) {
       for (int i = 0; i < player.getHeroes().size(); i++) {
         // if spy is selected, cast card away
         if (player.getHeroes().get(i).getHeroName() == "Spy" && player.getHeroes().get(i).isSelected()) {
@@ -82,6 +90,13 @@ public class OwnHandCardListener extends ClickListener {
         }
       }
     } else {
+      // If Mercenaries hero was selected (defense mode), deselect it to allow hand card selection
+      for (int i = 0; i < player.getHeroes().size(); i++) {
+        if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
+          player.getHeroes().get(i).setSelected(false);
+          break;
+        }
+      }
       // unselect all defense and king cards
       player.getKingCard().setSelected(false);
       for (int i = 1; i <= 3; i++) {

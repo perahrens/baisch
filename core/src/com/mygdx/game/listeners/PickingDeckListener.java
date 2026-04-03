@@ -9,6 +9,8 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.PickingDeck;
 import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
+import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Mercenaries;
 
 public class PickingDeckListener extends ClickListener {
 
@@ -69,6 +71,20 @@ public class PickingDeckListener extends ClickListener {
           }
           pt.setKingUsed(false);
           pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
+        }
+
+        // Add and consume mercenary attack bonus
+        int mercBonus = pt.getMercenaryAttackBonus();
+        if (mercBonus > 0) {
+          attackSum += mercBonus;
+          for (Hero h : currentPlayer.getHeroes()) {
+            if (h.getHeroName() == "Mercenaries") {
+              Mercenaries merc = (Mercenaries) h;
+              for (int mi = 0; mi < mercBonus; mi++) merc.destroy();
+              break;
+            }
+          }
+          pt.resetMercenaryAttackBonus();
         }
 
         pt.setPendingAttackCards(snapshot);

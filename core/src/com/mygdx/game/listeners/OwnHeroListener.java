@@ -54,8 +54,11 @@ public class OwnHeroListener extends ClickListener {
             player.getDefCards().get(i).setSelected(false);
           }
         }
-        for (int i = 0; i < player.getHandCards().size(); i++) {
-          player.getHandCards().get(i).setSelected(false);
+        // For Mercenaries: don't deselect hand cards — attack mode relies on them staying selected
+        if (hero.getHeroName() != "Mercenaries") {
+          for (int i = 0; i < player.getHandCards().size(); i++) {
+            player.getHandCards().get(i).setSelected(false);
+          }
         }
         for (int i = 0; i < player.getHeroes().size(); i++) {
           player.getHeroes().get(i).setSelected(false);

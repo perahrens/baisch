@@ -52,21 +52,15 @@ public class OwnHandCardListener extends ClickListener {
         // if spy is selected, cast card away
         if (player.getHeroes().get(i).getHeroName() == "Spy" && player.getHeroes().get(i).isSelected()) {
           Spy spy = (Spy) player.getHeroes().get(i);
-          if (player.getSelectedHandCards().size() == 1 && spy.getSpyExtends() > 0) {
-            // cast away selected card
-            Iterator<Card> handCardIt = player.getHandCards().iterator();
-            while (handCardIt.hasNext()) {
-              Card currCard = handCardIt.next();
-              if (currCard.isSelected()) {
-                System.out.println("Remove handcard " + currCard.getStrength());
-                cemeteryDeck.addCard(currCard);
-                handCardIt.remove();
-              }
-            }
-
-            // extends spy attacks
+          if (spy.getSpyExtends() > 0) {
+            // Sacrifice the clicked hand card directly for +2 spy actions
+            System.out.println("Spy sacrifice handcard " + handCard.getStrength());
+            cemeteryDeck.addCard(handCard);
+            player.getHandCards().remove(handCard);
             spy.spyExtend();
+            if (gameState != null) gameState.setUpdateState(true);
           }
+          return;
         } else if (player.getHeroes().get(i).getHeroName() == "Merchant" && player.getHeroes().get(i).isSelected()) {
           Merchant merchant = (Merchant) player.getHeroes().get(i);
           if (player.getSelectedHandCards().size() == 1 && merchant.getTrades() > 0) {

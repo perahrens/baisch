@@ -55,5 +55,15 @@ public class MenuState {
   public void runTimer() {
     timeToStart--;
   }
-  
+
+  private String startingHero = "None";
+
+  public String getStartingHero() {
+    return startingHero;
+  }
+
+  public void setStartingHero(String startingHero) {
+    this.startingHero = startingHero;
+  }
+
 }

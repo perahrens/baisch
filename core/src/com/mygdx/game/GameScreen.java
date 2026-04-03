@@ -114,6 +114,13 @@ public class GameScreen extends ScreenAdapter {
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
+    this(game, centralizedState, playerIndex, socket, "None");
+  }
+
+  private String startingHero = "None";
+
+  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket, String startingHero) {
+    this.startingHero = startingHero;
     this.socket = socket;
     this.playerIndex = playerIndex;
     this.centralizedState = centralizedState;
@@ -123,6 +130,11 @@ public class GameScreen extends ScreenAdapter {
     gameState.setSocket(socket);
     players = gameState.getPlayers();
     currentPlayer = players.get(playerIndex);
+
+    // Apply testing starting hero if one was selected in the menu
+    if (startingHero != null && !startingHero.equals("None")) {
+      gameState.applyHeroAcquired(playerIndex, startingHero);
+    }
 
     // Single stateUpdate listener — replaces all specific sync events
     socket.on("stateUpdate", new Emitter.Listener() {
@@ -142,6 +154,7 @@ public class GameScreen extends ScreenAdapter {
     // Restart listener: server sends a fresh gameState when a new game begins
     final Game theGame = game;
     final Socket theSocket = socket;
+    final String theStartingHero = startingHero;
     socket.on("gameState", new Emitter.Listener() {
       @Override
       public void call(Object... args) {
@@ -152,7 +165,7 @@ public class GameScreen extends ScreenAdapter {
             try {
               int newPlayerIndex = data.getInt("playerIndex");
               org.json.JSONObject newState = data.getJSONObject("gameState");
-              theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket));
+              theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero));
             } catch (Exception e) {
               e.printStackTrace();
             }

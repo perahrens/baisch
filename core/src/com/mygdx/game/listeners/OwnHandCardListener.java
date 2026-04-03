@@ -37,7 +37,8 @@ public class OwnHandCardListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
 
-    // check hero functions on hand cards
+    // check hero functions on hand cards (Spy, Merchant — but NOT Mercenaries here;
+    // Mercenaries attack bonus is added by clicking the hero while hand cards are selected)
     if (player.getSelectedHeroes().size() > 0) {
       for (int i = 0; i < player.getHeroes().size(); i++) {
         // if spy is selected, cast card away
@@ -78,16 +79,6 @@ public class OwnHandCardListener extends ClickListener {
 
             newCard.setTradable(true);
           }
-        } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
-          Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
-          if (mercenaries.isAvailable()) {
-            mercenaries.operate();
-            handCard.addBoosted(1);
-            handCard.setSelected(true);
-            player.setSelectedSymbol(handCard.getSymbol());
-            player.getPlayerTurn().incrementMercenaryAttackBonus();
-            if (gameState != null) gameState.setUpdateState(true);
-          }
         }
       }
     } else {
@@ -114,6 +105,20 @@ public class OwnHandCardListener extends ClickListener {
           }
           handCard.setSelected(true);
           player.setSelectedSymbol(handCard.getSymbol());
+        }
+      }
+
+      // If all hand cards are now deselected, clear any pending mercenary attack bonus
+      if (player.getSelectedHandCards().size() == 0 && player.getPlayerTurn().getMercenaryAttackBonus() > 0) {
+        for (int i = 0; i < player.getHeroes().size(); i++) {
+          if (player.getHeroes().get(i).getHeroName() == "Mercenaries") {
+            Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
+            int bonus = player.getPlayerTurn().getMercenaryAttackBonus();
+            for (int b = 0; b < bonus; b++) mercenaries.callback();
+            player.getPlayerTurn().resetMercenaryAttackBonus();
+            if (gameState != null) gameState.setUpdateState(true);
+            break;
+          }
         }
       }
     }

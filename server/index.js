@@ -156,6 +156,11 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('heroAcquired', data);
   });
 
+  // Relay mercenary defense boost to all OTHER clients (boost is client-side only, not in server state).
+  socket.on('mercDefBoost', function(data) {
+    socket.broadcast.emit('mercDefBoost', data);
+  });
+
   users.push(new user(socket.id));
   socket.emit('getUsers', users);
   socket.broadcast.emit('getUsers', users);

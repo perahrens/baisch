@@ -2,7 +2,6 @@ package com.mygdx.game.listeners;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
@@ -28,43 +27,41 @@ public class OwnHeroListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
     if (hero.isReady() && hero.isSelectable()) {
-      System.out.println("Hero isSelected=" + hero.isSelected());
 
-      // unselect all defense and king cards
-      player.getKingCard().setSelected(false);
-      for (int i = 1; i <= 3; i++) {
-        if (player.getDefCards().containsKey(i)) {
-          player.getDefCards().get(i).setSelected(false);
-        }
-      }
-
-      // unselect all hand cards
-      for (int i = 0; i < player.getHandCards().size(); i++) {
-        player.getHandCards().get(i).setSelected(false);
-      }
-
-      // select current hero
-      if (hero.isSelected()) {
-        // Mercenaries: cancel pending attack bonus and return those mercenaries to available
-        if (hero.getHeroName() == "Mercenaries") {
-          Mercenaries merc = (Mercenaries) hero;
-          int atkBonus = player.getPlayerTurn().getMercenaryAttackBonus();
-          for (int b = 0; b < atkBonus; b++) merc.callback();
-          player.getPlayerTurn().resetMercenaryAttackBonus();
-          for (Card c : player.getHandCards()) {
-            while (c.getBoosted() > 0) c.addBoosted(-1);
-          }
+      // ---- Mercenaries attack mode: hand cards selected + click hero = +1 bonus ----
+      if (hero.getHeroName() == "Mercenaries" && player.getSelectedHandCards().size() > 0) {
+        Mercenaries mercenaries = (Mercenaries) hero;
+        if (mercenaries.isAvailable()) {
+          mercenaries.operate();
+          player.getPlayerTurn().incrementMercenaryAttackBonus();
           if (gameState != null) gameState.setUpdateState(true);
         }
+        return; // never toggle selection in attack mode
+      }
+
+      if (hero.isSelected()) {
+        // Deselect: if Mercenaries was in defense mode, just deselect
         hero.setSelected(false);
+        // Deselect hero also resets any accumulated hand-card boost (defense mode cancel)
+        if (hero.getHeroName() == "Mercenaries") {
+          if (gameState != null) gameState.setUpdateState(true);
+        }
       } else {
-        // unselect all other heroes and only select new one
+        // Select: unselect everything else first
+        player.getKingCard().setSelected(false);
+        for (int i = 1; i <= 3; i++) {
+          if (player.getDefCards().containsKey(i)) {
+            player.getDefCards().get(i).setSelected(false);
+          }
+        }
+        for (int i = 0; i < player.getHandCards().size(); i++) {
+          player.getHandCards().get(i).setSelected(false);
+        }
         for (int i = 0; i < player.getHeroes().size(); i++) {
           player.getHeroes().get(i).setSelected(false);
         }
         hero.setSelected(true);
       }
-      System.out.println("Hero  isSelected=" + hero.isSelected());
     }
   }
 

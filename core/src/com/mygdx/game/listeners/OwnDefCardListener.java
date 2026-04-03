@@ -3,6 +3,9 @@ package com.mygdx.game.listeners;
 import java.util.ArrayList;
 import java.util.Map;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
@@ -10,6 +13,7 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Mercenaries;
+import io.socket.client.Socket;
 
 public class OwnDefCardListener extends ClickListener {
 
@@ -22,6 +26,8 @@ public class OwnDefCardListener extends ClickListener {
   Map<Integer, Card> topDefCards;
   ArrayList<Player> players;
   Player player;
+  Socket socket;
+  int playerIdx;
 
   public OwnDefCardListener() {
   }
@@ -36,6 +42,14 @@ public class OwnDefCardListener extends ClickListener {
     this.handCards = handCards;
     this.player = player;
     this.players = players;
+  }
+
+  public OwnDefCardListener(GameState gameState, Card selectedCard, Card kingCard, Map<Integer, Card> defCards,
+      Map<Integer, Card> topDefCards, ArrayList<Card> handCards, Player player, ArrayList<Player> players,
+      Socket socket, int playerIdx) {
+    this(gameState, selectedCard, kingCard, defCards, topDefCards, handCards, player, players);
+    this.socket = socket;
+    this.playerIdx = playerIdx;
   }
 
   @Override
@@ -60,8 +74,8 @@ public class OwnDefCardListener extends ClickListener {
             if (mercenaries.isAvailable()) {
               mercenaries.operate();
               selectedCard.addBoosted(1);
-              // Keep hero selected while mercenaries remain available
-              if (mercenaries.isAvailable()) player.getHeroes().get(i).setSelected(true);
+              // Hero stays selected — no setSelected call needed (operate() no longer clears it)
+              emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
               gameState.setUpdateState(true);
             }
           }
@@ -94,5 +108,21 @@ public class OwnDefCardListener extends ClickListener {
     // gameState.setUpdateState(true);
 
   };
+
+  private void emitBoost(int slot, int boostedCount) {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("playerIdx", playerIdx);
+      data.put("slot", slot);
+      // level: check if this card is a topDefCard (level 1) or defCard (level 0)
+      boolean isTop = topDefCards.containsValue(selectedCard);
+      data.put("level", isTop ? 1 : 0);
+      data.put("boosted", boostedCount);
+      socket.emit("mercDefBoost", data);
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
+  }
 
 }

@@ -790,6 +790,20 @@ public class GameScreen extends ScreenAdapter {
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
+          // Spend any mercenaries that were committed to this attack (operate→destroy so they
+          // return to the pool next turn via recover(), but are unavailable for the rest of this turn).
+          if (apt.getMercenaryAttackBonus() > 0) {
+            for (Hero h : atkPlayer.getHeroes()) {
+              if (h.getHeroName() == "Mercenaries") {
+                Mercenaries merc = (Mercenaries) h;
+                for (int mi = 0; mi < apt.getMercenaryAttackBonus(); mi++) {
+                  merc.destroy();
+                }
+                break;
+              }
+            }
+            apt.resetMercenaryAttackBonus();
+          }
           gameState.setUpdateState(true);
         }
       });
@@ -1097,7 +1111,7 @@ public class GameScreen extends ScreenAdapter {
 
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;
-        String readyCount = String.valueOf(mercenaries.countReady());
+        String readyCount = mercenaries.countReady() + "/8";
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
         readyCountLabel.setColor(Color.GOLD);
         readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f, hero.getY());

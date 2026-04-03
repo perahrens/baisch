@@ -140,6 +140,14 @@ public class PlayerTurn {
   public boolean isAttackTargetIsKing() { return attackTargetIsKing; }
   public void setAttackTargetIsKing(boolean v) { this.attackTargetIsKing = v; }
 
+  // --- Mercenary attack bonus ---
+  // Incremented each time the player clicks the Mercenaries hero to add +1 attack.
+  // Reset to 0 after the attack resolves.
+  private int mercenaryAttackBonus = 0;
+  public int getMercenaryAttackBonus() { return mercenaryAttackBonus; }
+  public void incrementMercenaryAttackBonus() { mercenaryAttackBonus++; }
+  public void resetMercenaryAttackBonus() { mercenaryAttackBonus = 0; }
+
   // --- Hero selection state ---
   // Set when the drawn card requires the player to choose a hero manually.
   private boolean heroSelectionPending = false;

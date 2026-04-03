@@ -6,6 +6,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.CardDeck;
+import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Merchant;
@@ -17,16 +18,20 @@ public class OwnHandCardListener extends ClickListener {
   Player player;
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
+  GameState gameState;
 
-  public OwnHandCardListener() {
-
-  }
+  public OwnHandCardListener() {}
 
   public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck) {
     this.handCard = handCard;
     this.player = player;
     this.cardDeck = cardDeck;
     this.cemeteryDeck = cemeteryDeck;
+  }
+
+  public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck, GameState gameState) {
+    this(handCard, player, cardDeck, cemeteryDeck);
+    this.gameState = gameState;
   }
 
   @Override
@@ -78,10 +83,13 @@ public class OwnHandCardListener extends ClickListener {
           if (mercenaries.isAvailable()) {
             mercenaries.operate();
             handCard.addBoosted(1);
+            handCard.setSelected(true);
+            player.setSelectedSymbol(handCard.getSymbol());
+            player.getPlayerTurn().incrementMercenaryAttackBonus();
+            if (gameState != null) gameState.setUpdateState(true);
           }
         }
       }
-      // gameState.setUpdateState(true);
     } else {
       // unselect all defense and king cards
       player.getKingCard().setSelected(false);

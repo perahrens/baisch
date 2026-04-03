@@ -60,6 +60,8 @@ public class OwnDefCardListener extends ClickListener {
             if (mercenaries.isAvailable()) {
               mercenaries.operate();
               selectedCard.addBoosted(1);
+              // Keep hero selected while mercenaries remain available
+              if (mercenaries.isAvailable()) player.getHeroes().get(i).setSelected(true);
               gameState.setUpdateState(true);
             }
           }

@@ -4,6 +4,7 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 import com.badlogic.gdx.Game;
@@ -817,6 +818,11 @@ public class GameScreen extends ScreenAdapter {
             }
             apt.resetMercenaryAttackBonus();
           }
+          // Clear hand card attack boost visuals after attack resolves
+          for (Card c : atkPlayer.getHandCards()) {
+            c.setSelected(false);
+            while (c.getBoosted() > 0) c.addBoosted(-1);
+          }
           gameState.setUpdateState(true);
         }
       });
@@ -1024,10 +1030,9 @@ public class GameScreen extends ScreenAdapter {
           final Card handCard = handCards.get(j);
           handCard.removeAllListeners();
           ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
-              gameState.getCemeteryDeck());
+              gameState.getCemeteryDeck(), gameState);
           handCard.addListener(ownHandCardListener);
           handCards.get(j).setActive(false);
-          handCards.get(j).setSelected(false);
         }
       }
     }
@@ -1124,7 +1129,8 @@ public class GameScreen extends ScreenAdapter {
 
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;
-        String readyCount = mercenaries.countReady() + "/8";
+        int atkBonus = currentPlayer.getPlayerTurn().getMercenaryAttackBonus();
+        String readyCount = mercenaries.countReady() + "/8" + (atkBonus > 0 ? " ATK+" + atkBonus : "");
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
         readyCountLabel.setColor(Color.GOLD);
         readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f, hero.getY());
@@ -1303,6 +1309,12 @@ public class GameScreen extends ScreenAdapter {
           p.getHandCards().add(Card.fromCardId(handJson.getInt(h)));
         }
 
+        // Save local boost state before rebuilding (not tracked by server)
+        Map<Integer, int[]> savedDefBoosted = new HashMap<Integer, int[]>();
+        for (Map.Entry<Integer, Card> e : p.getDefCards().entrySet()) {
+          if (e.getValue().getBoosted() > 0)
+            savedDefBoosted.put(e.getKey(), new int[]{e.getValue().getCardId(), e.getValue().getBoosted()});
+        }
         p.getDefCards().clear();
         JSONObject defJson = pj.getJSONObject("defCards");
         JSONObject defCoveredJson = pj.optJSONObject("defCardsCovered");
@@ -1314,7 +1326,16 @@ public class GameScreen extends ScreenAdapter {
           dc.setCovered(covered);
           p.getDefCards().put(Integer.parseInt(key), dc);
         }
+        for (Map.Entry<Integer, int[]> e : savedDefBoosted.entrySet()) {
+          Card bc = p.getDefCards().get(e.getKey());
+          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+        }
 
+        Map<Integer, int[]> savedTopBoosted = new HashMap<Integer, int[]>();
+        for (Map.Entry<Integer, Card> e : p.getTopDefCards().entrySet()) {
+          if (e.getValue().getBoosted() > 0)
+            savedTopBoosted.put(e.getKey(), new int[]{e.getValue().getCardId(), e.getValue().getBoosted()});
+        }
         p.getTopDefCards().clear();
         JSONObject topDefJson = pj.getJSONObject("topDefCards");
         JSONObject topDefCoveredJson = pj.optJSONObject("topDefCardsCovered");
@@ -1325,6 +1346,10 @@ public class GameScreen extends ScreenAdapter {
           boolean topCovered = topDefCoveredJson == null || topDefCoveredJson.optBoolean(key, true);
           tdc.setCovered(topCovered);
           p.getTopDefCards().put(Integer.parseInt(key), tdc);
+        }
+        for (Map.Entry<Integer, int[]> e : savedTopBoosted.entrySet()) {
+          Card bc = p.getTopDefCards().get(e.getKey());
+          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
         }
 
         // Apply king card covered state and out flag

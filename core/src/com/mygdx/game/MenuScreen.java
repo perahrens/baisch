@@ -123,7 +123,6 @@ public class MenuScreen extends AbstractScreen {
 
     group.addActor(logoImage);
     group.addActor(button);
-    group.addActor(heroSelectBox);
 
     menuStage.addActor(group);
     menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
@@ -140,6 +139,7 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    heroSelectBox.hideList();
     menuStage.clear();
 
     // logged in count
@@ -206,6 +206,12 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(timerLabel);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
+
+    // Add hero selector directly to stage (not inside Group) so popup coordinates work correctly
+    Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
+    heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
+    menuStage.addActor(heroLabel);
+    menuStage.addActor(heroSelectBox);
   }
 
   @Override
@@ -230,6 +236,7 @@ public class MenuScreen extends AbstractScreen {
       timerStarted = false;
     }
 
+    menuStage.act(delta);
     menuStage.draw();
   }
 

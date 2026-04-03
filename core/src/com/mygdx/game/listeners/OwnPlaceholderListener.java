@@ -3,11 +3,14 @@ package com.mygdx.game.listeners;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
+import com.mygdx.game.heroes.Hero;
 
 public class OwnPlaceholderListener extends ClickListener {
 
@@ -24,10 +27,24 @@ public class OwnPlaceholderListener extends ClickListener {
     this.gameState = gameState;
   }
 
+  private void blinkMajor() {
+    for (int i = 0; i < player.getHeroes().size(); i++) {
+      if (player.getHeroes().get(i).getHeroName() == "Major") {
+        Hero h = player.getHeroes().get(i);
+        h.addAction(Actions.sequence(
+            Actions.color(Color.GREEN, 0f),
+            Actions.delay(0.3f),
+            Actions.color(Color.WHITE, 0.2f)
+        ));
+        break;
+      }
+    }
+  }
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
     if (player.getSelectedHandCards().size() == 1) {
-      if (player.getPlayerTurn().getPutDefCard() > 0) {
+      if (player.canMobilize()) {
         Card cardToPlace = player.getSelectedHandCards().get(0);
         int cardId = cardToPlace.getCardId();
         int positionId = placeholderCard.getPositionId();
@@ -44,6 +61,7 @@ public class OwnPlaceholderListener extends ClickListener {
             e.printStackTrace();
           }
         }
+        blinkMajor();
         gameState.setUpdateState(true);
       } else {
         System.out.println("no more put allowed");

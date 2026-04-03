@@ -30,6 +30,7 @@ import com.mygdx.game.PickingDeck;
 import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.listeners.EnemyDefCardListener;
@@ -1188,6 +1189,15 @@ public class GameScreen extends ScreenAdapter {
         handStage.addActor(spyCountLabel);
       }
 
+      if (hero.getHeroName() == "Major") {
+        Major major = (Major) hero;
+        String mobCount = major.getMobilizations() + "/3";
+        Label mobCountLabel = new Label(mobCount, MyGdxGame.skin);
+        mobCountLabel.setColor(Color.ORANGE);
+        mobCountLabel.setPosition(hero.getX() + hero.getWidth() - mobCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(mobCountLabel);
+      }
+
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;
         int atkBonus = currentPlayer.getPlayerTurn().getMercenaryAttackBonus();
@@ -1321,7 +1331,16 @@ public class GameScreen extends ScreenAdapter {
       float iconX = handImage.getX() - iconSize - 2f;
       float slot0Y = handImage.getY();              // bottom icon
       float slot1Y = handImage.getY() + iconSize;   // top icon
-      if (ptHand.getTakeDefCard() > 0) {
+      Major majorHero = null;
+      for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
+        if (currentPlayer.getHeroes().get(mi).getHeroName() == "Major") {
+          majorHero = (Major) currentPlayer.getHeroes().get(mi);
+          break;
+        }
+      }
+      boolean showTakeShield = majorHero != null ? majorHero.getMobilizations() > 0 : ptHand.getTakeDefCard() > 0;
+      boolean showPutShield  = majorHero != null ? majorHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0;
+      if (showTakeShield) {
         Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
             0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
           @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
@@ -1331,7 +1350,7 @@ public class GameScreen extends ScreenAdapter {
         arrowShieldImg.setColor(Color.GREEN);
         handStage.addActor(arrowShieldImg);
       }
-      if (ptHand.getPutDefCard() > 0) {
+      if (showPutShield) {
         Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
             0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
           @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }

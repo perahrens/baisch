@@ -44,10 +44,10 @@ public class PickingDeckListener extends ClickListener {
         // King can only be used when the player has no defense cards
         if (kingSelected && (!currentPlayer.getDefCards().isEmpty() || !currentPlayer.getTopDefCards().isEmpty())) return;
 
-        // Symbol constraint — king attacks also set/check the attack symbol
+        // Symbol constraint — joker can always attack regardless of symbol
         String attackSymbol = kingSelected ? currentPlayer.getKingCard().getSymbol()
             : currentPlayer.getSelectedHandCards().get(0).getSymbol();
-        if (!kingSelected || !"joker".equals(attackSymbol)) {
+        if (!"joker".equals(attackSymbol)) {
           if (pt.getAttackingSymbol()[0] != "none"
               && pt.getAttackingSymbol()[0] != attackSymbol
               && pt.getAttackingSymbol()[1] != attackSymbol) return;
@@ -83,7 +83,9 @@ public class PickingDeckListener extends ClickListener {
 
         pt.decreasePickingDeckAttacks();
         pt.setPlunderPending(true);
-        pt.setPlunderSuccess(attackSum > topCard.getStrength());
+        // Joker on top of harvest deck defends with infinite+1 (1000) — unbeatable
+        int defStrength = "joker".equals(topCard.getSymbol()) ? 1000 : topCard.getStrength();
+        pt.setPlunderSuccess(attackSum > defStrength);
 
         gameState.setUpdateState(true);
       }

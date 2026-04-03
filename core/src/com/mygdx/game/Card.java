@@ -3,6 +3,7 @@ package com.mygdx.game;
 import java.util.ArrayList;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -15,6 +16,14 @@ public class Card extends Actor {
   Sprite sprite;
   private boolean spriteIsBack = false;
   static TextureAtlas atlas = new TextureAtlas("data/skins/carddeck.atlas");
+  static Texture[] jokerTextures = {
+    new Texture("data/skins/Joker1.jpg"),
+    new Texture("data/skins/Joker2.jpg"),
+    new Texture("data/skins/Joker3.jpg")
+  };
+  // Reference dimensions from the atlas so joker sprites match regular cards exactly.
+  private static final float CARD_ATLAS_WIDTH = atlas.createSprite("back", 1).getWidth();
+  private static final float CARD_ATLAS_HEIGHT = atlas.createSprite("back", 1).getHeight();
 
   // card attributes
   private String symbol = null;
@@ -73,10 +82,14 @@ public class Card extends Actor {
     setBounds(getX(), getY(), getWidth(), getHeight());
   }
 
-  // Factory method: construct a Card from a server card ID (1-52).
+  // Factory method: construct a Card from a server card ID (1-55).
   // ID 1-13 = clubs 1-13, 14-26 = diamonds 1-13, 27-39 = hearts 1-13, 40-52 = spades 1-13.
+  // ID 53-55 = joker 1-3.
   public static Card fromCardId(int cardId) {
     final String[] suits = { "clubs", "diamonds", "hearts", "spades" };
+    if (cardId >= 53 && cardId <= 55) {
+      return new Card("joker", cardId - 52); // joker 1, 2, 3
+    }
     if (cardId >= 1 && cardId <= 52) {
       int suitIndex = (cardId - 1) / 13;
       int cardIndex = (cardId - 1) % 13 + 1;
@@ -87,7 +100,12 @@ public class Card extends Actor {
 
   // standard playing card
   public Card(String symbol, int index) {
-    sprite = atlas.createSprite(symbol, index);
+    if ("joker".equals(symbol)) {
+      sprite = new Sprite(jokerTextures[index - 1]);
+      sprite.setSize(CARD_ATLAS_WIDTH, CARD_ATLAS_HEIGHT);
+    } else {
+      sprite = atlas.createSprite(symbol, index);
+    }
 
     this.symbol = symbol;
     this.index = index;
@@ -112,7 +130,15 @@ public class Card extends Actor {
     if (isCovered && !isActive) {
       if (!spriteIsBack) { sprite = atlas.createSprite("back", 1); spriteIsBack = true; }
     } else {
-      if (spriteIsBack || sprite == null) { sprite = atlas.createSprite(symbol, index); spriteIsBack = false; }
+      if (spriteIsBack || sprite == null) {
+        if ("joker".equals(symbol)) {
+          sprite = new Sprite(jokerTextures[index - 1]);
+          sprite.setSize(CARD_ATLAS_WIDTH, CARD_ATLAS_HEIGHT);
+        } else {
+          sprite = atlas.createSprite(symbol, index);
+        }
+        spriteIsBack = false;
+      }
     }
     Color color = defColor;
     batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);
@@ -302,6 +328,7 @@ public class Card extends Actor {
   }
 
   public int getCardId() {
+    if ("joker".equals(symbol)) return 52 + index;
     final String[] suits = { "clubs", "diamonds", "hearts", "spades" };
     for (int i = 0; i < suits.length; i++) {
       if (suits[i].equals(symbol)) {

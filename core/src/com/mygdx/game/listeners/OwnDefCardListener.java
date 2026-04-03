@@ -60,6 +60,7 @@ public class OwnDefCardListener extends ClickListener {
             if (mercenaries.isAvailable()) {
               mercenaries.operate();
               selectedCard.addBoosted(1);
+              gameState.setUpdateState(true);
             }
           }
         }

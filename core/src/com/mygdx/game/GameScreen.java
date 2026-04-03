@@ -199,6 +199,36 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Handle incoming mercenary defense boost from another client
+    socket.on("mercDefBoost", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int pIdx = data.getInt("playerIdx");
+              int slot = data.getInt("slot");
+              int level = data.getInt("level");
+              int boosted = data.getInt("boosted");
+              Player p = gameState.getPlayers().get(pIdx);
+              Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
+              Card c = cards.get(slot);
+              if (c != null) {
+                // Set boost to the authoritative value from the emitting client
+                while (c.getBoosted() > boosted) c.addBoosted(-1);
+                while (c.getBoosted() < boosted) c.addBoosted(1);
+              }
+              gameState.setUpdateState(true);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        });
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
     fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
@@ -496,7 +526,8 @@ public class GameScreen extends ScreenAdapter {
           } else {
             ownDefCardListener = new OwnDefCardListener(gameState, defCard, gameState.getCurrentPlayer().getKingCard(),
                 gameState.getCurrentPlayer().getDefCards(), gameState.getCurrentPlayer().getTopDefCards(),
-                gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers(),
+                socket, playerIndex);
             defCard.addListener(ownDefCardListener);
           }
         } else {
@@ -544,11 +575,12 @@ public class GameScreen extends ScreenAdapter {
           mercenaryImage.setX(mercenaryImage.getX() + defCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
           mercenaryImage.setY(mercenaryImage.getY() + defCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
           removeAllListeners(mercenaryImage);
-          mercenaryImageListener = new MercenaryImageListener(gameState, defCard, currentPlayer);
+          mercenaryImageListener = new MercenaryImageListener(gameState, defCard, currentPlayer,
+              socket, playerIndex, defCard.getPositionId(), 0);
           mercenaryImage.addListener(mercenaryImageListener);
           gameStage.addActor(mercenaryImage);
 
-          String boostCount = String.valueOf(defCard.getBoosted());
+          String boostCount = "+" + String.valueOf(defCard.getBoosted());
           Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
           boostCountLabel.setColor(Color.GOLD);
           boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
@@ -571,7 +603,8 @@ public class GameScreen extends ScreenAdapter {
             ownDefCardListener = new OwnDefCardListener(gameState, topDefCard,
                 gameState.getCurrentPlayer().getKingCard(), gameState.getCurrentPlayer().getDefCards(),
                 gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards(),
-                gameState.getCurrentPlayer(), gameState.getPlayers());
+                gameState.getCurrentPlayer(), gameState.getPlayers(),
+                socket, playerIndex);
             topDefCard.addListener(ownDefCardListener);
           }
           topDefCard.setMapPosition(i, j, 1);
@@ -615,7 +648,11 @@ public class GameScreen extends ScreenAdapter {
       // display heroes
       ArrayList<Hero> playerHeroes = players.get(i).getHeroes();
       for (int j = 0; j < playerHeroes.size(); j++) {
-        playerHeroes.get(j).setSelected(false);
+        // Don't reset selection state of the local player's heroes — that is
+        // managed by showHandStage/listeners so it persists across refreshes.
+        if (players.get(i) != currentPlayer) {
+          playerHeroes.get(j).setSelected(false);
+        }
         playerHeroes.get(j).setHand(false);
         playerHeroes.get(j).setPosition(playerLabel.getX(), playerLabel.getY());
 
@@ -1130,11 +1167,20 @@ public class GameScreen extends ScreenAdapter {
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;
         int atkBonus = currentPlayer.getPlayerTurn().getMercenaryAttackBonus();
-        String readyCount = mercenaries.countReady() + "/8" + (atkBonus > 0 ? " ATK+" + atkBonus : "");
+        // x/8 counter label
+        String readyCount = mercenaries.countReady() + "/8";
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
         readyCountLabel.setColor(Color.GOLD);
-        readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f, hero.getY());
+        readyCountLabel.setPosition(hero.getX() + hero.getWidth() / 2f - readyCountLabel.getPrefWidth() / 2f, hero.getY());
         handStage.addActor(readyCountLabel);
+        // Red +x label above x/8 when there is a pending attack bonus
+        if (atkBonus > 0) {
+          Label atkBonusLabel = new Label("+" + atkBonus, MyGdxGame.skin);
+          atkBonusLabel.setColor(Color.RED);
+          atkBonusLabel.setPosition(hero.getX() + hero.getWidth() / 2f - atkBonusLabel.getPrefWidth() / 2f,
+              hero.getY() + readyCountLabel.getPrefHeight() + 2f);
+          handStage.addActor(atkBonusLabel);
+        }
       }
     }
 

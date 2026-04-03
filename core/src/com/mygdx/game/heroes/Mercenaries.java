@@ -85,7 +85,6 @@ public class Mercenaries extends Hero {
       }
     }
     if (!isAvailable()) {
-      isSelected = false;
       isReady = false;
     }
   }

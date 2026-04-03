@@ -85,6 +85,15 @@ public class Player {
     });
   }
 
+  public boolean canMobilize() {
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroes.get(i).getHeroName() == "Major") {
+        return ((Major) heroes.get(i)).getMobilizations() > 0;
+      }
+    }
+    return playerTurn.getTakeDefCard() > 0 || playerTurn.getPutDefCard() > 0;
+  }
+
   public void takeDefCard(int position) {
     System.out.println("takeDefCard()");
 

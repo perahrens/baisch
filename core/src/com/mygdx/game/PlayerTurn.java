@@ -161,4 +161,22 @@ public class PlayerTurn {
   public int getPendingJokerCardId() { return pendingJokerCardId; }
   public void setPendingJokerCardId(int v) { this.pendingJokerCardId = v; }
 
+  // --- Battery Tower attack interception ---
+  // Set on the attacker's side while waiting for the defender to allow/deny.
+  private boolean batteryWaiting = false;
+  // Set on the attacker's side after the defender fires the Battery Tower (denies the attack).
+  // Hand cards are locked/greyed out for the rest of the turn.
+  private boolean batteryDenied = false;
+
+  public boolean isBatteryWaiting() { return batteryWaiting; }
+  public void setBatteryWaiting(boolean v) { this.batteryWaiting = v; }
+  public boolean isBatteryDenied() { return batteryDenied; }
+  public void setBatteryDenied(boolean v) { this.batteryDenied = v; }
+
+  // The card IDs of hand cards used in a denied attack (locked/grayed for the turn).
+  // Stored as IDs not references so they survive stateUpdate hand rebuilds.
+  private ArrayList<Integer> batteryDeniedAttackCardIds = new ArrayList<Integer>();
+  public ArrayList<Integer> getBatteryDeniedAttackCardIds() { return batteryDeniedAttackCardIds; }
+  public void setBatteryDeniedAttackCardIds(ArrayList<Integer> ids) { this.batteryDeniedAttackCardIds = ids; }
+
 }

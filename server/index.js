@@ -166,6 +166,17 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('spyFlip', data);
   });
 
+  // Battery Tower: relay attack intercept and responses between attacker and defender.
+  socket.on('batteryDefenseCheck', function(data) {
+    socket.broadcast.emit('batteryDefenseCheck', data);
+  });
+  socket.on('batteryAllowAttack', function(data) {
+    socket.broadcast.emit('batteryAllowAttack', data);
+  });
+  socket.on('batteryDenyAttack', function(data) {
+    socket.broadcast.emit('batteryDenyAttack', data);
+  });
+
   users.push(new user(socket.id));
   socket.emit('getUsers', users);
   socket.broadcast.emit('getUsers', users);

@@ -10,6 +10,7 @@ import com.mygdx.game.CardDeck;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
+import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
@@ -133,11 +134,14 @@ public class EnemyDefCardListener extends ClickListener {
         ? new ArrayList<Card>()
         : new ArrayList<Card>(player.getSelectedHandCards());
 
-    // Reveal the targeted defense card
-    defCard.setCovered(false);
+    // Reveal the targeted defense card — only if no Battery Tower intercept will happen
+    boolean willIntercept = (socket != null);
+    if (!willIntercept) {
+      defCard.setCovered(false);
+    }
     Card topDefCard = (level == 0 && targetTopDefCards.containsKey(positionId))
         ? targetTopDefCards.get(positionId) : null;
-    if (topDefCard != null) topDefCard.setCovered(false);
+    if (!willIntercept && topDefCard != null) topDefCard.setCovered(false);
 
     // Compute result
     boolean success;
@@ -188,7 +192,43 @@ public class EnemyDefCardListener extends ClickListener {
 
     pt.setAttackPending(true);
 
+    // Always notify the defender so they can intercept with Battery Tower if they have one.
+    // The defender's side auto-allows (emits batteryAllowAttack) if they have no Battery Tower.
+    if (socket != null) {
+      pt.setBatteryWaiting(true);
+      emitBatteryDefenseCheck(targetPlayerIdx, positionId, level, false,
+          attackSnapshot, pt.isAttackSuccess());
+    }
+
     if (gameState != null) gameState.setUpdateState(true);
+  }
+
+  private BatteryTower getBatteryTower(Player p) {
+    if (p == null) return null;
+    for (int i = 0; i < p.getHeroes().size(); i++) {
+      if (p.getHeroes().get(i).getHeroName() == "Battery Tower") {
+        return (BatteryTower) p.getHeroes().get(i);
+      }
+    }
+    return null;
+  }
+
+  void emitBatteryDefenseCheck(int targetPlayerIdx, int positionId, int level,
+      boolean isKing, ArrayList<Card> attackCards, boolean success) {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("attackerIdx", playerIdx);
+      data.put("targetPlayerIdx", targetPlayerIdx);
+      data.put("positionId", positionId);
+      data.put("level", level);
+      data.put("isKing", isKing);
+      data.put("success", success);
+      org.json.JSONArray atkIds = new org.json.JSONArray();
+      for (Card c : attackCards) atkIds.put(c.getCardId());
+      data.put("attackCardIds", atkIds);
+      socket.emit("batteryDefenseCheck", data);
+    } catch (JSONException e) { e.printStackTrace(); }
   }
 
   private void emitSpyFlip() {

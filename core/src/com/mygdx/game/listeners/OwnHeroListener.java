@@ -2,6 +2,7 @@ package com.mygdx.game.listeners;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
@@ -10,10 +11,17 @@ public class OwnHeroListener extends ClickListener {
 
   Hero hero;
   Player player;
+  GameState gameState;
 
   public OwnHeroListener(Hero hero, Player player) {
     this.hero = hero;
     this.player = player;
+  }
+
+  public OwnHeroListener(Hero hero, Player player, GameState gameState) {
+    this.hero = hero;
+    this.player = player;
+    this.gameState = gameState;
   }
 
   @Override
@@ -29,6 +37,7 @@ public class OwnHeroListener extends ClickListener {
           mercenaries.operate();
           player.getPlayerTurn().incrementMercenaryAttackBonus();
           System.out.println("Mercenary added to attack. Bonus=" + player.getPlayerTurn().getMercenaryAttackBonus());
+          if (gameState != null) gameState.setUpdateState(true);
         }
         return;
       }

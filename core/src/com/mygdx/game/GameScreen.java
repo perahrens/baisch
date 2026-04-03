@@ -1113,7 +1113,7 @@ public class GameScreen extends ScreenAdapter {
       }
 
       hero.removeAllListeners();
-      ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer());
+      ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer(), gameState);
       hero.addListener(ownHeroListener);
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);

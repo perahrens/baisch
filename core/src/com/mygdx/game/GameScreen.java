@@ -1156,7 +1156,7 @@ public class GameScreen extends ScreenAdapter {
 
       if (hero.getHeroName() == "Spy") {
         Spy spy = (Spy) hero;
-        String spyCount = spy.getSpyAttacks() + "/3";
+        String spyCount = spy.getSpyAttacks() + "/" + spy.getSpyMaxAttacks();
         Label spyCountLabel = new Label(spyCount, MyGdxGame.skin);
         spyCountLabel.setColor(Color.CYAN);
         spyCountLabel.setPosition(hero.getX() + hero.getWidth() - spyCountLabel.getPrefWidth(), hero.getY());
@@ -1355,6 +1355,11 @@ public class GameScreen extends ScreenAdapter {
           p.getHandCards().add(Card.fromCardId(handJson.getInt(h)));
         }
 
+        // Save local def covered-state overrides (spy flips) before rebuilding
+        Map<Integer, Boolean> savedDefCovered = new HashMap<Integer, Boolean>();
+        for (Map.Entry<Integer, Card> e : p.getDefCards().entrySet()) {
+          if (!e.getValue().isCovered()) savedDefCovered.put(e.getKey(), false);
+        }
         // Save local boost state before rebuilding (not tracked by server)
         Map<Integer, int[]> savedDefBoosted = new HashMap<Integer, int[]>();
         for (Map.Entry<Integer, Card> e : p.getDefCards().entrySet()) {
@@ -1375,6 +1380,11 @@ public class GameScreen extends ScreenAdapter {
         for (Map.Entry<Integer, int[]> e : savedDefBoosted.entrySet()) {
           Card bc = p.getDefCards().get(e.getKey());
           if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+        }
+        // Restore spy-flipped face-up state
+        for (Map.Entry<Integer, Boolean> e : savedDefCovered.entrySet()) {
+          Card dc = p.getDefCards().get(e.getKey());
+          if (dc != null) dc.setCovered(false);
         }
 
         Map<Integer, int[]> savedTopBoosted = new HashMap<Integer, int[]>();

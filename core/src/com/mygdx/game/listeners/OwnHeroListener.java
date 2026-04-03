@@ -2,6 +2,7 @@ package com.mygdx.game.listeners;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
@@ -29,19 +30,6 @@ public class OwnHeroListener extends ClickListener {
     if (hero.isReady() && hero.isSelectable()) {
       System.out.println("Hero isSelected=" + hero.isSelected());
 
-      // Mercenaries special case: if hand cards are already selected, each click
-      // adds +1 mercenary to the pending attack instead of toggling selection.
-      if (hero.getHeroName() == "Mercenaries" && player.getSelectedHandCards().size() > 0) {
-        Mercenaries mercenaries = (Mercenaries) hero;
-        if (mercenaries.isAvailable()) {
-          mercenaries.operate();
-          player.getPlayerTurn().incrementMercenaryAttackBonus();
-          System.out.println("Mercenary added to attack. Bonus=" + player.getPlayerTurn().getMercenaryAttackBonus());
-          if (gameState != null) gameState.setUpdateState(true);
-        }
-        return;
-      }
-
       // unselect all defense and king cards
       player.getKingCard().setSelected(false);
       for (int i = 1; i <= 3; i++) {
@@ -57,7 +45,17 @@ public class OwnHeroListener extends ClickListener {
 
       // select current hero
       if (hero.isSelected()) {
-        // unselect selected hero
+        // Mercenaries: cancel pending attack bonus and return those mercenaries to available
+        if (hero.getHeroName() == "Mercenaries") {
+          Mercenaries merc = (Mercenaries) hero;
+          int atkBonus = player.getPlayerTurn().getMercenaryAttackBonus();
+          for (int b = 0; b < atkBonus; b++) merc.callback();
+          player.getPlayerTurn().resetMercenaryAttackBonus();
+          for (Card c : player.getHandCards()) {
+            while (c.getBoosted() > 0) c.addBoosted(-1);
+          }
+          if (gameState != null) gameState.setUpdateState(true);
+        }
         hero.setSelected(false);
       } else {
         // unselect all other heroes and only select new one

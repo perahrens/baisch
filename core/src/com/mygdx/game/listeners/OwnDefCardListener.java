@@ -13,6 +13,7 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Spy;
 import io.socket.client.Socket;
 
 public class OwnDefCardListener extends ClickListener {
@@ -76,6 +77,21 @@ public class OwnDefCardListener extends ClickListener {
               selectedCard.addBoosted(1);
               // Hero stays selected — no setSelected call needed (operate() no longer clears it)
               emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
+              gameState.setUpdateState(true);
+            }
+          } else if (player.getHeroes().get(i).getHeroName() == "Spy"
+              && player.getHeroes().get(i).isSelected()) {
+            Spy spy = (Spy) player.getHeroes().get(i);
+            if (spy.getSpyExtends() > 0) {
+              // Sacrifice this own defense card for +2 spy actions
+              int posId = selectedCard.getPositionId();
+              gameState.getCemeteryDeck().addCard(selectedCard);
+              if (topDefCards.containsValue(selectedCard)) {
+                topDefCards.remove(posId);
+              } else {
+                defCards.remove(posId);
+              }
+              spy.spyExtend();
               gameState.setUpdateState(true);
             }
           }

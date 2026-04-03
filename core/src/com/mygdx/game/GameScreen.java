@@ -31,6 +31,7 @@ import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.listeners.EnemyDefCardListener;
 import com.mygdx.game.listeners.EnemyHandCardListener;
 import com.mygdx.game.listeners.EnemyKingCardListener;
@@ -1152,6 +1153,15 @@ public class GameScreen extends ScreenAdapter {
 
       handStage.addActor(hero);
       handStage.addActor(heroLabel);
+
+      if (hero.getHeroName() == "Spy") {
+        Spy spy = (Spy) hero;
+        String spyCount = spy.getSpyAttacks() + "/3";
+        Label spyCountLabel = new Label(spyCount, MyGdxGame.skin);
+        spyCountLabel.setColor(Color.CYAN);
+        spyCountLabel.setPosition(hero.getX() + hero.getWidth() - spyCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(spyCountLabel);
+      }
 
       if (hero.getHeroName() == "Mercenaries") {
         Mercenaries mercenaries = (Mercenaries) hero;

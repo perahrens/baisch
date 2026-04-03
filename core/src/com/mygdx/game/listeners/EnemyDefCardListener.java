@@ -12,6 +12,7 @@ import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Spy;
 
 public class EnemyDefCardListener extends ClickListener {
 
@@ -48,6 +49,21 @@ public class EnemyDefCardListener extends ClickListener {
     // Ignore taps while ANY preview overlay is active
     PlayerTurn pt = player.getPlayerTurn();
     if (pt.isPlunderPending() || pt.isAttackPending()) return;
+
+    // Spy peek: if spy is selected with no attack cards, flip enemy card face-up
+    for (int si = 0; si < player.getHeroes().size(); si++) {
+      if (player.getHeroes().get(si).getHeroName() == "Spy" && player.getHeroes().get(si).isSelected()) {
+        Spy spy = (Spy) player.getHeroes().get(si);
+        if (spy.getSpyAttacks() > 0
+            && !player.getKingCard().isSelected()
+            && player.getSelectedHandCards().isEmpty()) {
+          defCard.setCovered(false);
+          spy.spyAttack();
+          if (gameState != null) gameState.setUpdateState(true);
+        }
+        return;
+      }
+    }
 
     // Find which player and slot owns this defCard
     int targetPlayerIdx = -1;

@@ -45,7 +45,7 @@ public class Spy extends Hero {
     spyAttacks--;
     if (spyAttacks == 0 && spyExtends == 0) {
       isReady = false;
-      isSelected = false;
+      // isSelected intentionally NOT cleared — OwnHeroListener handles deselection
     }
   }
 

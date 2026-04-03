@@ -143,7 +143,19 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
     checkAndHandleWinner(io);
   });
-  
+
+  socket.on('jokerSacrifice', function(data) {
+    console.log("jokerSacrifice: playerIdx=" + data.playerIdx);
+    gameState.jokerSacrifice(data.playerIdx, data.jokerCardId, data.drawnCardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Relay hero acquisition to all OTHER clients so they can update their local state.
+  socket.on('heroAcquired', function(data) {
+    console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
+    socket.broadcast.emit('heroAcquired', data);
+  });
+
   users.push(new user(socket.id));
   socket.emit('getUsers', users);
   socket.broadcast.emit('getUsers', users);

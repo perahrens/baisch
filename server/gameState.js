@@ -203,6 +203,24 @@ class GameState {
     return alive.length === 1 ? alive[0].index : -1;
   }
 
+  /**
+   * A player sacrificed a joker card to draw a hero-determining card.
+   * Removes both cards from deck/hand and adds them to the cemetery
+   * so all clients stay in sync after they receive this stateUpdate.
+   */
+  jokerSacrifice(playerIdx, jokerCardId, drawnCardId) {
+    const p = this.players[playerIdx];
+    // Remove joker from the player's hand.
+    const jokerHandIdx = p.hand.indexOf(jokerCardId);
+    if (jokerHandIdx !== -1) p.hand.splice(jokerHandIdx, 1);
+    this.cemetery.push(jokerCardId);
+    // Remove the drawn card from the deck (it was the "oracle" card for hero type).
+    const drawnDeckIdx = this.deck.indexOf(drawnCardId);
+    if (drawnDeckIdx !== -1) this.deck.splice(drawnDeckIdx, 1);
+    this.cemetery.push(drawnCardId);
+    this.pushLog(`P${playerIdx} sacrificed a Joker for a Hero`, true, true);
+  }
+
   kingAttackResolved(attackerIdx, defenderIdx, success, attackCardIds, kingUsed) {
     const attacker = this.players[attackerIdx];
     const defender = this.players[defenderIdx];

@@ -1,6 +1,7 @@
 package com.mygdx.game;
 
 import java.util.ArrayList;
+import com.mygdx.game.heroes.Hero;
 
 public class PlayerTurn {
   int pickingDeckAttacks;
@@ -138,5 +139,18 @@ public class PlayerTurn {
   private boolean attackTargetIsKing = false;
   public boolean isAttackTargetIsKing() { return attackTargetIsKing; }
   public void setAttackTargetIsKing(boolean v) { this.attackTargetIsKing = v; }
+
+  // --- Hero selection state ---
+  // Set when the drawn card requires the player to choose a hero manually.
+  private boolean heroSelectionPending = false;
+  private ArrayList<Hero> heroChoices = new ArrayList<Hero>();
+  private int pendingJokerCardId = -1;
+
+  public boolean isHeroSelectionPending() { return heroSelectionPending; }
+  public void setHeroSelectionPending(boolean v) { this.heroSelectionPending = v; }
+  public ArrayList<Hero> getHeroChoices() { return heroChoices; }
+  public void setHeroChoices(ArrayList<Hero> choices) { this.heroChoices = choices; }
+  public int getPendingJokerCardId() { return pendingJokerCardId; }
+  public void setPendingJokerCardId(int v) { this.pendingJokerCardId = v; }
 
 }

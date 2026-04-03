@@ -1,5 +1,6 @@
 package com.mygdx.game;
 
+import java.util.ArrayList;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Hero;
@@ -149,6 +150,91 @@ public class HeroesSquare {
 		default:
 			break;
 		}
+	}
+
+	/**
+	 * Maps a drawn card's index (2-13) to the corresponding hero per the game rules:
+	 * 2=Mercenaries, 3=Spy, 4=General(Major), 5=BatteryTower, 6=Merchant, 7=Priest,
+	 * 8=Reservists, 9=Saboteurs, 10=Lieutenant, 11=FortifiedTower, 12=Magician, 13=King.
+	 * Returns null if the hero is already taken.
+	 */
+	public Hero getHeroByCardIndex(int cardIndex) {
+		switch (cardIndex) {
+			case 2:  return getHero(2);   // Mercenaries
+			case 3:  return getHero(4);   // Spy (internal index 4)
+			case 4:  return getHero(3);   // Major / General (internal index 3)
+			case 5:  return getHero(5);   // BatteryTower
+			case 6:  return getHero(6);   // Merchant
+			case 7:  return getHero(7);   // Priest
+			case 8:  return getHero(8);   // Reservists
+			case 9:  return getHero(10);  // Saboteurs (internal index 10)
+			case 10: return getHero(9);   // Lieutenant (internal index 9)
+			case 11: return getHero(11);  // FortifiedTower
+			case 12: return getHero(12);  // Magician
+			case 13: return getHero(13);  // King / Warlord
+			default: return null;
+		}
+	}
+
+	/** Peek at the hero at an internal index without consuming it. */
+	private Hero peekHero(int index) {
+		switch (index) {
+			case 2:  return mercenaries;
+			case 3:  return major;
+			case 4:  return spy;
+			case 5:  return batteryTower;
+			case 6:  return merchant;
+			case 7:  return priest;
+			case 8:  return reservists;
+			case 9:  return lieutenant;
+			case 10: return saboteurs;
+			case 11: return fortifiedTower;
+			case 12: return magician;
+			case 13: return king;
+			default: return null;
+		}
+	}
+
+	/** Consume a hero from the pool by name (used when player makes a selection). */
+	public Hero consumeHeroByName(String heroName) {
+		for (int i = 2; i <= 13; i++) {
+			Hero h = peekHero(i);
+			if (h != null && heroName.equals(h.getHeroName())) {
+				return getHero(i);
+			}
+		}
+		return null;
+	}
+
+	/** All still-available white heroes (Mercenaries, Spy, Major, BatteryTower, Merchant, Priest). */
+	public ArrayList<Hero> getAvailableWhiteHeroes() {
+		ArrayList<Hero> list = new ArrayList<Hero>();
+		if (mercenaries != null)  list.add(mercenaries);
+		if (spy != null)          list.add(spy);
+		if (major != null)        list.add(major);
+		if (batteryTower != null) list.add(batteryTower);
+		if (merchant != null)     list.add(merchant);
+		if (priest != null)       list.add(priest);
+		return list;
+	}
+
+	/** All still-available black heroes (Reservists, Saboteurs, Lieutenant, FortifiedTower, Magician, King). */
+	public ArrayList<Hero> getAvailableBlackHeroes() {
+		ArrayList<Hero> list = new ArrayList<Hero>();
+		if (reservists != null)    list.add(reservists);
+		if (saboteurs != null)     list.add(saboteurs);
+		if (lieutenant != null)    list.add(lieutenant);
+		if (fortifiedTower != null) list.add(fortifiedTower);
+		if (magician != null)      list.add(magician);
+		if (king != null)          list.add(king);
+		return list;
+	}
+
+	/** All still-available heroes (white + black). */
+	public ArrayList<Hero> getAvailableAllHeroes() {
+		ArrayList<Hero> list = getAvailableWhiteHeroes();
+		list.addAll(getAvailableBlackHeroes());
+		return list;
 	}
 
 }

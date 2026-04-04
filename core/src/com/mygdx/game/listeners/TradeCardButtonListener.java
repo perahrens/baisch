@@ -61,7 +61,12 @@ public class TradeCardButtonListener extends ClickListener {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    if (gameState != null) gameState.setUpdateState(true);
+    if (gameState != null) {
+      if (player.getKingCard() != null) player.getKingCard().setSelected(false);
+      for (Card hc : player.getHandCards()) hc.setSelected(false);
+      for (int i = 0; i < player.getHeroes().size(); i++) player.getHeroes().get(i).setSelected(false);
+      gameState.setUpdateState(true);
+    }
   }
 
 }

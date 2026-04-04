@@ -1465,10 +1465,12 @@ public class GameScreen extends ScreenAdapter {
 
       // Show the card face-up in the centre
       Card displayCard = Card.fromCardId(tradeableCard.getCardId());
-      displayCard.setWidth(displayCard.getDefWidth() * 1.5f);
-      displayCard.setHeight(displayCard.getDefHeight() * 3f);
-      float cardX = MyGdxGame.WIDTH / 2f - displayCard.getWidth() / 2f;
-      float cardY = MyGdxGame.WIDTH / 2f - displayCard.getHeight() / 2f + displayCard.getHeight() * 0.15f;
+      float cw = displayCard.getDefWidth() * 1.5f;
+      float ch = displayCard.getDefHeight() * 1.5f;
+      displayCard.setWidth(cw);
+      displayCard.setHeight(ch);
+      float cardX = MyGdxGame.WIDTH / 2f - cw / 2f;
+      float cardY = MyGdxGame.WIDTH / 2f - ch / 2f + ch * 0.15f;
       displayCard.setPosition(cardX, cardY);
       gameStage.addActor(displayCard);
 
@@ -1499,11 +1501,13 @@ public class GameScreen extends ScreenAdapter {
     // Merchant 2nd-try reveal: display the drawn card face-up for all non-trading clients
     if (merchantRevealCardId != -1 && merchantRevealPlayerIdx != playerIndex) {
       Card revealCard = Card.fromCardId(merchantRevealCardId);
-      revealCard.setWidth(revealCard.getDefWidth());
-      revealCard.setHeight(revealCard.getDefHeight() * 2);
+      float rcw = revealCard.getDefWidth() * 1.5f;
+      float rch = revealCard.getDefHeight() * 1.5f;
+      revealCard.setWidth(rcw);
+      revealCard.setHeight(rch);
       revealCard.setPosition(
-          (MyGdxGame.WIDTH - revealCard.getWidth()) / 2f,
-          (MyGdxGame.WIDTH - revealCard.getHeight()) / 2f);
+          (MyGdxGame.WIDTH - rcw) / 2f,
+          (MyGdxGame.WIDTH - rch) / 2f);
       gameStage.addActor(revealCard);
       Label revealLabel = new Label("Merch. reveal (P" + merchantRevealPlayerIdx + ")", MyGdxGame.skin);
       revealLabel.setColor(Color.GREEN);

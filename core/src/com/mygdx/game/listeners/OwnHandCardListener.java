@@ -107,11 +107,12 @@ public class OwnHandCardListener extends ClickListener {
         } else if (player.getHeroes().get(i).getHeroName() == "Merchant" && player.getHeroes().get(i).isSelected()) {
           Merchant merchant = (Merchant) player.getHeroes().get(i);
           if (player.getSelectedHandCards().size() == 1 && merchant.getTrades() > 0) {
+            int discardedCardId = -1;
             Iterator<Card> handCardIt = player.getHandCards().iterator();
             while (handCardIt.hasNext()) {
               Card currCard = handCardIt.next();
               if (currCard.isSelected()) {
-                System.out.println("Remove handcard " + currCard.getStrength());
+                discardedCardId = currCard.getCardId();
                 cemeteryDeck.addCard(currCard);
                 handCardIt.remove();
               }
@@ -121,8 +122,19 @@ public class OwnHandCardListener extends ClickListener {
             merchant.trade();
             Card newCard = cardDeck.getCard(cemeteryDeck);
             player.addHandCard(newCard);
-
             newCard.setTradable(true);
+
+            final int fDiscardedCardId = discardedCardId;
+            if (socket != null && fDiscardedCardId != -1) {
+              try {
+                JSONObject data = new JSONObject();
+                data.put("playerIdx", playerIdx);
+                data.put("discardedCardId", fDiscardedCardId);
+                data.put("drawnCardId", newCard.getCardId());
+                socket.emit("merchantTrade", data);
+              } catch (JSONException e) { e.printStackTrace(); }
+            }
+            if (gameState != null) gameState.setUpdateState(true);
           }
         }
       }

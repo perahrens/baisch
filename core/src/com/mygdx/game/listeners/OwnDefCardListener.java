@@ -12,6 +12,7 @@ import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.FortifiedTower;
+import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
 import io.socket.client.Socket;
@@ -92,6 +93,33 @@ public class OwnDefCardListener extends ClickListener {
                 defCards.remove(posId);
               }
               spy.spyExtend();
+              gameState.setUpdateState(true);
+            }
+          } else if (player.getHeroes().get(i).getHeroName() == "Merchant"
+              && player.getHeroes().get(i).isSelected()) {
+            Merchant merchant = (Merchant) player.getHeroes().get(i);
+            if (merchant.getTrades() > 0) {
+              int posId = selectedCard.getPositionId();
+              int discardedCardId = selectedCard.getCardId();
+              if (topDefCards.containsValue(selectedCard)) {
+                topDefCards.remove(posId);
+              } else {
+                defCards.remove(posId);
+              }
+              gameState.getCemeteryDeck().addCard(selectedCard);
+              merchant.trade();
+              Card newCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+              player.addHandCard(newCard);
+              newCard.setTradable(true);
+              if (socket != null) {
+                try {
+                  JSONObject data = new JSONObject();
+                  data.put("playerIdx", playerIdx);
+                  data.put("discardedCardId", discardedCardId);
+                  data.put("drawnCardId", newCard.getCardId());
+                  socket.emit("merchantTrade", data);
+                } catch (JSONException e) { e.printStackTrace(); }
+              }
               gameState.setUpdateState(true);
             }
           }

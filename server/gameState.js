@@ -15,6 +15,7 @@ class GameState {
     this.pickingDecks = [[], []]; // each entry: { id, covered }
     this.currentPlayerIndex = 0;
     this.log = []; // activity log: [{ text, success }, ...], max 5 entries
+    this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
     this.dealCards(8);
     this.doSetup();
     this.initPickingDecks();
@@ -188,6 +189,7 @@ class GameState {
   }
 
   finishTurn(currentPlayerIndex) {
+    this.lastMerchantReveal = null; // clear Merchant 2nd-try reveal on turn end
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
     let next = (currentPlayerIndex + 1) % n;
@@ -256,6 +258,48 @@ class GameState {
     this.pushLog(`P${playerIdx} swapped king (Warlord)`, true, true);
   }
 
+  merchantTrade(playerIdx, discardedCardId, drawnCardId) {
+    const p = this.players[playerIdx];
+    this.lastMerchantReveal = null;
+    // Remove discarded card from hand, defCards, or topDefCards
+    const handIdx = p.hand.indexOf(discardedCardId);
+    if (handIdx !== -1) {
+      p.hand.splice(handIdx, 1);
+    } else {
+      for (const key of Object.keys(p.defCards || {})) {
+        if (p.defCards[key] === discardedCardId) { delete p.defCards[key]; break; }
+      }
+      for (const key of Object.keys(p.topDefCards || {})) {
+        if (p.topDefCards[key] === discardedCardId) { delete p.topDefCards[key]; break; }
+      }
+    }
+    this.cemetery.push(discardedCardId);
+    // Remove drawn card from deck and give it to the player
+    const deckIdx = this.deck.indexOf(drawnCardId);
+    if (deckIdx !== -1) this.deck.splice(deckIdx, 1);
+    p.hand.push(drawnCardId);
+    this.pushLog(`P${playerIdx} used Merchant trade`, true, true);
+  }
+
+  merchantSecondTry(playerIdx, firstCardId, secondCardId, isJoker) {
+    const p = this.players[playerIdx];
+    // Move 1st drawn card from hand to cemetery (visible to all)
+    const firstIdx = p.hand.indexOf(firstCardId);
+    if (firstIdx !== -1) p.hand.splice(firstIdx, 1);
+    this.cemetery.push(firstCardId);
+    // Remove 2nd drawn card from deck
+    const deckIdx = this.deck.indexOf(secondCardId);
+    if (deckIdx !== -1) this.deck.splice(deckIdx, 1);
+    if (isJoker) {
+      this.cemetery.push(secondCardId);
+    } else {
+      p.hand.push(secondCardId);
+    }
+    // Reveal 2nd drawn card to all clients
+    this.lastMerchantReveal = { playerIdx, cardId: secondCardId };
+    this.pushLog(`P${playerIdx} used Merchant 2nd try`, true, true);
+  }
+
   serialize() {
     return {
       currentPlayerIndex: this.currentPlayerIndex,
@@ -275,6 +319,7 @@ class GameState {
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),
       log: [...this.log],
+      merchantReveal: this.lastMerchantReveal || null,
     };
   }
 }

@@ -31,7 +31,7 @@ public class Player {
   String selectedSymbol; // enables the selection of hand cards of the same symbol
 
   /** Tracks which defense slots (1-3) currently have a saboteur on them, mapped to the owner's player index. */
-  private Map<Integer, Integer> slotSabotaged = new HashMap<>();
+  private Map<Integer, Integer> slotSabotaged = new HashMap<Integer, Integer>();
 
   public boolean isSlotSabotaged(int slot) { return slotSabotaged.containsKey(slot); }
   public int getSlotSaboteurOwnerIdx(int slot) { return slotSabotaged.getOrDefault(slot, -1); }

@@ -1447,6 +1447,55 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
+    // Merchant reveal overlay — shown on top while the current player decides Keep / 2nd Try
+    Card merchantPendingCard = null;
+    for (Card hc : currentPlayer.getHandCards()) {
+      if (hc.isTradeable()) { merchantPendingCard = hc; break; }
+    }
+    if (merchantPendingCard != null) {
+      final Card tradeableCard = merchantPendingCard;
+
+      Image merchOverlay = new Image(MyGdxGame.skin, "white");
+      merchOverlay.setFillParent(true);
+      merchOverlay.setColor(0f, 0f, 0f, 0.72f);
+      gameStage.addActor(merchOverlay);
+
+      Label promptLabel = new Label("Your new card:", MyGdxGame.skin);
+      promptLabel.setColor(Color.GOLD);
+
+      // Show the card face-up in the centre
+      Card displayCard = Card.fromCardId(tradeableCard.getCardId());
+      displayCard.setWidth(displayCard.getDefWidth() * 1.5f);
+      displayCard.setHeight(displayCard.getDefHeight() * 3f);
+      float cardX = MyGdxGame.WIDTH / 2f - displayCard.getWidth() / 2f;
+      float cardY = MyGdxGame.WIDTH / 2f - displayCard.getHeight() / 2f + displayCard.getHeight() * 0.15f;
+      displayCard.setPosition(cardX, cardY);
+      gameStage.addActor(displayCard);
+
+      promptLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - promptLabel.getPrefWidth() / 2f,
+          cardY + displayCard.getHeight() + 8f);
+      gameStage.addActor(promptLabel);
+
+      float btnW = MyGdxGame.WIDTH * 0.35f;
+      float btnY = cardY - 60f;
+
+      TextButton keepBtn = new TextButton("Keep", MyGdxGame.skin);
+      keepBtn.setSize(btnW, 50f);
+      keepBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW - 8f, btnY);
+      keepCardButtonListener = new KeepCardButtonListener(tradeableCard, gameState);
+      keepBtn.addListener(keepCardButtonListener);
+      gameStage.addActor(keepBtn);
+
+      TextButton tryBtn = new TextButton("2nd Try", MyGdxGame.skin);
+      tryBtn.setSize(btnW, 50f);
+      tryBtn.setPosition(MyGdxGame.WIDTH / 2f + 8f, btnY);
+      tradeCardButtonListener = new TradeCardButtonListener(tradeableCard, gameState.getCurrentPlayer(),
+          gameState.getCardDeck(), gameState.getCemeteryDeck(), gameState, socket, playerIndex);
+      tryBtn.addListener(tradeCardButtonListener);
+      gameStage.addActor(tryBtn);
+    }
+
     // Merchant 2nd-try reveal: display the drawn card face-up for all non-trading clients
     if (merchantRevealCardId != -1 && merchantRevealPlayerIdx != playerIndex) {
       Card revealCard = Card.fromCardId(merchantRevealCardId);
@@ -1530,29 +1579,7 @@ public class GameScreen extends ScreenAdapter {
       }
 
       if (handCards.get(j).isTradeable()) {
-        final Card tradeableCard = handCards.get(j);
-
-        TextButton keepCardButton = new TextButton("Keep", MyGdxGame.skin);
-        keepCardButton.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - keepCardButton.getWidth()) / 2f);
-        keepCardButton.setY(handCards.get(j).getY() + (handCards.get(j).getHeight() + keepCardButton.getHeight()) / 2f);
-
-        TextButton tradeCardButton = new TextButton("2nd Try", MyGdxGame.skin);
-        tradeCardButton.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - tradeCardButton.getWidth()) / 2f);
-        tradeCardButton
-            .setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCardButton.getHeight()) / 2f);
-
-        removeAllListeners(keepCardButton);
-        removeAllListeners(tradeCardButton);
-
-        keepCardButtonListener = new KeepCardButtonListener(tradeableCard, gameState);
-        keepCardButton.addListener(keepCardButtonListener);
-
-        tradeCardButtonListener = new TradeCardButtonListener(tradeableCard, gameState.getCurrentPlayer(),
-            gameState.getCardDeck(), gameState.getCemeteryDeck(), gameState, socket, playerIndex);
-        tradeCardButton.addListener(tradeCardButtonListener);
-
-        handStage.addActor(keepCardButton);
-        handStage.addActor(tradeCardButton);
+        // Merchant dialog is handled as a modal overlay in showGameStage — skip inline buttons here.
       }
     }
 

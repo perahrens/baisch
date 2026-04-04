@@ -113,34 +113,30 @@ public class EnemyDefCardListener extends ClickListener {
     }
     if (targetPlayer == null) return;
 
-    // Only proceed if king card or hand cards are selected
+    // Warlord: detect before the 'nothing selected' guard — selecting the Warlord hero
+    // and clicking an enemy defense card forces the king card to attack.
+    boolean warlordAttack = false;
+    Warlord warlord = null;
+    for (Hero wh : player.getHeroes()) {
+      if ("Warlord".equals(wh.getHeroName())) { warlord = (Warlord) wh; }
+      if ("Warlord".equals(wh.getHeroName()) && wh.isSelected()) { warlordAttack = true; }
+    }
+
+    // Only proceed if king card or hand cards are selected (Warlord bypasses this)
     boolean kingSelected = player.getKingCard() != null && player.getKingCard().isSelected();
-    if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
+    if (warlordAttack) {
+      // Force king as attacker; clear any hand card selections
+      kingSelected = true;
+      for (Card hc : player.getHandCards()) hc.setSelected(false);
+      if (warlord == null || !warlord.isAttackAvailable()) return;
+    } else {
+      if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
+      // King can only be used when the player has no defense cards
+      if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
+    }
 
     // King can only be used once per turn
     if (kingSelected && pt.isKingUsedThisTurn()) return;
-    // King can only be used when the player has no defense cards,
-    // UNLESS the Warlord hero is selected (Warlord bypasses this restriction)
-    boolean warlordAttack = false;
-    for (Hero wh : player.getHeroes()) {
-      if ("Warlord".equals(wh.getHeroName()) && wh.isSelected()) {
-        warlordAttack = true;
-        break;
-      }
-    }
-    if (warlordAttack) {
-      // Warlord action: force king as attacker, clear any hand card selections
-      kingSelected = true;
-      for (Card hc : player.getHandCards()) hc.setSelected(false);
-      // Guard: Warlord's charge must be available
-      Warlord warlord = null;
-      for (Hero wh : player.getHeroes()) {
-        if ("Warlord".equals(wh.getHeroName())) { warlord = (Warlord) wh; break; }
-      }
-      if (warlord == null || !warlord.isAttackAvailable()) return;
-    } else {
-      if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
-    }
 
     // Symbol constraint — joker bypasses; other cards must match the set symbol
     String attackSymbol = kingSelected ? player.getKingCard().getSymbol() : player.getSelectedHandCards().get(0).getSymbol();
@@ -214,13 +210,8 @@ public class EnemyDefCardListener extends ClickListener {
     pt.setAttackPending(true);
 
     // Consume Warlord charge after attack is committed
-    if (warlordAttack) {
-      for (Hero wh : player.getHeroes()) {
-        if ("Warlord".equals(wh.getHeroName())) {
-          ((Warlord) wh).useAttack();
-          break;
-        }
-      }
+    if (warlordAttack && warlord != null) {
+      warlord.useAttack();
     }
 
     // Always notify the defender so they can intercept with Battery Tower if they have one.

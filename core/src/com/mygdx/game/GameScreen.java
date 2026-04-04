@@ -31,6 +31,7 @@ import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
+import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
@@ -1645,6 +1646,15 @@ public class GameScreen extends ScreenAdapter {
         merchantCountLabel.setColor(Color.GREEN);
         merchantCountLabel.setPosition(hero.getX() + hero.getWidth() - merchantCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(merchantCountLabel);
+      }
+
+      if ("Fortified Tower".equals(hero.getHeroName())) {
+        FortifiedTower ft = (FortifiedTower) hero;
+        String ftCount = ft.getDefenseExpands() + "/1";
+        Label ftCountLabel = new Label(ftCount, MyGdxGame.skin);
+        ftCountLabel.setColor(Color.PURPLE);
+        ftCountLabel.setPosition(hero.getX() + hero.getWidth() - ftCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(ftCountLabel);
       }
 
       if (hero.getHeroName() == "Major") {

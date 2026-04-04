@@ -113,6 +113,14 @@ public class EnemyDefCardListener extends ClickListener {
     }
     if (targetPlayer == null) return;
 
+    // Normalize: if the top card of a stacked slot was clicked, redirect to a full-slot attack
+    // (both bottom and top cards are revealed and their strengths are summed).
+    Card primaryCard = defCard;
+    if (level == 1 && targetDefCards.containsKey(positionId)) {
+      primaryCard = targetDefCards.get(positionId);
+      level = 0; // full-slot attack
+    }
+
     // Warlord: detect before the 'nothing selected' guard — selecting the Warlord hero
     // and clicking an enemy defense card forces the king card to attack.
     boolean warlordAttack = false;
@@ -154,7 +162,7 @@ public class EnemyDefCardListener extends ClickListener {
     // Reveal the targeted defense card — only if no Battery Tower intercept will happen
     boolean willIntercept = (socket != null);
     if (!willIntercept) {
-      defCard.setCovered(false);
+      primaryCard.setCovered(false);
     }
     Card topDefCard = (level == 0 && targetTopDefCards.containsKey(positionId))
         ? targetTopDefCards.get(positionId) : null;
@@ -165,15 +173,15 @@ public class EnemyDefCardListener extends ClickListener {
     if (kingSelected) {
       int attackSum = player.getKingCard().getStrength();
       int defenseStrength = 0;
-      if ("joker".equals(defCard.getSymbol())) defenseStrength += 1; else defenseStrength += defCard.getStrength();
+      if ("joker".equals(primaryCard.getSymbol())) defenseStrength += 1; else defenseStrength += primaryCard.getStrength();
       if (topDefCard != null) {
         if ("joker".equals(topDefCard.getSymbol())) defenseStrength += 1; else defenseStrength += topDefCard.getStrength();
       }
       success = attackSum > defenseStrength;
     } else if (topDefCard != null) {
-      success = player.attackEnemyDefense(defCard, topDefCard);
+      success = player.attackEnemyDefense(primaryCard, topDefCard);
     } else {
-      success = player.attackEnemyDefense(defCard);
+      success = player.attackEnemyDefense(primaryCard);
     }
 
     // Store preview state
@@ -186,7 +194,7 @@ public class EnemyDefCardListener extends ClickListener {
     pt.setKingUsed(kingSelected);
     pt.setPendingAttackCards(attackSnapshot);
     ArrayList<Card> defCardList = new ArrayList<Card>();
-    defCardList.add(defCard);
+    defCardList.add(primaryCard);
     if (topDefCard != null) defCardList.add(topDefCard);
     pt.setPendingAttackDefCards(defCardList);
     pt.setAttackTargetPlayerIdx(targetPlayerIdx);

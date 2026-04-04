@@ -29,19 +29,12 @@ public class HandImageListener extends ClickListener {
     Map<Integer, Card> defCards = player.getDefCards();
     Map<Integer, Card> topDefCards = player.getTopDefCards();
     for (int j = 1; j <= 3; j++) {
-      if (defCards.containsKey(j) && defCards.get(j).isSelected()) {
-        if (player.canMobilize()) {
-          emitTakeDefCard(j);
-          player.takeDefCard(j);
-          blinkMajor();
-        }
-      }
-      if (topDefCards.containsKey(j) && topDefCards.get(j).isSelected()) {
-        if (player.canMobilize()) {
-          emitTakeDefCard(j);
-          player.takeDefCard(j);
-          blinkMajor();
-        }
+      boolean shouldTake = (defCards.containsKey(j) && defCards.get(j).isSelected())
+          || (topDefCards.containsKey(j) && topDefCards.get(j).isSelected());
+      if (shouldTake && player.canMobilize()) {
+        emitTakeDefCard(j);
+        player.takeDefCard(j);
+        blinkMajor();
       }
     }
     gameState.setUpdateState(true);

@@ -61,14 +61,27 @@ public class OwnDefCardListener extends ClickListener {
       // if F.Tower and hand card is selected, put hand card on top
       if (player.getSelectedHeroes().size() > 0) {
         for (int i = 0; i < player.getHeroes().size(); i++) {
-          if (player.getHeroes().get(i).getHeroName() == "Fortified Tower" && player.getHeroes().get(i).isSelected()
+          if ("Fortified Tower".equals(player.getHeroes().get(i).getHeroName()) && player.getHeroes().get(i).isSelected()
               && player.getSelectedHandCards().size() == 1 && selectedCard.getLevel() == 0) {
             Card handCard = player.getSelectedHandCards().get(0);
             FortifiedTower fortifiedTower = (FortifiedTower) player.getHeroes().get(i);
-            if (fortifiedTower.getDefenseExpands() > 0 && handCard.getSymbol() == selectedCard.getSymbol()) {
+            if (fortifiedTower.getDefenseExpands() > 0 && handCard.getSymbol().equals(selectedCard.getSymbol())) {
+              int handCardId = handCard.getCardId();
+              int slot = selectedCard.getPositionId();
               fortifiedTower.defenseExpand();
               handCard.setLevel(1);
-              player.putDefCard(selectedCard.getPositionId(), 1);
+              player.putDefCard(slot, 1);
+              fortifiedTower.setSelected(false);
+              if (socket != null) {
+                try {
+                  JSONObject data = new JSONObject();
+                  data.put("playerIdx", playerIdx);
+                  data.put("slot", slot);
+                  data.put("cardId", handCardId);
+                  socket.emit("fortifiedTowerStack", data);
+                } catch (JSONException e) { e.printStackTrace(); }
+              }
+              gameState.setUpdateState(true);
             }
           } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries"
               && player.getHeroes().get(i).isSelected()) {
@@ -130,9 +143,19 @@ public class OwnDefCardListener extends ClickListener {
           handCards.get(i).setSelected(false);
         }
 
+        // For stacked slots, always select/deselect both cards together
+        int slot = selectedCard.getPositionId();
+        Card pairedCard = null;
+        if (defCards.containsKey(slot) && defCards.get(slot) != selectedCard) {
+          pairedCard = defCards.get(slot);
+        } else if (topDefCards.containsKey(slot) && topDefCards.get(slot) != selectedCard) {
+          pairedCard = topDefCards.get(slot);
+        }
+
         // select defense card
         if (selectedCard.isSelected()) {
           selectedCard.setSelected(false);
+          if (pairedCard != null) pairedCard.setSelected(false);
         } else {
           kingCard.setSelected(false);
           for (int i = 1; i <= 3; i++) {
@@ -144,6 +167,7 @@ public class OwnDefCardListener extends ClickListener {
             }
           }
           selectedCard.setSelected(true);
+          if (pairedCard != null) pairedCard.setSelected(true);
         }
 
       }

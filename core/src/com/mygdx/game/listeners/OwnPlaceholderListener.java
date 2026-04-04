@@ -48,7 +48,10 @@ public class OwnPlaceholderListener extends ClickListener {
         Card cardToPlace = player.getSelectedHandCards().get(0);
         int cardId = cardToPlace.getCardId();
         int positionId = placeholderCard.getPositionId();
-        System.out.println("[OwnPlaceholderListener] placing cardId=" + cardId + " at pos=" + positionId);
+        if (player.isSlotSabotaged(positionId)) {
+          System.out.println("[OwnPlaceholderListener] slot " + positionId + " is blocked by saboteur");
+          return;
+        }
         player.putDefCard(positionId, 0);
         if (gameState.getSocket() != null && cardId > 0 && positionId >= 1 && positionId <= 3) {
           try {

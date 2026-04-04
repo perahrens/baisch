@@ -57,7 +57,7 @@ public class OwnDefCardListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
 
-    if (!selectedCard.isSabotaged()) {
+    if (!player.isSlotSabotaged(selectedCard.getPositionId())) {
       // if F.Tower and hand card is selected, put hand card on top
       if (player.getSelectedHeroes().size() > 0) {
         for (int i = 0; i < player.getHeroes().size(); i++) {

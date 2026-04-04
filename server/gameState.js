@@ -51,6 +51,7 @@ class GameState {
       for (let j = 0; j < 2; j++) this.cemetery.push(p.hand.pop());
       p.defCardsCovered = { 1: true, 2: true, 3: true };
       p.topDefCardsCovered = {};
+      p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
     }
   }
 
@@ -80,6 +81,57 @@ class GameState {
     } else {
       this.pickingDecks[1].push({ id: c[4], covered: true });
     }
+  }
+
+  priestConvert(attackerIdx, targetPlayerIdx, cardId) {
+    const target = this.players[targetPlayerIdx];
+    const attacker = this.players[attackerIdx];
+    const idx = target.hand.indexOf(cardId);
+    if (idx !== -1) {
+      target.hand.splice(idx, 1);
+      attacker.hand.push(cardId);
+    }
+    this.pushLog(`P${attackerIdx} (Priest) took card from P${targetPlayerIdx}`, true);
+  }
+
+  // ---- Saboteurs actions ----
+
+  sabotage(attackerIdx, defenderIdx, positionId) {
+    const defender = this.players[defenderIdx];
+    if (!defender.sabotaged) defender.sabotaged = {};
+    defender.sabotaged[positionId] = attackerIdx;
+    this.pushLog(`P${attackerIdx} placed saboteur on P${defenderIdx}'s field [${positionId}]`, true);
+  }
+
+  sabotageCallback(attackerIdx, defenderIdx, positionId) {
+    const defender = this.players[defenderIdx];
+    if (defender.sabotaged) delete defender.sabotaged[positionId];
+    this.pushLog(`P${attackerIdx} recalled saboteur from P${defenderIdx}'s field [${positionId}]`, true, true);
+  }
+
+  sabotageSacrifice(defenderIdx, positionId) {
+    const p = this.players[defenderIdx];
+    const attackerIdx = p.sabotaged ? p.sabotaged[positionId] : undefined;
+    const cardId = p.defCards[positionId];
+    if (cardId !== undefined) {
+      delete p.defCards[positionId];
+      if (p.defCardsCovered) delete p.defCardsCovered[positionId];
+      this.cemetery.push(cardId);
+    }
+    if (p.sabotaged) delete p.sabotaged[positionId];
+    this.pushLog(`P${defenderIdx} sacrificed shield [${positionId}] to destroy saboteur`, false);
+    return attackerIdx;
+  }
+
+  sabotageEmptySlotSacrifice(defenderIdx, positionId, handCardId) {
+    const p = this.players[defenderIdx];
+    const attackerIdx = p.sabotaged ? p.sabotaged[positionId] : undefined;
+    const i = p.hand.indexOf(handCardId);
+    if (i !== -1) p.hand.splice(i, 1);
+    this.cemetery.push(handCardId);
+    if (p.sabotaged) delete p.sabotaged[positionId];
+    this.pushLog(`P${defenderIdx} sacrificed a card to clear saboteur at [${positionId}]`, false);
+    return attackerIdx;
   }
 
   // ---- Action methods ----
@@ -158,6 +210,23 @@ class GameState {
     }
   }
 
+  discardDefCards(playerIdx, slots) {
+    const p = this.players[playerIdx];
+    for (const entry of slots) {
+      const slot = entry.slot;
+      if (entry.isTop) {
+        const cardId = p.topDefCards[slot];
+        if (cardId !== undefined) { this.cemetery.push(cardId); delete p.topDefCards[slot]; }
+        if (p.topDefCardsCovered) delete p.topDefCardsCovered[slot];
+      } else {
+        const cardId = p.defCards[slot];
+        if (cardId !== undefined) { this.cemetery.push(cardId); delete p.defCards[slot]; }
+        if (p.defCardsCovered) delete p.defCardsCovered[slot];
+      }
+    }
+    this.pushLog(`P${playerIdx} discarded own shield(s)`, true, true);
+  }
+
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {
@@ -219,6 +288,10 @@ class GameState {
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
       this.pushLog(`P${attackerIdx} broke P${defenderIdx}'s shield [${positionId}]`, true);
+      // If the slot was sabotaged, clear it (saboteur destroyed when card is removed by attack)
+      if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
+        delete defender.sabotaged[positionId];
+      }
       if (level === 0) {
         const defCardId = defender.defCards[positionId];
         if (defCardId !== undefined) { attacker.hand.push(defCardId); delete defender.defCards[positionId]; }
@@ -370,6 +443,7 @@ class GameState {
         kingCard: p.kingCard,
         kingCovered: p.kingCovered !== undefined ? p.kingCovered : true,
         isOut: p.isOut || false,
+        sabotaged: Object.assign({}, p.sabotaged || {}),
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

@@ -11,6 +11,7 @@ import com.mygdx.game.PlayerTurn;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Reservists;
 import io.socket.client.Socket;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -92,6 +93,13 @@ public class EnemyKingCardListener extends ClickListener {
       for (Card c : player.getSelectedHandCards()) attackSum += c.getStrength();
     }
     int defStr = "joker".equals(kingCard.getSymbol()) ? 1 : kingCard.getStrength();
+    // Defending player's ready reservists automatically boost king defence strength
+    for (Hero h : defender.getHeroes()) {
+      if ("Reservists".equals(h.getHeroName())) {
+        defStr += ((Reservists) h).countReady();
+        break;
+      }
+    }
     boolean success = attackSum > defStr;
 
     // Reveal the defender's king — only if no Battery Tower intercept will happen
@@ -111,6 +119,9 @@ public class EnemyKingCardListener extends ClickListener {
     pt.setAttackTargetLevel(-1);
     pt.setAttackSuccess(success);
     pt.setAttackTargetIsKing(true);
+    // Store base sums so the Reservists overlay button can recalculate for king attacks
+    pt.setPendingAttackBaseSum(attackSum);
+    pt.setPendingAttackDefStr(defStr);
 
     // Consume mercenary attack bonus immediately when attack is committed
     int mercBonus = pt.getMercenaryAttackBonus();

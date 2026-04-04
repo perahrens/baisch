@@ -101,6 +101,8 @@ public class PickingDeckListener extends ClickListener {
         pt.setPlunderPending(true);
         // Joker on top of harvest deck defends with infinite+1 (1000) — unbeatable
         int defStrength = "joker".equals(topCard.getSymbol()) ? 1000 : topCard.getStrength();
+        pt.setPendingPlunderAttackSum(attackSum);
+        pt.setPendingPlunderDefStrength(defStrength);
         pt.setPlunderSuccess(attackSum > defStrength);
 
         gameState.setUpdateState(true);

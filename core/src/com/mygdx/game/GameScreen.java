@@ -33,6 +33,7 @@ import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Reservists;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.listeners.EnemyDefCardListener;
 import com.mygdx.game.listeners.EnemyHandCardListener;
@@ -105,6 +106,8 @@ public class GameScreen extends ScreenAdapter {
   private org.json.JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
   private boolean logExpanded = false;
+  // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
+  private boolean initialReservistsBroadcastDone = false;
 
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
@@ -369,6 +372,24 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    socket.on("reservistsKingBoost", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int pIdx = data.getInt("playerIdx");
+              int count = data.getInt("count");
+              gameState.getPlayers().get(pIdx).setReservistsReadyCount(count);
+              gameState.setUpdateState(true);
+            } catch (JSONException e) { e.printStackTrace(); }
+          }
+        });
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
     fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
@@ -414,6 +435,17 @@ public class GameScreen extends ScreenAdapter {
 
     players = gameState.getPlayers();
     // currentPlayer stays as this client's own player (set in constructor from playerIndex)
+
+    // On first render, broadcast Reservists count so enemies see the indicator immediately
+    if (!initialReservistsBroadcastDone) {
+      initialReservistsBroadcastDone = true;
+      for (Hero h : currentPlayer.getHeroes()) {
+        if ("Reservists".equals(h.getHeroName())) {
+          emitReservistsKingBoost(((Reservists) h).countReady());
+          break;
+        }
+      }
+    }
 
     gameStage.clear();
     handStage.clear();
@@ -654,6 +686,34 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(boostCountLabel);
       }
 
+      // Reservists indicator on king card — cyan pawn + "+N" visible to all players
+      int resCount;
+      if (players.get(i) == currentPlayer) {
+        resCount = 0;
+        for (Hero h : players.get(i).getHeroes()) {
+          if ("Reservists".equals(h.getHeroName())) {
+            resCount = ((Reservists) h).countReady();
+            break;
+          }
+        }
+      } else {
+        resCount = players.get(i).getReservistsReadyCount();
+      }
+      if (resCount > 0) {
+        TextureRegion resRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
+        Image resImage = new Image(resRegion);
+        resImage.setBounds(resImage.getX(), resImage.getY(), resImage.getWidth() / 20f, resImage.getHeight() / 20f);
+        float resCx = kingCard.getX() + kingCard.getWidth() / 2f - resImage.getWidth() / 2f;
+        float resCy = kingCard.getY() + kingCard.getHeight() / 2f - resImage.getHeight() / 2f;
+        resImage.setPosition(resCx, resCy);
+        resImage.setColor(Color.CYAN);
+        gameStage.addActor(resImage);
+        Label resCountLabel = new Label("+" + resCount, MyGdxGame.skin);
+        resCountLabel.setColor(Color.CYAN);
+        resCountLabel.setPosition(resImage.getX() + resImage.getWidth(), resImage.getY());
+        gameStage.addActor(resCountLabel);
+      }
+
       // display defense cards and placeholders
       Map<Integer, Card> defCards = players.get(i).getDefCards();
       for (int j = 1; j <= 3; j++) {
@@ -887,6 +947,7 @@ public class GameScreen extends ScreenAdapter {
             e.printStackTrace();
           }
           pt.getPendingAttackCards().clear();
+          pt.resetReservistAttackBonus();
           gameState.setUpdateState(true);
         }
       });
@@ -903,6 +964,34 @@ public class GameScreen extends ScreenAdapter {
 
       gameStage.addActor(overlay);
       gameStage.addActor(plunderResultLabel);
+
+      // Reservists plunder boost button — only when currently failing but can be won
+      for (Hero resH : plunderPlayer.getHeroes()) {
+        if ("Reservists".equals(resH.getHeroName())) {
+          final Reservists resHero = (Reservists) resH;
+          boolean canFlipPlunder = !pt.isPlunderSuccess() && resHero.isAvailable()
+              && (pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() + resHero.countReady())
+                  > pt.getPendingPlunderDefStrength();
+          if (canFlipPlunder) {
+            TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+            resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+            resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+            resBtn.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                resHero.spend();
+                emitReservistsKingBoost(resHero.countReady());
+                pt.incrementReservistAttackBonus();
+                pt.setPlunderSuccess(
+                    pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() > pt.getPendingPlunderDefStrength());
+                gameState.setUpdateState(true);
+              }
+            });
+            gameStage.addActor(resBtn);
+          }
+          break;
+        }
+      }
     }
 
     // Defense-attack preview overlay — added LAST so it renders on top
@@ -985,6 +1074,7 @@ public class GameScreen extends ScreenAdapter {
             apt.getPendingAttackDefCards().clear();
           }
           apt.getPendingAttackCards().clear();
+          apt.resetReservistAttackBonus();
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
@@ -1009,6 +1099,60 @@ public class GameScreen extends ScreenAdapter {
 
       gameStage.addActor(atkOverlay);
       gameStage.addActor(atkResultLabel);
+
+      // Reservists attack boost button — shown only when not waiting for Battery Tower
+      // and only when the attack is currently failing but spending reservists can flip it
+      if (!batteryWaiting) {
+        for (Hero resH : atkPlayer.getHeroes()) {
+          if ("Reservists".equals(resH.getHeroName())) {
+            final Reservists resHero = (Reservists) resH;
+            // Compute effective attack base and def strength for the "can flip" check
+            int atkBase;
+            int defStrCheck;
+            ArrayList<Card> pendingDefCards = apt.getPendingAttackDefCards();
+            if (!pendingDefCards.isEmpty()) {
+              // Regular def card attack: sum hand cards used; compute defStr from stored def cards
+              atkBase = 0;
+              for (Card ac : apt.getPendingAttackCards()) atkBase += ac.getStrength();
+              defStrCheck = 0;
+              for (Card dc : pendingDefCards) defStrCheck += "joker".equals(dc.getSymbol()) ? 1 : dc.getStrength();
+            } else {
+              // King attack: use stored base sums set by EnemyKingCardListener
+              atkBase = apt.getPendingAttackBaseSum();
+              defStrCheck = apt.getPendingAttackDefStr();
+            }
+            boolean canFlipAttack = !atkSuccess && resHero.isAvailable()
+                && (atkBase + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
+            if (canFlipAttack) {
+              TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+              resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+              resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+              resBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                  resHero.spend();
+                  emitReservistsKingBoost(resHero.countReady());
+                  apt.incrementReservistAttackBonus();
+                  ArrayList<Card> defCards = apt.getPendingAttackDefCards();
+                  boolean newSuccess;
+                  if (defCards.size() >= 2) {
+                    newSuccess = atkPlayer.attackEnemyDefense(defCards.get(0), defCards.get(1));
+                  } else if (defCards.size() == 1) {
+                    newSuccess = atkPlayer.attackEnemyDefense(defCards.get(0));
+                  } else {
+                    // King attack: recalculate using stored base sums
+                    newSuccess = (apt.getPendingAttackBaseSum() + apt.getReservistAttackBonus()) > apt.getPendingAttackDefStr();
+                  }
+                  apt.setAttackSuccess(newSuccess);
+                  gameState.setUpdateState(true);
+                }
+              });
+              gameStage.addActor(resBtn);
+            }
+            break;
+          }
+        }
+      }
     }
 
     // Battery Tower defender overlay — shown when this player must allow or deny an attack
@@ -1458,6 +1602,24 @@ public class GameScreen extends ScreenAdapter {
           handStage.addActor(atkBonusLabel);
         }
       }
+
+      if ("Reservists".equals(hero.getHeroName())) {
+        Reservists reservists = (Reservists) hero;
+        int resAtkBonus = currentPlayer.getPlayerTurn().getReservistAttackBonus();
+        String readyCount = reservists.countReady() + "/4";
+        Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
+        readyCountLabel.setColor(Color.CYAN);
+        float indicatorX = hero.getX() + hero.getWidth() - readyCountLabel.getPrefWidth();
+        readyCountLabel.setPosition(indicatorX, hero.getY());
+        handStage.addActor(readyCountLabel);
+        if (resAtkBonus > 0) {
+          Label atkBonusLabel = new Label("+" + resAtkBonus, MyGdxGame.skin);
+          atkBonusLabel.setColor(Color.RED);
+          atkBonusLabel.setPosition(hero.getX() + hero.getWidth() - atkBonusLabel.getPrefWidth(),
+              hero.getY() + readyCountLabel.getPrefHeight() + 2f);
+          handStage.addActor(atkBonusLabel);
+        }
+      }
     }
 
     // Turn info and button
@@ -1606,6 +1768,16 @@ public class GameScreen extends ScreenAdapter {
     handStage.addActor(finishTurnButton);
   }
 
+  private void emitReservistsKingBoost(int count) {
+    if (socket == null) return;
+    try {
+      org.json.JSONObject data = new org.json.JSONObject();
+      data.put("playerIdx", playerIndex);
+      data.put("count", count);
+      socket.emit("reservistsKingBoost", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
   // Apply a server-authoritative stateUpdate to local game state.
   // Clears and refills card collections in-place (preserves deck/cemetery/pickingDeck listener objects).
   private void applyStateUpdate(JSONObject state) {
@@ -1619,6 +1791,16 @@ public class GameScreen extends ScreenAdapter {
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
       }
       gameState.setCurrentPlayer(serverCurrentIdx);
+
+      // Broadcast own Reservists count on every stateUpdate so all clients always see the
+      // correct indicator. Safe: reservistsKingBoost is only relayed to others, never back,
+      // and the receiver only redraws locally — no emit chain.
+      for (Hero h : currentPlayer.getHeroes()) {
+        if ("Reservists".equals(h.getHeroName())) {
+          emitReservistsKingBoost(((Reservists) h).countReady());
+          break;
+        }
+      }
 
       // 2. Rebuild main deck
       JSONArray deckJson = state.getJSONArray("deck");
@@ -1841,6 +2023,10 @@ public class GameScreen extends ScreenAdapter {
   /** Finalise hero acquisition: add hero to player, emit to server, trigger redraw. */
   private void completeHeroAcquisition(Hero hero) {
     currentPlayer.addHero(hero);
+    // If the acquired hero is Reservists, immediately broadcast the count to all other clients.
+    if ("Reservists".equals(hero.getHeroName())) {
+      emitReservistsKingBoost(((Reservists) hero).countReady());
+    }
     currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
     currentPlayer.getPlayerTurn().getHeroChoices().clear();
     try {

@@ -161,6 +161,11 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('mercDefBoost', data);
   });
 
+  // Relay Reservists ready count to all OTHER clients.
+  socket.on('reservistsKingBoost', function(data) {
+    socket.broadcast.emit('reservistsKingBoost', data);
+  });
+
   // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
     socket.broadcast.emit('spyFlip', data);

@@ -179,4 +179,30 @@ public class PlayerTurn {
   public ArrayList<Integer> getBatteryDeniedAttackCardIds() { return batteryDeniedAttackCardIds; }
   public void setBatteryDeniedAttackCardIds(ArrayList<Integer> ids) { this.batteryDeniedAttackCardIds = ids; }
 
+  // --- Reservists attack bonus ---
+  // Incremented each time the player clicks the Reservists button in the attack or plunder overlay.
+  // Reset to 0 after the attack/plunder resolves.
+  private int reservistAttackBonus = 0;
+  public int getReservistAttackBonus() { return reservistAttackBonus; }
+  public void incrementReservistAttackBonus() { reservistAttackBonus++; }
+  public void resetReservistAttackBonus() { reservistAttackBonus = 0; }
+
+  // --- Plunder pending strength snapshot ---
+  // Stored when a plunder is initiated so the Reservists overlay button can recalculate the result.
+  private int pendingPlunderAttackSum = 0;
+  private int pendingPlunderDefStrength = 0;
+  public int getPendingPlunderAttackSum() { return pendingPlunderAttackSum; }
+  public void setPendingPlunderAttackSum(int v) { this.pendingPlunderAttackSum = v; }
+  public int getPendingPlunderDefStrength() { return pendingPlunderDefStrength; }
+  public void setPendingPlunderDefStrength(int v) { this.pendingPlunderDefStrength = v; }
+
+  // --- King attack pending strength snapshot ---
+  // Stored when a king attack is initiated so the Reservists overlay button can recalculate.
+  private int pendingAttackBaseSum = 0;
+  private int pendingAttackDefStr = 0;
+  public int getPendingAttackBaseSum() { return pendingAttackBaseSum; }
+  public void setPendingAttackBaseSum(int v) { this.pendingAttackBaseSum = v; }
+  public int getPendingAttackDefStr() { return pendingAttackDefStr; }
+  public void setPendingAttackDefStr(int v) { this.pendingAttackDefStr = v; }
+
 }

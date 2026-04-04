@@ -234,6 +234,7 @@ public class Player {
       }
     }
     attackSum += playerTurn.getMercenaryAttackBonus();
+    attackSum += playerTurn.getReservistAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = defCard.getStrength();
@@ -257,6 +258,7 @@ public class Player {
       }
     }
     attackSum += playerTurn.getMercenaryAttackBonus();
+    attackSum += playerTurn.getReservistAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = 0;
@@ -560,5 +562,11 @@ public class Player {
     }
     return hasHero;
   }
+
+  // Synced Reservists ready count — updated via socket event from the owning client.
+  // Used by other clients to display the Reservists king defence indicator.
+  private int reservistsReadyCount = 0;
+  public int getReservistsReadyCount() { return reservistsReadyCount; }
+  public void setReservistsReadyCount(int v) { reservistsReadyCount = v; }
 
 }

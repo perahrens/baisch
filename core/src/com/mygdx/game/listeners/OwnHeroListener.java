@@ -6,6 +6,7 @@ import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Reservists;
 import com.mygdx.game.heroes.Spy;
 
 public class OwnHeroListener extends ClickListener {
@@ -44,6 +45,11 @@ public class OwnHeroListener extends ClickListener {
         return; // never toggle selection in attack mode
       }
 
+      // ---- Reservists: attack boost is handled only in the attack overlay, not in hand stage ----
+      if ("Reservists".equals(hero.getHeroName()) && player.getSelectedHandCards().size() > 0) {
+        return;
+      }
+
       if (hero.isSelected()) {
         // Deselect: if Mercenaries was in defense mode, just deselect
         hero.setSelected(false);
@@ -59,8 +65,8 @@ public class OwnHeroListener extends ClickListener {
             player.getDefCards().get(i).setSelected(false);
           }
         }
-        // For Mercenaries: don't deselect hand cards — attack mode relies on them staying selected
-        if (hero.getHeroName() != "Mercenaries") {
+        // For Mercenaries/Reservists: don't deselect hand cards — attack mode relies on them staying selected
+        if (hero.getHeroName() != "Mercenaries" && hero.getHeroName() != "Reservists") {
           for (int i = 0; i < player.getHandCards().size(); i++) {
             player.getHandCards().get(i).setSelected(false);
           }

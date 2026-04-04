@@ -121,6 +121,31 @@ class GameState {
     this.pushLog(`P${playerIdx} fortified shield at [${positionId}]`, true, true);
   }
 
+  magicianSwap(playerIdx, targetPlayerIdx, positionId, newBottomCardId, bottomCovered, newTopCardId, topCovered) {
+    const target = this.players[targetPlayerIdx];
+    // Discard old bottom card
+    const oldBottom = target.defCards[positionId];
+    if (oldBottom !== undefined) this.cemetery.push(oldBottom);
+    // Discard old top card (if any)
+    const oldTop = target.topDefCards[positionId];
+    if (oldTop !== undefined) { this.cemetery.push(oldTop); delete target.topDefCards[positionId]; }
+    // Remove from deck and place new bottom card
+    const bottomIdx = this.deck.indexOf(newBottomCardId);
+    if (bottomIdx !== -1) this.deck.splice(bottomIdx, 1);
+    target.defCards[positionId] = newBottomCardId;
+    if (!target.defCardsCovered) target.defCardsCovered = {};
+    target.defCardsCovered[positionId] = bottomCovered;
+    // Place new top card if the slot was originally stacked
+    if (newTopCardId !== -1) {
+      const topIdx = this.deck.indexOf(newTopCardId);
+      if (topIdx !== -1) this.deck.splice(topIdx, 1);
+      target.topDefCards[positionId] = newTopCardId;
+      if (!target.topDefCardsCovered) target.topDefCardsCovered = {};
+      target.topDefCardsCovered[positionId] = topCovered;
+    }
+    this.pushLog(`P${playerIdx} cast Magician on P${targetPlayerIdx}'s shield [${positionId}]`, true);
+  }
+
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
     const p = this.players[playerIdx];
     for (const cardId of cardIds) {

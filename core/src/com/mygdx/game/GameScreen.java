@@ -220,6 +220,26 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Server notifies us that one of our deployed saboteurs was destroyed by the enemy.
+    // Mark it as destroyed (state 2) so the recovery clock starts.
+    socket.on("saboteurDestroyed", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            for (Hero h : currentPlayer.getHeroes()) {
+              if ("Saboteurs".equals(h.getHeroName())) {
+                ((Saboteurs) h).destroy();
+                break;
+              }
+            }
+            gameState.setUpdateState(true);
+          }
+        });
+      }
+    });
+
     // Handle incoming mercenary defense boost from another client
     // Spy flip relay: another player used spy to reveal one of our defense cards
     socket.on("spyFlip", new Emitter.Listener() {

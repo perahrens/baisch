@@ -210,6 +210,23 @@ class GameState {
     }
   }
 
+  discardDefCards(playerIdx, slots) {
+    const p = this.players[playerIdx];
+    for (const entry of slots) {
+      const slot = entry.slot;
+      if (entry.isTop) {
+        const cardId = p.topDefCards[slot];
+        if (cardId !== undefined) { this.cemetery.push(cardId); delete p.topDefCards[slot]; }
+        if (p.topDefCardsCovered) delete p.topDefCardsCovered[slot];
+      } else {
+        const cardId = p.defCards[slot];
+        if (cardId !== undefined) { this.cemetery.push(cardId); delete p.defCards[slot]; }
+        if (p.defCardsCovered) delete p.defCardsCovered[slot];
+      }
+    }
+    this.pushLog(`P${playerIdx} discarded own shield(s)`, true, true);
+  }
+
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {

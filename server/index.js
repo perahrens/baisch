@@ -123,6 +123,12 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  socket.on('discardDefCards', function(data) {
+    console.log("discardDefCards: playerIdx=" + data.playerIdx);
+    gameState.discardDefCards(data.playerIdx, data.slots || []);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   socket.on('plunderResolved', function(data) {
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);

@@ -213,6 +213,13 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('batteryDenyAttack', data);
   });
 
+  // Priest: attacker takes a matching card from an enemy's hand.
+  socket.on('priestConvert', function(data) {
+    console.log("priestConvert: attackerIdx=" + data.attackerIdx + " targetIdx=" + data.targetPlayerIdx + " cardId=" + data.cardId);
+    gameState.priestConvert(data.attackerIdx, data.targetPlayerIdx, data.cardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   // Saboteurs: place a saboteur on an enemy defense slot (card or empty field).
   socket.on('sabotage', function(data) {
     console.log("sabotage: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);

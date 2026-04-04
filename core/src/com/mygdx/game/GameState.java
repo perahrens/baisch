@@ -36,6 +36,14 @@ public class GameState {
   public int getWinnerIndex() { return winnerIndex; }
   public void setWinnerIndex(int idx) { this.winnerIndex = idx; }
 
+  // Priest overlay state: which enemy deck is open (-1 = none), which card was revealed (-1 = none)
+  private int priestTargetPlayerIdx = -1;
+  private int priestRevealedCardId = -1;
+  public int getPriestTargetPlayerIdx() { return priestTargetPlayerIdx; }
+  public void setPriestTargetPlayerIdx(int idx) { priestTargetPlayerIdx = idx; }
+  public int getPriestRevealedCardId() { return priestRevealedCardId; }
+  public void setPriestRevealedCardId(int id) { priestRevealedCardId = id; }
+
   private PickingDeckListener pickingDeckListenerOne;
   private PickingDeckListener pickingDeckListenerTwo;
 

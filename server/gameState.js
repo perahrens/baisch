@@ -83,6 +83,17 @@ class GameState {
     }
   }
 
+  priestConvert(attackerIdx, targetPlayerIdx, cardId) {
+    const target = this.players[targetPlayerIdx];
+    const attacker = this.players[attackerIdx];
+    const idx = target.hand.indexOf(cardId);
+    if (idx !== -1) {
+      target.hand.splice(idx, 1);
+      attacker.hand.push(cardId);
+    }
+    this.pushLog(`P${attackerIdx} (Priest) took card from P${targetPlayerIdx}`, true);
+  }
+
   // ---- Saboteurs actions ----
 
   sabotage(attackerIdx, defenderIdx, positionId) {

@@ -32,6 +32,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.FortifiedTower;
+import com.mygdx.game.heroes.Magician;
 import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
@@ -1657,6 +1658,15 @@ public class GameScreen extends ScreenAdapter {
         handStage.addActor(ftCountLabel);
       }
 
+      if ("Magician".equals(hero.getHeroName())) {
+        Magician magician = (Magician) hero;
+        String spellCount = magician.getSpells() + "/1";
+        Label magCountLabel = new Label(spellCount, MyGdxGame.skin);
+        magCountLabel.setColor(Color.CYAN);
+        magCountLabel.setPosition(hero.getX() + hero.getWidth() - magCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(magCountLabel);
+      }
+
       if (hero.getHeroName() == "Major") {
         Major major = (Major) hero;
         String mobCount = major.getMobilizations() + "/3";
@@ -1925,9 +1935,10 @@ public class GameScreen extends ScreenAdapter {
         }
 
         // Save local def covered-state overrides (spy flips) before rebuilding
-        Map<Integer, Boolean> savedDefCovered = new HashMap<Integer, Boolean>();
+        // Key = slot, Value = card ID that was face-up (only restore if card ID unchanged)
+        Map<Integer, Integer> savedDefCovered = new HashMap<Integer, Integer>();
         for (Map.Entry<Integer, Card> e : p.getDefCards().entrySet()) {
-          if (!e.getValue().isCovered()) savedDefCovered.put(e.getKey(), false);
+          if (!e.getValue().isCovered()) savedDefCovered.put(e.getKey(), e.getValue().getCardId());
         }
         // Save local boost state before rebuilding (not tracked by server)
         Map<Integer, int[]> savedDefBoosted = new HashMap<Integer, int[]>();
@@ -1950,10 +1961,10 @@ public class GameScreen extends ScreenAdapter {
           Card bc = p.getDefCards().get(e.getKey());
           if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
         }
-        // Restore spy-flipped face-up state
-        for (Map.Entry<Integer, Boolean> e : savedDefCovered.entrySet()) {
+        // Restore spy-flipped face-up state — only if the card at that slot is the same card
+        for (Map.Entry<Integer, Integer> e : savedDefCovered.entrySet()) {
           Card dc = p.getDefCards().get(e.getKey());
-          if (dc != null) dc.setCovered(false);
+          if (dc != null && dc.getCardId() == e.getValue()) dc.setCovered(false);
         }
 
         Map<Integer, int[]> savedTopBoosted = new HashMap<Integer, int[]>();

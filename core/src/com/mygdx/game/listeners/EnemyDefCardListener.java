@@ -12,6 +12,7 @@ import com.mygdx.game.Player;
 import com.mygdx.game.PlayerTurn;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
+import com.mygdx.game.heroes.Magician;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
@@ -119,6 +120,58 @@ public class EnemyDefCardListener extends ClickListener {
     if (level == 1 && targetDefCards.containsKey(positionId)) {
       primaryCard = targetDefCards.get(positionId);
       level = 0; // full-slot attack
+    }
+
+    // Magician: if Magician is selected and no attack cards chosen, perform a spell swap.
+    for (int mi = 0; mi < player.getHeroes().size(); mi++) {
+      if ("Magician".equals(player.getHeroes().get(mi).getHeroName()) && player.getHeroes().get(mi).isSelected()) {
+        Magician magician = (Magician) player.getHeroes().get(mi);
+        if (magician.getSpells() > 0
+            && player.getSelectedHandCards().isEmpty()
+            && !player.getKingCard().isSelected()) {
+          // Swap each card in the slot: discard to cemetery, replace with a new deck card,
+          // preserving the face-up/face-down inversion.
+          boolean bottomCovered = !primaryCard.isCovered(); // inverted
+          Card newBottom = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+          boolean hasTop = targetTopDefCards.containsKey(positionId);
+          Card newTop = null;
+          boolean topCovered = true;
+          if (hasTop) {
+            Card oldTop = targetTopDefCards.get(positionId);
+            topCovered = !oldTop.isCovered(); // inverted
+            newTop = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+            gameState.getCemeteryDeck().addCard(oldTop);
+            targetTopDefCards.remove(positionId);
+          }
+          gameState.getCemeteryDeck().addCard(primaryCard);
+          targetDefCards.remove(positionId);
+          // Place new bottom card
+          newBottom.setCovered(bottomCovered);
+          targetPlayer.addDefCard(positionId, newBottom, 0);
+          // Place new top card (if slot was stacked), with its own inverted covered state
+          if (newTop != null) {
+            newTop.setCovered(topCovered);
+            targetPlayer.addDefCard(positionId, newTop, 1);
+          }
+          magician.castSpell();
+          // Emit to server
+          if (socket != null) {
+            try {
+              JSONObject data = new JSONObject();
+              data.put("playerIdx", playerIdx);
+              data.put("targetPlayerIdx", targetPlayerIdx);
+              data.put("positionId", positionId);
+              data.put("bottomCardId", newBottom.getCardId());
+              data.put("bottomCovered", bottomCovered);
+              data.put("topCardId", newTop != null ? newTop.getCardId() : -1);
+              data.put("topCovered", topCovered);
+              socket.emit("magicianSwap", data);
+            } catch (JSONException e) { e.printStackTrace(); }
+          }
+          gameState.setUpdateState(true);
+        }
+        return;
+      }
     }
 
     // Warlord: detect before the 'nothing selected' guard — selecting the Warlord hero

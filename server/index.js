@@ -190,6 +190,13 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  // Magician: discard enemy defense card(s) and replace with a new deck card.
+  socket.on('magicianSwap', function(data) {
+    gameState.magicianSwap(data.playerIdx, data.targetPlayerIdx, data.positionId,
+        data.bottomCardId, data.bottomCovered, data.topCardId, data.topCovered);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
     socket.broadcast.emit('spyFlip', data);

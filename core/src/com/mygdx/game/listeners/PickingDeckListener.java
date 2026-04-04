@@ -39,16 +39,24 @@ public class PickingDeckListener extends ClickListener {
 
       boolean kingSelected = currentPlayer.getKingCard() != null && currentPlayer.getKingCard().isSelected();
       boolean hasHandCards = currentPlayer.getSelectedHandCards().size() > 0;
+      boolean hasDefCards = currentPlayer.hasHero("Lieutenant") && !currentPlayer.getSelectedDefCards().isEmpty();
 
-      if (kingSelected || hasHandCards) {
+      if (kingSelected || hasHandCards || hasDefCards) {
         // King can only be used once per turn
         if (kingSelected && pt.isKingUsedThisTurn()) return;
         // King can only be used when the player has no defense cards
         if (kingSelected && (!currentPlayer.getDefCards().isEmpty() || !currentPlayer.getTopDefCards().isEmpty())) return;
 
         // Symbol constraint — joker can always attack regardless of symbol
-        String attackSymbol = kingSelected ? currentPlayer.getKingCard().getSymbol()
-            : currentPlayer.getSelectedHandCards().get(0).getSymbol();
+        String attackSymbol;
+        if (kingSelected) {
+          attackSymbol = currentPlayer.getKingCard().getSymbol();
+        } else if (hasHandCards) {
+          attackSymbol = currentPlayer.getSelectedHandCards().get(0).getSymbol();
+        } else {
+          // Lieutenant: only own def cards selected
+          attackSymbol = currentPlayer.getSelectedDefCards().get(0).getSymbol();
+        }
         if (!"joker".equals(attackSymbol)) {
           if (pt.getAttackingSymbol()[0] != "none"
               && pt.getAttackingSymbol()[0] != attackSymbol
@@ -57,16 +65,22 @@ public class PickingDeckListener extends ClickListener {
 
         int attackSum;
         ArrayList<Card> snapshot;
+        ArrayList<Card> ownDefSnapshot;
 
         if (kingSelected) {
           attackSum = currentPlayer.getKingCard().getStrength();
           snapshot = new ArrayList<Card>();
+          ownDefSnapshot = new ArrayList<Card>();
           pt.setKingUsed(true);
           pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
         } else {
           snapshot = new ArrayList<Card>(currentPlayer.getSelectedHandCards());
+          ownDefSnapshot = new ArrayList<Card>(currentPlayer.getSelectedDefCards());
           attackSum = 0;
           for (Card c : snapshot) {
+            attackSum += c.getStrength();
+          }
+          for (Card c : ownDefSnapshot) {
             attackSum += c.getStrength();
           }
           pt.setKingUsed(false);
@@ -88,6 +102,7 @@ public class PickingDeckListener extends ClickListener {
         }
 
         pt.setPendingAttackCards(snapshot);
+        pt.setPendingAttackOwnDefCards(ownDefSnapshot);
         pt.setPendingPickingDeckIndex(deckIndex);
 
         // Reveal the top card of this harvest deck

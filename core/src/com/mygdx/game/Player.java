@@ -224,7 +224,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard) {
-    // make sum of selected handcards
+    // make sum of selected handcards and selected own def cards (Lieutenant)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {
@@ -232,6 +232,9 @@ public class Player {
       if (handCard.isSelected()) {
         attackSum += handCard.getStrength();
       }
+    }
+    for (Card dc : getSelectedDefCards()) {
+      attackSum += dc.getStrength();
     }
     attackSum += playerTurn.getMercenaryAttackBonus();
     attackSum += playerTurn.getReservistAttackBonus();
@@ -248,7 +251,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard, Card topDefCard) {
-    // make sum of selected handcards
+    // make sum of selected handcards and selected own def cards (Lieutenant)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {
@@ -256,6 +259,9 @@ public class Player {
       if (handCard.isSelected()) {
         attackSum += handCard.getStrength();
       }
+    }
+    for (Card dc : getSelectedDefCards()) {
+      attackSum += dc.getStrength();
     }
     attackSum += playerTurn.getMercenaryAttackBonus();
     attackSum += playerTurn.getReservistAttackBonus();
@@ -507,6 +513,17 @@ public class Player {
       }
     }
     return selectedHandCards;
+  }
+
+  public ArrayList<Card> getSelectedDefCards() {
+    ArrayList<Card> selected = new ArrayList<Card>();
+    for (Card c : defCards.values()) {
+      if (c.isSelected()) selected.add(c);
+    }
+    for (Card c : topDefCards.values()) {
+      if (c.isSelected()) selected.add(c);
+    }
+    return selected;
   }
 
   public ArrayList<Hero> getSelectedHeroes() {

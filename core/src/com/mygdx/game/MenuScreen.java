@@ -17,10 +17,13 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
 
@@ -37,6 +40,7 @@ public class MenuScreen extends AbstractScreen {
   private Label loggedInCount;
   private TextArea userName;
   private TextButton button;
+  private SelectBox<String> heroSelectBox;
 
   private Group group;
 
@@ -80,6 +84,34 @@ public class MenuScreen extends AbstractScreen {
     // 0.7f*MyGdxGame.HEIGHT);
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
 
+    // Starting hero selector (for testing)
+    Array<String> heroNames = new Array<String>();
+    heroNames.add("None");
+    heroNames.add("Mercenaries");
+    heroNames.add("Marshal");
+    heroNames.add("Spy");
+    heroNames.add("Battery Tower");
+    heroNames.add("Merchant");
+    heroNames.add("Priest");
+    heroNames.add("Reservists");
+    heroNames.add("Banneret");
+    heroNames.add("Saboteurs");
+    heroNames.add("Fortified Tower");
+    heroNames.add("Magician");
+    heroNames.add("Warlord");
+
+    heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
+    heroSelectBox.setItems(heroNames);
+    heroSelectBox.setSelected("None");
+    heroSelectBox.setSize(button.getWidth(), button.getHeight());
+    heroSelectBox.setPosition((MyGdxGame.WIDTH - heroSelectBox.getWidth()) / 2f, 0.21f * MyGdxGame.HEIGHT);
+    heroSelectBox.addListener(new ChangeListener() {
+      @Override
+      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+        menuState.setStartingHero(heroSelectBox.getSelected());
+      }
+    });
+
     button.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -107,6 +139,7 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    heroSelectBox.hideList();
     menuStage.clear();
 
     // logged in count
@@ -173,6 +206,12 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(timerLabel);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
+
+    // Add hero selector directly to stage (not inside Group) so popup coordinates work correctly
+    Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
+    heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
+    menuStage.addActor(heroLabel);
+    menuStage.addActor(heroSelectBox);
   }
 
   @Override
@@ -197,6 +236,7 @@ public class MenuScreen extends AbstractScreen {
       timerStarted = false;
     }
 
+    menuStage.act(delta);
     menuStage.draw();
   }
 
@@ -326,7 +366,7 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-              game.setScreen(new GameScreen(game, gameState, playerIndex, socket));
+              game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero()));
             }
           });
         } catch (JSONException e) {

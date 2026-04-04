@@ -1,15 +1,18 @@
 package com.mygdx.game.listeners;
 
-import java.util.Iterator;
-
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.CardDeck;
+import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.heroes.Warlord;
+import io.socket.client.Socket;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class OwnHandCardListener extends ClickListener {
 
@@ -17,10 +20,11 @@ public class OwnHandCardListener extends ClickListener {
   Player player;
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
+  GameState gameState;
+  Socket socket;
+  int playerIdx;
 
-  public OwnHandCardListener() {
-
-  }
+  public OwnHandCardListener() {}
 
   public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck) {
     this.handCard = handCard;
@@ -29,60 +33,117 @@ public class OwnHandCardListener extends ClickListener {
     this.cemeteryDeck = cemeteryDeck;
   }
 
+  public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck, GameState gameState) {
+    this(handCard, player, cardDeck, cemeteryDeck);
+    this.gameState = gameState;
+  }
+
+  public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck, GameState gameState,
+      Socket socket, int playerIdx) {
+    this(handCard, player, cardDeck, cemeteryDeck, gameState);
+    this.socket = socket;
+    this.playerIdx = playerIdx;
+  }
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
 
-    // check hero functions on hand cards
-    if (player.getSelectedHeroes().size() > 0) {
+    // Warlord king swap: if own king is selected, swap it with this hand card
+    // Costs 1 take + 1 put action
+    if (player.getKingCard() != null && player.getKingCard().isSelected()) {
+      if (player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
+        Card oldKing = player.getKingCard();
+        Card newKing = handCard;
+        // Swap locally
+        player.setKingCard(newKing);
+        player.getHandCards().remove(newKing);
+        player.addHandCard(oldKing);
+        // Deselect king
+        player.getKingCard().setSelected(false);
+        // Consume actions
+        player.getPlayerTurn().decreaseTakeDefCard();
+        player.getPlayerTurn().decreasePutDefCard();
+        // Sync to server
+        if (socket != null) {
+          try {
+            JSONObject data = new JSONObject();
+            data.put("playerIdx", playerIdx);
+            data.put("oldKingCardId", oldKing.getCardId());
+            data.put("newKingCardId", newKing.getCardId());
+            socket.emit("warlordKingSwap", data);
+          } catch (JSONException e) { e.printStackTrace(); }
+        }
+        if (gameState != null) gameState.setUpdateState(true);
+      }
+      return;
+    }
+
+    // check hero functions on hand cards (Spy, Merchant — but NOT Mercenaries here;
+    // Mercenaries attack bonus is added by clicking the hero while hand cards are selected)
+    boolean spyOrMerchantSelected = false;
+    for (int i = 0; i < player.getHeroes().size(); i++) {
+      String hn = player.getHeroes().get(i).getHeroName();
+      if ((hn == "Spy" || hn == "Merchant") && player.getHeroes().get(i).isSelected()) {
+        spyOrMerchantSelected = true;
+        break;
+      }
+    }
+    if (spyOrMerchantSelected) {
       for (int i = 0; i < player.getHeroes().size(); i++) {
         // if spy is selected, cast card away
         if (player.getHeroes().get(i).getHeroName() == "Spy" && player.getHeroes().get(i).isSelected()) {
           Spy spy = (Spy) player.getHeroes().get(i);
-          if (player.getSelectedHandCards().size() == 1 && spy.getSpyExtends() > 0) {
-            // cast away selected card
-            Iterator<Card> handCardIt = player.getHandCards().iterator();
-            while (handCardIt.hasNext()) {
-              Card currCard = handCardIt.next();
-              if (currCard.isSelected()) {
-                System.out.println("Remove handcard " + currCard.getStrength());
-                cemeteryDeck.addCard(currCard);
-                handCardIt.remove();
-              }
-            }
-
-            // extends spy attacks
+          if (spy.getSpyExtends() > 0) {
+            // Sacrifice the clicked hand card directly for +2 spy actions
+            System.out.println("Spy sacrifice handcard " + handCard.getStrength());
+            cemeteryDeck.addCard(handCard);
+            player.getHandCards().remove(handCard);
             spy.spyExtend();
+            if (gameState != null) gameState.setUpdateState(true);
           }
+          return;
         } else if (player.getHeroes().get(i).getHeroName() == "Merchant" && player.getHeroes().get(i).isSelected()) {
           Merchant merchant = (Merchant) player.getHeroes().get(i);
-          if (player.getSelectedHandCards().size() == 1 && merchant.getTrades() > 0) {
-            Iterator<Card> handCardIt = player.getHandCards().iterator();
-            while (handCardIt.hasNext()) {
-              Card currCard = handCardIt.next();
-              if (currCard.isSelected()) {
-                System.out.println("Remove handcard " + currCard.getStrength());
-                cemeteryDeck.addCard(currCard);
-                handCardIt.remove();
-              }
-            }
+          if (merchant.getTrades() > 0) {
+            // Trade the clicked hand card directly
+            int discardedCardId = handCard.getCardId();
+            cemeteryDeck.addCard(handCard);
+            player.getHandCards().remove(handCard);
 
-            // get new card from deck
+            // draw replacement card
             merchant.trade();
             Card newCard = cardDeck.getCard(cemeteryDeck);
-            player.addHandCard(newCard);
-
+            boolean isJoker = "joker".equals(newCard.getSymbol());
+            if (isJoker) {
+              // Joker on 1st draw: keep it (no 2nd try required for first draw joker)
+              player.addHandCard(newCard);
+            } else {
+              player.addHandCard(newCard);
+            }
             newCard.setTradable(true);
+
+            if (socket != null) {
+              try {
+                JSONObject data = new JSONObject();
+                data.put("playerIdx", playerIdx);
+                data.put("discardedCardId", discardedCardId);
+                data.put("drawnCardId", newCard.getCardId());
+                socket.emit("merchantTrade", data);
+              } catch (JSONException e) { e.printStackTrace(); }
+            }
+            if (gameState != null) gameState.setUpdateState(true);
           }
-        } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
-          Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
-          if (mercenaries.isAvailable()) {
-            mercenaries.operate();
-            handCard.addBoosted(1);
-          }
+          return;
         }
       }
-      // gameState.setUpdateState(true);
     } else {
+      // If Mercenaries hero was selected (defense mode), deselect it to allow hand card selection
+      for (int i = 0; i < player.getHeroes().size(); i++) {
+        if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
+          player.getHeroes().get(i).setSelected(false);
+          break;
+        }
+      }
       // unselect all defense and king cards
       player.getKingCard().setSelected(false);
       for (int i = 1; i <= 3; i++) {
@@ -106,6 +167,20 @@ public class OwnHandCardListener extends ClickListener {
           }
           handCard.setSelected(true);
           player.setSelectedSymbol(handCard.getSymbol());
+        }
+      }
+
+      // If all hand cards are now deselected, clear any pending mercenary attack bonus
+      if (player.getSelectedHandCards().size() == 0 && player.getPlayerTurn().getMercenaryAttackBonus() > 0) {
+        for (int i = 0; i < player.getHeroes().size(); i++) {
+          if (player.getHeroes().get(i).getHeroName() == "Mercenaries") {
+            Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
+            int bonus = player.getPlayerTurn().getMercenaryAttackBonus();
+            for (int b = 0; b < bonus; b++) mercenaries.callback();
+            player.getPlayerTurn().resetMercenaryAttackBonus();
+            if (gameState != null) gameState.setUpdateState(true);
+            break;
+          }
         }
       }
     }

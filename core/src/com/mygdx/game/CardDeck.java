@@ -75,8 +75,8 @@ public class CardDeck extends Actor {
         refillCardDeck(cemeteryDeck);
       } else {
         System.out.println("NO more cards available");
+        return new Card(); // deck and cemetery both empty — return placeholder
       }
-
     }
     Card card = cards.get(cards.size() - 1);
     cards.remove(cards.size() - 1);

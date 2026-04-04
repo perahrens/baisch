@@ -32,6 +32,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Major;
+import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
 import com.mygdx.game.heroes.Spy;
@@ -97,6 +98,10 @@ public class GameScreen extends ScreenAdapter {
   private TradeCardButtonListener tradeCardButtonListener;
   private FinishTurnButtonListener finishTurnButtonListener;
   private HandImageListener handImageListener;
+
+  // Merchant 2nd-try reveal: card ID shown to all non-trading players
+  private int merchantRevealCardId = -1;
+  private int merchantRevealPlayerIdx = -1;
 
   private int playerIndex;
   private JSONObject centralizedState;
@@ -1441,6 +1446,23 @@ public class GameScreen extends ScreenAdapter {
         e.printStackTrace();
       }
     }
+
+    // Merchant 2nd-try reveal: display the drawn card face-up for all non-trading clients
+    if (merchantRevealCardId != -1 && merchantRevealPlayerIdx != playerIndex) {
+      Card revealCard = Card.fromCardId(merchantRevealCardId);
+      revealCard.setWidth(revealCard.getDefWidth());
+      revealCard.setHeight(revealCard.getDefHeight() * 2);
+      revealCard.setPosition(
+          (MyGdxGame.WIDTH - revealCard.getWidth()) / 2f,
+          (MyGdxGame.WIDTH - revealCard.getHeight()) / 2f);
+      gameStage.addActor(revealCard);
+      Label revealLabel = new Label("Merch. reveal (P" + merchantRevealPlayerIdx + ")", MyGdxGame.skin);
+      revealLabel.setColor(Color.GREEN);
+      revealLabel.setPosition(
+          revealCard.getX() + (revealCard.getWidth() - revealLabel.getPrefWidth()) / 2f,
+          revealCard.getY() + revealCard.getHeight() + 2f);
+      gameStage.addActor(revealLabel);
+    }
   }
 
   public void showHandStage(ArrayList<Player> players, Player currentPlayer) {
@@ -1514,7 +1536,7 @@ public class GameScreen extends ScreenAdapter {
         keepCardButton.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - keepCardButton.getWidth()) / 2f);
         keepCardButton.setY(handCards.get(j).getY() + (handCards.get(j).getHeight() + keepCardButton.getHeight()) / 2f);
 
-        TextButton tradeCardButton = new TextButton("Trade", MyGdxGame.skin);
+        TextButton tradeCardButton = new TextButton("2nd Try", MyGdxGame.skin);
         tradeCardButton.setX(handCards.get(j).getX() + (handCards.get(j).getWidth() - tradeCardButton.getWidth()) / 2f);
         tradeCardButton
             .setY(handCards.get(j).getY() + (handCards.get(j).getHeight() - 3 * tradeCardButton.getHeight()) / 2f);
@@ -1522,10 +1544,11 @@ public class GameScreen extends ScreenAdapter {
         removeAllListeners(keepCardButton);
         removeAllListeners(tradeCardButton);
 
-        keepCardButtonListener = new KeepCardButtonListener(tradeableCard);
+        keepCardButtonListener = new KeepCardButtonListener(tradeableCard, gameState);
         keepCardButton.addListener(keepCardButtonListener);
 
-        tradeCardButtonListener = new TradeCardButtonListener();
+        tradeCardButtonListener = new TradeCardButtonListener(tradeableCard, gameState.getCurrentPlayer(),
+            gameState.getCardDeck(), gameState.getCemeteryDeck(), gameState, socket, playerIndex);
         tradeCardButton.addListener(tradeCardButtonListener);
 
         handStage.addActor(keepCardButton);
@@ -1582,6 +1605,15 @@ public class GameScreen extends ScreenAdapter {
         warlordCountLabel.setColor(Color.ORANGE);
         warlordCountLabel.setPosition(hero.getX() + hero.getWidth() - warlordCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(warlordCountLabel);
+      }
+
+      if ("Merchant".equals(hero.getHeroName())) {
+        Merchant merchant = (Merchant) hero;
+        String tradeCount = merchant.getTrades() + "/1";
+        Label merchantCountLabel = new Label(tradeCount, MyGdxGame.skin);
+        merchantCountLabel.setColor(Color.GREEN);
+        merchantCountLabel.setPosition(hero.getX() + hero.getWidth() - merchantCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(merchantCountLabel);
       }
 
       if (hero.getHeroName() == "Major") {
@@ -1915,6 +1947,16 @@ public class GameScreen extends ScreenAdapter {
       // 7. Activity log
       JSONArray logJson = state.optJSONArray("log");
       if (logJson != null) activityLog = logJson;
+
+      // 8. Merchant 2nd-try reveal
+      JSONObject merchantRevealJson = state.optJSONObject("merchantReveal");
+      if (merchantRevealJson != null) {
+        merchantRevealCardId = merchantRevealJson.optInt("cardId", -1);
+        merchantRevealPlayerIdx = merchantRevealJson.optInt("playerIdx", -1);
+      } else {
+        merchantRevealCardId = -1;
+        merchantRevealPlayerIdx = -1;
+      }
 
     } catch (JSONException e) {
       e.printStackTrace();

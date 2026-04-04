@@ -172,6 +172,18 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  // Merchant: player discards a card and draws a replacement (1st draw, face-down to others).
+  socket.on('merchantTrade', function(data) {
+    gameState.merchantTrade(data.playerIdx, data.discardedCardId, data.drawnCardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Merchant 2nd try: player discards 1st drawn card, draws once more (2nd draw revealed to all).
+  socket.on('merchantSecondTry', function(data) {
+    gameState.merchantSecondTry(data.playerIdx, data.firstCardId, data.secondCardId, data.isJoker);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
     socket.broadcast.emit('spyFlip', data);

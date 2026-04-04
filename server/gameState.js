@@ -165,7 +165,7 @@ class GameState {
       if (i !== -1) attacker.hand.splice(i, 1);
       this.cemetery.push(cardId);
     }
-    // Lieutenant: own def cards used as attackers go to cemetery
+    // Banneret: own def cards used as attackers go to cemetery
     for (const cardId of (attackerOwnDefCardIds || [])) {
       for (const slot of Object.keys(attacker.defCards)) {
         if (attacker.defCards[slot] === cardId) { delete attacker.defCards[slot]; break; }
@@ -206,7 +206,7 @@ class GameState {
       if (i !== -1) attacker.hand.splice(i, 1);
       this.cemetery.push(cardId);
     }
-    // Lieutenant: own def cards used as attackers go to cemetery
+    // Banneret: own def cards used as attackers go to cemetery
     for (const cardId of (attackerOwnDefCardIds || [])) {
       for (const slot of Object.keys(attacker.defCards)) {
         if (attacker.defCards[slot] === cardId) { delete attacker.defCards[slot]; break; }

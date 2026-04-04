@@ -39,7 +39,7 @@ public class PickingDeckListener extends ClickListener {
 
       boolean kingSelected = currentPlayer.getKingCard() != null && currentPlayer.getKingCard().isSelected();
       boolean hasHandCards = currentPlayer.getSelectedHandCards().size() > 0;
-      boolean hasDefCards = currentPlayer.hasHero("Lieutenant") && !currentPlayer.getSelectedDefCards().isEmpty();
+      boolean hasDefCards = currentPlayer.hasHero("Banneret") && !currentPlayer.getSelectedDefCards().isEmpty();
 
       if (kingSelected || hasHandCards || hasDefCards) {
         // King can only be used once per turn
@@ -54,7 +54,7 @@ public class PickingDeckListener extends ClickListener {
         } else if (hasHandCards) {
           attackSymbol = currentPlayer.getSelectedHandCards().get(0).getSymbol();
         } else {
-          // Lieutenant: only own def cards selected
+          // Banneret: only own def cards selected
           attackSymbol = currentPlayer.getSelectedDefCards().get(0).getSymbol();
         }
         if (!"joker".equals(attackSymbol)) {
@@ -72,7 +72,7 @@ public class PickingDeckListener extends ClickListener {
           snapshot = new ArrayList<Card>();
           ownDefSnapshot = new ArrayList<Card>();
           pt.setKingUsed(true);
-          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
+          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Banneret"));
         } else {
           snapshot = new ArrayList<Card>(currentPlayer.getSelectedHandCards());
           ownDefSnapshot = new ArrayList<Card>(currentPlayer.getSelectedDefCards());
@@ -84,7 +84,7 @@ public class PickingDeckListener extends ClickListener {
             attackSum += c.getStrength();
           }
           pt.setKingUsed(false);
-          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Lieutenant"));
+          pt.setAttackingSymbol(attackSymbol, currentPlayer.hasHero("Banneret"));
         }
 
         // Add and consume mercenary attack bonus

@@ -11,7 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.heroes.Hero;
-import com.mygdx.game.heroes.Major;
+import com.mygdx.game.heroes.Marshal;
 
 public class Player {
 
@@ -87,8 +87,8 @@ public class Player {
 
   public boolean canMobilize() {
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == "Major") {
-        return ((Major) heroes.get(i)).getMobilizations() > 0;
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        return ((Marshal) heroes.get(i)).getMobilizations() > 0;
       }
     }
     return playerTurn.getTakeDefCard() > 0 || playerTurn.getPutDefCard() > 0;
@@ -97,23 +97,23 @@ public class Player {
   public void takeDefCard(int position) {
     System.out.println("takeDefCard()");
 
-    // check if player has major
-    boolean hasMajor = false;
-    Major major = null;
+    // check if player has Marshal
+    boolean hasMarshal = false;
+    Marshal marshal = null;
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == "Major") {
-        // Major found
-        major = (Major) heroes.get(i);
-        hasMajor = true;
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        // Marshal found
+        marshal = (Marshal) heroes.get(i);
+        hasMarshal = true;
         break;
       }
     }
 
     boolean allowed = false;
-    if (hasMajor) {
-      if (major.getMobilizations() > 0) {
+    if (hasMarshal) {
+      if (marshal.getMobilizations() > 0) {
         allowed = true;
-        major.mobilize();
+        marshal.mobilize();
       }
     } else {
       if (playerTurn.getTakeDefCard() > 0) {
@@ -137,23 +137,23 @@ public class Player {
   public void putDefCard(Integer position, int level) {
     System.out.println("putDefCard()");
 
-    // check if player has major
-    boolean hasMajor = false;
-    Major major = null;
+    // check if player has Marshal
+    boolean hasMarshal = false;
+    Marshal marshal = null;
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == "Major") {
-        // Major found
-        major = (Major) heroes.get(i);
-        hasMajor = true;
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        // Marshal found
+        marshal = (Marshal) heroes.get(i);
+        hasMarshal = true;
         break;
       }
     }
 
     boolean allowed = false;
-    if (hasMajor) {
-      if (major.getMobilizations() > 0) {
+    if (hasMarshal) {
+      if (marshal.getMobilizations() > 0) {
         allowed = true;
-        major.mobilize();
+        marshal.mobilize();
       }
     } else if (level == 1) {
       allowed = true;
@@ -224,7 +224,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard) {
-    // make sum of selected handcards and selected own def cards (Lieutenant)
+    // make sum of selected handcards and selected own def cards (Banneret)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {
@@ -251,7 +251,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard, Card topDefCard) {
-    // make sum of selected handcards and selected own def cards (Lieutenant)
+    // make sum of selected handcards and selected own def cards (Banneret)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {

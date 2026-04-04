@@ -82,7 +82,7 @@ public class EnemyKingCardListener extends ClickListener {
     }
 
     // Lock attack symbol (same treatment as hand card attacks)
-    pt.setAttackingSymbol(symbol, player.hasHero("Lieutenant"));
+    pt.setAttackingSymbol(symbol, player.hasHero("Banneret"));
 
     // Compute attack vs defender's king strength
     int attackSum;

@@ -29,7 +29,7 @@ public class OwnPlaceholderListener extends ClickListener {
 
   private void blinkMajor() {
     for (int i = 0; i < player.getHeroes().size(); i++) {
-      if (player.getHeroes().get(i).getHeroName() == "Major") {
+      if (player.getHeroes().get(i).getHeroName() == "Marshal") {
         Hero h = player.getHeroes().get(i);
         h.addAction(Actions.sequence(
             Actions.color(Color.GREEN, 0f),

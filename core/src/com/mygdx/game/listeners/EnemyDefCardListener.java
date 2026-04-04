@@ -193,7 +193,7 @@ public class EnemyDefCardListener extends ClickListener {
     } else {
       boolean hasSelectedDefCards = !player.getSelectedDefCards().isEmpty();
       if (!kingSelected && player.getSelectedHandCards().size() == 0
-          && !(player.hasHero("Lieutenant") && hasSelectedDefCards)) return;
+          && !(player.hasHero("Banneret") && hasSelectedDefCards)) return;
       // King can only be used when the player has no defense cards
       if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
     }
@@ -202,14 +202,14 @@ public class EnemyDefCardListener extends ClickListener {
     if (kingSelected && pt.isKingUsedThisTurn()) return;
 
     // Symbol constraint — joker bypasses; other cards must match the set symbol
-    // For Lieutenant using only own def cards (no hand cards), use the first def card's symbol
+    // For Banneret using only own def cards (no hand cards), use the first def card's symbol
     String attackSymbol;
     if (kingSelected) {
       attackSymbol = player.getKingCard().getSymbol();
     } else if (!player.getSelectedHandCards().isEmpty()) {
       attackSymbol = player.getSelectedHandCards().get(0).getSymbol();
     } else {
-      // Lieutenant: only own def cards selected
+      // Banneret: only own def cards selected
       attackSymbol = player.getSelectedDefCards().get(0).getSymbol();
     }
     if (!"joker".equals(attackSymbol)) {
@@ -219,7 +219,7 @@ public class EnemyDefCardListener extends ClickListener {
     }
 
     // Snapshot attacking hand cards (empty for king attacks — king is not a hand card)
-    // Also snapshot own def cards used as attackers (Lieutenant)
+    // Also snapshot own def cards used as attackers (Banneret)
     ArrayList<Card> attackSnapshot = kingSelected
         ? new ArrayList<Card>()
         : new ArrayList<Card>(player.getSelectedHandCards());
@@ -252,10 +252,10 @@ public class EnemyDefCardListener extends ClickListener {
 
     // Store preview state
     if (!kingSelected) {
-      pt.setAttackingSymbol(attackSymbol, player.hasHero("Lieutenant"));
+      pt.setAttackingSymbol(attackSymbol, player.hasHero("Banneret"));
     } else {
       // King attacks also lock the attack symbol (treated same as hand cards)
-      pt.setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Lieutenant"));
+      pt.setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Banneret"));
     }
     pt.setKingUsed(kingSelected);
     pt.setPendingAttackCards(attackSnapshot);

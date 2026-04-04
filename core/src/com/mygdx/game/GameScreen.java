@@ -1778,7 +1778,7 @@ public class GameScreen extends ScreenAdapter {
         handStage.addActor(sabCountLabel);
         int recovering = saboteurs.countRecovering();
         if (recovering > 0) {
-          Label recLabel = new Label(recovering + " recovering", MyGdxGame.skin);
+          Label recLabel = new Label(String.valueOf(recovering), MyGdxGame.skin);
           recLabel.setColor(Color.ORANGE);
           recLabel.setPosition(hero.getX() + hero.getWidth() - recLabel.getPrefWidth(),
               hero.getY() + sabCountLabel.getPrefHeight() + 2f);

@@ -2,7 +2,7 @@ package com.mygdx.game.heroes;
 
 public class Saboteurs extends Hero {
 
-  // (0) ready (1) active (2) recovering (destroyed, needs one turn)
+  // (0) ready (1) active (2) destroyed (3) reviving — 2 turns to recover
   private int[] saboteurStates = { 0, 0 };
 
   public Saboteurs() {
@@ -20,8 +20,10 @@ public class Saboteurs extends Hero {
   @Override
   public void recover() {
     for (int i = 0; i < saboteurStates.length; i++) {
-      if (saboteurStates[i] == 2)
-        saboteurStates[i] = 0; // one full turn to recover: destroyed -> ready
+      if (saboteurStates[i] == 3)
+        saboteurStates[i] = 0; // reviving -> ready (usable this turn)
+      else if (saboteurStates[i] == 2)
+        saboteurStates[i] = 3; // destroyed -> reviving (1 turn spent)
     }
     if (isAvailable()) {
       isReady = true;
@@ -49,11 +51,11 @@ public class Saboteurs extends Hero {
     return count;
   }
 
-  /** How many saboteurs are currently recovering (state 2). */
+  /** How many saboteurs are currently recovering (states 2 or 3). */
   public int countRecovering() {
     int count = 0;
     for (int state : saboteurStates) {
-      if (state == 2) count++;
+      if (state == 2 || state == 3) count++;
     }
     return count;
   }
@@ -64,7 +66,7 @@ public class Saboteurs extends Hero {
    * Preserves state 2 (recovering) — those are local turn state not tracked by server.
    */
   public void syncFromActiveCount(int active) {
-    // Reset deployed (state 1) only; leave recovering (state 2) intact
+    // Reset deployed (state 1) only; leave recovering (states 2/3) intact
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 1) saboteurStates[i] = 0;
     }

@@ -158,11 +158,21 @@ class GameState {
     }
   }
 
-  plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed) {
+  plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
       if (i !== -1) attacker.hand.splice(i, 1);
+      this.cemetery.push(cardId);
+    }
+    // Lieutenant: own def cards used as attackers go to cemetery
+    for (const cardId of (attackerOwnDefCardIds || [])) {
+      for (const slot of Object.keys(attacker.defCards)) {
+        if (attacker.defCards[slot] === cardId) { delete attacker.defCards[slot]; break; }
+      }
+      for (const slot of Object.keys(attacker.topDefCards || {})) {
+        if (attacker.topDefCards[slot] === cardId) { delete attacker.topDefCards[slot]; break; }
+      }
       this.cemetery.push(cardId);
     }
     if (kingUsed) attacker.kingCovered = false;
@@ -188,12 +198,22 @@ class GameState {
     }
   }
 
-  defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds, kingUsed) {
+  defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     const attacker = this.players[attackerIdx];
     const defender = this.players[defenderIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
       if (i !== -1) attacker.hand.splice(i, 1);
+      this.cemetery.push(cardId);
+    }
+    // Lieutenant: own def cards used as attackers go to cemetery
+    for (const cardId of (attackerOwnDefCardIds || [])) {
+      for (const slot of Object.keys(attacker.defCards)) {
+        if (attacker.defCards[slot] === cardId) { delete attacker.defCards[slot]; break; }
+      }
+      for (const slot of Object.keys(attacker.topDefCards || {})) {
+        if (attacker.topDefCards[slot] === cardId) { delete attacker.topDefCards[slot]; break; }
+      }
       this.cemetery.push(cardId);
     }
     if (kingUsed) attacker.kingCovered = false;

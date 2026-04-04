@@ -138,11 +138,6 @@ public class OwnDefCardListener extends ClickListener {
           }
         }
       } else {
-        // unselect all handcards
-        for (int i = 0; i < handCards.size(); i++) {
-          handCards.get(i).setSelected(false);
-        }
-
         // For stacked slots, always select/deselect both cards together
         int slot = selectedCard.getPositionId();
         Card pairedCard = null;
@@ -152,22 +147,39 @@ public class OwnDefCardListener extends ClickListener {
           pairedCard = topDefCards.get(slot);
         }
 
-        // select defense card
-        if (selectedCard.isSelected()) {
-          selectedCard.setSelected(false);
-          if (pairedCard != null) pairedCard.setSelected(false);
-        } else {
-          kingCard.setSelected(false);
-          for (int i = 1; i <= 3; i++) {
-            if (defCards.containsKey(i)) {
-              defCards.get(i).setSelected(false);
-            }
-            if (topDefCards.containsKey(i)) {
-              topDefCards.get(i).setSelected(false);
-            }
+        if (player.hasHero("Lieutenant")) {
+          // Lieutenant: def cards can be used as attackers alongside hand cards.
+          // Allow multi-select — just toggle this def card without disturbing hand cards.
+          if (selectedCard.isSelected()) {
+            selectedCard.setSelected(false);
+            if (pairedCard != null) pairedCard.setSelected(false);
+          } else {
+            selectedCard.setSelected(true);
+            if (pairedCard != null) pairedCard.setSelected(true);
           }
-          selectedCard.setSelected(true);
-          if (pairedCard != null) pairedCard.setSelected(true);
+        } else {
+          // Default: exclusive selection — deselect hand cards and all other def cards.
+          for (int i = 0; i < handCards.size(); i++) {
+            handCards.get(i).setSelected(false);
+          }
+
+          // select defense card
+          if (selectedCard.isSelected()) {
+            selectedCard.setSelected(false);
+            if (pairedCard != null) pairedCard.setSelected(false);
+          } else {
+            kingCard.setSelected(false);
+            for (int i = 1; i <= 3; i++) {
+              if (defCards.containsKey(i)) {
+                defCards.get(i).setSelected(false);
+              }
+              if (topDefCards.containsKey(i)) {
+                topDefCards.get(i).setSelected(false);
+              }
+            }
+            selectedCard.setSelected(true);
+            if (pairedCard != null) pairedCard.setSelected(true);
+          }
         }
 
       }

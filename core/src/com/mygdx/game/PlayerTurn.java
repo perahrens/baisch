@@ -108,6 +108,7 @@ public class PlayerTurn {
   private boolean attackPending = false;
   private boolean attackSuccess = false;
   private ArrayList<Card> pendingAttackDefCards = new ArrayList<Card>(); // [defCard] or [defCard, topDefCard]
+  private ArrayList<Card> pendingAttackOwnDefCards = new ArrayList<Card>(); // own def cards used as attackers (Lieutenant)
   private int attackTargetPlayerIdx = -1;
   private int attackTargetPositionId = -1;
   private int attackTargetLevel = -1;
@@ -118,6 +119,8 @@ public class PlayerTurn {
   public void setAttackSuccess(boolean v) { this.attackSuccess = v; }
   public ArrayList<Card> getPendingAttackDefCards() { return pendingAttackDefCards; }
   public void setPendingAttackDefCards(ArrayList<Card> cards) { this.pendingAttackDefCards = cards; }
+  public ArrayList<Card> getPendingAttackOwnDefCards() { return pendingAttackOwnDefCards; }
+  public void setPendingAttackOwnDefCards(ArrayList<Card> cards) { this.pendingAttackOwnDefCards = cards; }
   public int getAttackTargetPlayerIdx() { return attackTargetPlayerIdx; }
   public void setAttackTargetPlayerIdx(int v) { this.attackTargetPlayerIdx = v; }
   public int getAttackTargetPositionId() { return attackTargetPositionId; }

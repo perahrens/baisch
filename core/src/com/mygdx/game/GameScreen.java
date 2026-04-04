@@ -332,6 +332,7 @@ public class GameScreen extends ScreenAdapter {
                 pt.setBatteryDeniedAttackCardIds(deniedIds);
                 pt.getPendingAttackCards().clear();
                 pt.getPendingAttackDefCards().clear();
+                pt.getPendingAttackOwnDefCards().clear();
                 // Re-cover the revealed def cards (attack was denied)
                 Player targetP = gameState.getPlayers().get(data.getInt("targetPlayerIdx"));
                 int posId = data.getInt("positionId");
@@ -938,6 +939,12 @@ public class GameScreen extends ScreenAdapter {
             plunderPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
+          for (Card c : pt.getPendingAttackOwnDefCards()) {
+            int slot = c.getPositionId();
+            plunderPlayer.getDefCards().remove(slot);
+            plunderPlayer.getTopDefCards().remove(slot);
+            gameState.getCemeteryDeck().addCard(c);
+          }
           pt.setPlunderPending(false);
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
@@ -950,11 +957,15 @@ public class GameScreen extends ScreenAdapter {
             org.json.JSONArray atkIdArr = new org.json.JSONArray();
             for (Card c : pt.getPendingAttackCards()) atkIdArr.put(c.getCardId());
             emitData.put("attackCardIds", atkIdArr);
+            org.json.JSONArray ownDefIdArr = new org.json.JSONArray();
+            for (Card c : pt.getPendingAttackOwnDefCards()) ownDefIdArr.put(c.getCardId());
+            emitData.put("attackerOwnDefCardIds", ownDefIdArr);
             socket.emit("plunderResolved", emitData);
           } catch (JSONException e) {
             e.printStackTrace();
           }
           pt.getPendingAttackCards().clear();
+          pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
           gameState.setUpdateState(true);
         }
@@ -1024,6 +1035,13 @@ public class GameScreen extends ScreenAdapter {
             atkPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
+          // Discard own def cards used as attackers (Lieutenant)
+          for (Card c : apt.getPendingAttackOwnDefCards()) {
+            int slot = c.getPositionId();
+            atkPlayer.getDefCards().remove(slot);
+            atkPlayer.getTopDefCards().remove(slot);
+            gameState.getCemeteryDeck().addCard(c);
+          }
           if (targetIsKing) {
             // King-on-king or hand-cards-on-king attack
             if (atkSuccess) {
@@ -1075,11 +1093,15 @@ public class GameScreen extends ScreenAdapter {
               org.json.JSONArray atkIds = new org.json.JSONArray();
               for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
               emitData.put("attackCardIds", atkIds);
+              org.json.JSONArray ownDefIds = new org.json.JSONArray();
+              for (Card c : apt.getPendingAttackOwnDefCards()) { ownDefIds.put(c.getCardId()); }
+              emitData.put("attackerOwnDefCardIds", ownDefIds);
               socket.emit("defAttackResolved", emitData);
             } catch (JSONException e) {
               e.printStackTrace();
             }
             apt.getPendingAttackDefCards().clear();
+            apt.getPendingAttackOwnDefCards().clear();
           }
           apt.getPendingAttackCards().clear();
           apt.resetReservistAttackBonus();
@@ -1091,6 +1113,9 @@ public class GameScreen extends ScreenAdapter {
             c.setSelected(false);
             while (c.getBoosted() > 0) c.addBoosted(-1);
           }
+          // Clear own def card selections
+          for (Card c : atkPlayer.getDefCards().values()) c.setSelected(false);
+          for (Card c : atkPlayer.getTopDefCards().values()) c.setSelected(false);
           gameState.setUpdateState(true);
         }
       });
@@ -1119,9 +1144,10 @@ public class GameScreen extends ScreenAdapter {
             int defStrCheck;
             ArrayList<Card> pendingDefCards = apt.getPendingAttackDefCards();
             if (!pendingDefCards.isEmpty()) {
-              // Regular def card attack: sum hand cards used; compute defStr from stored def cards
+              // Regular def card attack: sum hand cards + own def cards used; compute defStr from stored def cards
               atkBase = 0;
               for (Card ac : apt.getPendingAttackCards()) atkBase += ac.getStrength();
+              for (Card ac : apt.getPendingAttackOwnDefCards()) atkBase += ac.getStrength();
               defStrCheck = 0;
               for (Card dc : pendingDefCards) defStrCheck += "joker".equals(dc.getSymbol()) ? 1 : dc.getStrength();
             } else {

@@ -191,7 +191,9 @@ public class EnemyDefCardListener extends ClickListener {
       for (Card hc : player.getHandCards()) hc.setSelected(false);
       if (warlord == null || !warlord.isAttackAvailable()) return;
     } else {
-      if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
+      boolean hasSelectedDefCards = !player.getSelectedDefCards().isEmpty();
+      if (!kingSelected && player.getSelectedHandCards().size() == 0
+          && !(player.hasHero("Lieutenant") && hasSelectedDefCards)) return;
       // King can only be used when the player has no defense cards
       if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
     }
@@ -200,17 +202,28 @@ public class EnemyDefCardListener extends ClickListener {
     if (kingSelected && pt.isKingUsedThisTurn()) return;
 
     // Symbol constraint — joker bypasses; other cards must match the set symbol
-    String attackSymbol = kingSelected ? player.getKingCard().getSymbol() : player.getSelectedHandCards().get(0).getSymbol();
+    // For Lieutenant using only own def cards (no hand cards), use the first def card's symbol
+    String attackSymbol;
+    if (kingSelected) {
+      attackSymbol = player.getKingCard().getSymbol();
+    } else if (!player.getSelectedHandCards().isEmpty()) {
+      attackSymbol = player.getSelectedHandCards().get(0).getSymbol();
+    } else {
+      // Lieutenant: only own def cards selected
+      attackSymbol = player.getSelectedDefCards().get(0).getSymbol();
+    }
     if (!"joker".equals(attackSymbol)) {
       if (pt.getAttackingSymbol()[0] != "none"
           && pt.getAttackingSymbol()[0] != attackSymbol
           && pt.getAttackingSymbol()[1] != attackSymbol) return;
     }
 
-    // Snapshot attacking cards (empty for king attacks — king is not a hand card)
+    // Snapshot attacking hand cards (empty for king attacks — king is not a hand card)
+    // Also snapshot own def cards used as attackers (Lieutenant)
     ArrayList<Card> attackSnapshot = kingSelected
         ? new ArrayList<Card>()
         : new ArrayList<Card>(player.getSelectedHandCards());
+    ArrayList<Card> attackOwnDefSnapshot = new ArrayList<Card>(player.getSelectedDefCards());
 
     // Reveal the targeted defense card — only if no Battery Tower intercept will happen
     boolean willIntercept = (socket != null);
@@ -239,13 +252,14 @@ public class EnemyDefCardListener extends ClickListener {
 
     // Store preview state
     if (!kingSelected) {
-      pt.setAttackingSymbol(player.getSelectedHandCards().get(0).getSymbol(), player.hasHero("Lieutenant"));
+      pt.setAttackingSymbol(attackSymbol, player.hasHero("Lieutenant"));
     } else {
       // King attacks also lock the attack symbol (treated same as hand cards)
       pt.setAttackingSymbol(player.getKingCard().getSymbol(), player.hasHero("Lieutenant"));
     }
     pt.setKingUsed(kingSelected);
     pt.setPendingAttackCards(attackSnapshot);
+    pt.setPendingAttackOwnDefCards(attackOwnDefSnapshot);
     ArrayList<Card> defCardList = new ArrayList<Card>();
     defCardList.add(primaryCard);
     if (topDefCard != null) defCardList.add(topDefCard);

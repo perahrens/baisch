@@ -14,6 +14,7 @@ import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Magician;
 import com.mygdx.game.heroes.Mercenaries;
+import com.mygdx.game.heroes.Saboteurs;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
 import io.socket.client.Socket;
@@ -120,6 +121,21 @@ public class EnemyDefCardListener extends ClickListener {
     if (level == 1 && targetDefCards.containsKey(positionId)) {
       primaryCard = targetDefCards.get(positionId);
       level = 0; // full-slot attack
+    }
+
+    // Saboteurs: if selected and available, place a saboteur on this slot instead of attacking.
+    for (int si = 0; si < player.getHeroes().size(); si++) {
+      if ("Saboteurs".equals(player.getHeroes().get(si).getHeroName())
+          && player.getHeroes().get(si).isSelected()) {
+        Saboteurs saboteurs = (Saboteurs) player.getHeroes().get(si);
+        if (saboteurs.isAvailable() && !targetPlayer.isSlotSabotaged(positionId)) {
+          targetPlayer.setSlotSabotaged(positionId, playerIdx);
+          saboteurs.sabotage();
+          emitSabotage(targetPlayerIdx, positionId);
+          if (gameState != null) gameState.setUpdateState(true);
+        }
+        return;
+      }
     }
 
     // Magician: if Magician is selected and no attack cards chosen, perform a spell swap.
@@ -325,6 +341,17 @@ public class EnemyDefCardListener extends ClickListener {
       for (Card c : attackCards) atkIds.put(c.getCardId());
       data.put("attackCardIds", atkIds);
       socket.emit("batteryDefenseCheck", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void emitSabotage(int defenderIdx, int positionId) {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("attackerIdx", playerIdx);
+      data.put("defenderIdx", defenderIdx);
+      data.put("positionId", positionId);
+      socket.emit("sabotage", data);
     } catch (JSONException e) { e.printStackTrace(); }
   }
 

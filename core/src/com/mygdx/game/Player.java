@@ -30,6 +30,14 @@ public class Player {
 
   String selectedSymbol; // enables the selection of hand cards of the same symbol
 
+  /** Tracks which defense slots (1-3) currently have a saboteur on them, mapped to the owner's player index. */
+  private Map<Integer, Integer> slotSabotaged = new HashMap<>();
+
+  public boolean isSlotSabotaged(int slot) { return slotSabotaged.containsKey(slot); }
+  public int getSlotSaboteurOwnerIdx(int slot) { return slotSabotaged.getOrDefault(slot, -1); }
+  public void setSlotSabotaged(int slot, int ownerIdx) { slotSabotaged.put(slot, ownerIdx); }
+  public void clearSlotSabotaged(int slot) { slotSabotaged.remove(slot); }
+
   public Player(String name) {
     // init inventar
     isAlive = true;
@@ -96,6 +104,10 @@ public class Player {
 
   public void takeDefCard(int position) {
     System.out.println("takeDefCard()");
+    if (isSlotSabotaged(position)) {
+      System.out.println("Slot " + position + " is sabotaged — cannot take");
+      return;
+    }
 
     // check if player has Marshal
     boolean hasMarshal = false;
@@ -136,6 +148,10 @@ public class Player {
 
   public void putDefCard(Integer position, int level) {
     System.out.println("putDefCard()");
+    if (level == 0 && isSlotSabotaged(position)) {
+      System.out.println("Slot " + position + " is sabotaged — cannot put");
+      return;
+    }
 
     // check if player has Marshal
     boolean hasMarshal = false;

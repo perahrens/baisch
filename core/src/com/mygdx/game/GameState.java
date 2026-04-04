@@ -146,6 +146,17 @@ public class GameState {
         }
 
         p.setKingCard(Card.fromCardId(pj.getInt("kingCard")));
+
+        // Saboteurs slot state
+        JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
+        if (sabotagedJson != null) {
+          Iterator<String> sabKeys = sabotagedJson.keys();
+          while (sabKeys.hasNext()) {
+            String key = sabKeys.next();
+            p.setSlotSabotaged(Integer.parseInt(key), sabotagedJson.getInt(key));
+          }
+        }
+
         players.add(p);
       }
       roundOrder = new ArrayList<Player>(players);

@@ -88,13 +88,13 @@ public class MenuScreen extends AbstractScreen {
     Array<String> heroNames = new Array<String>();
     heroNames.add("None");
     heroNames.add("Mercenaries");
-    heroNames.add("Major");
+    heroNames.add("Marshal");
     heroNames.add("Spy");
     heroNames.add("Battery Tower");
     heroNames.add("Merchant");
     heroNames.add("Priest");
     heroNames.add("Reservists");
-    heroNames.add("Lieutenant");
+    heroNames.add("Banneret");
     heroNames.add("Saboteurs");
     heroNames.add("Fortified Tower");
     heroNames.add("Magician");

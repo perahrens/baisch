@@ -108,7 +108,7 @@ public class PlayerTurn {
   private boolean attackPending = false;
   private boolean attackSuccess = false;
   private ArrayList<Card> pendingAttackDefCards = new ArrayList<Card>(); // [defCard] or [defCard, topDefCard]
-  private ArrayList<Card> pendingAttackOwnDefCards = new ArrayList<Card>(); // own def cards used as attackers (Lieutenant)
+  private ArrayList<Card> pendingAttackOwnDefCards = new ArrayList<Card>(); // own def cards used as attackers (Banneret)
   private int attackTargetPlayerIdx = -1;
   private int attackTargetPositionId = -1;
   private int attackTargetLevel = -1;

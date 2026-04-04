@@ -1,17 +1,17 @@
 package com.mygdx.game.heroes;
 
-public class Major extends Hero {
+public class Marshal extends Hero {
 
   /*
-   * Major increases the number of put/take defense card actions to takeDefCard +
+   * Marshal increases the number of put/take defense card actions to takeDefCard +
    * setDefCard = 3.
    */
 
   private int mobilizations;
 
-  public Major() {
-    heroName = "Major";
-    heroID = "Major";
+  public Marshal() {
+    heroName = "Marshal";
+    heroID = "Marshal";
     sprite = atlas.createSprite("wn", -1);
 
     mobilizations = 3;

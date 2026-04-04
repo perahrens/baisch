@@ -1,15 +1,15 @@
 package com.mygdx.game.heroes;
 
-public class Lieutenant extends Hero {
+public class Banneret extends Hero {
 
   /*
-   * Lieutenant allows two attacking symbols of the same color (hearts + diamonds
+   * Banneret allows two attacking symbols of the same color (hearts + diamonds
    * or spades + clubs)
    */
 
-  public Lieutenant() {
-    heroName = "Lieutenant";
-    heroID = "Lieut.";
+  public Banneret() {
+    heroName = "Banneret";
+    heroID = "Bann.";
     sprite = atlas.createSprite("bn", -1);
 
     isSelectable = false;

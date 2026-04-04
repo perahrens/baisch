@@ -147,8 +147,8 @@ public class OwnDefCardListener extends ClickListener {
           pairedCard = topDefCards.get(slot);
         }
 
-        if (player.hasHero("Lieutenant")) {
-          // Lieutenant: def cards can be used as attackers alongside hand cards.
+        if (player.hasHero("Banneret")) {
+          // Banneret: def cards can be used as attackers alongside hand cards.
           // Allow multi-select — just toggle this def card without disturbing hand cards.
           if (selectedCard.isSelected()) {
             selectedCard.setSelected(false);

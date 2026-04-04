@@ -33,7 +33,7 @@ import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Magician;
-import com.mygdx.game.heroes.Major;
+import com.mygdx.game.heroes.Marshal;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
@@ -1035,7 +1035,7 @@ public class GameScreen extends ScreenAdapter {
             atkPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
-          // Discard own def cards used as attackers (Lieutenant)
+          // Discard own def cards used as attackers (Banneret)
           for (Card c : apt.getPendingAttackOwnDefCards()) {
             int slot = c.getPositionId();
             atkPlayer.getDefCards().remove(slot);
@@ -1693,9 +1693,9 @@ public class GameScreen extends ScreenAdapter {
         handStage.addActor(magCountLabel);
       }
 
-      if (hero.getHeroName() == "Major") {
-        Major major = (Major) hero;
-        String mobCount = major.getMobilizations() + "/3";
+      if (hero.getHeroName() == "Marshal") {
+        Marshal marshal = (Marshal) hero;
+        String mobCount = marshal.getMobilizations() + "/3";
         Label mobCountLabel = new Label(mobCount, MyGdxGame.skin);
         mobCountLabel.setColor(Color.ORANGE);
         mobCountLabel.setPosition(hero.getX() + hero.getWidth() - mobCountLabel.getPrefWidth(), hero.getY());
@@ -1853,15 +1853,15 @@ public class GameScreen extends ScreenAdapter {
       float iconX = handImage.getX() - iconSize - 2f;
       float slot0Y = handImage.getY();              // bottom icon
       float slot1Y = handImage.getY() + iconSize;   // top icon
-      Major majorHero = null;
+      Marshal marshalHero = null;
       for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
-        if (currentPlayer.getHeroes().get(mi).getHeroName() == "Major") {
-          majorHero = (Major) currentPlayer.getHeroes().get(mi);
+        if (currentPlayer.getHeroes().get(mi).getHeroName() == "Marshal") {
+          marshalHero = (Marshal) currentPlayer.getHeroes().get(mi);
           break;
         }
       }
-      boolean showTakeShield = majorHero != null ? majorHero.getMobilizations() > 0 : ptHand.getTakeDefCard() > 0;
-      boolean showPutShield  = majorHero != null ? majorHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0;
+      boolean showTakeShield = marshalHero != null ? marshalHero.getMobilizations() > 0 : ptHand.getTakeDefCard() > 0;
+      boolean showPutShield  = marshalHero != null ? marshalHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0;
       if (showTakeShield) {
         Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
             0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {

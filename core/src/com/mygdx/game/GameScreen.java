@@ -47,12 +47,14 @@ import com.mygdx.game.listeners.HandImageListener;
 import com.mygdx.game.listeners.KeepCardButtonListener;
 import com.mygdx.game.listeners.MercenaryImageListener;
 import com.mygdx.game.listeners.OwnDefCardListener;
+import com.mygdx.game.listeners.EnemyPlaceholderListener;
 import com.mygdx.game.listeners.OwnHandCardListener;
 import com.mygdx.game.listeners.OwnHeroListener;
 import com.mygdx.game.listeners.OwnKingCardListener;
 import com.mygdx.game.listeners.OwnPlaceholderListener;
 import com.mygdx.game.listeners.SabotagedImageListener;
 import com.mygdx.game.listeners.TradeCardButtonListener;
+import com.mygdx.game.heroes.Saboteurs;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 import org.json.JSONException;
@@ -92,6 +94,7 @@ public class GameScreen extends ScreenAdapter {
   private EnemyDefCardListener enemyDefCardListener;
   private EnemyKingCardListener enemyKingCardListener;
   private EnemyHandCardListener enemyHandCardListener;
+  private EnemyPlaceholderListener enemyPlaceholderListener;
 
   // handStage
   private OwnHandCardListener ownHandCardListener;
@@ -748,6 +751,11 @@ public class GameScreen extends ScreenAdapter {
           if (players.get(i) == currentPlayer) {
             ownPlaceholderListener = new OwnPlaceholderListener(defCard, gameState.getCurrentPlayer(), gameState);
             defCard.addListener(ownPlaceholderListener);
+          } else {
+            // Enemy empty slot — add placeholder listener so Saboteurs can place here
+            enemyPlaceholderListener = new EnemyPlaceholderListener(
+                currentPlayer, players.get(i), j, playerIndex, i, gameState, socket);
+            defCard.addListener(enemyPlaceholderListener);
           }
         }
 
@@ -764,7 +772,7 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
-        if (defCard.isSabotaged()) {
+        if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
           sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
@@ -773,7 +781,8 @@ public class GameScreen extends ScreenAdapter {
           sabotagedImage.setX(sabotagedImage.getX() + defCard.getWidth() / 2f - sabotagedImage.getWidth() / 2f);
           sabotagedImage.setY(sabotagedImage.getY() + defCard.getHeight() / 2f - sabotagedImage.getHeight() / 2f);
           removeAllListeners(sabotagedImage);
-          sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer);
+          sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer,
+              players.get(i), j, playerIndex, socket);
           sabotagedImage.addListener(sabotagedImageListener);
           gameStage.addActor(sabotagedImage);
         }
@@ -1739,6 +1748,15 @@ public class GameScreen extends ScreenAdapter {
           handStage.addActor(atkBonusLabel);
         }
       }
+
+      if ("Saboteurs".equals(hero.getHeroName())) {
+        Saboteurs saboteurs = (Saboteurs) hero;
+        String sabCount = saboteurs.countReady() + "/2";
+        Label sabCountLabel = new Label(sabCount, MyGdxGame.skin);
+        sabCountLabel.setColor(Color.RED);
+        sabCountLabel.setPosition(hero.getX() + hero.getWidth() - sabCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(sabCountLabel);
+      }
     }
 
     // Turn info and button
@@ -2017,6 +2035,32 @@ public class GameScreen extends ScreenAdapter {
         // Apply king card covered state and out flag
         p.setOut(pj.optBoolean("isOut", false));
         if (p.getKingCard() != null) p.getKingCard().setCovered(pj.optBoolean("kingCovered", true));
+
+        // Sync slot sabotage state from server-authoritative state
+        for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);
+        JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
+        if (sabotagedJson != null) {
+          Iterator<String> sabKeys = sabotagedJson.keys();
+          while (sabKeys.hasNext()) {
+            String key = sabKeys.next();
+            p.setSlotSabotaged(Integer.parseInt(key), sabotagedJson.getInt(key));
+          }
+        }
+      }
+
+      // Sync local Saboteurs hero active count: count how many slots across all players are
+      // owned by the local player (playerIndex) to keep the hero state consistent with server.
+      int activeSaboCount = 0;
+      for (Player gp : gameState.getPlayers()) {
+        for (int sl = 1; sl <= 3; sl++) {
+          if (gp.getSlotSaboteurOwnerIdx(sl) == playerIndex) activeSaboCount++;
+        }
+      }
+      for (Hero h : currentPlayer.getHeroes()) {
+        if ("Saboteurs".equals(h.getHeroName())) {
+          ((Saboteurs) h).syncFromActiveCount(activeSaboCount);
+          break;
+        }
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)

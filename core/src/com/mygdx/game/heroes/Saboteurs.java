@@ -21,9 +21,9 @@ public class Saboteurs extends Hero {
   public void recover() {
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 2)
-        saboteurStates[0] = 3; // repair saboteur
+        saboteurStates[i] = 3; // repair saboteur (was using index 0 — bug fixed)
       else if (saboteurStates[i] == 3)
-        saboteurStates[0] = 0; // provide repaired saboteur
+        saboteurStates[i] = 0; // provide repaired saboteur
     }
     if (isAvailable()) {
       isReady = true;
@@ -40,6 +40,29 @@ public class Saboteurs extends Hero {
       }
     }
     return isAvailable;
+  }
+
+  /** How many saboteurs are currently ready (state 0). Used for the x/2 indicator. */
+  public int countReady() {
+    int count = 0;
+    for (int state : saboteurStates) {
+      if (state == 0) count++;
+    }
+    return count;
+  }
+
+  /**
+   * Sync hero state from server-authoritative active count.
+   * Called during applyStateUpdate to reconcile deployed saboteurs.
+   */
+  public void syncFromActiveCount(int active) {
+    for (int i = 0; i < saboteurStates.length; i++) saboteurStates[i] = 0;
+    int marked = 0;
+    for (int i = 0; i < saboteurStates.length && marked < active; i++) {
+      saboteurStates[i] = 1;
+      marked++;
+    }
+    isReady = isAvailable();
   }
 
   public void callback() {

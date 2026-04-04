@@ -1891,10 +1891,23 @@ public class GameScreen extends ScreenAdapter {
         JSONObject pj = playersJson.getJSONObject(i);
         Player p = gameState.getPlayers().get(pj.getInt("index"));
 
+        // Save tradeable card ID before clearing (Merchant trade pending)
+        int tradeableCardId = -1;
+        for (Card tc : p.getHandCards()) {
+          if (tc.isTradeable()) { tradeableCardId = tc.getCardId(); break; }
+        }
+
         p.getHandCards().clear();
         JSONArray handJson = pj.getJSONArray("hand");
         for (int h = 0; h < handJson.length(); h++) {
           p.getHandCards().add(Card.fromCardId(handJson.getInt(h)));
+        }
+
+        // Restore tradeable flag after hand rebuild
+        if (tradeableCardId != -1) {
+          for (Card tc : p.getHandCards()) {
+            if (tc.getCardId() == tradeableCardId) { tc.setTradable(true); break; }
+          }
         }
 
         // Save local def covered-state overrides (spy flips) before rebuilding

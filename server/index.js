@@ -230,14 +230,20 @@ io.on('connection', function(socket) {
   // Saboteurs: defender sacrifices their defense card to destroy the saboteur.
   socket.on('sabotageSacrifice', function(data) {
     console.log("sabotageSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
-    gameState.sabotageSacrifice(data.defenderIdx, data.positionId);
+    const attackerIdx = gameState.sabotageSacrifice(data.defenderIdx, data.positionId);
+    if (attackerIdx !== undefined && users[attackerIdx]) {
+      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    }
     io.emit('stateUpdate', gameState.serialize());
   });
 
   // Saboteurs: defender sacrifices a hand card to destroy a saboteur on an empty slot.
   socket.on('sabotageEmptySlotSacrifice', function(data) {
     console.log("sabotageEmptySlotSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId + " card=" + data.handCardId);
-    gameState.sabotageEmptySlotSacrifice(data.defenderIdx, data.positionId, data.handCardId);
+    const attackerIdx = gameState.sabotageEmptySlotSacrifice(data.defenderIdx, data.positionId, data.handCardId);
+    if (attackerIdx !== undefined && users[attackerIdx]) {
+      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    }
     io.emit('stateUpdate', gameState.serialize());
   });
 

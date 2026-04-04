@@ -100,6 +100,7 @@ class GameState {
 
   sabotageSacrifice(defenderIdx, positionId) {
     const p = this.players[defenderIdx];
+    const attackerIdx = p.sabotaged ? p.sabotaged[positionId] : undefined;
     const cardId = p.defCards[positionId];
     if (cardId !== undefined) {
       delete p.defCards[positionId];
@@ -108,15 +109,18 @@ class GameState {
     }
     if (p.sabotaged) delete p.sabotaged[positionId];
     this.pushLog(`P${defenderIdx} sacrificed shield [${positionId}] to destroy saboteur`, false);
+    return attackerIdx;
   }
 
   sabotageEmptySlotSacrifice(defenderIdx, positionId, handCardId) {
     const p = this.players[defenderIdx];
+    const attackerIdx = p.sabotaged ? p.sabotaged[positionId] : undefined;
     const i = p.hand.indexOf(handCardId);
     if (i !== -1) p.hand.splice(i, 1);
     this.cemetery.push(handCardId);
     if (p.sabotaged) delete p.sabotaged[positionId];
     this.pushLog(`P${defenderIdx} sacrificed a card to clear saboteur at [${positionId}]`, false);
+    return attackerIdx;
   }
 
   // ---- Action methods ----

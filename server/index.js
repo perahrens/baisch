@@ -184,6 +184,12 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  // Fortified Tower: stack a hand card on top of an existing defense card.
+  socket.on('fortifiedTowerStack', function(data) {
+    gameState.putTopDefCard(data.playerIdx, data.slot, data.cardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
     socket.broadcast.emit('spyFlip', data);

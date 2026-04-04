@@ -111,6 +111,16 @@ class GameState {
     this.pushLog(`P${playerIdx} placed shield at [${positionId}]`, true, true);
   }
 
+  putTopDefCard(playerIdx, positionId, cardId) {
+    const p = this.players[playerIdx];
+    const i = p.hand.indexOf(cardId);
+    if (i !== -1) p.hand.splice(i, 1);
+    p.topDefCards[positionId] = cardId;
+    if (!p.topDefCardsCovered) p.topDefCardsCovered = {};
+    p.topDefCardsCovered[positionId] = true; // newly stacked card is face-down
+    this.pushLog(`P${playerIdx} fortified shield at [${positionId}]`, true, true);
+  }
+
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
     const p = this.players[playerIdx];
     for (const cardId of cardIds) {

@@ -11,12 +11,13 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.heroes.Hero;
-import com.mygdx.game.heroes.Major;
+import com.mygdx.game.heroes.Marshal;
 
 public class Player {
 
   // inventar
   boolean isAlive;
+  boolean isOut = false;
   String playerName;
   ArrayList<Card> handCards;
   Map<Integer, Card> defCards;
@@ -84,26 +85,35 @@ public class Player {
     });
   }
 
+  public boolean canMobilize() {
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        return ((Marshal) heroes.get(i)).getMobilizations() > 0;
+      }
+    }
+    return playerTurn.getTakeDefCard() > 0 || playerTurn.getPutDefCard() > 0;
+  }
+
   public void takeDefCard(int position) {
     System.out.println("takeDefCard()");
 
-    // check if player has major
-    boolean hasMajor = false;
-    Major major = null;
+    // check if player has Marshal
+    boolean hasMarshal = false;
+    Marshal marshal = null;
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == "Major") {
-        // Major found
-        major = (Major) heroes.get(i);
-        hasMajor = true;
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        // Marshal found
+        marshal = (Marshal) heroes.get(i);
+        hasMarshal = true;
         break;
       }
     }
 
     boolean allowed = false;
-    if (hasMajor) {
-      if (major.getMobilizations() > 0) {
+    if (hasMarshal) {
+      if (marshal.getMobilizations() > 0) {
         allowed = true;
-        major.mobilize();
+        marshal.mobilize();
       }
     } else {
       if (playerTurn.getTakeDefCard() > 0) {
@@ -127,23 +137,23 @@ public class Player {
   public void putDefCard(Integer position, int level) {
     System.out.println("putDefCard()");
 
-    // check if player has major
-    boolean hasMajor = false;
-    Major major = null;
+    // check if player has Marshal
+    boolean hasMarshal = false;
+    Marshal marshal = null;
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == "Major") {
-        // Major found
-        major = (Major) heroes.get(i);
-        hasMajor = true;
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        // Marshal found
+        marshal = (Marshal) heroes.get(i);
+        hasMarshal = true;
         break;
       }
     }
 
     boolean allowed = false;
-    if (hasMajor) {
-      if (major.getMobilizations() > 0) {
+    if (hasMarshal) {
+      if (marshal.getMobilizations() > 0) {
         allowed = true;
-        major.mobilize();
+        marshal.mobilize();
       }
     } else if (level == 1) {
       allowed = true;
@@ -214,7 +224,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard) {
-    // make sum of selected handcards
+    // make sum of selected handcards and selected own def cards (Banneret)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {
@@ -223,6 +233,11 @@ public class Player {
         attackSum += handCard.getStrength();
       }
     }
+    for (Card dc : getSelectedDefCards()) {
+      attackSum += dc.getStrength();
+    }
+    attackSum += playerTurn.getMercenaryAttackBonus();
+    attackSum += playerTurn.getReservistAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = defCard.getStrength();
@@ -236,7 +251,7 @@ public class Player {
   }
 
   public boolean attackEnemyDefense(Card defCard, Card topDefCard) {
-    // make sum of selected handcards
+    // make sum of selected handcards and selected own def cards (Banneret)
     int attackSum = 0;
     Iterator<Card> handCardsIt = handCards.iterator();
     while (handCardsIt.hasNext()) {
@@ -245,6 +260,11 @@ public class Player {
         attackSum += handCard.getStrength();
       }
     }
+    for (Card dc : getSelectedDefCards()) {
+      attackSum += dc.getStrength();
+    }
+    attackSum += playerTurn.getMercenaryAttackBonus();
+    attackSum += playerTurn.getReservistAttackBonus();
 
     // Joker cards have value 1 in defense
     int defenseStrength = 0;
@@ -458,6 +478,14 @@ public class Player {
     this.kingCard = kingCard;
   }
 
+  public boolean isOut() {
+    return isOut;
+  }
+
+  public void setOut(boolean out) {
+    this.isOut = out;
+  }
+
   public Card getLastHandCard() {
     Card card = handCards.get(handCards.size() - 1);
     handCards.remove(handCards.size() - 1);
@@ -485,6 +513,17 @@ public class Player {
       }
     }
     return selectedHandCards;
+  }
+
+  public ArrayList<Card> getSelectedDefCards() {
+    ArrayList<Card> selected = new ArrayList<Card>();
+    for (Card c : defCards.values()) {
+      if (c.isSelected()) selected.add(c);
+    }
+    for (Card c : topDefCards.values()) {
+      if (c.isSelected()) selected.add(c);
+    }
+    return selected;
   }
 
   public ArrayList<Hero> getSelectedHeroes() {
@@ -540,5 +579,11 @@ public class Player {
     }
     return hasHero;
   }
+
+  // Synced Reservists ready count — updated via socket event from the owning client.
+  // Used by other clients to display the Reservists king defence indicator.
+  private int reservistsReadyCount = 0;
+  public int getReservistsReadyCount() { return reservistsReadyCount; }
+  public void setReservistsReadyCount(int v) { reservistsReadyCount = v; }
 
 }

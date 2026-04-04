@@ -32,6 +32,10 @@ public class GameState {
 
   private Socket socket;
 
+  private int winnerIndex = -1;
+  public int getWinnerIndex() { return winnerIndex; }
+  public void setWinnerIndex(int idx) { this.winnerIndex = idx; }
+
   private PickingDeckListener pickingDeckListenerOne;
   private PickingDeckListener pickingDeckListenerTwo;
 
@@ -204,15 +208,10 @@ public class GameState {
     }
   }
 
-  // Assign heroes only (no card manipulation) — mirrors the hero part of doRandomSetup.
+  // Assign heroes only (no card manipulation) — players now start with NO hero.
+  // Hero acquisition happens via joker sacrifice during gameplay.
   private void doHeroSetup(int numPlayers) {
-    int[] heroIndices = {2, 4, 12, 13};
-    for (int i = 0; i < numPlayers; i++) {
-      if (i < heroIndices.length) {
-        Hero hero = heroesSquare.getHero(heroIndices[i]);
-        if (hero != null) players.get(i).addHero(hero);
-      }
-    }
+    // intentionally empty — heroes are earned, not assigned at start
   }
 
   public GameState(int numPlayers, int startCards) {
@@ -278,7 +277,6 @@ public class GameState {
 
   // for tests
   public void doRandomSetup(int numPlayers) {
-    int[] heroIndices = {2, 4, 12, 13};
     for (int i = 0; i < numPlayers; i++) {
       // set kingCard
       players.get(i).setKingCard(players.get(i).getLastHandCard());
@@ -290,11 +288,7 @@ public class GameState {
         players.get(i).addDefCard(j, defCard, 0);
       }
 
-      // add heroes (assign if available)
-      if (i < heroIndices.length) {
-        Hero hero = heroesSquare.getHero(heroIndices[i]);
-        players.get(i).addHero(hero);
-      }
+      // players start with NO hero — heroes are acquired via joker sacrifice
 
       for (int j = 0; j < 2; j++) {
         cemeteryDeck.addCard(players.get(i).getLastHandCard());
@@ -384,6 +378,17 @@ public class GameState {
 
   public void setUpdateState(boolean updateState) {
     this.updateState = updateState;
+  }
+
+  /**
+   * Apply a hero acquisition received from another client via the heroAcquired socket event.
+   * Consumes the named hero from the HeroesSquare pool and adds it to the player.
+   */
+  public void applyHeroAcquired(int playerIdx, String heroName) {
+    Hero hero = heroesSquare.consumeHeroByName(heroName);
+    if (hero != null && playerIdx >= 0 && playerIdx < players.size()) {
+      players.get(playerIdx).addHero(hero);
+    }
   }
 
 }

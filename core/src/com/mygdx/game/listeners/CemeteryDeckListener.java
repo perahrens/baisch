@@ -1,5 +1,6 @@
 package com.mygdx.game.listeners;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 
 import org.json.JSONArray;
@@ -66,6 +67,35 @@ public class CemeteryDeckListener extends ClickListener {
           gameState.setUpdateState(true);
         }
       }
+    } else if (currentPlayer.getSelectedDefCards().size() > 0) {
+      ArrayList<Card> selDef = currentPlayer.getSelectedDefCards();
+      JSONArray slotsJson = new JSONArray();
+      for (int i = 0; i < selDef.size(); i++) {
+        Card c = selDef.get(i);
+        int slot = c.getPositionId();
+        boolean isTop = c.getLevel() == 1;
+        cemeteryDeck.addCard(c);
+        if (isTop) {
+          currentPlayer.getTopDefCards().remove(slot);
+        } else {
+          currentPlayer.getDefCards().remove(slot);
+        }
+        try {
+          JSONObject slotObj = new JSONObject();
+          slotObj.put("slot", slot);
+          slotObj.put("isTop", isTop);
+          slotsJson.put(slotObj);
+        } catch (Exception ex) { ex.printStackTrace(); }
+      }
+      if (gameState.getSocket() != null) {
+        try {
+          JSONObject payload = new JSONObject();
+          payload.put("playerIdx", gameState.getPlayers().indexOf(currentPlayer));
+          payload.put("slots", slotsJson);
+          gameState.getSocket().emit("discardDefCards", payload);
+        } catch (Exception e) { e.printStackTrace(); }
+      }
+      gameState.setUpdateState(true);
     }
   }
 

@@ -2,7 +2,7 @@ package com.mygdx.game.heroes;
 
 public class Saboteurs extends Hero {
 
-  // (0) ready (1) active (2) destroyed (3) repaired
+  // (0) ready (1) active (2) destroyed (3) reviving — 2 turns to recover
   private int[] saboteurStates = { 0, 0 };
 
   public Saboteurs() {
@@ -20,10 +20,10 @@ public class Saboteurs extends Hero {
   @Override
   public void recover() {
     for (int i = 0; i < saboteurStates.length; i++) {
-      if (saboteurStates[i] == 2)
-        saboteurStates[0] = 3; // repair saboteur
-      else if (saboteurStates[i] == 3)
-        saboteurStates[0] = 0; // provide repaired saboteur
+      if (saboteurStates[i] == 3)
+        saboteurStates[i] = 0; // reviving -> ready (usable this turn)
+      else if (saboteurStates[i] == 2)
+        saboteurStates[i] = 3; // destroyed -> reviving (1 turn spent)
     }
     if (isAvailable()) {
       isReady = true;
@@ -40,6 +40,45 @@ public class Saboteurs extends Hero {
       }
     }
     return isAvailable;
+  }
+
+  /** How many saboteurs are currently ready (state 0). Used for the x/2 indicator. */
+  public int countReady() {
+    int count = 0;
+    for (int state : saboteurStates) {
+      if (state == 0) count++;
+    }
+    return count;
+  }
+
+  /** How many saboteurs are currently recovering (states 2 or 3). */
+  public int countRecovering() {
+    int count = 0;
+    for (int state : saboteurStates) {
+      if (state == 2 || state == 3) count++;
+    }
+    return count;
+  }
+
+  /**
+   * Sync hero state from server-authoritative active count.
+   * Called during applyStateUpdate to reconcile deployed saboteurs.
+   * Preserves state 2 (recovering) — those are local turn state not tracked by server.
+   */
+  public void syncFromActiveCount(int active) {
+    // Reset deployed (state 1) only; leave recovering (states 2/3) intact
+    for (int i = 0; i < saboteurStates.length; i++) {
+      if (saboteurStates[i] == 1) saboteurStates[i] = 0;
+    }
+    // Re-mark deployed saboteurs as active, only filling ready slots
+    int marked = 0;
+    for (int i = 0; i < saboteurStates.length && marked < active; i++) {
+      if (saboteurStates[i] == 0) {
+        saboteurStates[i] = 1;
+        marked++;
+      }
+    }
+    isReady = isAvailable();
   }
 
   public void callback() {

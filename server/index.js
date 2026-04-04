@@ -123,6 +123,12 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  socket.on('discardDefCards', function(data) {
+    console.log("discardDefCards: playerIdx=" + data.playerIdx);
+    gameState.discardDefCards(data.playerIdx, data.slots || []);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   socket.on('plunderResolved', function(data) {
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
@@ -211,6 +217,47 @@ io.on('connection', function(socket) {
   });
   socket.on('batteryDenyAttack', function(data) {
     socket.broadcast.emit('batteryDenyAttack', data);
+  });
+
+  // Priest: attacker takes a matching card from an enemy's hand.
+  socket.on('priestConvert', function(data) {
+    console.log("priestConvert: attackerIdx=" + data.attackerIdx + " targetIdx=" + data.targetPlayerIdx + " cardId=" + data.cardId);
+    gameState.priestConvert(data.attackerIdx, data.targetPlayerIdx, data.cardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Saboteurs: place a saboteur on an enemy defense slot (card or empty field).
+  socket.on('sabotage', function(data) {
+    console.log("sabotage: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
+    gameState.sabotage(data.attackerIdx, data.defenderIdx, data.positionId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Saboteurs: owner recalls a saboteur from an enemy slot.
+  socket.on('sabotageCallback', function(data) {
+    console.log("sabotageCallback: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
+    gameState.sabotageCallback(data.attackerIdx, data.defenderIdx, data.positionId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Saboteurs: defender sacrifices their defense card to destroy the saboteur.
+  socket.on('sabotageSacrifice', function(data) {
+    console.log("sabotageSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
+    const attackerIdx = gameState.sabotageSacrifice(data.defenderIdx, data.positionId);
+    if (attackerIdx !== undefined && users[attackerIdx]) {
+      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    }
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
+  // Saboteurs: defender sacrifices a hand card to destroy a saboteur on an empty slot.
+  socket.on('sabotageEmptySlotSacrifice', function(data) {
+    console.log("sabotageEmptySlotSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId + " card=" + data.handCardId);
+    const attackerIdx = gameState.sabotageEmptySlotSacrifice(data.defenderIdx, data.positionId, data.handCardId);
+    if (attackerIdx !== undefined && users[attackerIdx]) {
+      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    }
+    io.emit('stateUpdate', gameState.serialize());
   });
 
   users.push(new user(socket.id));

@@ -37,6 +37,7 @@ import com.mygdx.game.heroes.Marshal;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
+import com.mygdx.game.heroes.Priest;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
 import com.mygdx.game.listeners.EnemyDefCardListener;
@@ -47,12 +48,14 @@ import com.mygdx.game.listeners.HandImageListener;
 import com.mygdx.game.listeners.KeepCardButtonListener;
 import com.mygdx.game.listeners.MercenaryImageListener;
 import com.mygdx.game.listeners.OwnDefCardListener;
+import com.mygdx.game.listeners.EnemyPlaceholderListener;
 import com.mygdx.game.listeners.OwnHandCardListener;
 import com.mygdx.game.listeners.OwnHeroListener;
 import com.mygdx.game.listeners.OwnKingCardListener;
 import com.mygdx.game.listeners.OwnPlaceholderListener;
 import com.mygdx.game.listeners.SabotagedImageListener;
 import com.mygdx.game.listeners.TradeCardButtonListener;
+import com.mygdx.game.heroes.Saboteurs;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 import org.json.JSONException;
@@ -92,6 +95,7 @@ public class GameScreen extends ScreenAdapter {
   private EnemyDefCardListener enemyDefCardListener;
   private EnemyKingCardListener enemyKingCardListener;
   private EnemyHandCardListener enemyHandCardListener;
+  private EnemyPlaceholderListener enemyPlaceholderListener;
 
   // handStage
   private OwnHandCardListener ownHandCardListener;
@@ -212,6 +216,26 @@ public class GameScreen extends ScreenAdapter {
             } catch (JSONException e) {
               e.printStackTrace();
             }
+          }
+        });
+      }
+    });
+
+    // Server notifies us that one of our deployed saboteurs was destroyed by the enemy.
+    // Mark it as destroyed (state 2) so the recovery clock starts.
+    socket.on("saboteurDestroyed", new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            for (Hero h : currentPlayer.getHeroes()) {
+              if ("Saboteurs".equals(h.getHeroName())) {
+                ((Saboteurs) h).destroy();
+                break;
+              }
+            }
+            gameState.setUpdateState(true);
           }
         });
       }
@@ -629,7 +653,7 @@ public class GameScreen extends ScreenAdapter {
           handCard.setPosition(deckX + j * 0.3f, deckY + j * 0.3f);
           handCard.removeAllListeners();
           enemyHandCardListener = new EnemyHandCardListener(handCard, gameState.getCurrentPlayer(),
-              gameState.getPlayers());
+              gameState.getPlayers(), i, gameState);
           handCard.addListener(enemyHandCardListener);
           gameStage.addActor(handCard);
         }
@@ -748,6 +772,11 @@ public class GameScreen extends ScreenAdapter {
           if (players.get(i) == currentPlayer) {
             ownPlaceholderListener = new OwnPlaceholderListener(defCard, gameState.getCurrentPlayer(), gameState);
             defCard.addListener(ownPlaceholderListener);
+          } else {
+            // Enemy empty slot — add placeholder listener so Saboteurs can place here
+            enemyPlaceholderListener = new EnemyPlaceholderListener(
+                currentPlayer, players.get(i), j, playerIndex, i, gameState, socket);
+            defCard.addListener(enemyPlaceholderListener);
           }
         }
 
@@ -764,7 +793,7 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
-        if (defCard.isSabotaged()) {
+        if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
           sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
@@ -773,7 +802,8 @@ public class GameScreen extends ScreenAdapter {
           sabotagedImage.setX(sabotagedImage.getX() + defCard.getWidth() / 2f - sabotagedImage.getWidth() / 2f);
           sabotagedImage.setY(sabotagedImage.getY() + defCard.getHeight() / 2f - sabotagedImage.getHeight() / 2f);
           removeAllListeners(sabotagedImage);
-          sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer);
+          sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer,
+              players.get(i), j, playerIndex, socket);
           sabotagedImage.addListener(sabotagedImageListener);
           gameStage.addActor(sabotagedImage);
         }
@@ -1544,6 +1574,141 @@ public class GameScreen extends ScreenAdapter {
           revealCard.getY() + revealCard.getHeight() + 2f);
       gameStage.addActor(revealLabel);
     }
+
+    // Priest overlay — shown when the current player opens an enemy hand to pick a card
+    final int priestTarget = gameState.getPriestTargetPlayerIdx();
+    if (priestTarget >= 0 && priestTarget < players.size() && priestTarget != playerIndex) {
+      final Player priestCurrentPlayer = currentPlayer;
+      final ArrayList<Player> priestPlayers = players;
+      final Priest priest;
+      Priest priestTmp = null;
+      for (Hero h : currentPlayer.getHeroes()) {
+        if ("Priest".equals(h.getHeroName())) { priestTmp = (Priest) h; break; }
+      }
+      priest = priestTmp;
+      if (priest != null) {
+        final ArrayList<Card> targetHand = players.get(priestTarget).getHandCards();
+        final int revealedId = gameState.getPriestRevealedCardId();
+
+        // dark overlay
+        Image priestBg = new Image(MyGdxGame.skin, "white");
+        priestBg.setFillParent(true);
+        priestBg.setColor(0f, 0f, 0f, 0.78f);
+        gameStage.addActor(priestBg);
+
+        String prompt = revealedId < 0
+            ? "Priest: pick a card (" + priest.getConversionAttempts() + " tr" + (priest.getConversionAttempts() == 1 ? "y" : "ies") + " left)"
+            : "No match!";
+        Label promptLbl = new Label(prompt, MyGdxGame.skin);
+        promptLbl.setColor(revealedId < 0 ? Color.GOLD : Color.RED);
+        promptLbl.setPosition(
+            MyGdxGame.WIDTH / 2f - promptLbl.getPrefWidth() / 2f,
+            MyGdxGame.WIDTH * 0.72f);
+        gameStage.addActor(promptLbl);
+
+        // Lay out cards in a row
+        int n = Math.max(targetHand.size(), 1);
+        float pCardW = Math.min(55f, (MyGdxGame.WIDTH - 20f) / n - 5f);
+        float pCardH = pCardW * 1.4f;
+        float spacing = 5f;
+        float totalW = targetHand.size() * (pCardW + spacing) - spacing;
+        float startX = MyGdxGame.WIDTH / 2f - totalW / 2f;
+        float cardRowY = MyGdxGame.WIDTH / 2f - pCardH / 2f;
+
+        for (int ci = 0; ci < targetHand.size(); ci++) {
+          final Card tc = targetHand.get(ci);
+          Card display = Card.fromCardId(tc.getCardId());
+          display.setSize(pCardW, pCardH);
+          display.setPosition(startX + ci * (pCardW + spacing), cardRowY);
+
+          if (revealedId < 0) {
+            // face-down, clickable
+            display.setCovered(true);
+            display.setActive(false);
+            display.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                String atkSym = priestCurrentPlayer.getPlayerTurn().getAttackingSymbol()[0];
+                priest.conversionAttempt();
+                if (atkSym.equals(tc.getSymbol()) || "joker".equals(tc.getSymbol())) {
+                  // Success
+                  priest.conversion();
+                  Iterator<Card> it = priestPlayers.get(priestTarget).getHandCards().iterator();
+                  while (it.hasNext()) { if (it.next() == tc) { it.remove(); break; } }
+                  priestCurrentPlayer.addHandCard(tc);
+                  emitPriestConvert(priestTarget, tc.getCardId());
+                  gameState.setPriestTargetPlayerIdx(-1);
+                  gameState.setPriestRevealedCardId(-1);
+                } else {
+                  // Miss — reveal it
+                  gameState.setPriestRevealedCardId(tc.getCardId());
+                }
+                gameState.setUpdateState(true);
+              }
+            });
+          } else {
+            // show the revealed card face-up, rest face-down
+            if (tc.getCardId() == revealedId) {
+              display.setCovered(false);
+              display.setActive(true);
+            } else {
+              display.setCovered(true);
+              display.setActive(false);
+            }
+          }
+          gameStage.addActor(display);
+        }
+
+        // Buttons below the cards
+        float btnY = cardRowY - 55f;
+        float btnW = 120f;
+        if (revealedId >= 0) {
+          if (priest.getConversionAttempts() > 0) {
+            TextButton tryAgainBtn = new TextButton("Try again", MyGdxGame.skin);
+            tryAgainBtn.setSize(btnW, 45f);
+            tryAgainBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW / 2f, btnY);
+            tryAgainBtn.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                gameState.setPriestRevealedCardId(-1);
+                gameState.setPriestTargetPlayerIdx(-1);
+                gameState.setUpdateState(true);
+              }
+            });
+            gameStage.addActor(tryAgainBtn);
+          } else {
+            // No more attempts
+            TextButton doneBtn = new TextButton("Done", MyGdxGame.skin);
+            doneBtn.setSize(btnW, 45f);
+            doneBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW / 2f, btnY);
+            doneBtn.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                priest.setSelectable(false);
+                priest.setSelected(false);
+                gameState.setPriestRevealedCardId(-1);
+                gameState.setPriestTargetPlayerIdx(-1);
+                gameState.setUpdateState(true);
+              }
+            });
+            gameStage.addActor(doneBtn);
+          }
+        } else {
+          // Still in selection phase — offer cancel
+          TextButton cancelBtn = new TextButton("Cancel", MyGdxGame.skin);
+          cancelBtn.setSize(btnW, 45f);
+          cancelBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW / 2f, btnY);
+          cancelBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              gameState.setPriestTargetPlayerIdx(-1);
+              gameState.setUpdateState(true);
+            }
+          });
+          gameStage.addActor(cancelBtn);
+        }
+      }
+    }
   }
 
   public void showHandStage(ArrayList<Player> players, Player currentPlayer) {
@@ -1622,7 +1787,9 @@ public class GameScreen extends ScreenAdapter {
       hero.setPosition(j * hero.getWidth(), 0);
 
       if (hero.getHeroName() == "Priest") {
-        if (gameState.getCurrentPlayer().getPlayerTurn().getAttackingSymbol()[0] != "none") {
+        Priest priestHero = (Priest) hero;
+        PlayerTurn priestPt = gameState.getCurrentPlayer().getPlayerTurn();
+        if (priestHero.getConversionAttempts() > 0 && !"none".equals(priestPt.getAttackingSymbol()[0])) {
           hero.setSelectable(true);
         } else {
           hero.setSelectable(false);
@@ -1655,6 +1822,14 @@ public class GameScreen extends ScreenAdapter {
         btCountLabel.setColor(Color.YELLOW);
         btCountLabel.setPosition(hero.getX() + hero.getWidth() - btCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(btCountLabel);
+      }
+
+      if (hero.getHeroName() == "Priest") {
+        Priest priest = (Priest) hero;
+        Label priestCountLabel = new Label(priest.getConversionAttempts() + "/2", MyGdxGame.skin);
+        priestCountLabel.setColor(Color.CYAN);
+        priestCountLabel.setPosition(hero.getX() + hero.getWidth() - priestCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(priestCountLabel);
       }
 
       if ("Warlord".equals(hero.getHeroName())) {
@@ -1737,6 +1912,23 @@ public class GameScreen extends ScreenAdapter {
           atkBonusLabel.setPosition(hero.getX() + hero.getWidth() - atkBonusLabel.getPrefWidth(),
               hero.getY() + readyCountLabel.getPrefHeight() + 2f);
           handStage.addActor(atkBonusLabel);
+        }
+      }
+
+      if ("Saboteurs".equals(hero.getHeroName())) {
+        Saboteurs saboteurs = (Saboteurs) hero;
+        String sabCount = saboteurs.countReady() + "/2";
+        Label sabCountLabel = new Label(sabCount, MyGdxGame.skin);
+        sabCountLabel.setColor(Color.RED);
+        sabCountLabel.setPosition(hero.getX() + hero.getWidth() - sabCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(sabCountLabel);
+        int recovering = saboteurs.countRecovering();
+        if (recovering > 0) {
+          Label recLabel = new Label(String.valueOf(recovering), MyGdxGame.skin);
+          recLabel.setColor(Color.ORANGE);
+          recLabel.setPosition(hero.getX() + hero.getWidth() - recLabel.getPrefWidth(),
+              hero.getY() + sabCountLabel.getPrefHeight() + 2f);
+          handStage.addActor(recLabel);
         }
       }
     }
@@ -1887,6 +2079,17 @@ public class GameScreen extends ScreenAdapter {
     handStage.addActor(finishTurnButton);
   }
 
+  private void emitPriestConvert(int targetPlayerIdx, int cardId) {
+    if (socket == null) return;
+    try {
+      org.json.JSONObject data = new org.json.JSONObject();
+      data.put("attackerIdx", playerIndex);
+      data.put("targetPlayerIdx", targetPlayerIdx);
+      data.put("cardId", cardId);
+      socket.emit("priestConvert", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
   private void emitReservistsKingBoost(int count) {
     if (socket == null) return;
     try {
@@ -2017,6 +2220,32 @@ public class GameScreen extends ScreenAdapter {
         // Apply king card covered state and out flag
         p.setOut(pj.optBoolean("isOut", false));
         if (p.getKingCard() != null) p.getKingCard().setCovered(pj.optBoolean("kingCovered", true));
+
+        // Sync slot sabotage state from server-authoritative state
+        for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);
+        JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
+        if (sabotagedJson != null) {
+          Iterator<String> sabKeys = sabotagedJson.keys();
+          while (sabKeys.hasNext()) {
+            String key = sabKeys.next();
+            p.setSlotSabotaged(Integer.parseInt(key), sabotagedJson.getInt(key));
+          }
+        }
+      }
+
+      // Sync local Saboteurs hero active count: count how many slots across all players are
+      // owned by the local player (playerIndex) to keep the hero state consistent with server.
+      int activeSaboCount = 0;
+      for (Player gp : gameState.getPlayers()) {
+        for (int sl = 1; sl <= 3; sl++) {
+          if (gp.getSlotSaboteurOwnerIdx(sl) == playerIndex) activeSaboCount++;
+        }
+      }
+      for (Hero h : currentPlayer.getHeroes()) {
+        if ("Saboteurs".equals(h.getHeroName())) {
+          ((Saboteurs) h).syncFromActiveCount(activeSaboCount);
+          break;
+        }
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)

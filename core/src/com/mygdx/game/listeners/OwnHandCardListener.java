@@ -11,6 +11,10 @@ import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.heroes.Warlord;
+import io.socket.client.Socket;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class OwnHandCardListener extends ClickListener {
 
@@ -19,6 +23,8 @@ public class OwnHandCardListener extends ClickListener {
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
   GameState gameState;
+  Socket socket;
+  int playerIdx;
 
   public OwnHandCardListener() {}
 
@@ -34,8 +40,45 @@ public class OwnHandCardListener extends ClickListener {
     this.gameState = gameState;
   }
 
+  public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck, GameState gameState,
+      Socket socket, int playerIdx) {
+    this(handCard, player, cardDeck, cemeteryDeck, gameState);
+    this.socket = socket;
+    this.playerIdx = playerIdx;
+  }
+
   @Override
   public void clicked(InputEvent event, float x, float y) {
+
+    // Warlord king swap: if own king is selected, swap it with this hand card
+    // Costs 1 take + 1 put action
+    if (player.getKingCard() != null && player.getKingCard().isSelected()) {
+      if (player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
+        Card oldKing = player.getKingCard();
+        Card newKing = handCard;
+        // Swap locally
+        player.setKingCard(newKing);
+        player.getHandCards().remove(newKing);
+        player.addHandCard(oldKing);
+        // Deselect king
+        player.getKingCard().setSelected(false);
+        // Consume actions
+        player.getPlayerTurn().decreaseTakeDefCard();
+        player.getPlayerTurn().decreasePutDefCard();
+        // Sync to server
+        if (socket != null) {
+          try {
+            JSONObject data = new JSONObject();
+            data.put("playerIdx", playerIdx);
+            data.put("oldKingCardId", oldKing.getCardId());
+            data.put("newKingCardId", newKing.getCardId());
+            socket.emit("warlordKingSwap", data);
+          } catch (JSONException e) { e.printStackTrace(); }
+        }
+        if (gameState != null) gameState.setUpdateState(true);
+      }
+      return;
+    }
 
     // check hero functions on hand cards (Spy, Merchant — but NOT Mercenaries here;
     // Mercenaries attack bonus is added by clicking the hero while hand cards are selected)

@@ -166,6 +166,12 @@ io.on('connection', function(socket) {
     socket.broadcast.emit('reservistsKingBoost', data);
   });
 
+  // Warlord: swap king card with a hand card (costs 1 take + 1 put).
+  socket.on('warlordKingSwap', function(data) {
+    gameState.warlordKingSwap(data.playerIdx, data.oldKingCardId, data.newKingCardId);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
     socket.broadcast.emit('spyFlip', data);

@@ -246,6 +246,16 @@ class GameState {
     }
   }
 
+  warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
+    const p = this.players[playerIdx];
+    const handIdx = p.hand.indexOf(newKingCardId);
+    if (handIdx === -1) return;
+    p.hand.splice(handIdx, 1);
+    p.hand.push(oldKingCardId);
+    p.kingCard = newKingCardId;
+    this.pushLog(`P${playerIdx} swapped king (Warlord)`, true, true);
+  }
+
   serialize() {
     return {
       currentPlayerIndex: this.currentPlayerIndex,

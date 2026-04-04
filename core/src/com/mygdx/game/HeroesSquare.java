@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Hero;
-import com.mygdx.game.heroes.King;
 import com.mygdx.game.heroes.Lieutenant;
 import com.mygdx.game.heroes.Magician;
 import com.mygdx.game.heroes.Major;
@@ -14,6 +13,7 @@ import com.mygdx.game.heroes.Priest;
 import com.mygdx.game.heroes.Reservists;
 import com.mygdx.game.heroes.Saboteurs;
 import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.heroes.Warlord;
 
 public class HeroesSquare {
 	
@@ -31,7 +31,7 @@ public class HeroesSquare {
 	private Saboteurs saboteurs;
 	private FortifiedTower fortifiedTower;
 	private Magician magician;
-	private King king;
+	private Warlord warlord;
 	
 	public HeroesSquare() {
 		//white heroes
@@ -48,7 +48,7 @@ public class HeroesSquare {
 		saboteurs = new Saboteurs();
 		fortifiedTower = new FortifiedTower();
 		magician = new Magician();
-		king = new King();
+		warlord = new Warlord();
 	}
 	
 	public Hero getHero(int index) {
@@ -99,8 +99,8 @@ public class HeroesSquare {
 			magician = null;
 			break;
 		case 13:
-			hero = king;
-			king = null;
+			hero = warlord;
+			warlord = null;
 			break;
 		default:
 			break;
@@ -145,7 +145,7 @@ public class HeroesSquare {
 			magician = new Magician();
 			break;
 		case 13:
-			king = new King();
+			warlord = new Warlord();
 			break;
 		default:
 			break;
@@ -171,7 +171,7 @@ public class HeroesSquare {
 			case 10: return getHero(9);   // Lieutenant (internal index 9)
 			case 11: return getHero(11);  // FortifiedTower
 			case 12: return getHero(12);  // Magician
-			case 13: return getHero(13);  // King / Warlord
+			case 13: return getHero(13);  // Warlord (Black King)
 			default: return null;
 		}
 	}
@@ -190,7 +190,7 @@ public class HeroesSquare {
 			case 10: return saboteurs;
 			case 11: return fortifiedTower;
 			case 12: return magician;
-			case 13: return king;
+			case 13: return warlord;
 			default: return null;
 		}
 	}
@@ -218,7 +218,7 @@ public class HeroesSquare {
 		return list;
 	}
 
-	/** All still-available black heroes (Reservists, Saboteurs, Lieutenant, FortifiedTower, Magician, King). */
+	/** All still-available black heroes (Reservists, Saboteurs, Lieutenant, FortifiedTower, Magician, Warlord). */
 	public ArrayList<Hero> getAvailableBlackHeroes() {
 		ArrayList<Hero> list = new ArrayList<Hero>();
 		if (reservists != null)    list.add(reservists);
@@ -226,7 +226,7 @@ public class HeroesSquare {
 		if (lieutenant != null)    list.add(lieutenant);
 		if (fortifiedTower != null) list.add(fortifiedTower);
 		if (magician != null)      list.add(magician);
-		if (king != null)          list.add(king);
+		if (warlord != null)       list.add(warlord);
 		return list;
 	}
 

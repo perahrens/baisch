@@ -35,6 +35,7 @@ import com.mygdx.game.heroes.Major;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
 import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.heroes.Warlord;
 import com.mygdx.game.listeners.EnemyDefCardListener;
 import com.mygdx.game.listeners.EnemyHandCardListener;
 import com.mygdx.game.listeners.EnemyKingCardListener;
@@ -1454,7 +1455,7 @@ public class GameScreen extends ScreenAdapter {
           boolean isDeniedCard = gameState.getCurrentPlayer().getPlayerTurn().getBatteryDeniedAttackCardIds().contains(handCard.getCardId());
           if (!isDeniedCard) {
             ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
-                gameState.getCemeteryDeck(), gameState);
+                gameState.getCemeteryDeck(), gameState, socket, playerIndex);
             handCard.addListener(ownHandCardListener);
           }
           handCards.get(j).setActive(false);
@@ -1572,6 +1573,15 @@ public class GameScreen extends ScreenAdapter {
         btCountLabel.setColor(Color.YELLOW);
         btCountLabel.setPosition(hero.getX() + hero.getWidth() - btCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(btCountLabel);
+      }
+
+      if ("Warlord".equals(hero.getHeroName())) {
+        Warlord warlord = (Warlord) hero;
+        String atkCount = warlord.getAttacks() + "/1";
+        Label warlordCountLabel = new Label(atkCount, MyGdxGame.skin);
+        warlordCountLabel.setColor(Color.ORANGE);
+        warlordCountLabel.setPosition(hero.getX() + hero.getWidth() - warlordCountLabel.getPrefWidth(), hero.getY());
+        handStage.addActor(warlordCountLabel);
       }
 
       if (hero.getHeroName() == "Major") {

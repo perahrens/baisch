@@ -14,6 +14,7 @@ import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
+import com.mygdx.game.heroes.Warlord;
 import io.socket.client.Socket;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -118,8 +119,28 @@ public class EnemyDefCardListener extends ClickListener {
 
     // King can only be used once per turn
     if (kingSelected && pt.isKingUsedThisTurn()) return;
-    // King can only be used when the player has no defense cards
-    if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
+    // King can only be used when the player has no defense cards,
+    // UNLESS the Warlord hero is selected (Warlord bypasses this restriction)
+    boolean warlordAttack = false;
+    for (Hero wh : player.getHeroes()) {
+      if ("Warlord".equals(wh.getHeroName()) && wh.isSelected()) {
+        warlordAttack = true;
+        break;
+      }
+    }
+    if (warlordAttack) {
+      // Warlord action: force king as attacker, clear any hand card selections
+      kingSelected = true;
+      for (Card hc : player.getHandCards()) hc.setSelected(false);
+      // Guard: Warlord's charge must be available
+      Warlord warlord = null;
+      for (Hero wh : player.getHeroes()) {
+        if ("Warlord".equals(wh.getHeroName())) { warlord = (Warlord) wh; break; }
+      }
+      if (warlord == null || !warlord.isAttackAvailable()) return;
+    } else {
+      if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
+    }
 
     // Symbol constraint — joker bypasses; other cards must match the set symbol
     String attackSymbol = kingSelected ? player.getKingCard().getSymbol() : player.getSelectedHandCards().get(0).getSymbol();
@@ -191,6 +212,16 @@ public class EnemyDefCardListener extends ClickListener {
     }
 
     pt.setAttackPending(true);
+
+    // Consume Warlord charge after attack is committed
+    if (warlordAttack) {
+      for (Hero wh : player.getHeroes()) {
+        if ("Warlord".equals(wh.getHeroName())) {
+          ((Warlord) wh).useAttack();
+          break;
+        }
+      }
+    }
 
     // Always notify the defender so they can intercept with Battery Tower if they have one.
     // The defender's side auto-allows (emits batteryAllowAttack) if they have no Battery Tower.

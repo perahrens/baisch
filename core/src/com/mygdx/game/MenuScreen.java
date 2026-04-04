@@ -98,7 +98,7 @@ public class MenuScreen extends AbstractScreen {
     heroNames.add("Saboteurs");
     heroNames.add("Fortified Tower");
     heroNames.add("Magician");
-    heroNames.add("King");
+    heroNames.add("Warlord");
 
     heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
     heroSelectBox.setItems(heroNames);

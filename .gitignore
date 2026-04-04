@@ -1,3 +1,7 @@
+## Project-specific
+RESTORE_CHAT_SESSIONS.md
+restore_vscode_chat_sessions.py
+
 ## Java
 
 *.class

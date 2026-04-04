@@ -1,7 +1,5 @@
 package com.mygdx.game.listeners;
 
-import java.util.Iterator;
-
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
@@ -106,36 +104,36 @@ public class OwnHandCardListener extends ClickListener {
           return;
         } else if (player.getHeroes().get(i).getHeroName() == "Merchant" && player.getHeroes().get(i).isSelected()) {
           Merchant merchant = (Merchant) player.getHeroes().get(i);
-          if (player.getSelectedHandCards().size() == 1 && merchant.getTrades() > 0) {
-            int discardedCardId = -1;
-            Iterator<Card> handCardIt = player.getHandCards().iterator();
-            while (handCardIt.hasNext()) {
-              Card currCard = handCardIt.next();
-              if (currCard.isSelected()) {
-                discardedCardId = currCard.getCardId();
-                cemeteryDeck.addCard(currCard);
-                handCardIt.remove();
-              }
-            }
+          if (merchant.getTrades() > 0) {
+            // Trade the clicked hand card directly
+            int discardedCardId = handCard.getCardId();
+            cemeteryDeck.addCard(handCard);
+            player.getHandCards().remove(handCard);
 
-            // get new card from deck
+            // draw replacement card
             merchant.trade();
             Card newCard = cardDeck.getCard(cemeteryDeck);
-            player.addHandCard(newCard);
+            boolean isJoker = "joker".equals(newCard.getSymbol());
+            if (isJoker) {
+              // Joker on 1st draw: keep it (no 2nd try required for first draw joker)
+              player.addHandCard(newCard);
+            } else {
+              player.addHandCard(newCard);
+            }
             newCard.setTradable(true);
 
-            final int fDiscardedCardId = discardedCardId;
-            if (socket != null && fDiscardedCardId != -1) {
+            if (socket != null) {
               try {
                 JSONObject data = new JSONObject();
                 data.put("playerIdx", playerIdx);
-                data.put("discardedCardId", fDiscardedCardId);
+                data.put("discardedCardId", discardedCardId);
                 data.put("drawnCardId", newCard.getCardId());
                 socket.emit("merchantTrade", data);
               } catch (JSONException e) { e.printStackTrace(); }
             }
             if (gameState != null) gameState.setUpdateState(true);
           }
+          return;
         }
       }
     } else {

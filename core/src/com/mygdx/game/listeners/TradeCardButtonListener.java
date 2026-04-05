@@ -6,9 +6,9 @@ import com.mygdx.game.Card;
 import com.mygdx.game.CardDeck;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
-import io.socket.client.Socket;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 public class TradeCardButtonListener extends ClickListener {
 
@@ -17,11 +17,11 @@ public class TradeCardButtonListener extends ClickListener {
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
   GameState gameState;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
 
   public TradeCardButtonListener(Card tradeableCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck,
-      GameState gameState, Socket socket, int playerIdx) {
+      GameState gameState, SocketClient socket, int playerIdx) {
     this.tradeableCard = tradeableCard;
     this.player = player;
     this.cardDeck = cardDeck;

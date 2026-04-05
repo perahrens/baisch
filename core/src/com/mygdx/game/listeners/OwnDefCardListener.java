@@ -3,8 +3,8 @@ package com.mygdx.game.listeners;
 import java.util.ArrayList;
 import java.util.Map;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -15,7 +15,7 @@ import com.mygdx.game.heroes.FortifiedTower;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 public class OwnDefCardListener extends ClickListener {
 
@@ -28,7 +28,7 @@ public class OwnDefCardListener extends ClickListener {
   Map<Integer, Card> topDefCards;
   ArrayList<Player> players;
   Player player;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
 
   public OwnDefCardListener() {
@@ -48,7 +48,7 @@ public class OwnDefCardListener extends ClickListener {
 
   public OwnDefCardListener(GameState gameState, Card selectedCard, Card kingCard, Map<Integer, Card> defCards,
       Map<Integer, Card> topDefCards, ArrayList<Card> handCards, Player player, ArrayList<Player> players,
-      Socket socket, int playerIdx) {
+      SocketClient socket, int playerIdx) {
     this(gameState, selectedCard, kingCard, defCards, topDefCards, handCards, player, players);
     this.socket = socket;
     this.playerIdx = playerIdx;

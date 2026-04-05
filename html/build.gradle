@@ -1,5 +1,11 @@
+// Force gwt-user 2.8.2 — gdx-backend-gwt:1.9.8 pulls in gwt-user:2.8.0 which lacks
+// the no-arg RegexFilter() constructor that gwt-dev-2.8.2's WhitelistRegexFilter needs.
+configurations.all {
+    resolutionStrategy.force 'com.google.gwt:gwt-user:2.8.2'
+}
+
 gwt {
-    gwtVersion='2.8.0' // Should match the gwt version used for building the gwt backend
+    gwtVersion='2.8.2' // 2.8.2 fixes Java 9+ compatibility (URLClassLoader, JreIndex)
     maxHeapSize="1G" // Default 256m is not enough for gwt compiler. GWT is HUNGRY
     minHeapSize="1G"
 
@@ -11,6 +17,32 @@ gwt {
     compiler {
         strict = true;
         disableCastChecking = true;
+    }
+}
+
+// Required for GWT 2.8.x on Java 9+
+// jvmArgs field is declared in AbstractGwtActionTask (grandparent of concrete tasks)
+afterEvaluate {
+    def extraJvmArgs = ['--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+                        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+                        '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+                        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+                        '--add-opens', 'java.base/sun.net.www.protocol.jar=ALL-UNNAMED',
+                        '--add-opens', 'java.base/jdk.internal.loader=ALL-UNNAMED']
+    tasks.matching { it instanceof org.wisepersist.gradle.plugins.gwt.AbstractGwtTask }.each { t ->
+        try {
+            def jvmArgsField = org.wisepersist.gradle.plugins.gwt.AbstractGwtActionTask.class.getDeclaredField('jvmArgs')
+            jvmArgsField.setAccessible(true)
+            List existing = (List) jvmArgsField.get(t)
+            if (existing == null) {
+                jvmArgsField.set(t, new ArrayList(extraJvmArgs))
+            } else {
+                existing.addAll(extraJvmArgs)
+            }
+            println "Set jvmArgs on ${t.name}"
+        } catch (Exception e) {
+            println "Warning: could not configure ${t.name}: ${e.class.simpleName}: ${e.message}"
+        }
     }
 }
 

@@ -3,6 +3,8 @@
 <module rename-to="html">
 	<inherits name='com.badlogic.gdx.backends.gdx_backends_gwt' />
 	<inherits name='com.badlogic.gdx.physics.box2d.box2d-gwt' />
+	<!-- Provides stubs for javax.annotation.* used in GWT 2.8.2 String emulation -->
+	<inherits name='javax.annotation.Annotations' />
 
 	<inherits name='MyGdxGame' />
 	<entry-point class='com.mygdx.game.client.HtmlLauncher' />

@@ -2,8 +2,8 @@ package com.mygdx.game.listeners;
 
 import java.util.ArrayList;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -11,7 +11,7 @@ import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Saboteurs;
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 /**
  * Click handler for the saboteur icon overlaid on a defense card or empty slot.
@@ -31,10 +31,10 @@ public class SabotagedImageListener extends ClickListener {
   Player sabotagedPlayer;  // the player whose slot is sabotaged
   int slot;                // defense slot (1-3)
   int currentPlayerIdx;
-  Socket socket;
+  SocketClient socket;
 
   public SabotagedImageListener(GameState gameState, Card defCard, Player currentPlayer,
-      Player sabotagedPlayer, int slot, int currentPlayerIdx, Socket socket) {
+      Player sabotagedPlayer, int slot, int currentPlayerIdx, SocketClient socket) {
     this.gameState = gameState;
     this.defCard = defCard;
     this.currentPlayer = currentPlayer;

@@ -2,9 +2,9 @@ package com.mygdx.game;
 
 import java.util.ArrayList;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
@@ -27,12 +27,12 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
 
-import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.net.SocketListener;
 
 public class MenuScreen extends AbstractScreen {
 
-  private Socket socket;
+  private SocketClient socket;
 
   private Stage menuStage;
   private MenuState menuState;
@@ -52,7 +52,7 @@ public class MenuScreen extends AbstractScreen {
   private boolean updateScreen = false;
   boolean timerStarted = false;
 
-  public MenuScreen(final Game game, final Socket socket) {
+  public MenuScreen(final Game game, final SocketClient socket) {
     super(game);
 
     this.socket = socket;
@@ -270,14 +270,15 @@ public class MenuScreen extends AbstractScreen {
 
   }
 
-  public void configSocketEvents(final Socket socket) {
-    socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+  public void configSocketEvents(final SocketClient socket) {
+    socket.on("connect", new SocketListener() {
 
       @Override
       public void call(Object... args) {
         Gdx.app.log("SocketIO", "Connected");
       }
-    }).on("socketID", new Emitter.Listener() {
+    });
+    socket.on("socketID", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -290,7 +291,8 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error getting ID");
         }
       }
-    }).on("newUser", new Emitter.Listener() {
+    });
+    socket.on("newUser", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -302,7 +304,8 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error getting new user ID ");
         }
       }
-    }).on("userDisconnected", new Emitter.Listener() {
+    });
+    socket.on("userDisconnected", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -314,7 +317,8 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error disconnecting user ID ");
         }
       }
-    }).on("getUsers", new Emitter.Listener() {
+    });
+    socket.on("getUsers", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -335,7 +339,8 @@ public class MenuScreen extends AbstractScreen {
         }
         Gdx.app.log("SocketIO", "Number of users = " + menuState.getUsers().size());
       }
-    }).on("userReady", new Emitter.Listener() {
+    });
+    socket.on("userReady", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -354,8 +359,8 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error ready user ID ");
         }
       }
-    })
-    .on("gameState", new Emitter.Listener() {
+    });
+    socket.on("gameState", new SocketListener() {
       @Override
       public void call(Object... args) {
         JSONObject data = (JSONObject) args[0];
@@ -373,8 +378,8 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.log("SocketIO", "Error parsing centralized game state!");
         }
       }
-    })
-    .on("updateTimer", new Emitter.Listener() {
+    });
+    socket.on("updateTimer", new SocketListener() {
 
       @Override
       public void call(Object... args) {
@@ -389,6 +394,9 @@ public class MenuScreen extends AbstractScreen {
         }
       }
     });
+
+    // Connect only after all listeners are registered so no events are missed
+    socket.connect();
   }
 
 }

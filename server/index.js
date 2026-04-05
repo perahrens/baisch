@@ -3,6 +3,20 @@ var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
 
+// Serve the mobile-optimised page at /m.
+app.get('/m', function(req, res) {
+  res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+});
+
+// Auto-redirect mobile browsers visiting / to /m.
+app.get('/', function(req, res, next) {
+  var ua = req.headers['user-agent'] || '';
+  if (/mobile|android|iphone|ipad|ipod/i.test(ua)) {
+    return res.redirect('/m');
+  }
+  next();
+});
+
 app.use(require('express').static(path.join(__dirname, 'public')));
 
 

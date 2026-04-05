@@ -10,9 +10,9 @@ import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
-import io.socket.client.Socket;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 public class OwnHandCardListener extends ClickListener {
 
@@ -21,7 +21,7 @@ public class OwnHandCardListener extends ClickListener {
   CardDeck cardDeck;
   CardDeck cemeteryDeck;
   GameState gameState;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
 
   public OwnHandCardListener() {}
@@ -39,7 +39,7 @@ public class OwnHandCardListener extends ClickListener {
   }
 
   public OwnHandCardListener(Card handCard, Player player, CardDeck cardDeck, CardDeck cemeteryDeck, GameState gameState,
-      Socket socket, int playerIdx) {
+      SocketClient socket, int playerIdx) {
     this(handCard, player, cardDeck, cemeteryDeck, gameState);
     this.socket = socket;
     this.playerIdx = playerIdx;

@@ -55,57 +55,58 @@
           return;
         }
 
+        // Scale using CSS width/height, NOT transform: scale().
+        //
+        // CSS transform does not affect offsetWidth/offsetHeight, so LibGDX's
+        // built-in ratio (logicalWidth / offsetWidth) stays at 1:1 and does
+        // not correct for the visual scale → wrong touch coords.
+        //
+        // With CSS width/height the browser reports the CSS pixel size via
+        // offsetWidth/offsetHeight, so LibGDX computes the right scale ratio
+        // (e.g. 450/390 = 1.15) and maps touches correctly without any manual
+        // coordinate remapping on our side.
         var scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
+        var cssW = Math.round(GAME_W * scale);
+        var cssH = Math.round(GAME_H * scale);
         canvas.style.display = 'block';
-        canvas.style.transformOrigin = '0 0';
-        canvas.style.transform = 'scale(' + scale + ')';
-        embedDiv.style.width  = Math.round(GAME_W * scale) + 'px';
-        embedDiv.style.height = Math.round(GAME_H * scale) + 'px';
+        canvas.style.width  = cssW + 'px';
+        canvas.style.height = cssH + 'px';
+        embedDiv.style.width  = cssW + 'px';
+        embedDiv.style.height = cssH + 'px';
 
-        // Fix touch coordinates.
-        //
-        // CSS transform scales the canvas visually but LibGDX's GWT input
-        // handler reads raw  clientX - canvas.offsetLeft  which yields a
-        // value in [0, 450*scale] instead of the expected [0, 450].  Touches
-        // near the bottom or right therefore land in the wrong game position.
-        //
-        // Solution: intercept touch events in the capture phase (before they
-        // reach GWT), divide by the scale factor to get true game-space coords,
-        // then re-dispatch a MouseEvent at the corrected position.  With
-        // transformOrigin=0,0 the canvas layout corner equals its visual corner
-        // so rect.left/top from getBoundingClientRect() is the correct base.
+        // Forward touch events as mouse events.  No coordinate remapping
+        // needed: LibGDX reads clientX/clientY and subtracts the canvas's
+        // absoluteLeft/Top, then applies its own offsetWidth ratio, which now
+        // correctly converts CSS pixels to game pixels.
         if (!canvas._touchInputFixed) {
           canvas._touchInputFixed = true;
 
-          function dispatchCorrectedMouse(type, touch) {
-            var rect = canvas.getBoundingClientRect(); // transform-aware
-            var gx = (touch.clientX - rect.left) * GAME_W / rect.width;
-            var gy = (touch.clientY - rect.top)  * GAME_H / rect.height;
+          function forwardTouch(type, touch) {
             canvas.dispatchEvent(new MouseEvent(type, {
               bubbles: true,
               cancelable: true,
               view: window,
-              clientX: rect.left + gx,
-              clientY: rect.top  + gy
+              clientX: touch.clientX,
+              clientY: touch.clientY
             }));
           }
 
           canvas.addEventListener('touchstart', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            dispatchCorrectedMouse('mousedown', e.changedTouches[0]);
+            forwardTouch('mousedown', e.changedTouches[0]);
           }, { passive: false, capture: true });
 
           canvas.addEventListener('touchmove', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            dispatchCorrectedMouse('mousemove', e.changedTouches[0]);
+            forwardTouch('mousemove', e.changedTouches[0]);
           }, { passive: false, capture: true });
 
           canvas.addEventListener('touchend', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            dispatchCorrectedMouse('mouseup', e.changedTouches[0]);
+            forwardTouch('mouseup', e.changedTouches[0]);
           }, { passive: false, capture: true });
         }
       }

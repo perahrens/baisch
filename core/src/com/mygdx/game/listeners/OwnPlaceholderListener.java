@@ -1,7 +1,7 @@
 package com.mygdx.game.listeners;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;

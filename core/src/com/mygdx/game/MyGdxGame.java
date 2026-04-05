@@ -8,11 +8,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
-import io.socket.client.IO;
-import io.socket.client.Socket;
+// IO removed (platform-specific)
+import com.mygdx.game.net.SocketClient;
 
 public class MyGdxGame extends Game implements InputProcessor {
-  private Socket socket;
+  private SocketClient socket;
+  public static SocketClient socketInstance;
   public final static float HEIGHT = 800;
   public final static float WIDTH = 450;
 
@@ -91,12 +92,7 @@ public class MyGdxGame extends Game implements InputProcessor {
   }
 
   public void connectSocket() {
-    try {
-      socket = IO.socket("http://localhost:8082");
-      socket.connect();
-    } catch (Exception e) {
-      System.out.println(e);
-    }
+    socket = socketInstance;
   }
 
 }

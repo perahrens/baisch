@@ -12,9 +12,10 @@ import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
-import io.socket.client.Socket;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 public class EnemyKingCardListener extends ClickListener {
 
@@ -22,7 +23,7 @@ public class EnemyKingCardListener extends ClickListener {
   Card kingCard;
   Player player;
   ArrayList<Player> players;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
 
   public EnemyKingCardListener() {
@@ -36,7 +37,7 @@ public class EnemyKingCardListener extends ClickListener {
   }
 
   public EnemyKingCardListener(GameState gameState, Card kingCard, Player player, ArrayList<Player> players,
-      Socket socket, int playerIdx) {
+      SocketClient socket, int playerIdx) {
     this(gameState, kingCard, player, players);
     this.socket = socket;
     this.playerIdx = playerIdx;
@@ -151,7 +152,7 @@ public class EnemyKingCardListener extends ClickListener {
         data.put("level", -1);
         data.put("isKing", true);
         data.put("success", success);
-        org.json.JSONArray atkIds = new org.json.JSONArray();
+        JSONArray atkIds = new JSONArray();
         for (Card c : attackSnapshot) atkIds.put(c.getCardId());
         data.put("attackCardIds", atkIds);
         socket.emit("batteryDefenseCheck", data);

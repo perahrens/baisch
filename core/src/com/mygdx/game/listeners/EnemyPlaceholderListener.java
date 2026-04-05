@@ -1,14 +1,14 @@
 package com.mygdx.game.listeners;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Saboteurs;
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 /**
  * Listener for empty enemy defense-card slots.
@@ -22,10 +22,10 @@ public class EnemyPlaceholderListener extends ClickListener {
   int playerIdx;        // current player's index
   int targetPlayerIdx;
   GameState gameState;
-  Socket socket;
+  SocketClient socket;
 
   public EnemyPlaceholderListener(Player player, Player targetPlayer, int slot,
-      int playerIdx, int targetPlayerIdx, GameState gameState, Socket socket) {
+      int playerIdx, int targetPlayerIdx, GameState gameState, SocketClient socket) {
     this.player = player;
     this.targetPlayer = targetPlayer;
     this.slot = slot;

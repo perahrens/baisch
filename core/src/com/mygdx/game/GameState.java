@@ -5,11 +5,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.listeners.CemeteryDeckListener;
@@ -30,7 +30,7 @@ public class GameState {
 
   private boolean updateState;
 
-  private Socket socket;
+  private SocketClient socket;
 
   private int winnerIndex = -1;
   public int getWinnerIndex() { return winnerIndex; }
@@ -49,8 +49,8 @@ public class GameState {
 
   private CemeteryDeckListener cemeteryDeckListener;
 
-  public Socket getSocket() { return socket; }
-  public void setSocket(Socket socket) { this.socket = socket; }
+  public SocketClient getSocket() { return socket; }
+  public void setSocket(SocketClient socket) { this.socket = socket; }
 
   // Constructor for centralized (server-driven) game state.
   // Players already have their hand cards from the server.

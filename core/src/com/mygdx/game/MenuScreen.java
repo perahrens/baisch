@@ -19,7 +19,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -38,7 +38,6 @@ public class MenuScreen extends AbstractScreen {
   private MenuState menuState;
 
   private Label loggedInCount;
-  private TextArea userName;
   private TextButton button;
   private SelectBox<String> heroSelectBox;
 
@@ -75,7 +74,6 @@ public class MenuScreen extends AbstractScreen {
     logoRegion = new TextureRegion(logoTexture, 0, 0, 394, 271);
     logoImage = new Image(logoRegion);
 
-    userName = new TextArea("", MyGdxGame.skin);
     button = new TextButton("Ready", MyGdxGame.skin);
 
     button.setSize(button.getWidth() * 2, button.getHeight() * 2);
@@ -150,30 +148,34 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showNameEntryScreen() {
-    Label nameLabel = new Label("Enter your name:", MyGdxGame.skin);
-    nameLabel.setPosition((MyGdxGame.WIDTH - nameLabel.getWidth()) / 2f, 0.55f * MyGdxGame.HEIGHT);
-
-    userName.setSize(button.getWidth(), button.getHeight());
-    userName.setPosition((MyGdxGame.WIDTH - userName.getWidth()) / 2f, 0.4f * MyGdxGame.HEIGHT);
-
-    TextButton joinButton = new TextButton("Join", MyGdxGame.skin);
-    joinButton.setSize(button.getWidth(), button.getHeight());
-    joinButton.setPosition((MyGdxGame.WIDTH - joinButton.getWidth()) / 2f, 0.25f * MyGdxGame.HEIGHT);
-    joinButton.addListener(new ClickListener() {
+    TextButton enterNameButton = new TextButton("Enter your name", MyGdxGame.skin);
+    enterNameButton.setSize(button.getWidth(), button.getHeight());
+    enterNameButton.setPosition((MyGdxGame.WIDTH - enterNameButton.getWidth()) / 2f, 0.45f * MyGdxGame.HEIGHT);
+    enterNameButton.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        String name = userName.getText().trim();
-        if (name.isEmpty()) return;
-        menuState.setMyName(name);
-        lobbyJoined = true;
-        socket.emit("joinLobby", name);
-        show();
+        Gdx.input.getTextInput(new Input.TextInputListener() {
+          @Override
+          public void input(String text) {
+            String name = text.trim();
+            if (name.isEmpty()) {
+              showNameEntryScreen();
+              return;
+            }
+            menuState.setMyName(name);
+            lobbyJoined = true;
+            socket.emit("joinLobby", name);
+            show();
+          }
+          @Override
+          public void canceled() {
+            // Stay on name entry screen
+          }
+        }, "Baisch", "", "Enter your name");
       }
     });
 
-    menuStage.addActor(nameLabel);
-    menuStage.addActor(userName);
-    menuStage.addActor(joinButton);
+    menuStage.addActor(enterNameButton);
     Gdx.input.setInputProcessor(menuStage);
   }
 

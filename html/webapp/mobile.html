@@ -20,13 +20,11 @@
         background-color: #222222;
       }
       /*
-       * Use position:fixed (not absolute) so the element is relative to the
-       * visual viewport, exactly like clientX/clientY in touch events.
-       * !important prevents LibGDX's GWT RootPanel from overriding these with
-       * inline styles, which would shift the canvas away from (0,0) and break
-       * every touch coordinate calculation.
-       * Left-aligned (no centering): black strip appears at the right/bottom
-       * on very wide screens, but the game content is never cut off.
+       * position:fixed keeps the container in the visual viewport.
+       * !important on top/left prevents LibGDX's GWT RootPanel from
+       * overriding those with inline styles.
+       * We do NOT constrain width/height — LibGDX sets those freely.
+       * Overflow must be visible so the scaled canvas is not clipped.
        */
       #embed-html {
         position: fixed !important;
@@ -34,6 +32,7 @@
         left: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+        overflow: visible !important;
       }
     </style>
   </head>
@@ -47,6 +46,7 @@
       }, { passive: false });
 
       var GAME_W = 450, GAME_H = 800;
+      var currentScale = 1;
 
       function fitGameCanvas() {
         var embedDiv = document.getElementById('embed-html');
@@ -56,37 +56,34 @@
           return;
         }
 
-        // Scale canvas visually to fit the screen.
+        // Scale the canvas visually using transform: scale() only.
         //
-        // CSS width/height (not transform) is used so that the browser reports
-        // the scaled size via offsetWidth/offsetHeight.  LibGDX reads those to
-        // compute xRatio = logicalWidth / offsetWidth (e.g. 450/390 = 1.154)
-        // and applies it to every touch coordinate automatically.
+        // We deliberately do NOT set canvas.style.width/height because
+        // LibGDX's GWT backend sets those to '450px'/'800px' as inline styles
+        // after every resize, overriding anything we write there.
         //
-        // The canvas is locked to (0,0) via CSS !important above, so
-        // absoluteLeft = absoluteTop = 0 and clientX/Y from touch events map
-        // directly to canvas-relative CSS pixels with no manual remapping.
-        var scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
-        var cssW = Math.round(GAME_W * scale);
-        var cssH = Math.round(GAME_H * scale);
+        // With transform, offsetWidth/offsetHeight stay at 450/800, so
+        // LibGDX computes a 1:1 input ratio.  We compensate by dividing
+        // touch coordinates by the scale before forwarding them (see below).
+        currentScale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = 'scale(' + currentScale + ')';
         canvas.style.display = 'block';
-        canvas.style.width   = cssW + 'px';
-        canvas.style.height  = cssH + 'px';
-        embedDiv.style.width  = cssW + 'px';
-        embedDiv.style.height = cssH + 'px';
 
-        // Forward touch events as mouse events.  No coordinate adjustment
-        // needed because the canvas is always at viewport (0,0).
         if (!canvas._touchInputFixed) {
           canvas._touchInputFixed = true;
 
           function forwardTouch(type, touch) {
+            // The canvas is at viewport (0,0) and LibGDX uses a 1:1 ratio
+            // (offsetWidth=450, logicalWidth=450), so gameX = clientX exactly.
+            // Dividing by currentScale converts from screen CSS pixels to the
+            // canvas's unscaled 450×800 coordinate space.
             canvas.dispatchEvent(new MouseEvent(type, {
               bubbles: true,
               cancelable: true,
               view: window,
-              clientX: touch.clientX,
-              clientY: touch.clientY
+              clientX: touch.clientX / currentScale,
+              clientY: touch.clientY / currentScale
             }));
           }
 

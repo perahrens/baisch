@@ -1,7 +1,7 @@
 
 package com.mygdx.game;
-import org.json.JSONObject;
-import org.json.JSONArray;
+import com.mygdx.game.util.JSONObject;
+import com.mygdx.game.util.JSONArray;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,9 +56,9 @@ import com.mygdx.game.listeners.OwnPlaceholderListener;
 import com.mygdx.game.listeners.SabotagedImageListener;
 import com.mygdx.game.listeners.TradeCardButtonListener;
 import com.mygdx.game.heroes.Saboteurs;
-import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
-import org.json.JSONException;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.net.SocketListener;
+import com.mygdx.game.util.JSONException;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {
@@ -111,11 +111,11 @@ public class GameScreen extends ScreenAdapter {
 
   private int playerIndex;
   private JSONObject centralizedState;
-  private Socket socket;
+  private SocketClient socket;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
-  private org.json.JSONArray pendingBatteryResultCards = null;
+  private JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
   private boolean logExpanded = false;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
@@ -136,13 +136,13 @@ public class GameScreen extends ScreenAdapter {
   private Texture texArrowDownShield;
 
   // New constructor for centralized state
-  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket) {
+  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
     this(game, centralizedState, playerIndex, socket, "None");
   }
 
   private String startingHero = "None";
 
-  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, Socket socket, String startingHero) {
+  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero) {
     this.startingHero = startingHero;
     this.socket = socket;
     this.playerIndex = playerIndex;
@@ -160,10 +160,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Single stateUpdate listener — replaces all specific sync events
-    socket.on("stateUpdate", new Emitter.Listener() {
+    socket.on("stateUpdate", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -176,18 +176,18 @@ public class GameScreen extends ScreenAdapter {
 
     // Restart listener: server sends a fresh gameState when a new game begins
     final Game theGame = game;
-    final Socket theSocket = socket;
+    final SocketClient theSocket = socket;
     final String theStartingHero = startingHero;
-    socket.on("gameState", new Emitter.Listener() {
+    socket.on("gameState", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
             try {
               int newPlayerIndex = data.getInt("playerIndex");
-              org.json.JSONObject newState = data.getJSONObject("gameState");
+              JSONObject newState = data.getJSONObject("gameState");
               theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero));
             } catch (Exception e) {
               e.printStackTrace();
@@ -199,10 +199,10 @@ public class GameScreen extends ScreenAdapter {
 
     // Another player acquired a hero — apply it to the local game state.
     final int myPlayerIndex = playerIndex;
-    socket.on("heroAcquired", new Emitter.Listener() {
+    socket.on("heroAcquired", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -223,7 +223,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Server notifies us that one of our deployed saboteurs was destroyed by the enemy.
     // Mark it as destroyed (state 2) so the recovery clock starts.
-    socket.on("saboteurDestroyed", new Emitter.Listener() {
+    socket.on("saboteurDestroyed", new SocketListener() {
       @Override
       public void call(Object... args) {
         Gdx.app.postRunnable(new Runnable() {
@@ -243,10 +243,10 @@ public class GameScreen extends ScreenAdapter {
 
     // Handle incoming mercenary defense boost from another client
     // Spy flip relay: another player used spy to reveal one of our defense cards
-    socket.on("spyFlip", new Emitter.Listener() {
+    socket.on("spyFlip", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -267,10 +267,10 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    socket.on("batteryDefenseCheck", new Emitter.Listener() {
+    socket.on("batteryDefenseCheck", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -292,7 +292,7 @@ public class GameScreen extends ScreenAdapter {
                 } else {
                   // No charges — auto-allow
                   try {
-                    org.json.JSONObject allow = new org.json.JSONObject();
+                    JSONObject allow = new JSONObject();
                     allow.put("attackerIdx", data.getInt("attackerIdx"));
                     theSocket.emit("batteryAllowAttack", allow);
                   } catch (JSONException ex) { ex.printStackTrace(); }
@@ -304,10 +304,10 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    socket.on("batteryAllowAttack", new Emitter.Listener() {
+    socket.on("batteryAllowAttack", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -334,10 +334,10 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    socket.on("batteryDenyAttack", new Emitter.Listener() {
+    socket.on("batteryDenyAttack", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -376,10 +376,10 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    socket.on("mercDefBoost", new Emitter.Listener() {
+    socket.on("mercDefBoost", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -405,10 +405,10 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    socket.on("reservistsKingBoost", new Emitter.Listener() {
+    socket.on("reservistsKingBoost", new SocketListener() {
       @Override
       public void call(Object... args) {
-        final org.json.JSONObject data = (org.json.JSONObject) args[0];
+        final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -979,15 +979,15 @@ public class GameScreen extends ScreenAdapter {
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
           try {
-            org.json.JSONObject emitData = new org.json.JSONObject();
+            JSONObject emitData = new JSONObject();
             emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
             emitData.put("deckIndex", deckIdx);
             emitData.put("success", plunderSuccess);
             emitData.put("kingUsed", pt.isKingUsed());
-            org.json.JSONArray atkIdArr = new org.json.JSONArray();
+            JSONArray atkIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackCards()) atkIdArr.put(c.getCardId());
             emitData.put("attackCardIds", atkIdArr);
-            org.json.JSONArray ownDefIdArr = new org.json.JSONArray();
+            JSONArray ownDefIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackOwnDefCards()) ownDefIdArr.put(c.getCardId());
             emitData.put("attackerOwnDefCardIds", ownDefIdArr);
             socket.emit("plunderResolved", emitData);
@@ -1086,12 +1086,12 @@ public class GameScreen extends ScreenAdapter {
               }
             }
             try {
-              org.json.JSONObject emitData = new org.json.JSONObject();
+              JSONObject emitData = new JSONObject();
               emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
               emitData.put("defenderIdx", apt.getAttackTargetPlayerIdx());
               emitData.put("success", atkSuccess);
               emitData.put("kingUsed", apt.isKingUsed());
-              org.json.JSONArray atkIds = new org.json.JSONArray();
+              JSONArray atkIds = new JSONArray();
               for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
               emitData.put("attackCardIds", atkIds);
               socket.emit("kingAttackResolved", emitData);
@@ -1113,17 +1113,17 @@ public class GameScreen extends ScreenAdapter {
               }
             }
             try {
-              org.json.JSONObject emitData = new org.json.JSONObject();
+              JSONObject emitData = new JSONObject();
               emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
               emitData.put("targetPlayerIdx", apt.getAttackTargetPlayerIdx());
               emitData.put("positionId", apt.getAttackTargetPositionId());
               emitData.put("level", apt.getAttackTargetLevel());
               emitData.put("success", atkSuccess);
               emitData.put("kingUsed", apt.isKingUsed());
-              org.json.JSONArray atkIds = new org.json.JSONArray();
+              JSONArray atkIds = new JSONArray();
               for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
               emitData.put("attackCardIds", atkIds);
-              org.json.JSONArray ownDefIds = new org.json.JSONArray();
+              JSONArray ownDefIds = new JSONArray();
               for (Card c : apt.getPendingAttackOwnDefCards()) { ownDefIds.put(c.getCardId()); }
               emitData.put("attackerOwnDefCardIds", ownDefIds);
               socket.emit("defAttackResolved", emitData);
@@ -1241,7 +1241,7 @@ public class GameScreen extends ScreenAdapter {
           try {
             pendingBatteryResultCards = btCheck.optJSONArray("attackCardIds");
             pendingBatteryDefCheck = null;
-            org.json.JSONObject resp = new org.json.JSONObject();
+            JSONObject resp = new JSONObject();
             resp.put("attackerIdx", btCheck.getInt("attackerIdx"));
             socket.emit("batteryAllowAttack", resp);
           } catch (JSONException e) { e.printStackTrace(); }
@@ -1265,12 +1265,12 @@ public class GameScreen extends ScreenAdapter {
             }
           }
           try {
-            org.json.JSONObject resp = new org.json.JSONObject();
+            JSONObject resp = new JSONObject();
             resp.put("attackerIdx", btCheck.getInt("attackerIdx"));
             resp.put("targetPlayerIdx", btCheck.getInt("targetPlayerIdx"));
             resp.put("positionId", btCheck.getInt("positionId"));
             resp.put("isKing", btCheck.optBoolean("isKing", false));
-            org.json.JSONArray atkExpIds = btCheck.optJSONArray("attackCardIds");
+            JSONArray atkExpIds = btCheck.optJSONArray("attackCardIds");
             if (atkExpIds != null) resp.put("attackCardIds", atkExpIds);
             socket.emit("batteryDenyAttack", resp);
             pendingBatteryResultCards = atkExpIds;
@@ -1284,7 +1284,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Battery Tower result overlay — shown to the defender after they allow or deny
     if (pendingBatteryResultCards != null) {
-      final org.json.JSONArray resultCards = pendingBatteryResultCards;
+      final JSONArray resultCards = pendingBatteryResultCards;
       Image btResOverlay = new Image(MyGdxGame.skin, "white");
       btResOverlay.setFillParent(true);
       btResOverlay.setColor(0f, 0f, 0f, 0.6f);
@@ -2082,7 +2082,7 @@ public class GameScreen extends ScreenAdapter {
   private void emitPriestConvert(int targetPlayerIdx, int cardId) {
     if (socket == null) return;
     try {
-      org.json.JSONObject data = new org.json.JSONObject();
+      JSONObject data = new JSONObject();
       data.put("attackerIdx", playerIndex);
       data.put("targetPlayerIdx", targetPlayerIdx);
       data.put("cardId", cardId);
@@ -2093,7 +2093,7 @@ public class GameScreen extends ScreenAdapter {
   private void emitReservistsKingBoost(int count) {
     if (socket == null) return;
     try {
-      org.json.JSONObject data = new org.json.JSONObject();
+      JSONObject data = new JSONObject();
       data.put("playerIdx", playerIndex);
       data.put("count", count);
       socket.emit("reservistsKingBoost", data);

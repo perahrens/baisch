@@ -17,9 +17,10 @@ import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Saboteurs;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
-import io.socket.client.Socket;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 public class EnemyDefCardListener extends ClickListener {
 
@@ -29,7 +30,7 @@ public class EnemyDefCardListener extends ClickListener {
   ArrayList<Player> players;
   Player player;
   GameState gameState;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
 
   public EnemyDefCardListener() {
@@ -54,7 +55,7 @@ public class EnemyDefCardListener extends ClickListener {
   }
 
   public EnemyDefCardListener(Card defCard, GameState gameState, Player player, ArrayList<Player> players,
-      Socket socket, int playerIdx) {
+      SocketClient socket, int playerIdx) {
     this(defCard, gameState, player, players);
     this.socket = socket;
     this.playerIdx = playerIdx;
@@ -337,7 +338,7 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("level", level);
       data.put("isKing", isKing);
       data.put("success", success);
-      org.json.JSONArray atkIds = new org.json.JSONArray();
+      JSONArray atkIds = new JSONArray();
       for (Card c : attackCards) atkIds.put(c.getCardId());
       data.put("attackCardIds", atkIds);
       socket.emit("batteryDefenseCheck", data);

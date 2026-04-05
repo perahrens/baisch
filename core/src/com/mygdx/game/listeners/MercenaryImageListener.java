@@ -1,7 +1,7 @@
 package com.mygdx.game.listeners;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -9,14 +9,14 @@ import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Mercenaries;
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 public class MercenaryImageListener extends ClickListener {
 
   GameState gameState;
   Card defCard;
   Player player;
-  Socket socket;
+  SocketClient socket;
   int playerIdx;
   int slot;
   int level;
@@ -27,7 +27,7 @@ public class MercenaryImageListener extends ClickListener {
     this.player = player;
   }
 
-  public MercenaryImageListener(GameState gameState, Card defCard, Player player, Socket socket, int playerIdx, int slot, int level) {
+  public MercenaryImageListener(GameState gameState, Card defCard, Player player, SocketClient socket, int playerIdx, int slot, int level) {
     this(gameState, defCard, player);
     this.socket = socket;
     this.playerIdx = playerIdx;

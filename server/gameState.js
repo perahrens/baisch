@@ -6,6 +6,7 @@ class GameState {
     this.cemetery = [];
     this.players = users.map((user, idx) => ({
       id: user.id,
+      name: user.name || ('Player' + idx),
       index: idx,
       hand: [],
       defCards: {},
@@ -435,6 +436,7 @@ class GameState {
       cemetery: [...this.cemetery],
       players: this.players.map(p => ({
         index: p.index,
+        name: p.name,
         hand: [...p.hand],
         defCards: Object.assign({}, p.defCards),
         defCardsCovered: Object.assign({}, p.defCardsCovered || {}),

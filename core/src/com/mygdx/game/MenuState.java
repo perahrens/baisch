@@ -34,7 +34,7 @@ public class MenuState {
 
   public boolean allReady() {
     boolean allReady = true;
-    if (users.size() == 0) allReady = false;
+    if (users.size() < 2) allReady = false;
     for (int i = 0; i < users.size(); i++) {
       if (!users.get(i).isReady()) {
         allReady = false;
@@ -54,6 +54,16 @@ public class MenuState {
 
   public void runTimer() {
     timeToStart--;
+  }
+
+  private String myName = "";
+
+  public String getMyName() {
+    return myName;
+  }
+
+  public void setMyName(String myName) {
+    this.myName = myName;
   }
 
   private String startingHero = "None";

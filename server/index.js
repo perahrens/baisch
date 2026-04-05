@@ -88,6 +88,10 @@ io.on('connection', function(socket) {
   
   socket.on('startTimer', function(seconds) {
     console.log("Start Timer");
+    if (users.length < 2) {
+      console.log("Not enough players to start (need at least 2)");
+      return;
+    }
     timeToStart = seconds;
     clearInterval(timer);
     timer = setInterval(function() {
@@ -278,12 +282,18 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
-  users.push(new user(socket.id));
-  socket.emit('getUsers', users);
-  socket.broadcast.emit('getUsers', users);
+  socket.on('joinLobby', function(name) {
+    console.log('User joined lobby: ' + name);
+    var existing = users.find(function(u) { return u.id === socket.id; });
+    if (!existing) {
+      users.push(new user(socket.id, name));
+    }
+    io.emit('getUsers', users);
+  });
 });
 
-function user(id) {
+function user(id, name) {
   this.id = id;
+  this.name = name || 'Player';
   this.isReady = false;
 }

@@ -33,7 +33,8 @@
     <div id="embed-html"></div>
     <script type="text/javascript" src="html/html.nocache.js"></script>
     <script>
-      // Prevent page scroll and pinch-zoom from interfering with the game.
+      // Prevent page scroll on the document level. Events on the canvas are
+      // handled separately (and stopped before bubbling) by fitGameCanvas().
       document.addEventListener('touchmove', function(e) {
         e.preventDefault();
       }, { passive: false });
@@ -44,26 +45,6 @@
         }
       }, { passive: false });
 
-      // Pass mouse events into the game canvas as before.
-      function handleMouseDown(evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        evt.target.style.cursor = 'default';
-        window.focus();
-      }
-
-      function handleMouseUp(evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        evt.target.style.cursor = '';
-      }
-
-      document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
-      document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
-
-      // Scale the GWT canvas so it fits both the screen width AND height.
-      // LibGDX creates the canvas inside #embed-html after GWT bootstraps, so
-      // we poll until it appears and then resize on every orientation change.
       var GAME_W = 450, GAME_H = 800;
 
       function fitGameCanvas() {
@@ -73,12 +54,60 @@
           setTimeout(fitGameCanvas, 200);
           return;
         }
+
         var scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
         canvas.style.display = 'block';
         canvas.style.transformOrigin = '0 0';
         canvas.style.transform = 'scale(' + scale + ')';
         embedDiv.style.width  = Math.round(GAME_W * scale) + 'px';
         embedDiv.style.height = Math.round(GAME_H * scale) + 'px';
+
+        // Fix touch coordinates.
+        //
+        // CSS transform scales the canvas visually but LibGDX's GWT input
+        // handler reads raw  clientX - canvas.offsetLeft  which yields a
+        // value in [0, 450*scale] instead of the expected [0, 450].  Touches
+        // near the bottom or right therefore land in the wrong game position.
+        //
+        // Solution: intercept touch events in the capture phase (before they
+        // reach GWT), divide by the scale factor to get true game-space coords,
+        // then re-dispatch a MouseEvent at the corrected position.  With
+        // transformOrigin=0,0 the canvas layout corner equals its visual corner
+        // so rect.left/top from getBoundingClientRect() is the correct base.
+        if (!canvas._touchInputFixed) {
+          canvas._touchInputFixed = true;
+
+          function dispatchCorrectedMouse(type, touch) {
+            var rect = canvas.getBoundingClientRect(); // transform-aware
+            var gx = (touch.clientX - rect.left) * GAME_W / rect.width;
+            var gy = (touch.clientY - rect.top)  * GAME_H / rect.height;
+            canvas.dispatchEvent(new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+              clientX: rect.left + gx,
+              clientY: rect.top  + gy
+            }));
+          }
+
+          canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatchCorrectedMouse('mousedown', e.changedTouches[0]);
+          }, { passive: false, capture: true });
+
+          canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatchCorrectedMouse('mousemove', e.changedTouches[0]);
+          }, { passive: false, capture: true });
+
+          canvas.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatchCorrectedMouse('mouseup', e.changedTouches[0]);
+          }, { passive: false, capture: true });
+        }
       }
 
       window.addEventListener('resize', fitGameCanvas);

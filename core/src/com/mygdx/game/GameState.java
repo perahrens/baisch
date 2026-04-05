@@ -128,7 +128,8 @@ public class GameState {
       for (int i = 0; i < playersJson.length(); i++) {
         JSONObject pj = playersJson.getJSONObject(i);
         int idx = pj.getInt("index");
-        Player p = new Player("Player " + idx);
+        String name = pj.optString("name", "Player " + idx);
+        Player p = new Player(name);
 
         JSONArray handJson = pj.getJSONArray("hand");
         for (int h = 0; h < handJson.length(); h++) {

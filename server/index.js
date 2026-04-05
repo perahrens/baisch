@@ -1,6 +1,9 @@
+var path = require('path');
 var app = require('express')();
 var server = require('http').Server(app);
-var io = require('socket.io')(server);
+var io = require('socket.io')(server, { origins: '*:*' });
+
+app.use(require('express').static(path.join(__dirname, 'public')));
 
 
 var users = [];
@@ -30,8 +33,9 @@ function checkAndHandleWinner(io) {
   }
 }
 
-server.listen(8082, function() {
-  console.log("Server is now running... ");
+var PORT = process.env.PORT || 8082;
+server.listen(PORT, function() {
+  console.log("Server is now running on port " + PORT);
 });
 
 io.on('connection', function(socket) {

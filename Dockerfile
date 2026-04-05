@@ -12,8 +12,14 @@ RUN chmod +x gradlew
 # Copy all subproject sources.
 COPY core/   core/
 COPY html/   html/
-# Assets are needed by PreloaderBundleGenerator at GWT compile time
+# Assets are needed by PreloaderBundleGenerator at GWT compile time.
+# Strip large unused directories BEFORE compile so they are excluded from
+# assets.txt and never downloaded by the browser preloader.
+# SpriteSheetCollection (46 MB, 2227 files) and sprites (60 KB) are referenced
+# only from dead code (Relicts.java, never instantiated) and tile assets that
+# are not used by any active screen.
 COPY android/assets/ android/assets/
+RUN rm -rf android/assets/data/SpriteSheetCollection android/assets/data/sprites
 
 # Full optimised compile with localWorkers=1 so only one permutation runs at a
 # time (keeping peak heap at 1 GB and avoiding OOM on Depot build machines).

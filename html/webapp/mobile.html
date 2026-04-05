@@ -20,12 +20,14 @@
         height: 100%;
         overflow: hidden;
         background-color: #222222;
-        display: flex;
-        align-items: center;
-        justify-content: center;
       }
+      /* Positioned absolutely so offsetTop=0 and getAbsoluteTop()=0.
+         Flexbox vertical centering would add an offset to offsetTop that
+         differs from the touch clientY origin (bottom of URL bar), causing
+         a systematic Y-axis coordinate error in LibGDX's input handler. */
       #embed-html {
-        display: block;
+        position: absolute;
+        top: 0;
       }
     </style>
   </head>
@@ -73,6 +75,10 @@
         canvas.style.height = cssH + 'px';
         embedDiv.style.width  = cssW + 'px';
         embedDiv.style.height = cssH + 'px';
+        // Center horizontally; anchor to top so absoluteTop=0 and
+        // clientY from touch events maps directly to game Y coordinates.
+        embedDiv.style.left = Math.round((window.innerWidth - cssW) / 2) + 'px';
+        embedDiv.style.top  = '0';
 
         // Forward touch events as mouse events.  No coordinate remapping
         // needed: LibGDX reads clientX/clientY and subtracts the canvas's

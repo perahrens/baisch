@@ -3,9 +3,8 @@
   <head>
     <title>Baisch</title>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <!-- Fix layout viewport to the game's logical width so the browser handles
-         scaling and touch coordinates map 1-to-1 with the 450x800 canvas. -->
-    <meta name="viewport" content="width=450, initial-scale=1.0, user-scalable=no">
+    <!-- Use device width so JS can scale the canvas to fit both dimensions. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -61,6 +60,29 @@
 
       document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
       document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
+
+      // Scale the GWT canvas so it fits both the screen width AND height.
+      // LibGDX creates the canvas inside #embed-html after GWT bootstraps, so
+      // we poll until it appears and then resize on every orientation change.
+      var GAME_W = 450, GAME_H = 800;
+
+      function fitGameCanvas() {
+        var embedDiv = document.getElementById('embed-html');
+        var canvas = embedDiv.querySelector('canvas');
+        if (!canvas) {
+          setTimeout(fitGameCanvas, 200);
+          return;
+        }
+        var scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
+        canvas.style.display = 'block';
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = 'scale(' + scale + ')';
+        embedDiv.style.width  = Math.round(GAME_W * scale) + 'px';
+        embedDiv.style.height = Math.round(GAME_H * scale) + 'px';
+      }
+
+      window.addEventListener('resize', fitGameCanvas);
+      fitGameCanvas();
     </script>
   </body>
 </html>

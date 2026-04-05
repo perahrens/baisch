@@ -1,0 +1,31 @@
+# Build outputs (re-generated inside Docker)
+core/build/
+html/build/
+desktop/build/
+android/build/
+ios/build/
+
+# Local gradle cache
+.gradle/
+
+# IDE / OS noise
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Node modules (installed inside the image)
+server/node_modules/
+
+# GWT draft output (only full compile output is used in production)
+html/build/gwt/draftOut/
+
+# Android / iOS / desktop platform code not needed for the server image
+# (android/assets/ is still needed by GWT compile — keep it in context)
+android/build/
+android/libs/
+android/res/
+android/src/
+ios/
+desktop/
+data/

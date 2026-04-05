@@ -5,4 +5,5 @@
 <!-- In GWT 2.8.2, String.java emulation has @Nonnull annotations. -->
 <module>
     <source path="" />
+    <source path="meta" />
 </module>

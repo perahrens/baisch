@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Baisch</title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <!-- Fix layout viewport to the game's logical width so the browser handles
+         scaling and touch coordinates map 1-to-1 with the 450x800 canvas. -->
+    <meta name="viewport" content="width=450, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link href="styles.css" rel="stylesheet" type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+    <script src="soundmanager2-setup.js"></script>
+    <script src="soundmanager2-jsmin.js"></script>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #222222;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #embed-html {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="embed-html"></div>
+    <script type="text/javascript" src="html/html.nocache.js"></script>
+    <script>
+      // Prevent page scroll and pinch-zoom from interfering with the game.
+      document.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('touchstart', function(e) {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      // Pass mouse events into the game canvas as before.
+      function handleMouseDown(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        evt.target.style.cursor = 'default';
+        window.focus();
+      }
+
+      function handleMouseUp(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        evt.target.style.cursor = '';
+      }
+
+      document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
+      document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
+    </script>
+  </body>
+</html>

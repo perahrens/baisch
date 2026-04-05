@@ -15,13 +15,14 @@ COPY html/   html/
 # Assets are needed by PreloaderBundleGenerator at GWT compile time
 COPY android/assets/ android/assets/
 
-# Draft compile: one JS permutation instead of 5+ → avoids OOM on build machines.
+# Full optimised compile with localWorkers=1 so only one permutation runs at a
+# time (keeping peak heap at 1 GB and avoiding OOM on Depot build machines).
 # After compilation, assemble the complete serveable directory by overlaying:
 #   webapp/  → index.html, styles.css, soundmanager2 files, etc.
 #   war/     → assets/ directory built by the PreloaderBundleGenerator
-RUN ./gradlew :html:draftCompileGwt --no-daemon --stacktrace && \
-    cp -r /workspace/html/webapp/. /workspace/html/build/gwt/draftOut/ && \
-    cp -r /workspace/html/war/. /workspace/html/build/gwt/draftOut/
+RUN ./gradlew :html:compileGwt --no-daemon --stacktrace && \
+    cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
+    cp -r /workspace/html/war/. /workspace/html/build/gwt/out/
 
 # ── Stage 2: Node.js server ──────────────────────────────────────────────────
 FROM node:18-alpine
@@ -35,7 +36,7 @@ COPY server/ ./
 
 # Pull the compiled GWT assets into the public/ directory that express.static
 # will serve.
-COPY --from=gwt-build /workspace/html/build/gwt/draftOut/ public/
+COPY --from=gwt-build /workspace/html/build/gwt/out/ public/
 
 EXPOSE 8080
 

@@ -17,6 +17,7 @@ gwt {
     compiler {
         strict = true;
         disableCastChecking = true;
+        localWorkers = 1 // compile one permutation at a time to avoid OOM on CI
     }
 }
 

@@ -151,11 +151,23 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  socket.on('plunderPreview', function(data) {
+    if (!gameState) return;
+    gameState.setPlunderPreview(data);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   socket.on('plunderResolved', function(data) {
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
     io.emit('stateUpdate', gameState.serialize());
     checkAndHandleWinner(io);
+  });
+
+  socket.on('attackPreview', function(data) {
+    if (!gameState) return;
+    gameState.setAttackPreview(data);
+    io.emit('stateUpdate', gameState.serialize());
   });
 
   socket.on('defAttackResolved', function(data) {

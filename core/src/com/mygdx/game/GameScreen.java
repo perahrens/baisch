@@ -116,6 +116,8 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingBatteryDefCheck = null;
   // Attack preview broadcast: set from stateUpdate when another player has a pending attack
   private JSONObject pendingAttackBroadcast = null;
+  // Plunder preview broadcast: set from stateUpdate when another player has a pending plunder
+  private JSONObject pendingPlunderBroadcast = null;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
@@ -1036,21 +1038,86 @@ public class GameScreen extends ScreenAdapter {
           pt.getPendingAttackCards().clear();
           pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
+          pt.resetPendingAttackMercenaryBonus();
           gameState.setUpdateState(true);
         }
       });
 
-      // Result label on top of the tint
+      // Battle visualization — card layout constants
+      Card refCardPl = new Card();
+      float plCW = refCardPl.getDefWidth() * 1.5f;
+      float plCH = refCardPl.getDefHeight() * 1.5f;
+      float plBotY = 265f;
+      float plLeftX = 10f;
+      float plRightX = MyGdxGame.WIDTH / 2f + 10f;
+
+      int plAtkSum = pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus();
+      int plDefStr = pt.getPendingPlunderDefStrength();
+
       Label plunderResultLabel = new Label(
-          plunderSuccess ? "SUCCESS!  Tap anywhere to claim the cards."
-                        : "FAILED.  Tap anywhere to continue.",
+          plunderSuccess ? "SUCCESS!  Tap to claim the cards."
+                        : "FAILED.  Tap to continue.",
           MyGdxGame.skin);
       plunderResultLabel.setColor(plunderSuccess ? Color.GREEN : Color.RED);
       plunderResultLabel.setPosition(
           MyGdxGame.WIDTH / 2f - plunderResultLabel.getPrefWidth() / 2f,
-          MyGdxGame.WIDTH / 2f);
+          plBotY - 44f);
 
       gameStage.addActor(overlay);
+
+      // Column headers
+      Label plAtkHdr = new Label("ATTACK", MyGdxGame.skin);
+      plAtkHdr.setColor(Color.CYAN);
+      plAtkHdr.setPosition(plLeftX, plBotY + plCH + 5f);
+      gameStage.addActor(plAtkHdr);
+      Label plDefHdr = new Label("PLUNDER", MyGdxGame.skin);
+      plDefHdr.setColor(Color.ORANGE);
+      plDefHdr.setPosition(plRightX, plBotY + plCH + 5f);
+      gameStage.addActor(plDefHdr);
+
+      // Attack cards (left column)
+      if (pt.isKingUsed() && plunderPlayer.getKingCard() != null) {
+        Card kd = Card.fromCardId(plunderPlayer.getKingCard().getCardId());
+        kd.setCovered(false); kd.setActive(true);
+        kd.setSize(plCW, plCH);
+        kd.setPosition(plLeftX, plBotY);
+        gameStage.addActor(kd);
+      } else {
+        ArrayList<Card> plAtkSrc = new ArrayList<Card>(pt.getPendingAttackCards());
+        plAtkSrc.addAll(pt.getPendingAttackOwnDefCards());
+        int nPA = Math.max(1, plAtkSrc.size());
+        float paW = Math.min(plCW, (MyGdxGame.WIDTH / 2f - 20f - (nPA - 1) * 4f) / nPA);
+        float paH = plCH * (paW / plCW);
+        for (int ai = 0; ai < plAtkSrc.size(); ai++) {
+          Card disp = Card.fromCardId(plAtkSrc.get(ai).getCardId());
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(paW, paH);
+          disp.setPosition(plLeftX + ai * (paW + 4f), plBotY + (plCH - paH) / 2f);
+          gameStage.addActor(disp);
+        }
+      }
+
+      // Defense card (right column) — top card of the harvest deck (already revealed)
+      final int plDeckIdx = pt.getPendingPickingDeckIndex();
+      ArrayList<Card> plDeckCards = gameState.getPickingDecks().get(plDeckIdx).getCards();
+      if (!plDeckCards.isEmpty()) {
+        Card defDisp = Card.fromCardId(plDeckCards.get(plDeckCards.size() - 1).getCardId());
+        defDisp.setCovered(false); defDisp.setActive(true);
+        defDisp.setSize(plCW, plCH);
+        defDisp.setPosition(plRightX, plBotY);
+        gameStage.addActor(defDisp);
+      }
+
+      // Sum labels
+      Label plAtkSumLbl = new Label("Sum: " + plAtkSum, MyGdxGame.skin);
+      plAtkSumLbl.setColor(Color.WHITE);
+      plAtkSumLbl.setPosition(plLeftX, plBotY - 22f);
+      gameStage.addActor(plAtkSumLbl);
+      Label plDefSumLbl = new Label("Sum: " + plDefStr, MyGdxGame.skin);
+      plDefSumLbl.setColor(Color.WHITE);
+      plDefSumLbl.setPosition(plRightX, plBotY - 22f);
+      gameStage.addActor(plDefSumLbl);
+
       gameStage.addActor(plunderResultLabel);
 
       // Reservists plunder boost button — only when currently failing but can be won
@@ -1070,8 +1137,33 @@ public class GameScreen extends ScreenAdapter {
                 resHero.spend();
                 emitReservistsKingBoost(resHero.countReady());
                 pt.incrementReservistAttackBonus();
-                pt.setPlunderSuccess(
-                    pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() > pt.getPendingPlunderDefStrength());
+                boolean newPlunderSuccess =
+                    pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() > pt.getPendingPlunderDefStrength();
+                pt.setPlunderSuccess(newPlunderSuccess);
+                // Re-emit plunderPreview so watchers see the updated sum and outcome
+                if (socket != null) {
+                  try {
+                    JSONObject plPreview = new JSONObject();
+                    plPreview.put("attackerIdx", playerIndex);
+                    plPreview.put("deckIndex", plDeckIdx);
+                    ArrayList<Card> plDeckCurr = gameState.getPickingDecks().get(plDeckIdx).getCards();
+                    plPreview.put("defCardId", plDeckCurr.isEmpty() ? -1 : plDeckCurr.get(plDeckCurr.size() - 1).getCardId());
+                    plPreview.put("attackSum", pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus());
+                    plPreview.put("defStrength", pt.getPendingPlunderDefStrength());
+                    plPreview.put("success", newPlunderSuccess);
+                    plPreview.put("kingUsed", pt.isKingUsed());
+                    plPreview.put("kingCardId", pt.isKingUsed() && plunderPlayer.getKingCard() != null ? plunderPlayer.getKingCard().getCardId() : -1);
+                    plPreview.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
+                    plPreview.put("reservistBonus", pt.getReservistAttackBonus());
+                    JSONArray plResAtkIds = new JSONArray();
+                    for (Card c : pt.getPendingAttackCards()) plResAtkIds.put(c.getCardId());
+                    plPreview.put("attackCardIds", plResAtkIds);
+                    JSONArray plResOwnIds = new JSONArray();
+                    for (Card c : pt.getPendingAttackOwnDefCards()) plResOwnIds.put(c.getCardId());
+                    plPreview.put("ownDefCardIds", plResOwnIds);
+                    socket.emit("plunderPreview", plPreview);
+                  } catch (JSONException ex) { ex.printStackTrace(); }
+                }
                 gameState.setUpdateState(true);
               }
             });
@@ -1080,6 +1172,93 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
       }
+    }
+
+    // Plunder watcher overlay — shown to non-plundering players when another player is plundering
+    if (pendingPlunderBroadcast != null && !currentPlayer.getPlayerTurn().isPlunderPending()) {
+      try {
+        final int plBcAtkIdx = pendingPlunderBroadcast.getInt("attackerIdx");
+        final boolean plBcSuccess = pendingPlunderBroadcast.getBoolean("success");
+        final boolean plBcKingUsed = pendingPlunderBroadcast.optBoolean("kingUsed", false);
+        final int plBcKingCardId = pendingPlunderBroadcast.optInt("kingCardId", -1);
+        final int plBcDefCardId = pendingPlunderBroadcast.optInt("defCardId", -1);
+        final int plBcAtkSum = pendingPlunderBroadcast.optInt("attackSum", 0)
+            + pendingPlunderBroadcast.optInt("reservistBonus", 0);
+        final int plBcDefStr = pendingPlunderBroadcast.optInt("defStrength", 0);
+        final JSONArray plBcAtkIds = pendingPlunderBroadcast.optJSONArray("attackCardIds");
+        final JSONArray plBcOwnDefIds = pendingPlunderBroadcast.optJSONArray("ownDefCardIds");
+
+        Image wPlOverlay = new Image(MyGdxGame.skin, "white");
+        wPlOverlay.setFillParent(true);
+        wPlOverlay.setColor(0f, 0f, 0f, 0.55f);
+        gameStage.addActor(wPlOverlay);
+
+        String plAtkName = gameState.getPlayers().get(plBcAtkIdx).getPlayerName();
+
+        Card wPlRef = new Card();
+        float wPlCW = wPlRef.getDefWidth() * 1.5f;
+        float wPlCH = wPlRef.getDefHeight() * 1.5f;
+        float wPlBotY = 265f;
+        float wPlLeftX = 10f;
+        float wPlRightX = MyGdxGame.WIDTH / 2f + 10f;
+
+        // Column headers
+        Label wPlAtkHdr = new Label(plAtkName + " plunders:", MyGdxGame.skin);
+        wPlAtkHdr.setColor(Color.CYAN);
+        wPlAtkHdr.setPosition(wPlLeftX, wPlBotY + wPlCH + 22f);
+        gameStage.addActor(wPlAtkHdr);
+        Label wPlDefHdr = new Label("Harvest deck:", MyGdxGame.skin);
+        wPlDefHdr.setColor(Color.ORANGE);
+        wPlDefHdr.setPosition(wPlRightX, wPlBotY + wPlCH + 22f);
+        gameStage.addActor(wPlDefHdr);
+
+        // Attack cards (left column)
+        ArrayList<Integer> wPlAtkCardIds = new ArrayList<Integer>();
+        if (plBcKingUsed && plBcKingCardId > 0) {
+          wPlAtkCardIds.add(plBcKingCardId);
+        } else {
+          if (plBcAtkIds != null) for (int ai = 0; ai < plBcAtkIds.length(); ai++) wPlAtkCardIds.add(plBcAtkIds.getInt(ai));
+          if (plBcOwnDefIds != null) for (int ai = 0; ai < plBcOwnDefIds.length(); ai++) wPlAtkCardIds.add(plBcOwnDefIds.getInt(ai));
+        }
+        int nWPA = Math.max(1, wPlAtkCardIds.size());
+        float wPAW = Math.min(wPlCW, (MyGdxGame.WIDTH / 2f - 20f - (nWPA - 1) * 4f) / nWPA);
+        float wPAH = wPlCH * (wPAW / wPlCW);
+        for (int ai = 0; ai < wPlAtkCardIds.size(); ai++) {
+          Card disp = Card.fromCardId(wPlAtkCardIds.get(ai));
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(wPAW, wPAH);
+          disp.setPosition(wPlLeftX + ai * (wPAW + 4f), wPlBotY + (wPlCH - wPAH) / 2f);
+          gameStage.addActor(disp);
+        }
+
+        // Defense card (right column)
+        if (plBcDefCardId > 0) {
+          Card wDefDisp = Card.fromCardId(plBcDefCardId);
+          wDefDisp.setCovered(false); wDefDisp.setActive(true);
+          wDefDisp.setSize(wPlCW, wPlCH);
+          wDefDisp.setPosition(wPlRightX, wPlBotY);
+          gameStage.addActor(wDefDisp);
+        }
+
+        // Sum labels
+        Label wPlAtkSumLbl = new Label("Sum: " + plBcAtkSum, MyGdxGame.skin);
+        wPlAtkSumLbl.setColor(Color.WHITE);
+        wPlAtkSumLbl.setPosition(wPlLeftX, wPlBotY - 22f);
+        gameStage.addActor(wPlAtkSumLbl);
+        Label wPlDefSumLbl = new Label("Sum: " + plBcDefStr, MyGdxGame.skin);
+        wPlDefSumLbl.setColor(Color.WHITE);
+        wPlDefSumLbl.setPosition(wPlRightX, wPlBotY - 22f);
+        gameStage.addActor(wPlDefSumLbl);
+
+        Label wPlResultLbl = new Label(plBcSuccess ? plAtkName + " plunders!" : plAtkName + " fails!", MyGdxGame.skin);
+        wPlResultLbl.setColor(plBcSuccess ? Color.GREEN : Color.RED);
+        wPlResultLbl.setPosition(MyGdxGame.WIDTH / 2f - wPlResultLbl.getPrefWidth() / 2f, wPlBotY - 44f);
+        gameStage.addActor(wPlResultLbl);
+        Label wPlFooter = new Label("Waiting for " + plAtkName + " to confirm...", MyGdxGame.skin);
+        wPlFooter.setColor(Color.YELLOW);
+        wPlFooter.setPosition(MyGdxGame.WIDTH / 2f - wPlFooter.getPrefWidth() / 2f, wPlBotY - 66f);
+        gameStage.addActor(wPlFooter);
+      } catch (JSONException e) { e.printStackTrace(); }
     }
 
     // Defense-attack preview overlay — added LAST so it renders on top
@@ -1324,7 +1503,7 @@ public class GameScreen extends ScreenAdapter {
               defStrCheck = apt.getPendingAttackDefStr();
             }
             boolean canFlipAttack = !atkSuccess && resHero.isAvailable()
-                && (atkBase + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
+                && (atkBase + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
             if (canFlipAttack) {
               TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
               resBtn.setWidth(MyGdxGame.WIDTH / 3f);
@@ -1335,16 +1514,24 @@ public class GameScreen extends ScreenAdapter {
                   resHero.spend();
                   emitReservistsKingBoost(resHero.countReady());
                   apt.incrementReservistAttackBonus();
-                  ArrayList<Card> defCards = apt.getPendingAttackDefCards();
-                  boolean newSuccess;
-                  if (defCards.size() >= 2) {
-                    newSuccess = atkPlayer.attackEnemyDefense(defCards.get(0), defCards.get(1));
-                  } else if (defCards.size() == 1) {
-                    newSuccess = atkPlayer.attackEnemyDefense(defCards.get(0));
+                  // Recalculate from frozen snapshots — do NOT call attackEnemyDefense() here
+                  // because applyStateUpdate may have already rebuilt hand cards (losing isSelected).
+                  int newAtkSum;
+                  if (apt.isKingUsed() && atkPlayer.getKingCard() != null) {
+                    newAtkSum = atkPlayer.getKingCard().getStrength();
                   } else {
-                    // King attack: recalculate using stored base sums
-                    newSuccess = (apt.getPendingAttackBaseSum() + apt.getReservistAttackBonus()) > apt.getPendingAttackDefStr();
+                    newAtkSum = 0;
+                    for (Card snapC : apt.getPendingAttackCards()) newAtkSum += snapC.getStrength();
+                    for (Card snapC : apt.getPendingAttackOwnDefCards()) newAtkSum += snapC.getStrength();
                   }
+                  newAtkSum += apt.getPendingAttackMercenaryBonus();
+                  newAtkSum += apt.getReservistAttackBonus();
+                  ArrayList<Card> defCards = apt.getPendingAttackDefCards();
+                  int newDefStr = 0;
+                  for (Card dc : defCards) newDefStr += "joker".equals(dc.getSymbol()) ? 1 : dc.getStrength();
+                  boolean newSuccess = defCards.isEmpty()
+                      ? (apt.getPendingAttackBaseSum() + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus()) > apt.getPendingAttackDefStr()
+                      : newAtkSum > newDefStr;
                   apt.setAttackSuccess(newSuccess);
                   // Re-emit attackPreview so defenders/watchers see the updated sum and outcome
                   if (socket != null) {
@@ -2528,6 +2715,14 @@ public class GameScreen extends ScreenAdapter {
         pendingAttackBroadcast = serverPendingAtk;
       } else {
         pendingAttackBroadcast = null;
+      }
+
+      // Sync plunder preview for the watcher overlay
+      JSONObject serverPendingPlunder = state.optJSONObject("pendingPlunder");
+      if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
+        pendingPlunderBroadcast = serverPendingPlunder;
+      } else {
+        pendingPlunderBroadcast = null;
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)

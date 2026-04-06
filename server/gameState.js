@@ -19,6 +19,7 @@ class GameState {
     this.log = []; // activity log: [{ text, success }, ...], max 5 entries
     this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
     this.pendingAttack = null; // current attack preview broadcast, cleared on defAttackResolved
+    this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
     this.dealCards(8);
     this.doSetup();
     this.initPickingDecks();
@@ -60,6 +61,10 @@ class GameState {
 
   pname(idx) {
     return (this.players[idx] && this.players[idx].name) || ('P' + idx);
+  }
+
+  setPlunderPreview(data) {
+    this.pendingPlunder = data;
   }
 
   setAttackPreview(data) {
@@ -252,6 +257,7 @@ class GameState {
   }
 
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
@@ -479,6 +485,7 @@ class GameState {
       log: [...this.log],
       merchantReveal: this.lastMerchantReveal || null,
       pendingAttack: this.pendingAttack || null,
+      pendingPlunder: this.pendingPlunder || null,
     };
   }
 }

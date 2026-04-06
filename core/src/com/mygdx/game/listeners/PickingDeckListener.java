@@ -2,6 +2,10 @@ package com.mygdx.game.listeners;
 
 import java.util.ArrayList;
 
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
+
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
@@ -119,6 +123,31 @@ public class PickingDeckListener extends ClickListener {
         pt.setPendingPlunderAttackSum(attackSum);
         pt.setPendingPlunderDefStrength(defStrength);
         pt.setPlunderSuccess(attackSum > defStrength);
+
+        // Broadcast plunder preview to all players so watchers can see what's happening
+        if (gameState.getSocket() != null) {
+          try {
+            int attackerIdx = gameState.getCurrentPlayerIndex();
+            JSONObject preview = new JSONObject();
+            preview.put("attackerIdx", attackerIdx);
+            preview.put("deckIndex", deckIndex);
+            preview.put("defCardId", topCard.getCardId());
+            preview.put("attackSum", attackSum);
+            preview.put("defStrength", defStrength);
+            preview.put("success", attackSum > defStrength);
+            preview.put("kingUsed", kingSelected);
+            preview.put("kingCardId", kingSelected && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
+            preview.put("mercenaryBonus", mercBonus);
+            preview.put("reservistBonus", 0);
+            JSONArray atkIds = new JSONArray();
+            for (Card c : snapshot) atkIds.put(c.getCardId());
+            preview.put("attackCardIds", atkIds);
+            JSONArray ownDefIds = new JSONArray();
+            for (Card c : ownDefSnapshot) ownDefIds.put(c.getCardId());
+            preview.put("ownDefCardIds", ownDefIds);
+            gameState.getSocket().emit("plunderPreview", preview);
+          } catch (JSONException e) { e.printStackTrace(); }
+        }
 
         gameState.setUpdateState(true);
       }

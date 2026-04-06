@@ -18,6 +18,8 @@ class GameState {
     this.currentPlayerIndex = 0;
     this.log = []; // activity log: [{ text, success }, ...], max 5 entries
     this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
+    this.pendingAttack = null; // current attack preview broadcast, cleared on defAttackResolved
+    this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
     this.dealCards(8);
     this.doSetup();
     this.initPickingDecks();
@@ -59,6 +61,27 @@ class GameState {
 
   pname(idx) {
     return (this.players[idx] && this.players[idx].name) || ('P' + idx);
+  }
+
+  setPlunderPreview(data) {
+    this.pendingPlunder = data;
+  }
+
+  setAttackPreview(data) {
+    this.pendingAttack = data;
+    // Mark targeted defense card(s) as face-up so the defender sees the reveal immediately
+    const { defenderIdx, positionId, level } = data;
+    const defender = this.players[defenderIdx];
+    if (defender && positionId !== undefined) {
+      if (!defender.defCardsCovered) defender.defCardsCovered = {};
+      if (!defender.topDefCardsCovered) defender.topDefCardsCovered = {};
+      if (level === 0) {
+        if (defender.defCards[positionId] !== undefined) defender.defCardsCovered[positionId] = false;
+        if (defender.topDefCards[positionId] !== undefined) defender.topDefCardsCovered[positionId] = false;
+      } else {
+        if (defender.topDefCards[positionId] !== undefined) defender.topDefCardsCovered[positionId] = false;
+      }
+    }
   }
 
   pushLog(text, success, neutral = false) {
@@ -234,6 +257,7 @@ class GameState {
   }
 
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
@@ -274,6 +298,7 @@ class GameState {
   }
 
   defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    this.pendingAttack = null;
     const attacker = this.players[attackerIdx];
     const defender = this.players[defenderIdx];
     for (const cardId of attackCardIds) {
@@ -459,6 +484,8 @@ class GameState {
       winnerIndex: this.checkWinner(),
       log: [...this.log],
       merchantReveal: this.lastMerchantReveal || null,
+      pendingAttack: this.pendingAttack || null,
+      pendingPlunder: this.pendingPlunder || null,
     };
   }
 }

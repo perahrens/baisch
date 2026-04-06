@@ -844,19 +844,15 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragDefCard.getCardId());
                 dragOverlayCard.setWidth(dragDefCard.getWidth());
                 dragOverlayCard.setHeight(dragDefCard.getHeight());
-                Vector2 v = new Vector2(dragDefCard.getX(), dragDefCard.getY());
-                gameStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(dragDefCard.getX(), dragDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                Vector2 v = new Vector2(event.getStageX() - touchOffX, event.getStageY() - touchOffY);
-                gameStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
               public void dragStop(InputEvent event, float x, float y, int pointer) {
@@ -965,19 +961,15 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragTopDefCard.getCardId());
                 dragOverlayCard.setWidth(dragTopDefCard.getWidth());
                 dragOverlayCard.setHeight(dragTopDefCard.getHeight());
-                Vector2 v = new Vector2(dragTopDefCard.getX(), dragTopDefCard.getY());
-                gameStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(dragTopDefCard.getX(), dragTopDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                Vector2 v = new Vector2(event.getStageX() - touchOffX, event.getStageY() - touchOffY);
-                gameStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
               public void dragStop(InputEvent event, float x, float y, int pointer) {
@@ -2289,30 +2281,23 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(handCard.getCardId());
                 dragOverlayCard.setWidth(handCard.getWidth());
                 dragOverlayCard.setHeight(handCard.getHeight());
-                Vector2 v = new Vector2(handCard.getX(), handCard.getY());
-                handStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                dragOverlayCard.setPosition(handCard.getX(), handCard.getY());
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                Vector2 v = new Vector2(event.getStageX() - touchOffX, event.getStageY() - touchOffY);
-                handStage.stageToScreenCoordinates(v);
-                overlayStage.screenToStageCoordinates(v);
-                dragOverlayCard.setPosition(v.x, v.y);
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, event.getStageY() - touchOffY);
               }
               @Override
               public void dragStop(InputEvent event, float x, float y, int pointer) {
                 isDraggingHandCard = false;
                 if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
                 handCard.setVisible(true);
-                if (event.getStageY() > (MyGdxGame.HEIGHT - MyGdxGame.WIDTH)) {
-                  Vector2 v = new Vector2(event.getStageX(), event.getStageY());
-                  handStage.stageToScreenCoordinates(v);
-                  gameStage.screenToStageCoordinates(v);
-                  Actor hit = gameStage.hit(v.x, v.y, false);
+                float handAreaHeight = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                if (event.getStageY() > handAreaHeight) {
+                  float gameStageY = event.getStageY() - handAreaHeight;
+                  Actor hit = gameStage.hit(event.getStageX(), gameStageY, false);
                   if (hit instanceof Card) {
                     Card target = (Card) hit;
                     int posId = target.getPositionId();

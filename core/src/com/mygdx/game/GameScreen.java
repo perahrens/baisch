@@ -25,10 +25,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.PickingDeck;
 import java.util.Iterator;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.math.Vector2;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.FortifiedTower;
@@ -44,7 +46,6 @@ import com.mygdx.game.listeners.EnemyDefCardListener;
 import com.mygdx.game.listeners.EnemyHandCardListener;
 import com.mygdx.game.listeners.EnemyKingCardListener;
 import com.mygdx.game.listeners.FinishTurnButtonListener;
-import com.mygdx.game.listeners.HandImageListener;
 import com.mygdx.game.listeners.KeepCardButtonListener;
 import com.mygdx.game.listeners.MercenaryImageListener;
 import com.mygdx.game.listeners.OwnDefCardListener;
@@ -71,8 +72,10 @@ public class GameScreen extends ScreenAdapter {
   InputProcessor inProBottom;
   private FitViewport fitVPGame;
   private FitViewport fitVPHand;
+  private FitViewport fitVPOverlay;
   private Stage gameStage;
   private Stage handStage;
+  private Stage overlayStage;
   private Image gameBck;
   private Image handBck;
   private Label myPlayerLabel;
@@ -100,10 +103,12 @@ public class GameScreen extends ScreenAdapter {
   // handStage
   private OwnHandCardListener ownHandCardListener;
   private OwnHeroListener ownHeroListener;
+  private boolean isDraggingDefCard = false;
+  private boolean isDraggingHandCard = false;
+  private Card dragOverlayCard = null;
   private KeepCardButtonListener keepCardButtonListener;
   private TradeCardButtonListener tradeCardButtonListener;
   private FinishTurnButtonListener finishTurnButtonListener;
-  private HandImageListener handImageListener;
 
   // Merchant 2nd-try reveal: card ID shown to all non-trading players
   private int merchantRevealCardId = -1;
@@ -128,7 +133,6 @@ public class GameScreen extends ScreenAdapter {
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
   private Texture texSabotaged;
-  private Texture texHand;
   private Texture texHearts;
   private Texture texDiamonds;
   private Texture texClubs;
@@ -461,6 +465,10 @@ public class GameScreen extends ScreenAdapter {
     fitVPHand = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
     handStage.setViewport(fitVPHand);
 
+    overlayStage = new Stage();
+    fitVPOverlay = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    overlayStage.setViewport(fitVPOverlay);
+
     inMulti = new InputMultiplexer();
     inMulti.addProcessor(gameStage);
     inMulti.addProcessor(handStage);
@@ -476,9 +484,26 @@ public class GameScreen extends ScreenAdapter {
     handBck.setColor(1f, 1f, 1f, 0.5f);
     handStage.addActor(handBck);
 
+    // Clicking anywhere in the hand area takes the currently-selected defense card.
+    handBck.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        Map<Integer, Card> defs = currentPlayer.getDefCards();
+        Map<Integer, Card> topDefs = currentPlayer.getTopDefCards();
+        for (int jj = 1; jj <= 3; jj++) {
+          boolean shouldTake = (defs.containsKey(jj) && defs.get(jj).isSelected())
+              || (topDefs.containsKey(jj) && topDefs.get(jj).isSelected());
+          if (shouldTake && currentPlayer.canTakeDefCard()) {
+            emitTakeDefCard(jj);
+            currentPlayer.takeDefCard(jj);
+          }
+        }
+        gameState.setUpdateState(true);
+      }
+    });
+
     texMercenary  = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
     texSabotaged  = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
-    texHand       = new Texture(Gdx.files.internal("data/skins/hand.png"));
     texHearts     = new Texture(Gdx.files.internal("data/skins/hearts.png"));
     texDiamonds   = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
@@ -523,6 +548,7 @@ public class GameScreen extends ScreenAdapter {
 
     gameStage.clear();
     handStage.clear();
+    overlayStage.clear();
 
     gameStage.addActor(gameBck);
     handStage.addActor(handBck);
@@ -531,7 +557,7 @@ public class GameScreen extends ScreenAdapter {
     showHandStage(players, currentPlayer);
   }
 
-  public void showGameStage(ArrayList<Player> players, Player currentPlayer) {
+  public void showGameStage(ArrayList<Player> players, final Player currentPlayer) {
     Card infoCard = new Card();
     float cardW = infoCard.getDefWidth();
     float cardH = infoCard.getDefHeight();
@@ -806,6 +832,40 @@ public class GameScreen extends ScreenAdapter {
                 gameState.getCurrentPlayer().getHandCards(), gameState.getCurrentPlayer(), gameState.getPlayers(),
                 socket, playerIndex);
             defCard.addListener(ownDefCardListener);
+            // Drag-to-take: drag defense card down into hand area to pick it up
+            final Card dragDefCard = defCard;
+            dragDefCard.addListener(new DragListener() {
+              float touchOffX, touchOffY;
+              @Override
+              public void dragStart(InputEvent event, float x, float y, int pointer) {
+                touchOffX = x; touchOffY = y;
+                isDraggingDefCard = true;
+                dragDefCard.setVisible(false);
+                dragOverlayCard = Card.fromCardId(dragDefCard.getCardId());
+                dragOverlayCard.setWidth(dragDefCard.getWidth());
+                dragOverlayCard.setHeight(dragDefCard.getHeight());
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(dragDefCard.getX(), dragDefCard.getY() + oy);
+                overlayStage.addActor(dragOverlayCard);
+              }
+              @Override
+              public void drag(InputEvent event, float x, float y, int pointer) {
+                if (dragOverlayCard == null) return;
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
+              }
+              @Override
+              public void dragStop(InputEvent event, float x, float y, int pointer) {
+                isDraggingDefCard = false;
+                if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
+                dragDefCard.setVisible(true);
+                if (event.getStageY() < 0 && currentPlayer.canTakeDefCard()) {
+                  emitTakeDefCard(dragDefCard.getPositionId());
+                  currentPlayer.takeDefCard(dragDefCard.getPositionId());
+                }
+                gameState.setUpdateState(true);
+              }
+            });
           }
         } else {
           defCard = new Card();
@@ -889,6 +949,40 @@ public class GameScreen extends ScreenAdapter {
                 gameState.getCurrentPlayer(), gameState.getPlayers(),
                 socket, playerIndex);
             topDefCard.addListener(ownDefCardListener);
+            // Drag-to-take: drag top defense card down into hand area to pick it up
+            final Card dragTopDefCard = topDefCard;
+            dragTopDefCard.addListener(new DragListener() {
+              float touchOffX, touchOffY;
+              @Override
+              public void dragStart(InputEvent event, float x, float y, int pointer) {
+                touchOffX = x; touchOffY = y;
+                isDraggingDefCard = true;
+                dragTopDefCard.setVisible(false);
+                dragOverlayCard = Card.fromCardId(dragTopDefCard.getCardId());
+                dragOverlayCard.setWidth(dragTopDefCard.getWidth());
+                dragOverlayCard.setHeight(dragTopDefCard.getHeight());
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(dragTopDefCard.getX(), dragTopDefCard.getY() + oy);
+                overlayStage.addActor(dragOverlayCard);
+              }
+              @Override
+              public void drag(InputEvent event, float x, float y, int pointer) {
+                if (dragOverlayCard == null) return;
+                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
+              }
+              @Override
+              public void dragStop(InputEvent event, float x, float y, int pointer) {
+                isDraggingDefCard = false;
+                if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
+                dragTopDefCard.setVisible(true);
+                if (event.getStageY() < 0 && currentPlayer.canTakeDefCard()) {
+                  emitTakeDefCard(dragTopDefCard.getPositionId());
+                  currentPlayer.takeDefCard(dragTopDefCard.getPositionId());
+                }
+                gameState.setUpdateState(true);
+              }
+            });
           }
           topDefCard.setMapPosition(i, j, 1);
           if (players.get(i) == currentPlayer) {
@@ -2161,7 +2255,7 @@ public class GameScreen extends ScreenAdapter {
     }
   }
 
-  public void showHandStage(ArrayList<Player> players, Player currentPlayer) {
+  public void showHandStage(ArrayList<Player> players, final Player currentPlayer) {
     // Set up own hand card listeners for the current turn player
     for (int i = 0; i < players.size(); i++) {
       ArrayList<Card> handCards = players.get(i).getHandCards();
@@ -2176,6 +2270,49 @@ public class GameScreen extends ScreenAdapter {
             ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
                 gameState.getCemeteryDeck(), gameState, socket, playerIndex);
             handCard.addListener(ownHandCardListener);
+            // Drag hand card up into defense slot placeholder
+            handCard.addListener(new DragListener() {
+              float touchOffX, touchOffY;
+              @Override
+              public void dragStart(InputEvent event, float x, float y, int pointer) {
+                touchOffX = x; touchOffY = y;
+                isDraggingHandCard = true;
+                handCard.setVisible(false);
+                dragOverlayCard = Card.fromCardId(handCard.getCardId());
+                dragOverlayCard.setWidth(handCard.getWidth());
+                dragOverlayCard.setHeight(handCard.getHeight());
+                dragOverlayCard.setPosition(handCard.getX(), handCard.getY());
+                overlayStage.addActor(dragOverlayCard);
+              }
+              @Override
+              public void drag(InputEvent event, float x, float y, int pointer) {
+                if (dragOverlayCard == null) return;
+                dragOverlayCard.setPosition(event.getStageX() - touchOffX, event.getStageY() - touchOffY);
+              }
+              @Override
+              public void dragStop(InputEvent event, float x, float y, int pointer) {
+                isDraggingHandCard = false;
+                if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
+                handCard.setVisible(true);
+                float handAreaHeight = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                if (event.getStageY() > handAreaHeight) {
+                  float gameStageY = event.getStageY() - handAreaHeight;
+                  Actor hit = gameStage.hit(event.getStageX(), gameStageY, false);
+                  if (hit instanceof Card) {
+                    Card target = (Card) hit;
+                    int posId = target.getPositionId();
+                    if (target.isPlaceholder() && posId >= 1 && posId <= 3
+                        && currentPlayer.canMobilize() && !currentPlayer.isSlotSabotaged(posId)) {
+                      currentPlayer.putDefCard(posId, 0);
+                      emitPutDefCard(posId, handCard.getCardId());
+                      gameState.setUpdateState(true);
+                      return;
+                    }
+                  }
+                }
+                gameState.setUpdateState(true);
+              }
+            });
           }
           handCards.get(j).setActive(false);
         }
@@ -2477,27 +2614,15 @@ public class GameScreen extends ScreenAdapter {
       handStage.addActor(symbolImageExt);
     }
 
-    // Add hand image
-    TextureRegion handRegion = new TextureRegion(texHand, 0, 0, 512, 512);
-    Image handImage = new Image(handRegion);
-    handImage.setBounds(handImage.getX(), handImage.getY(), handImage.getWidth() / 5f, handImage.getHeight() / 5f);
-    handImage.setPosition(Gdx.graphics.getWidth() - (myPlayerLabel.getWidth() + handImage.getWidth()), 0);
-
-    removeAllListeners(handImage);
-    handImageListener = new HandImageListener(gameState, currentPlayer);
-    handImage.addListener(handImageListener);
-
-    handStage.addActor(handImage);
-
-    // Shield indicators to the left of the hand image (stacked vertically):
+    // Shield indicators to the left of the attack symbol:
     //   arrow-down-shield = take defense card available (bottom slot)
     //   shield-check-f    = put defense card available (top slot)
     if (isMyTurn) {
       PlayerTurn ptHand = currentPlayer.getPlayerTurn();
-      float iconSize = handImage.getHeight() / 3f;
-      float iconX = handImage.getX() - iconSize - 2f;
-      float slot0Y = handImage.getY();              // bottom icon
-      float slot1Y = handImage.getY() + iconSize;   // top icon
+      float iconSize = symbolImage.getHeight();
+      float iconX = symbolImage.getX() - iconSize - 2f;
+      float slot0Y = symbolImage.getY();
+      float slot1Y = symbolImage.getY() + iconSize;
       Marshal marshalHero = null;
       for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
         if (currentPlayer.getHeroes().get(mi).getHeroName() == "Marshal") {
@@ -2550,6 +2675,27 @@ public class GameScreen extends ScreenAdapter {
       data.put("playerIdx", playerIndex);
       data.put("count", count);
       socket.emit("reservistsKingBoost", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void emitTakeDefCard(int positionId) {
+    if (socket == null) return;
+    try {
+      JSONObject payload = new JSONObject();
+      payload.put("playerIdx", playerIndex);
+      payload.put("positionId", positionId);
+      socket.emit("takeDefCard", payload);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void emitPutDefCard(int positionId, int cardId) {
+    if (socket == null) return;
+    try {
+      JSONObject payload = new JSONObject();
+      payload.put("playerIdx", playerIndex);
+      payload.put("positionId", positionId);
+      payload.put("cardId", cardId);
+      socket.emit("putDefCard", payload);
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
@@ -2779,6 +2925,21 @@ public class GameScreen extends ScreenAdapter {
       show();
     }
 
+    // Highlight hand area when own defense card is selected or being dragged
+    boolean anyOwnDefSelected = isDraggingDefCard;
+    if (!anyOwnDefSelected) {
+      for (Card c : currentPlayer.getDefCards().values()) {
+        if (c.isSelected()) { anyOwnDefSelected = true; break; }
+      }
+    }
+    if (!anyOwnDefSelected) {
+      for (Card c : currentPlayer.getTopDefCards().values()) {
+        if (c.isSelected()) { anyOwnDefSelected = true; break; }
+      }
+    }
+    handBck.setColor(anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.9f : 1f,
+        anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.8f : 0.5f);
+
     /* Upper division */
     Gdx.gl.glViewport(0, Gdx.graphics.getHeight() - Gdx.graphics.getWidth(), Gdx.graphics.getWidth(),
         Gdx.graphics.getWidth());
@@ -2797,6 +2958,14 @@ public class GameScreen extends ScreenAdapter {
     handStage.getViewport().apply();
     handStage.act(delta);
     handStage.draw();
+
+    /* Overlay (drag layer - always on top) */
+    Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    overlayStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+    overlayStage.getViewport().setScreenBounds(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    overlayStage.getViewport().apply();
+    overlayStage.act(delta);
+    overlayStage.draw();
   }
 
   // ---- Joker sacrifice / hero acquisition ----

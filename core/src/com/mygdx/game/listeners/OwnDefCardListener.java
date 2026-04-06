@@ -62,7 +62,8 @@ public class OwnDefCardListener extends ClickListener {
       if (player.getSelectedHeroes().size() > 0) {
         for (int i = 0; i < player.getHeroes().size(); i++) {
           if ("Fortified Tower".equals(player.getHeroes().get(i).getHeroName()) && player.getHeroes().get(i).isSelected()
-              && player.getSelectedHandCards().size() == 1 && selectedCard.getLevel() == 0) {
+              && player.getSelectedHandCards().size() == 1 && selectedCard.getLevel() == 0
+              && !player.getTopDefCards().containsKey(selectedCard.getPositionId())) {
             Card handCard = player.getSelectedHandCards().get(0);
             FortifiedTower fortifiedTower = (FortifiedTower) player.getHeroes().get(i);
             if (fortifiedTower.getDefenseExpands() > 0 && handCard.getSymbol().equals(selectedCard.getSymbol())) {

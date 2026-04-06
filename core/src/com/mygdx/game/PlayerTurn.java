@@ -151,6 +151,13 @@ public class PlayerTurn {
   public void incrementMercenaryAttackBonus() { mercenaryAttackBonus++; }
   public void resetMercenaryAttackBonus() { mercenaryAttackBonus = 0; }
 
+  // Snapshot of mercenaryAttackBonus captured when the attack is committed (before it is consumed).
+  // Used by the overlay to display the correct sum even after the live bonus is reset.
+  private int pendingAttackMercenaryBonus = 0;
+  public int getPendingAttackMercenaryBonus() { return pendingAttackMercenaryBonus; }
+  public void setPendingAttackMercenaryBonus(int v) { pendingAttackMercenaryBonus = v; }
+  public void resetPendingAttackMercenaryBonus() { pendingAttackMercenaryBonus = 0; }
+
   // --- Hero selection state ---
   // Set when the drawn card requires the player to choose a hero manually.
   private boolean heroSelectionPending = false;

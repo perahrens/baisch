@@ -347,6 +347,8 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("defCardIds", defPrevIds);
                     previewData.put("kingUsed", pt.isKingUsed());
                     previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
+                    previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
+                    previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
                     theSocket.emit("attackPreview", previewData);
                   } catch (JSONException ex) { ex.printStackTrace(); }
@@ -1172,6 +1174,7 @@ public class GameScreen extends ScreenAdapter {
           }
           apt.getPendingAttackCards().clear();
           apt.resetReservistAttackBonus();
+          apt.resetPendingAttackMercenaryBonus();
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
@@ -1212,7 +1215,7 @@ public class GameScreen extends ScreenAdapter {
         for (Card ac : apt.getPendingAttackOwnDefCards()) atkVizSum += ac.getStrength();
       }
       atkVizSum += apt.getReservistAttackBonus();
-
+        atkVizSum += apt.getPendingAttackMercenaryBonus();
       // Defense sum (for label)
       int defVizSum = 0;
       ArrayList<Card> pendingDefViz = apt.getPendingAttackDefCards();
@@ -1343,6 +1346,31 @@ public class GameScreen extends ScreenAdapter {
                     newSuccess = (apt.getPendingAttackBaseSum() + apt.getReservistAttackBonus()) > apt.getPendingAttackDefStr();
                   }
                   apt.setAttackSuccess(newSuccess);
+                  // Re-emit attackPreview so defenders/watchers see the updated sum and outcome
+                  if (socket != null) {
+                    try {
+                      JSONObject resPreview = new JSONObject();
+                      resPreview.put("attackerIdx", playerIndex);
+                      resPreview.put("defenderIdx", apt.getAttackTargetPlayerIdx());
+                      resPreview.put("positionId", apt.getAttackTargetPositionId());
+                      resPreview.put("level", apt.getAttackTargetLevel());
+                      JSONArray rpAtkIds = new JSONArray();
+                      for (Card c : apt.getPendingAttackCards()) rpAtkIds.put(c.getCardId());
+                      resPreview.put("attackCardIds", rpAtkIds);
+                      JSONArray rpOwnDefIds = new JSONArray();
+                      for (Card c : apt.getPendingAttackOwnDefCards()) rpOwnDefIds.put(c.getCardId());
+                      resPreview.put("ownDefCardIds", rpOwnDefIds);
+                      JSONArray rpDefIds = new JSONArray();
+                      for (Card c : apt.getPendingAttackDefCards()) rpDefIds.put(c.getCardId());
+                      resPreview.put("defCardIds", rpDefIds);
+                      resPreview.put("kingUsed", apt.isKingUsed());
+                      resPreview.put("kingCardId", apt.isKingUsed() && atkPlayer.getKingCard() != null ? atkPlayer.getKingCard().getCardId() : -1);
+                      resPreview.put("mercenaryBonus", apt.getPendingAttackMercenaryBonus());
+                      resPreview.put("reservistBonus", apt.getReservistAttackBonus());
+                      resPreview.put("success", newSuccess);
+                      socket.emit("attackPreview", resPreview);
+                    } catch (JSONException ex) { ex.printStackTrace(); }
+                  }
                   gameState.setUpdateState(true);
                 }
               });
@@ -1362,6 +1390,8 @@ public class GameScreen extends ScreenAdapter {
         final boolean bcSuccess = pendingAttackBroadcast.getBoolean("success");
         final boolean bcKingUsed = pendingAttackBroadcast.optBoolean("kingUsed", false);
         final int bcKingCardId = pendingAttackBroadcast.optInt("kingCardId", -1);
+        final int bcMercBonus = pendingAttackBroadcast.optInt("mercenaryBonus", 0);
+        final int bcResBonus = pendingAttackBroadcast.optInt("reservistBonus", 0);
         final JSONArray bcAtkIds = pendingAttackBroadcast.optJSONArray("attackCardIds");
         final JSONArray bcOwnDefIds = pendingAttackBroadcast.optJSONArray("ownDefCardIds");
         final JSONArray bcDefIds = pendingAttackBroadcast.optJSONArray("defCardIds");
@@ -1411,6 +1441,8 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(disp);
           wAtkSum += disp.getStrength();
         }
+        wAtkSum += bcMercBonus;
+        wAtkSum += bcResBonus;
 
         // Defense cards (right column)
         ArrayList<Integer> wDefCardIds = new ArrayList<Integer>();

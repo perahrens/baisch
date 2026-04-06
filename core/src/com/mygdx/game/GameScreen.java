@@ -547,7 +547,7 @@ public class GameScreen extends ScreenAdapter {
     showHandStage(players, currentPlayer);
   }
 
-  public void showGameStage(ArrayList<Player> players, Player currentPlayer) {
+  public void showGameStage(ArrayList<Player> players, final Player currentPlayer) {
     Card infoCard = new Card();
     float cardW = infoCard.getDefWidth();
     float cardH = infoCard.getDefHeight();

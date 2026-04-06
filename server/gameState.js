@@ -56,6 +56,10 @@ class GameState {
     }
   }
 
+  pname(idx) {
+    return (this.players[idx] && this.players[idx].name) || ('P' + idx);
+  }
+
   pushLog(text, success, neutral = false) {
     this.log.push({ text, success, neutral });
     if (this.log.length > 5) this.log.shift();
@@ -92,7 +96,7 @@ class GameState {
       target.hand.splice(idx, 1);
       attacker.hand.push(cardId);
     }
-    this.pushLog(`P${attackerIdx} (Priest) took card from P${targetPlayerIdx}`, true);
+    this.pushLog(`${this.pname(attackerIdx)} (Priest) took card from ${this.pname(targetPlayerIdx)}`, true);
   }
 
   // ---- Saboteurs actions ----
@@ -101,13 +105,13 @@ class GameState {
     const defender = this.players[defenderIdx];
     if (!defender.sabotaged) defender.sabotaged = {};
     defender.sabotaged[positionId] = attackerIdx;
-    this.pushLog(`P${attackerIdx} placed saboteur on P${defenderIdx}'s field [${positionId}]`, true);
+    this.pushLog(`${this.pname(attackerIdx)} placed saboteur on ${this.pname(defenderIdx)}'s field [${positionId}]`, true);
   }
 
   sabotageCallback(attackerIdx, defenderIdx, positionId) {
     const defender = this.players[defenderIdx];
     if (defender.sabotaged) delete defender.sabotaged[positionId];
-    this.pushLog(`P${attackerIdx} recalled saboteur from P${defenderIdx}'s field [${positionId}]`, true, true);
+    this.pushLog(`${this.pname(attackerIdx)} recalled saboteur from ${this.pname(defenderIdx)}'s field [${positionId}]`, true, true);
   }
 
   sabotageSacrifice(defenderIdx, positionId) {
@@ -120,7 +124,7 @@ class GameState {
       this.cemetery.push(cardId);
     }
     if (p.sabotaged) delete p.sabotaged[positionId];
-    this.pushLog(`P${defenderIdx} sacrificed shield [${positionId}] to destroy saboteur`, false);
+    this.pushLog(`${this.pname(defenderIdx)} sacrificed shield [${positionId}] to destroy saboteur`, false);
     return attackerIdx;
   }
 
@@ -131,7 +135,7 @@ class GameState {
     if (i !== -1) p.hand.splice(i, 1);
     this.cemetery.push(handCardId);
     if (p.sabotaged) delete p.sabotaged[positionId];
-    this.pushLog(`P${defenderIdx} sacrificed a card to clear saboteur at [${positionId}]`, false);
+    this.pushLog(`${this.pname(defenderIdx)} sacrificed a card to clear saboteur at [${positionId}]`, false);
     return attackerIdx;
   }
 
@@ -151,7 +155,7 @@ class GameState {
       delete p.topDefCards[positionId];
       if (p.topDefCardsCovered) delete p.topDefCardsCovered[positionId];
     }
-    this.pushLog(`P${playerIdx} took shield [${positionId}] to hand`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} took shield [${positionId}] to hand`, true, true);
   }
 
   putDefCard(playerIdx, positionId, cardId) {
@@ -161,7 +165,7 @@ class GameState {
     p.defCards[positionId] = cardId;
     if (!p.defCardsCovered) p.defCardsCovered = {};
     p.defCardsCovered[positionId] = true; // newly placed card is always face-down
-    this.pushLog(`P${playerIdx} placed shield at [${positionId}]`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} placed shield at [${positionId}]`, true, true);
   }
 
   putTopDefCard(playerIdx, positionId, cardId) {
@@ -171,7 +175,7 @@ class GameState {
     p.topDefCards[positionId] = cardId;
     if (!p.topDefCardsCovered) p.topDefCardsCovered = {};
     p.topDefCardsCovered[positionId] = true; // newly stacked card is face-down
-    this.pushLog(`P${playerIdx} fortified shield at [${positionId}]`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} fortified shield at [${positionId}]`, true, true);
   }
 
   magicianSwap(playerIdx, targetPlayerIdx, positionId, newBottomCardId, bottomCovered, newTopCardId, topCovered) {
@@ -196,7 +200,7 @@ class GameState {
       if (!target.topDefCardsCovered) target.topDefCardsCovered = {};
       target.topDefCardsCovered[positionId] = topCovered;
     }
-    this.pushLog(`P${playerIdx} cast Magician on P${targetPlayerIdx}'s shield [${positionId}]`, true);
+    this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s shield [${positionId}]`, true);
   }
 
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
@@ -225,7 +229,7 @@ class GameState {
         if (p.defCardsCovered) delete p.defCardsCovered[slot];
       }
     }
-    this.pushLog(`P${playerIdx} discarded own shield(s)`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} discarded own shield(s)`, true, true);
   }
 
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
@@ -247,7 +251,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
-      this.pushLog(`P${attackerIdx} plundered deck ${deckIdx + 1}!`, true);
+      this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}!`, true);
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -258,7 +262,7 @@ class GameState {
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: false });
       if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
     } else {
-      this.pushLog(`P${attackerIdx} plunder on deck ${deckIdx + 1} failed`, false);
+      this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed`, false);
       if (kingUsed) attacker.isOut = true;
       // Keep the attacked (top) card face-up after a failed plunder,
       // then add a new face-down card on top.
@@ -288,7 +292,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
-      this.pushLog(`P${attackerIdx} broke P${defenderIdx}'s shield [${positionId}]`, true);
+      this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}]`, true);
       // If the slot was sabotaged, clear it (saboteur destroyed when card is removed by attack)
       if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
         delete defender.sabotaged[positionId];
@@ -303,7 +307,7 @@ class GameState {
         if (topCardId !== undefined) { attacker.hand.push(topCardId); delete defender.topDefCards[positionId]; }
       }
     } else {
-      this.pushLog(`P${attackerIdx} missed P${defenderIdx}'s shield [${positionId}]`, false);
+      this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}]`, false);
       if (kingUsed) attacker.isOut = true;
       // Mark attacked card(s) as revealed (face-up) — they stay in defCards but must remain visible
       if (!defender.defCardsCovered) defender.defCardsCovered = {};
@@ -349,7 +353,7 @@ class GameState {
     const drawnDeckIdx = this.deck.indexOf(drawnCardId);
     if (drawnDeckIdx !== -1) this.deck.splice(drawnDeckIdx, 1);
     this.cemetery.push(drawnCardId);
-    this.pushLog(`P${playerIdx} sacrificed a Joker for a Hero`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} sacrificed a Joker for a Hero`, true, true);
   }
 
   kingAttackResolved(attackerIdx, defenderIdx, success, attackCardIds, kingUsed) {
@@ -362,7 +366,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
-      this.pushLog(`P${attackerIdx} defeated P${defenderIdx}!`, true);
+      this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}!`, true);
       // Defender loses their king and is eliminated; attacker gains their cards
       defender.isOut = true;
       for (const cardId of defender.hand) attacker.hand.push(cardId);
@@ -372,7 +376,7 @@ class GameState {
         defender.kingCard = null;
       }
     } else {
-      this.pushLog(`P${attackerIdx} king assault on P${defenderIdx} failed`, false);
+      this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed`, false);
       if (kingUsed) attacker.isOut = true;
     }
   }
@@ -384,7 +388,7 @@ class GameState {
     p.hand.splice(handIdx, 1);
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
-    this.pushLog(`P${playerIdx} swapped king (Warlord)`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
   }
 
   merchantTrade(playerIdx, discardedCardId, drawnCardId) {
@@ -407,7 +411,7 @@ class GameState {
     const deckIdx = this.deck.indexOf(drawnCardId);
     if (deckIdx !== -1) this.deck.splice(deckIdx, 1);
     p.hand.push(drawnCardId);
-    this.pushLog(`P${playerIdx} used Merchant trade`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} used Merchant trade`, true, true);
   }
 
   merchantSecondTry(playerIdx, firstCardId, secondCardId, isJoker) {
@@ -426,7 +430,7 @@ class GameState {
     }
     // Reveal 2nd drawn card to all clients
     this.lastMerchantReveal = { playerIdx, cardId: secondCardId };
-    this.pushLog(`P${playerIdx} used Merchant 2nd try`, true, true);
+    this.pushLog(`${this.pname(playerIdx)} used Merchant 2nd try`, true, true);
   }
 
   serialize() {

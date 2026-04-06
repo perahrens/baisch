@@ -306,9 +306,9 @@ public class EnemyDefCardListener extends ClickListener {
       warlord.useAttack();
     }
 
-    // Always notify the defender so they can intercept with Battery Tower if they have one.
-    // The defender's side auto-allows (emits batteryAllowAttack) if they have no Battery Tower.
-    if (socket != null) {
+    // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.
+    BatteryTower defBt = getBatteryTower(players.get(targetPlayerIdx));
+    if (socket != null && defBt != null && defBt.getCharges() > 0) {
       pt.setBatteryWaiting(true);
       emitBatteryDefenseCheck(targetPlayerIdx, positionId, level, false,
           attackSnapshot, pt.isAttackSuccess());
@@ -320,7 +320,7 @@ public class EnemyDefCardListener extends ClickListener {
   private BatteryTower getBatteryTower(Player p) {
     if (p == null) return null;
     for (int i = 0; i < p.getHeroes().size(); i++) {
-      if (p.getHeroes().get(i).getHeroName() == "Battery Tower") {
+      if (p.getHeroes().get(i) instanceof BatteryTower) {
         return (BatteryTower) p.getHeroes().get(i);
       }
     }

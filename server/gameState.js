@@ -12,6 +12,7 @@ class GameState {
       defCards: {},
       topDefCards: {},
       kingCard: null,
+      preyCards: [],
     }));
     this.pickingDecks = [[], []]; // each entry: { id, covered }
     this.currentPlayerIndex = 0;
@@ -297,14 +298,15 @@ class GameState {
       if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
         delete defender.sabotaged[positionId];
       }
+      if (!attacker.preyCards) attacker.preyCards = [];
       if (level === 0) {
         const defCardId = defender.defCards[positionId];
-        if (defCardId !== undefined) { attacker.hand.push(defCardId); delete defender.defCards[positionId]; }
+        if (defCardId !== undefined) { attacker.hand.push(defCardId); attacker.preyCards.push(defCardId); delete defender.defCards[positionId]; }
         const topCardId = defender.topDefCards[positionId];
-        if (topCardId !== undefined) { attacker.hand.push(topCardId); delete defender.topDefCards[positionId]; }
+        if (topCardId !== undefined) { attacker.hand.push(topCardId); attacker.preyCards.push(topCardId); delete defender.topDefCards[positionId]; }
       } else {
         const topCardId = defender.topDefCards[positionId];
-        if (topCardId !== undefined) { attacker.hand.push(topCardId); delete defender.topDefCards[positionId]; }
+        if (topCardId !== undefined) { attacker.hand.push(topCardId); attacker.preyCards.push(topCardId); delete defender.topDefCards[positionId]; }
       }
     } else {
       this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}]`, false);
@@ -323,6 +325,7 @@ class GameState {
 
   finishTurn(currentPlayerIndex) {
     this.lastMerchantReveal = null; // clear Merchant 2nd-try reveal on turn end
+    if (this.players[currentPlayerIndex]) this.players[currentPlayerIndex].preyCards = [];
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
     let next = (currentPlayerIndex + 1) % n;
@@ -450,6 +453,7 @@ class GameState {
         kingCovered: p.kingCovered !== undefined ? p.kingCovered : true,
         isOut: p.isOut || false,
         sabotaged: Object.assign({}, p.sabotaged || {}),
+        preyCards: [...(p.preyCards || [])],
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

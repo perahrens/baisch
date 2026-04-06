@@ -285,6 +285,7 @@ public class EnemyDefCardListener extends ClickListener {
 
     // Consume mercenary attack bonus immediately when attack is committed
     int mercBonus = pt.getMercenaryAttackBonus();
+    pt.setPendingAttackMercenaryBonus(mercBonus);
     if (mercBonus > 0) {
       for (Hero h : player.getHeroes()) {
         if (h.getHeroName() == "Mercenaries") {
@@ -411,6 +412,8 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("defCardIds", defIds);
       data.put("kingUsed", kingUsed);
       data.put("kingCardId", kingUsed && player.getKingCard() != null ? player.getKingCard().getCardId() : -1);
+      data.put("mercenaryBonus", player.getPlayerTurn().getPendingAttackMercenaryBonus());
+      data.put("reservistBonus", player.getPlayerTurn().getReservistAttackBonus());
       data.put("success", success);
       socket.emit("attackPreview", data);
     } catch (JSONException e) { e.printStackTrace(); }

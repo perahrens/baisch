@@ -348,7 +348,7 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("kingUsed", pt.isKingUsed());
                     previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
                     previewData.put("success", pt.isAttackSuccess());
-                    socket.emit("attackPreview", previewData);
+                    theSocket.emit("attackPreview", previewData);
                   } catch (JSONException ex) { ex.printStackTrace(); }
                 }
                 gameState.setUpdateState(true);

@@ -242,14 +242,11 @@ public class EnemyDefCardListener extends ClickListener {
         : new ArrayList<Card>(player.getSelectedHandCards());
     ArrayList<Card> attackOwnDefSnapshot = new ArrayList<Card>(player.getSelectedDefCards());
 
-    // Reveal the targeted defense card — only if no Battery Tower intercept will happen
-    boolean willIntercept = (socket != null);
-    if (!willIntercept) {
-      primaryCard.setCovered(false);
-    }
+    // Immediately reveal the targeted defense card(s)
+    primaryCard.setCovered(false);
     Card topDefCard = (level == 0 && targetTopDefCards.containsKey(positionId))
         ? targetTopDefCards.get(positionId) : null;
-    if (!willIntercept && topDefCard != null) topDefCard.setCovered(false);
+    if (topDefCard != null) topDefCard.setCovered(false);
 
     // Compute result
     boolean success;
@@ -312,6 +309,13 @@ public class EnemyDefCardListener extends ClickListener {
       pt.setBatteryWaiting(true);
       emitBatteryDefenseCheck(targetPlayerIdx, positionId, level, false,
           attackSnapshot, pt.isAttackSuccess());
+    }
+
+    // Emit attack preview to server so the defender can see the battle in progress.
+    // Skip if Battery Tower intercept is pending — preview will be emitted after the decision.
+    if (socket != null && !pt.isBatteryWaiting()) {
+      emitAttackPreview(targetPlayerIdx, positionId, level, kingSelected, success,
+          attackSnapshot, attackOwnDefSnapshot, primaryCard, topDefCard);
     }
 
     if (gameState != null) gameState.setUpdateState(true);
@@ -383,6 +387,33 @@ public class EnemyDefCardListener extends ClickListener {
         }
       }
     }
+  }
+
+  private void emitAttackPreview(int targetPlayerIdx, int positionId, int level, boolean kingUsed,
+      boolean success, ArrayList<Card> attackCards, ArrayList<Card> ownDefCards,
+      Card primaryCard, Card topDefCard) {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("attackerIdx", playerIdx);
+      data.put("defenderIdx", targetPlayerIdx);
+      data.put("positionId", positionId);
+      data.put("level", level);
+      JSONArray atkIds = new JSONArray();
+      for (Card c : attackCards) atkIds.put(c.getCardId());
+      data.put("attackCardIds", atkIds);
+      JSONArray ownDefIds = new JSONArray();
+      for (Card c : ownDefCards) ownDefIds.put(c.getCardId());
+      data.put("ownDefCardIds", ownDefIds);
+      JSONArray defIds = new JSONArray();
+      defIds.put(primaryCard.getCardId());
+      if (topDefCard != null) defIds.put(topDefCard.getCardId());
+      data.put("defCardIds", defIds);
+      data.put("kingUsed", kingUsed);
+      data.put("kingCardId", kingUsed && player.getKingCard() != null ? player.getKingCard().getCardId() : -1);
+      data.put("success", success);
+      socket.emit("attackPreview", data);
+    } catch (JSONException e) { e.printStackTrace(); }
   }
 
 }

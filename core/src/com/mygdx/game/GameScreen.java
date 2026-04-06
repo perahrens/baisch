@@ -114,6 +114,8 @@ public class GameScreen extends ScreenAdapter {
   private SocketClient socket;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
+  // Attack preview broadcast: set from stateUpdate when another player has a pending attack
+  private JSONObject pendingAttackBroadcast = null;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
@@ -326,6 +328,29 @@ public class GameScreen extends ScreenAdapter {
                   for (Card dc : pt.getPendingAttackDefCards()) dc.setCovered(false);
                 }
                 pt.setBatteryWaiting(false);
+                // Emit attack preview now that battery has allowed — the defender can see the battle
+                if (!pt.isAttackTargetIsKing()) {
+                  try {
+                    JSONObject previewData = new JSONObject();
+                    previewData.put("attackerIdx", myPlayerIndex);
+                    previewData.put("defenderIdx", pt.getAttackTargetPlayerIdx());
+                    previewData.put("positionId", pt.getAttackTargetPositionId());
+                    previewData.put("level", pt.getAttackTargetLevel());
+                    JSONArray atkPrevIds = new JSONArray();
+                    for (Card c : pt.getPendingAttackCards()) atkPrevIds.put(c.getCardId());
+                    previewData.put("attackCardIds", atkPrevIds);
+                    JSONArray ownDefPrevIds = new JSONArray();
+                    for (Card c : pt.getPendingAttackOwnDefCards()) ownDefPrevIds.put(c.getCardId());
+                    previewData.put("ownDefCardIds", ownDefPrevIds);
+                    JSONArray defPrevIds = new JSONArray();
+                    for (Card dc : pt.getPendingAttackDefCards()) defPrevIds.put(dc.getCardId());
+                    previewData.put("defCardIds", defPrevIds);
+                    previewData.put("kingUsed", pt.isKingUsed());
+                    previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
+                    previewData.put("success", pt.isAttackSuccess());
+                    socket.emit("attackPreview", previewData);
+                  } catch (JSONException ex) { ex.printStackTrace(); }
+                }
                 gameState.setUpdateState(true);
               }
             } catch (JSONException e) { e.printStackTrace(); }
@@ -1168,11 +1193,109 @@ public class GameScreen extends ScreenAdapter {
       String resultText = batteryWaiting ? "Waiting for defender..." : normalText;
       Label atkResultLabel = new Label(resultText, MyGdxGame.skin);
       atkResultLabel.setColor(batteryWaiting ? Color.YELLOW : (atkSuccess ? Color.GREEN : Color.RED));
+
+      // Battle visualization — card layout constants
+      Card refCardAtk = new Card();
+      float bCW = refCardAtk.getDefWidth() * 1.5f;
+      float bCH = refCardAtk.getDefHeight() * 1.5f;
+      float cBotY = 265f;   // bottom of the card row in the overlay
+      float leftX = 10f;
+      float rightX = MyGdxGame.WIDTH / 2f + 10f;
+
+      // Attack sum (for label)
+      int atkVizSum;
+      if (apt.isKingUsed() && atkPlayer.getKingCard() != null) {
+        atkVizSum = atkPlayer.getKingCard().getStrength();
+      } else {
+        atkVizSum = 0;
+        for (Card ac : apt.getPendingAttackCards()) atkVizSum += ac.getStrength();
+        for (Card ac : apt.getPendingAttackOwnDefCards()) atkVizSum += ac.getStrength();
+      }
+      atkVizSum += apt.getReservistAttackBonus();
+
+      // Defense sum (for label)
+      int defVizSum = 0;
+      ArrayList<Card> pendingDefViz = apt.getPendingAttackDefCards();
+      if (targetIsKing) {
+        Player defKingPlayer = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
+        if (defKingPlayer != null && defKingPlayer.getKingCard() != null) {
+          defVizSum = defKingPlayer.getKingCard().getStrength();
+        }
+      } else {
+        for (Card dc : pendingDefViz) defVizSum += "joker".equals(dc.getSymbol()) ? 1 : dc.getStrength();
+      }
+
       atkResultLabel.setPosition(
           MyGdxGame.WIDTH / 2f - atkResultLabel.getPrefWidth() / 2f,
-          MyGdxGame.WIDTH / 2f);
+          cBotY - 44f);
 
       gameStage.addActor(atkOverlay);
+
+      // Column headers
+      Label atkHdrLbl = new Label("ATTACK", MyGdxGame.skin);
+      atkHdrLbl.setColor(Color.CYAN);
+      atkHdrLbl.setPosition(leftX, cBotY + bCH + 5f);
+      gameStage.addActor(atkHdrLbl);
+      Label defHdrLbl = new Label("DEFENSE", MyGdxGame.skin);
+      defHdrLbl.setColor(Color.ORANGE);
+      defHdrLbl.setPosition(rightX, cBotY + bCH + 5f);
+      gameStage.addActor(defHdrLbl);
+
+      // Attack cards (left column)
+      if (apt.isKingUsed() && atkPlayer.getKingCard() != null) {
+        Card kDisp = Card.fromCardId(atkPlayer.getKingCard().getCardId());
+        kDisp.setCovered(false); kDisp.setActive(true);
+        kDisp.setSize(bCW, bCH);
+        kDisp.setPosition(leftX, cBotY);
+        gameStage.addActor(kDisp);
+      } else {
+        ArrayList<Card> atkSrc = new ArrayList<Card>(apt.getPendingAttackCards());
+        atkSrc.addAll(apt.getPendingAttackOwnDefCards());
+        int nA = Math.max(1, atkSrc.size());
+        float aW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nA - 1) * 4f) / nA);
+        float aH = bCH * (aW / bCW);
+        for (int ai = 0; ai < atkSrc.size(); ai++) {
+          Card disp = Card.fromCardId(atkSrc.get(ai).getCardId());
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(aW, aH);
+          disp.setPosition(leftX + ai * (aW + 4f), cBotY + (bCH - aH) / 2f);
+          gameStage.addActor(disp);
+        }
+      }
+
+      // Defense cards (right column)
+      if (targetIsKing) {
+        Player defKP = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
+        if (defKP != null && defKP.getKingCard() != null) {
+          Card kd = Card.fromCardId(defKP.getKingCard().getCardId());
+          kd.setCovered(false); kd.setActive(true);
+          kd.setSize(bCW, bCH);
+          kd.setPosition(rightX, cBotY);
+          gameStage.addActor(kd);
+        }
+      } else {
+        int nD = Math.max(1, pendingDefViz.size());
+        float dW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nD - 1) * 4f) / nD);
+        float dH = bCH * (dW / bCW);
+        for (int di = 0; di < pendingDefViz.size(); di++) {
+          Card disp = Card.fromCardId(pendingDefViz.get(di).getCardId());
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(dW, dH);
+          disp.setPosition(rightX + di * (dW + 4f), cBotY + (bCH - dH) / 2f);
+          gameStage.addActor(disp);
+        }
+      }
+
+      // Sum labels
+      Label atkSumLbl = new Label("Sum: " + atkVizSum, MyGdxGame.skin);
+      atkSumLbl.setColor(Color.WHITE);
+      atkSumLbl.setPosition(leftX, cBotY - 22f);
+      gameStage.addActor(atkSumLbl);
+      Label defSumLbl = new Label("Sum: " + defVizSum, MyGdxGame.skin);
+      defSumLbl.setColor(Color.WHITE);
+      defSumLbl.setPosition(rightX, cBotY - 22f);
+      gameStage.addActor(defSumLbl);
+
       gameStage.addActor(atkResultLabel);
 
       // Reservists attack boost button — shown only when not waiting for Battery Tower
@@ -1229,6 +1352,102 @@ public class GameScreen extends ScreenAdapter {
           }
         }
       }
+    }
+
+    // Defender / watcher overlay — shown when another player has a pending attack
+    if (pendingAttackBroadcast != null && !currentPlayer.getPlayerTurn().isAttackPending()) {
+      try {
+        final int bcAtkIdx = pendingAttackBroadcast.getInt("attackerIdx");
+        final int bcDefIdx = pendingAttackBroadcast.getInt("defenderIdx");
+        final boolean bcSuccess = pendingAttackBroadcast.getBoolean("success");
+        final boolean bcKingUsed = pendingAttackBroadcast.optBoolean("kingUsed", false);
+        final int bcKingCardId = pendingAttackBroadcast.optInt("kingCardId", -1);
+        final JSONArray bcAtkIds = pendingAttackBroadcast.optJSONArray("attackCardIds");
+        final JSONArray bcOwnDefIds = pendingAttackBroadcast.optJSONArray("ownDefCardIds");
+        final JSONArray bcDefIds = pendingAttackBroadcast.optJSONArray("defCardIds");
+
+        Image watchOverlay = new Image(MyGdxGame.skin, "white");
+        watchOverlay.setFillParent(true);
+        watchOverlay.setColor(0f, 0f, 0f, 0.55f);
+        gameStage.addActor(watchOverlay);
+
+        String atkName = gameState.getPlayers().get(bcAtkIdx).getPlayerName();
+        String defName = gameState.getPlayers().get(bcDefIdx).getPlayerName();
+
+        Card wRefCard = new Card();
+        float wCW = wRefCard.getDefWidth() * 1.5f;
+        float wCH = wRefCard.getDefHeight() * 1.5f;
+        float wBotY = 265f;
+        float wLeftX = 10f;
+        float wRightX = MyGdxGame.WIDTH / 2f + 10f;
+
+        // Column headers
+        Label wAtkHdr = new Label(atkName + " attacks:", MyGdxGame.skin);
+        wAtkHdr.setColor(Color.CYAN);
+        wAtkHdr.setPosition(wLeftX, wBotY + wCH + 22f);
+        gameStage.addActor(wAtkHdr);
+        Label wDefHdr = new Label(defName + " defends:", MyGdxGame.skin);
+        wDefHdr.setColor(Color.ORANGE);
+        wDefHdr.setPosition(wRightX, wBotY + wCH + 22f);
+        gameStage.addActor(wDefHdr);
+
+        // Attack cards (left column)
+        ArrayList<Integer> wAtkCardIds = new ArrayList<Integer>();
+        if (bcKingUsed && bcKingCardId > 0) {
+          wAtkCardIds.add(bcKingCardId);
+        } else {
+          if (bcAtkIds != null) for (int ai = 0; ai < bcAtkIds.length(); ai++) wAtkCardIds.add(bcAtkIds.getInt(ai));
+          if (bcOwnDefIds != null) for (int ai = 0; ai < bcOwnDefIds.length(); ai++) wAtkCardIds.add(bcOwnDefIds.getInt(ai));
+        }
+        int wAtkSum = 0;
+        int nWA = Math.max(1, wAtkCardIds.size());
+        float wAW = Math.min(wCW, (MyGdxGame.WIDTH / 2f - 20f - (nWA - 1) * 4f) / nWA);
+        float wAH = wCH * (wAW / wCW);
+        for (int ai = 0; ai < wAtkCardIds.size(); ai++) {
+          Card disp = Card.fromCardId(wAtkCardIds.get(ai));
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(wAW, wAH);
+          disp.setPosition(wLeftX + ai * (wAW + 4f), wBotY + (wCH - wAH) / 2f);
+          gameStage.addActor(disp);
+          wAtkSum += disp.getStrength();
+        }
+
+        // Defense cards (right column)
+        ArrayList<Integer> wDefCardIds = new ArrayList<Integer>();
+        if (bcDefIds != null) for (int di = 0; di < bcDefIds.length(); di++) wDefCardIds.add(bcDefIds.getInt(di));
+        int wDefSum = 0;
+        int nWD = Math.max(1, wDefCardIds.size());
+        float wDW = Math.min(wCW, (MyGdxGame.WIDTH / 2f - 20f - (nWD - 1) * 4f) / nWD);
+        float wDH = wCH * (wDW / wCW);
+        for (int di = 0; di < wDefCardIds.size(); di++) {
+          Card disp = Card.fromCardId(wDefCardIds.get(di));
+          disp.setCovered(false); disp.setActive(true);
+          disp.setSize(wDW, wDH);
+          disp.setPosition(wRightX + di * (wDW + 4f), wBotY + (wCH - wDH) / 2f);
+          gameStage.addActor(disp);
+          wDefSum += "joker".equals(disp.getSymbol()) ? 1 : disp.getStrength();
+        }
+
+        // Sum labels
+        Label wAtkSum_lbl = new Label("Sum: " + wAtkSum, MyGdxGame.skin);
+        wAtkSum_lbl.setColor(Color.WHITE);
+        wAtkSum_lbl.setPosition(wLeftX, wBotY - 22f);
+        gameStage.addActor(wAtkSum_lbl);
+        Label wDefSum_lbl = new Label("Sum: " + wDefSum, MyGdxGame.skin);
+        wDefSum_lbl.setColor(Color.WHITE);
+        wDefSum_lbl.setPosition(wRightX, wBotY - 22f);
+        gameStage.addActor(wDefSum_lbl);
+
+        // Result and footer
+        Label wResultLbl = new Label(bcSuccess ? atkName + " WINS!" : atkName + " FAILS!", MyGdxGame.skin);
+        wResultLbl.setColor(bcSuccess ? Color.GREEN : Color.RED);
+        wResultLbl.setPosition(MyGdxGame.WIDTH / 2f - wResultLbl.getPrefWidth() / 2f, wBotY - 44f);
+        gameStage.addActor(wResultLbl);
+        Label wFooter = new Label("Waiting for " + atkName + " to confirm...", MyGdxGame.skin);
+        wFooter.setColor(Color.YELLOW);
+        wFooter.setPosition(MyGdxGame.WIDTH / 2f - wFooter.getPrefWidth() / 2f, wBotY - 66f);
+        gameStage.addActor(wFooter);
+      } catch (JSONException e) { e.printStackTrace(); }
     }
 
     // Battery Tower defender overlay — shown when this player must allow or deny an attack
@@ -2268,6 +2487,15 @@ public class GameScreen extends ScreenAdapter {
           ((Saboteurs) h).syncFromActiveCount(activeSaboCount);
           break;
         }
+      }
+
+      // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)
+      // Sync attack preview for the defender/watcher overlay
+      JSONObject serverPendingAtk = state.optJSONObject("pendingAttack");
+      if (serverPendingAtk != null && serverPendingAtk.optInt("attackerIdx", -1) != playerIndex) {
+        pendingAttackBroadcast = serverPendingAtk;
+      } else {
+        pendingAttackBroadcast = null;
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)

@@ -19,7 +19,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextArea;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -38,7 +38,6 @@ public class MenuScreen extends AbstractScreen {
   private MenuState menuState;
 
   private Label loggedInCount;
-  private TextArea userName;
   private TextButton button;
   private SelectBox<String> heroSelectBox;
 
@@ -51,6 +50,9 @@ public class MenuScreen extends AbstractScreen {
   private int currentUsersCount;
   private boolean updateScreen = false;
   boolean timerStarted = false;
+
+  // Whether the player has entered a name and joined the lobby.
+  private boolean lobbyJoined = false;
 
   public MenuScreen(final Game game, final SocketClient socket) {
     super(game);
@@ -72,16 +74,12 @@ public class MenuScreen extends AbstractScreen {
     logoRegion = new TextureRegion(logoTexture, 0, 0, 394, 271);
     logoImage = new Image(logoRegion);
 
-    // welcome text --> deprecated
-    userName = new TextArea("Enter your name", MyGdxGame.skin);
-    button = new TextButton("Start game", MyGdxGame.skin);
+    button = new TextButton("Ready", MyGdxGame.skin);
 
     button.setSize(button.getWidth() * 2, button.getHeight() * 2);
 
     logoImage.setPosition((MyGdxGame.WIDTH - logoImage.getWidth()) / 2f,
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
-    // userName.setPosition((MyGdxGame.WIDTH-userName.getWidth())/2f,
-    // 0.7f*MyGdxGame.HEIGHT);
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
 
     // Starting hero selector (for testing)
@@ -115,9 +113,7 @@ public class MenuScreen extends AbstractScreen {
     button.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        // game.setScreen(new GameScreen(game));
         socket.emit("setUserReady", menuState.getMyUserID());
-        System.out.println("test");
       };
     });
 
@@ -142,15 +138,57 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.hideList();
     menuStage.clear();
 
+    menuStage.addActor(group);
+
+    if (!lobbyJoined) {
+      showNameEntryScreen();
+    } else {
+      showLobbyScreen();
+    }
+  }
+
+  private void showNameEntryScreen() {
+    TextButton enterNameButton = new TextButton("Enter your name", MyGdxGame.skin);
+    enterNameButton.setSize(button.getWidth(), button.getHeight());
+    enterNameButton.setPosition((MyGdxGame.WIDTH - enterNameButton.getWidth()) / 2f, 0.45f * MyGdxGame.HEIGHT);
+    enterNameButton.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        Gdx.input.getTextInput(new Input.TextInputListener() {
+          @Override
+          public void input(String text) {
+            String name = text.trim();
+            if (name.isEmpty()) {
+              showNameEntryScreen();
+              return;
+            }
+            menuState.setMyName(name);
+            lobbyJoined = true;
+            socket.emit("joinLobby", name);
+            show();
+          }
+          @Override
+          public void canceled() {
+            // Stay on name entry screen
+          }
+        }, "Baisch", "", "Enter your name");
+      }
+    });
+
+    menuStage.addActor(enterNameButton);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private void showLobbyScreen() {
     // logged in count
-    loggedInCount = new Label("Logged in users: " + currentUsersCount, MyGdxGame.skin);
+    loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);
     loggedInCount.setPosition(0, 0);
 
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
-    Label headLine1 = new Label("User ID", MyGdxGame.skin);
+    Label headLine1 = new Label("Name", MyGdxGame.skin);
     headLine1.setFontScale(1.2f);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
     headLine2.setFontScale(1.2f);
@@ -161,36 +199,36 @@ public class MenuScreen extends AbstractScreen {
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
       User user = loggedInUsers.get(i);
-      Label userIDLabel = new Label(user.getUserID() + "      ", MyGdxGame.skin);
+      Label nameLabel = new Label(user.getName() + "      ", MyGdxGame.skin);
 
       if (user.getUserID().equals(menuState.getMyUserID())) {
-        userIDLabel.setColor(Color.GOLD);
+        nameLabel.setColor(Color.GOLD);
       }
 
       Label isReady;
       if (user.isReady()) {
-        isReady = new Label("GO", MyGdxGame.skin);
+        isReady = new Label("READY", MyGdxGame.skin);
         isReady.setColor(Color.GREEN);
       } else {
         isReady = new Label("WAIT", MyGdxGame.skin);
         isReady.setColor(Color.RED);
       }
 
-      loggedInUserTable.add(userIDLabel);
+      loggedInUserTable.add(nameLabel);
       loggedInUserTable.add(isReady);
       loggedInUserTable.row();
     }
 
     loggedInUserTable.setPosition(200, 300);
 
-    // check if all players are ready
+    // check if all players are ready (requires >= 2)
     if (menuState.allReady() && !timerStarted) {
       System.out.println("All players ready...");
       socket.emit("startTimer", 5);
       menuState.setTimeToStart(5);
       timerStarted = true;
     }
-    
+
     if (!menuState.allReady() && timerStarted) {
       timerStarted = false;
       menuState.setTimeToStart(5);
@@ -202,16 +240,17 @@ public class MenuScreen extends AbstractScreen {
     }
     timerLabel.setPosition(200, 0);
 
-    menuStage.addActor(group);
     menuStage.addActor(timerLabel);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
 
-    // Add hero selector directly to stage (not inside Group) so popup coordinates work correctly
+    // Add hero selector directly to stage so popup coordinates work correctly
     Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
     heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
     menuStage.addActor(heroLabel);
     menuStage.addActor(heroSelectBox);
+    menuStage.addActor(button);
+    Gdx.input.setInputProcessor(menuStage);
   }
 
   @Override
@@ -326,16 +365,17 @@ public class MenuScreen extends AbstractScreen {
         try {
           menuState.clearUsers();
           for (int i = 0; i < objects.length(); i++) {
-            String userID = ((String) objects.getJSONObject(i).getString("id"));
-            boolean isReady = ((boolean) objects.getJSONObject(i).getBoolean("isReady"));
-            User user = new User(userID);
+            String userID = objects.getJSONObject(i).getString("id");
+            String name   = objects.getJSONObject(i).getString("name");
+            boolean isReady = objects.getJSONObject(i).getBoolean("isReady");
+            User user = new User(userID, name);
             user.setReady(isReady);
             menuState.addUser(user);
             updateScreen = true;
-            Gdx.app.log("SocketIO", "Get users " + userID + " " + isReady);
+            Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady);
           }
         } catch (JSONException e) {
-          Gdx.app.log("SocketIO", "Error getting new user ID ");
+          Gdx.app.log("SocketIO", "Error parsing getUsers");
         }
         Gdx.app.log("SocketIO", "Number of users = " + menuState.getUsers().size());
       }

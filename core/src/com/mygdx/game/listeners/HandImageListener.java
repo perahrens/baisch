@@ -31,7 +31,7 @@ public class HandImageListener extends ClickListener {
     for (int j = 1; j <= 3; j++) {
       boolean shouldTake = (defCards.containsKey(j) && defCards.get(j).isSelected())
           || (topDefCards.containsKey(j) && topDefCards.get(j).isSelected());
-      if (shouldTake && player.canMobilize()) {
+      if (shouldTake && player.canTakeDefCard()) {
         emitTakeDefCard(j);
         player.takeDefCard(j);
         blinkMajor();

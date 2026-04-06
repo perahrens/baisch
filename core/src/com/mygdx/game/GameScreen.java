@@ -281,7 +281,7 @@ public class GameScreen extends ScreenAdapter {
                 Player me = gameState.getPlayers().get(myPlayerIndex);
                 BatteryTower bt = null;
                 for (int i = 0; i < me.getHeroes().size(); i++) {
-                  if (me.getHeroes().get(i).getHeroName() == "Battery Tower") {
+                  if (me.getHeroes().get(i) instanceof BatteryTower) {
                     bt = (BatteryTower) me.getHeroes().get(i);
                     break;
                   }

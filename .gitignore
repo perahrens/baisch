@@ -1,6 +1,8 @@
 ## Project-specific
 RESTORE_CHAT_SESSIONS.md
 restore_vscode_chat_sessions.py
+fix_gamestate.py
+list_sessions.py
 
 ## Java
 

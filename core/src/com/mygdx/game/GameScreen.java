@@ -2402,8 +2402,9 @@ public class GameScreen extends ScreenAdapter {
       }
       if (jokerInHand != null) {
         final Card theJoker = jokerInHand;
-        TextButton heroBtn = new TextButton("Sacrifice Joker: Get Hero", MyGdxGame.skin);
-        heroBtn.setPosition(0, 0);
+        TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
+        heroBtn.setSize(theJoker.getWidth(), heroBtn.getPrefHeight());
+        heroBtn.setPosition(theJoker.getX(), theJoker.getY());
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {

@@ -2,9 +2,9 @@ package com.mygdx.game.listeners;
 
 import java.util.ArrayList;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;

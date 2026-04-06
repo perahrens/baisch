@@ -1733,7 +1733,8 @@ public class GameScreen extends ScreenAdapter {
           handCard.removeAllListeners();
           // If battery tower denied this turn, lock only the specific cards used in the denied attack
           boolean isDeniedCard = gameState.getCurrentPlayer().getPlayerTurn().getBatteryDeniedAttackCardIds().contains(handCard.getCardId());
-          if (!isDeniedCard) {
+          boolean isPreyCard = gameState.getCurrentPlayer().getPlayerTurn().getPreyCardIds().contains(handCard.getCardId());
+          if (!isDeniedCard && !isPreyCard) {
             ownHandCardListener = new OwnHandCardListener(handCard, gameState.getCurrentPlayer(), gameState.getCardDeck(),
                 gameState.getCemeteryDeck(), gameState, socket, playerIndex);
             handCard.addListener(ownHandCardListener);
@@ -1748,12 +1749,13 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Hero> playerHeroes = currentPlayer.getHeroes();
     currentPlayer.sortHandCards();
     ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
+    ArrayList<Integer> preyCardIds = currentPlayer.getPlayerTurn().getPreyCardIds();
 
     for (int j = 0; j < handCards.size(); j++) {
       Card handcard = handCards.get(j);
       handcard.setCovered(false);
       handcard.setActive(true);
-      if (deniedCardIds.contains(handcard.getCardId())) handcard.setColor(0.4f, 0.4f, 0.4f, 1f);
+      if (deniedCardIds.contains(handcard.getCardId()) || preyCardIds.contains(handcard.getCardId())) handcard.setColor(0.4f, 0.4f, 0.4f, 1f);
       else handcard.setColor(Color.WHITE);
       handcard.setRotation(0);
       handcard.setWidth(handcard.getDefWidth() * 2);
@@ -2243,6 +2245,14 @@ public class GameScreen extends ScreenAdapter {
             p.setSlotSabotaged(Integer.parseInt(key), sabotagedJson.getInt(key));
           }
         }
+
+        // Sync prey cards (captured this turn, locked until turn ends)
+        ArrayList<Integer> newPreyIds = new ArrayList<Integer>();
+        JSONArray preyJson = pj.optJSONArray("preyCards");
+        if (preyJson != null) {
+          for (int pr = 0; pr < preyJson.length(); pr++) newPreyIds.add(preyJson.getInt(pr));
+        }
+        p.getPlayerTurn().setPreyCardIds(newPreyIds);
       }
 
       // Sync local Saboteurs hero active count: count how many slots across all players are

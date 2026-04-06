@@ -469,7 +469,9 @@ public class GameScreen extends ScreenAdapter {
     players = gameState.getPlayers();
     // currentPlayer stays as this client's own player (set in constructor from playerIndex)
 
-    // On first render, broadcast Reservists count so enemies see the indicator immediately
+    // On first render, broadcast Reservists count so enemies see the indicator immediately.
+    // Also broadcast the starting hero so all clients know each other's heroes (the
+    // startingHero is applied locally in the constructor but never emitted via heroAcquired).
     if (!initialReservistsBroadcastDone) {
       initialReservistsBroadcastDone = true;
       for (Hero h : currentPlayer.getHeroes()) {
@@ -477,6 +479,16 @@ public class GameScreen extends ScreenAdapter {
           emitReservistsKingBoost(((Reservists) h).countReady());
           break;
         }
+      }
+      // Broadcast starting hero to all other clients
+      if (startingHero != null && !startingHero.equals("None") && socket != null) {
+        try {
+          JSONObject emitData = new JSONObject();
+          emitData.put("playerIndex", playerIndex);
+          emitData.put("heroName", startingHero);
+          emitData.put("jokerCardId", -1);
+          socket.emit("heroAcquired", emitData);
+        } catch (Exception e) { e.printStackTrace(); }
       }
     }
 

@@ -158,6 +158,12 @@ io.on('connection', function(socket) {
     checkAndHandleWinner(io);
   });
 
+  socket.on('attackPreview', function(data) {
+    if (!gameState) return;
+    gameState.setAttackPreview(data);
+    io.emit('stateUpdate', gameState.serialize());
+  });
+
   socket.on('defAttackResolved', function(data) {
     console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
     gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);

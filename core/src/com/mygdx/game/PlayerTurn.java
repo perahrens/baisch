@@ -182,6 +182,12 @@ public class PlayerTurn {
   public ArrayList<Integer> getBatteryDeniedAttackCardIds() { return batteryDeniedAttackCardIds; }
   public void setBatteryDeniedAttackCardIds(ArrayList<Integer> ids) { this.batteryDeniedAttackCardIds = ids; }
 
+  // Card IDs of enemy cards captured this turn — locked/grayed until turn ends.
+  // Synced from server's preyCards array via stateUpdate.
+  private ArrayList<Integer> preyCardIds = new ArrayList<Integer>();
+  public ArrayList<Integer> getPreyCardIds() { return preyCardIds; }
+  public void setPreyCardIds(ArrayList<Integer> ids) { this.preyCardIds = ids; }
+
   // --- Reservists attack bonus ---
   // Incremented each time the player clicks the Reservists button in the attack or plunder overlay.
   // Reset to 0 after the attack/plunder resolves.

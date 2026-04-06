@@ -685,6 +685,7 @@ public class GameScreen extends ScreenAdapter {
         float deckX, deckY;
         int deckRot;
         switch (visualSlot) {
+        case 0: // king visual right = (WIDTH+W)/2; deck visual left = king_right + W/2
           deckX = (MyGdxGame.WIDTH + cardW) / 2f + cardW / 2f + (cardH - cardW) / 2f;
           deckY = 0f;
           deckRot = 90;

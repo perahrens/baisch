@@ -139,10 +139,12 @@ public class EnemyKingCardListener extends ClickListener {
 
     pt.setAttackPending(true);
 
-    // Check if the defender has a Battery Tower with charges — if so, intercept
-    // Always notify the defender so they can intercept with Battery Tower if they have one.
-    // The defender's side auto-allows (emits batteryAllowAttack) if they have no Battery Tower.
-    if (socket != null) {
+    // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.
+    BatteryTower defBt = null;
+    for (Hero h : defender.getHeroes()) {
+      if (h instanceof BatteryTower) { defBt = (BatteryTower) h; break; }
+    }
+    if (socket != null && defBt != null && defBt.getCharges() > 0) {
       pt.setBatteryWaiting(true);
       try {
         JSONObject data = new JSONObject();

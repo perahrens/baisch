@@ -441,6 +441,7 @@ class GameState {
     p.hand.splice(handIdx, 1);
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
+    p.kingCovered = true; // new king is always placed face-down
     this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
   }
 

@@ -57,7 +57,8 @@ public class OwnHandCardListener extends ClickListener {
       if ((hasWarlord || !hasDefCards) && player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
         Card oldKing = player.getKingCard();
         Card newKing = handCard;
-        // Swap locally
+        // Swap locally — new king is always placed face-down
+        newKing.setCovered(true);
         player.setKingCard(newKing);
         player.getHandCards().remove(newKing);
         player.addHandCard(oldKing);

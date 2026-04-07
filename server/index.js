@@ -121,9 +121,23 @@ io.on('connection', function(socket) {
     }
   });
 
+  // Client requests full state resync — used when a tab was inactive during initialization
+  // and may have missed stateUpdate events before its GameScreen was fully set up.
+  socket.on('requestStateSync', function() {
+    if (gameState) {
+      socket.emit('stateUpdate', gameState.serialize());
+    }
+  });
+
   socket.on('finishTurn', function(data) {
     console.log("Turn finished by player index: " + data.currentPlayerIndex);
-    gameState.finishTurn(data.currentPlayerIndex);
+    // Guard: only advance if the requesting client agrees on who the current player is.
+    // Rejects stale or duplicate finishTurn events from desynced clients.
+    if (data.currentPlayerIndex !== gameState.currentPlayerIndex) {
+      console.log("finishTurn rejected: server currentPlayerIndex=" + gameState.currentPlayerIndex + ", client sent=" + data.currentPlayerIndex);
+      return;
+    }
+    gameState.finishTurn();
     io.emit('stateUpdate', gameState.serialize());
   });
 

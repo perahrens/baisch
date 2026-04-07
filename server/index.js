@@ -123,7 +123,13 @@ io.on('connection', function(socket) {
 
   socket.on('finishTurn', function(data) {
     console.log("Turn finished by player index: " + data.currentPlayerIndex);
-    gameState.finishTurn(data.currentPlayerIndex);
+    // Guard: only advance if the requesting client agrees on who the current player is.
+    // Rejects stale or duplicate finishTurn events from desynced clients.
+    if (data.currentPlayerIndex !== gameState.currentPlayerIndex) {
+      console.log("finishTurn rejected: server currentPlayerIndex=" + gameState.currentPlayerIndex + ", client sent=" + data.currentPlayerIndex);
+      return;
+    }
+    gameState.finishTurn();
     io.emit('stateUpdate', gameState.serialize());
   });
 

@@ -639,7 +639,7 @@ public class GameScreen extends ScreenAdapter {
     // draw game status of players
     for (int i = 0; i < players.size(); i++) {
       // visual slot 0 = bottom (own player), 1 = left, 2 = top, 3 = right
-      int visualSlot = (i - playerIndex + players.size()) % players.size();
+      int visualSlot = (i - playerIndex + 4) % 4;
       System.out.println("Player " + players.get(i).getPlayerName() + " hand = " + players.get(i).getHandCards().size());
       System.out.println("Player " + players.get(i).getPlayerName() + " def = " + players.get(i).getDefCards().size());
 

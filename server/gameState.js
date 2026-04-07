@@ -112,6 +112,28 @@ class GameState {
     }
   }
 
+  /**
+   * Draw the next card from the deck, automatically reshuffling the cemetery into
+   * the deck (with a fresh Fisher-Yates shuffle) when the deck runs empty.
+   * Returns null only when both the deck and the cemetery are truly empty.
+   */
+  pickCard() {
+    if (this.deck.length === 0) {
+      if (this.cemetery.length > 0) {
+        this.deck = [...this.cemetery];
+        this.cemetery = [];
+        for (let i = this.deck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+        }
+        console.log('Deck empty — reshuffled cemetery (' + this.deck.length + ' cards) into deck');
+      } else {
+        return null; // both deck and cemetery are empty
+      }
+    }
+    return this.deck.pop();
+  }
+
   priestConvert(attackerIdx, targetPlayerIdx, cardId) {
     const target = this.players[targetPlayerIdx];
     const attacker = this.players[attackerIdx];
@@ -235,7 +257,8 @@ class GameState {
       this.cemetery.push(cardId);
     }
     for (let i = 0; i < (drawFromDeck || 0); i++) {
-      if (this.deck.length > 0) this.cemetery.push(this.deck.pop());
+      const drawn = this.pickCard();
+      if (drawn !== null) this.cemetery.push(drawn);
     }
   }
 
@@ -282,10 +305,10 @@ class GameState {
       this.pickingDecks[deckIdx] = [];
       const otherIdx = 1 - deckIdx;
       // Add one face-DOWN card to the other deck (deck B grows by one hidden card)
-      if (this.deck.length > 0) this.pickingDecks[otherIdx].push({ id: this.deck.pop(), covered: true });
+      const c1 = this.pickCard(); if (c1 !== null) this.pickingDecks[otherIdx].push({ id: c1, covered: true });
       // Rebuild plundered deck: one face-up card (visible) + one face-down card on top
-      if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: false });
-      if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
+      const c2 = this.pickCard(); if (c2 !== null) this.pickingDecks[deckIdx].push({ id: c2, covered: false });
+      const c3 = this.pickCard(); if (c3 !== null) this.pickingDecks[deckIdx].push({ id: c3, covered: true });
     } else {
       this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed`, false);
       if (kingUsed) attacker.isOut = true;
@@ -293,7 +316,7 @@ class GameState {
       // then add a new face-down card on top.
       const deck = this.pickingDecks[deckIdx];
       if (deck.length > 0) deck[deck.length - 1].covered = false;
-      if (this.deck.length > 0) this.pickingDecks[deckIdx].push({ id: this.deck.pop(), covered: true });
+      const c4 = this.pickCard(); if (c4 !== null) this.pickingDecks[deckIdx].push({ id: c4, covered: true });
     }
   }
 

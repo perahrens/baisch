@@ -348,7 +348,9 @@ class GameState {
     }
   }
 
-  finishTurn(currentPlayerIndex) {
+  finishTurn() {
+    // Always use the server's own authoritative currentPlayerIndex — never trust the client.
+    const currentPlayerIndex = this.currentPlayerIndex;
     this.lastMerchantReveal = null; // clear Merchant 2nd-try reveal on turn end
     if (this.players[currentPlayerIndex]) this.players[currentPlayerIndex].preyCards = [];
     // Advance to the next non-eliminated player (server is authoritative)

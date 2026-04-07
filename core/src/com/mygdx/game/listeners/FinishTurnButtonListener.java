@@ -31,6 +31,8 @@ public class FinishTurnButtonListener extends ClickListener {
     } catch (JSONException e) {
       e.printStackTrace();
     }
-    gameState.setUpdateState(true);
+    // Do NOT call setUpdateState(true) here. The server will respond with a stateUpdate
+    // that triggers the re-render. Calling it prematurely rebuilds the button with a
+    // fresh fired=false listener before the server responds, creating a second-tap window.
   };
 }

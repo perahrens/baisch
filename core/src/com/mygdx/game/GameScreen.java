@@ -513,6 +513,18 @@ public class GameScreen extends ScreenAdapter {
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
+
+    // Request authoritative state from server. This handles the case where the browser
+    // tab was inactive during game initialization: requestAnimationFrame is paused for
+    // inactive tabs, so postRunnable tasks (including this constructor) are deferred.
+    // Any stateUpdate events broadcast while the constructor was queued are missed
+    // because the socket listener was not yet registered. Requesting a sync here
+    // ensures this client gets the current authoritative state immediately.
+    try {
+      socket.emit("requestStateSync", new JSONObject());
+    } catch (JSONException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override

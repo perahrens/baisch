@@ -778,8 +778,12 @@ public class GameScreen extends ScreenAdapter {
         continue;
       }
       kingCard.setMapPosition(visualSlot, 0, 0);
-      // king cards are always played face-down
-      kingCard.setActive(false);
+      // Own king: active (grey tint, face visible to owner); enemy king: card back
+      if (players.get(i) == currentPlayer) {
+        kingCard.setActive(true);
+      } else {
+        kingCard.setActive(false);
+      }
 
       kingCard.removeAllListeners();
 
@@ -917,8 +921,12 @@ public class GameScreen extends ScreenAdapter {
         }
 
         defCard.setMapPosition(visualSlot, j, 0);
-        // defense cards are always played face-down
-        defCard.setActive(false);
+        // Own def card: active (grey tint, face visible to owner); enemy def card: card back
+        if (players.get(i) == currentPlayer) {
+          defCard.setActive(true);
+        } else {
+          defCard.setActive(false);
+        }
         gameStage.addActor(defCard);
 
         if (players.get(i).isSlotSabotaged(j)) {
@@ -1012,8 +1020,12 @@ public class GameScreen extends ScreenAdapter {
             });
           }
           topDefCard.setMapPosition(visualSlot, j, 1);
-          // top defense cards are always played face-down
-          topDefCard.setActive(false);
+          // Own top def card: active (grey tint, face visible to owner); enemy: card back
+          if (players.get(i) == currentPlayer) {
+            topDefCard.setActive(true);
+          } else {
+            topDefCard.setActive(false);
+          }
           gameStage.addActor(topDefCard);
         }
       }

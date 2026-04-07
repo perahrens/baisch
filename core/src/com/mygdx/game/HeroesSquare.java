@@ -176,6 +176,29 @@ public class HeroesSquare {
 		}
 	}
 
+	/**
+	 * Returns the hero name associated with a direct card index (2-13), regardless of
+	 * whether the hero is still available. Used to identify which hero was drawn when
+	 * {@link #getHeroByCardIndex} returns null (hero already owned by a player).
+	 */
+	public static String heroNameByCardIndex(int cardIndex) {
+		switch (cardIndex) {
+			case 2:  return "Mercenaries";
+			case 3:  return "Spy";
+			case 4:  return "Marshal";
+			case 5:  return "Battery Tower";
+			case 6:  return "Merchant";
+			case 7:  return "Priest";
+			case 8:  return "Reservists";
+			case 9:  return "Saboteurs";
+			case 10: return "Banneret";
+			case 11: return "Fortified Tower";
+			case 12: return "Magician";
+			case 13: return "Warlord";
+			default: return null;
+		}
+	}
+
 	/** Peek at the hero at an internal index without consuming it. */
 	private Hero peekHero(int index) {
 		switch (index) {

@@ -410,5 +410,20 @@ public class GameState {
       players.get(playerIdx).addHero(hero);
     }
   }
+  /**
+   * Find the index of the player who currently owns a hero with the given name.
+   * Returns -1 if no player owns that hero.
+   */
+  public int findHeroOwnerIndex(String heroName) {
+    for (int i = 0; i < players.size(); i++) {
+      ArrayList<Hero> heroes = players.get(i).getHeroes();
+      for (int j = 0; j < heroes.size(); j++) {
+        if (heroName.equals(heroes.get(j).getHeroName())) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
 
 }

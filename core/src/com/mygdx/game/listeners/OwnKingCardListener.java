@@ -69,9 +69,6 @@ public class OwnKingCardListener extends ClickListener {
         }
         kingCard.setSelected(true);
       }
-      // Trigger an immediate rebuild so the selection highlight is visible right away
-      // and any stale coup-swap auto-select from a previous stateUpdate is cleared.
-      gameState.setUpdateState(true);
     }
     ;
 

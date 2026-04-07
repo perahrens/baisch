@@ -54,6 +54,18 @@ public class MenuScreen extends AbstractScreen {
   // Whether the player has entered a name and joined the lobby.
   private boolean lobbyJoined = false;
 
+  // Hero names in display order — used to rebuild the dropdown while preserving order.
+  private static final String[] ALL_HERO_NAMES = {
+    "Mercenaries", "Marshal", "Spy", "Battery Tower", "Merchant", "Priest",
+    "Reservists", "Banneret", "Saboteurs", "Fortified Tower", "Magician", "Warlord"
+  };
+
+  // Heroes currently reserved by OTHER lobby players (not this client).
+  private final java.util.HashSet<String> reservedByOthers = new java.util.HashSet<String>();
+
+  // Set to true while refreshing dropdown items programmatically to suppress spurious heroSelected emits.
+  private boolean updatingDropdown = false;
+
   public MenuScreen(final Game game, final SocketClient socket) {
     super(game);
 
@@ -106,7 +118,10 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.addListener(new ChangeListener() {
       @Override
       public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-        menuState.setStartingHero(heroSelectBox.getSelected());
+        if (updatingDropdown) return;
+        String selected = heroSelectBox.getSelected();
+        menuState.setStartingHero(selected);
+        socket.emit("heroSelected", selected);
       }
     });
 
@@ -131,6 +146,32 @@ public class MenuScreen extends AbstractScreen {
 
   public void create() {
 
+  }
+
+  /**
+   * Rebuild the hero dropdown items, excluding heroes that have been reserved by other lobby
+   * players. The current player's own selection is preserved when possible; if their hero was
+   * taken by someone else it is reset to "None".
+   */
+  private void refreshHeroDropdown() {
+    String currentSelected = heroSelectBox.getSelected();
+    Array<String> items = new Array<String>();
+    items.add("None");
+    for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
+      if (!reservedByOthers.contains(ALL_HERO_NAMES[i])) {
+        items.add(ALL_HERO_NAMES[i]);
+      }
+    }
+    updatingDropdown = true;
+    heroSelectBox.setItems(items);
+    // Keep the previous selection if it is still available; otherwise fall back to "None".
+    if (currentSelected != null && !reservedByOthers.contains(currentSelected)) {
+      heroSelectBox.setSelected(currentSelected);
+    } else {
+      heroSelectBox.setSelected("None");
+      menuState.setStartingHero("None");
+    }
+    updatingDropdown = false;
   }
 
   @Override
@@ -243,6 +284,9 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(timerLabel);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
+
+    // Rebuild hero dropdown excluding heroes reserved by other lobby players.
+    refreshHeroDropdown();
 
     // Add hero selector directly to stage so popup coordinates work correctly
     Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
@@ -431,6 +475,44 @@ public class MenuScreen extends AbstractScreen {
           show();
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error in timer!");
+        }
+      }
+    });
+
+    socket.on("heroReserved", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          final String heroName = data.getString("heroName");
+          Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+              reservedByOthers.add(heroName);
+              updateScreen = true;
+            }
+          });
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error parsing heroReserved");
+        }
+      }
+    });
+
+    socket.on("heroReleased", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          final String heroName = data.getString("heroName");
+          Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+              reservedByOthers.remove(heroName);
+              updateScreen = true;
+            }
+          });
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error parsing heroReleased");
         }
       }
     });

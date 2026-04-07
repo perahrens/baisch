@@ -1136,6 +1136,17 @@ public class GameScreen extends ScreenAdapter {
           }
           pt.setPlunderPending(false);
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
+          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent
+          int coupId = pt.getCoupSwapPendingCardId();
+          if (coupId != -1) {
+            for (Card c : pt.getPendingAttackCards()) {
+              if (c.getCardId() == coupId) {
+                pt.setKingUsedThisTurn(true);
+                pt.setCoupSwapPendingCardId(-1);
+                break;
+              }
+            }
+          }
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
           try {
             JSONObject emitData = new JSONObject();
@@ -1475,6 +1486,17 @@ public class GameScreen extends ScreenAdapter {
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
           if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
+          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent
+          int coupId2 = apt.getCoupSwapPendingCardId();
+          if (coupId2 != -1) {
+            for (Card c : apt.getPendingAttackCards()) {
+              if (c.getCardId() == coupId2) {
+                apt.setKingUsedThisTurn(true);
+                apt.setCoupSwapPendingCardId(-1);
+                break;
+              }
+            }
+          }
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
             c.setSelected(false);

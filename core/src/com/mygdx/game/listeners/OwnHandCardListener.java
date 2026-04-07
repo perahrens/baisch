@@ -167,10 +167,6 @@ public class OwnHandCardListener extends ClickListener {
       // select hand card
       if (handCard.isSelected()) {
         handCard.setSelected(false);
-        // Player explicitly deselected — cancel coup-swap auto-select
-        if (handCard.getCardId() == player.getPlayerTurn().getCoupSwapPendingCardId()) {
-          player.getPlayerTurn().setCoupSwapPendingCardId(-1);
-        }
       } else {
         if (handCard.getSymbol() == player.getSelectedSymbol()) {
           handCard.setSelected(true);

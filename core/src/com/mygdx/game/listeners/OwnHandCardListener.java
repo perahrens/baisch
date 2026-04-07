@@ -49,9 +49,12 @@ public class OwnHandCardListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
 
     // Warlord king swap: if own king is selected, swap it with this hand card
-    // Costs 1 take + 1 put action
+    // Costs 1 take + 1 put action.
+    // Allowed only when: player has Warlord hero, OR player has no defense cards (coup).
     if (player.getKingCard() != null && player.getKingCard().isSelected()) {
-      if (player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
+      boolean hasWarlord = player.hasHero("Warlord");
+      boolean hasDefCards = !player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty();
+      if ((hasWarlord || !hasDefCards) && player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
         Card oldKing = player.getKingCard();
         Card newKing = handCard;
         // Swap locally

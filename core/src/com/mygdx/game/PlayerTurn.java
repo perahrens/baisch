@@ -221,4 +221,12 @@ public class PlayerTurn {
   public int getPendingAttackDefStr() { return pendingAttackDefStr; }
   public void setPendingAttackDefStr(int v) { this.pendingAttackDefStr = v; }
 
+  // --- Coup-swap pending attack ---
+  // Card ID of the old king after a non-warlord (coup) king swap.
+  // The card stays auto-selected in hand so it can be directly used for an attack.
+  // Cleared when the player deselects the card or switches attack intent.
+  private int coupSwapPendingCardId = -1;
+  public int getCoupSwapPendingCardId() { return coupSwapPendingCardId; }
+  public void setCoupSwapPendingCardId(int id) { this.coupSwapPendingCardId = id; }
+
 }

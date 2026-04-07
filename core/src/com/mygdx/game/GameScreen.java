@@ -2806,6 +2806,26 @@ public class GameScreen extends ScreenAdapter {
           }
         }
 
+        // Restore coup-swap auto-select: keep old king selected in hand after a non-warlord swap
+        if (p == currentPlayer) {
+          int pendingId = currentPlayer.getPlayerTurn().getCoupSwapPendingCardId();
+          if (pendingId != -1) {
+            boolean found = false;
+            for (Card hc : p.getHandCards()) {
+              if (hc.getCardId() == pendingId) {
+                hc.setSelected(true);
+                p.setSelectedSymbol(hc.getSymbol());
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              // Card no longer in hand (consumed or lost) — clear the pending flag
+              currentPlayer.getPlayerTurn().setCoupSwapPendingCardId(-1);
+            }
+          }
+        }
+
         // Save local def covered-state overrides (spy flips) before rebuilding
         // Key = slot, Value = card ID that was face-up (only restore if card ID unchanged)
         Map<Integer, Integer> savedDefCovered = new HashMap<Integer, Integer>();

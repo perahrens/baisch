@@ -61,6 +61,12 @@ public class OwnHandCardListener extends ClickListener {
         player.setKingCard(newKing);
         player.getHandCards().remove(newKing);
         player.addHandCard(oldKing);
+        // Non-warlord coup: keep old king selected so it can immediately attack.
+        // coupSwapPendingCardId survives stateUpdate hand rebuilds, keeping the card auto-selected.
+        if (!hasWarlord) {
+          player.getPlayerTurn().setCoupSwapPendingCardId(oldKing.getCardId());
+          player.setSelectedSymbol(oldKing.getSymbol());
+        }
         // Deselect king
         player.getKingCard().setSelected(false);
         // Consume actions
@@ -161,6 +167,10 @@ public class OwnHandCardListener extends ClickListener {
       // select hand card
       if (handCard.isSelected()) {
         handCard.setSelected(false);
+        // Player explicitly deselected — cancel coup-swap auto-select
+        if (handCard.getCardId() == player.getPlayerTurn().getCoupSwapPendingCardId()) {
+          player.getPlayerTurn().setCoupSwapPendingCardId(-1);
+        }
       } else {
         if (handCard.getSymbol() == player.getSelectedSymbol()) {
           handCard.setSelected(true);
@@ -170,6 +180,8 @@ public class OwnHandCardListener extends ClickListener {
           }
           handCard.setSelected(true);
           player.setSelectedSymbol(handCard.getSymbol());
+          // Player switched to different symbol — cancel coup-swap auto-select
+          player.getPlayerTurn().setCoupSwapPendingCardId(-1);
         }
       }
 

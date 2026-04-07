@@ -51,6 +51,8 @@ public class OwnKingCardListener extends ClickListener {
       for (int i = 0; i < handCards.size(); i++) {
         handCards.get(i).setSelected(false);
       }
+      // Selecting own king cancels any pending coup-swap auto-select
+      player.getPlayerTurn().setCoupSwapPendingCardId(-1);
 
       // select king card
       if (kingCard.isSelected()) {

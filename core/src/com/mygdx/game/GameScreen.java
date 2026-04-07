@@ -589,7 +589,7 @@ public class GameScreen extends ScreenAdapter {
     showHandStage(players, currentPlayer);
   }
 
-  public void showGameStage(ArrayList<Player> players, final Player currentPlayer) {
+  public void showGameStage(final ArrayList<Player> players, final Player currentPlayer) {
     Card infoCard = new Card();
     float cardW = infoCard.getDefWidth();
     float cardH = infoCard.getDefHeight();
@@ -1960,8 +1960,28 @@ public class GameScreen extends ScreenAdapter {
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
-            Hero consumed = gameState.getHeroesSquare().consumeHeroByName(choice.getHeroName());
-            if (consumed != null) completeHeroAcquisition(consumed);
+            final String heroName = choice.getHeroName();
+            Hero consumed = gameState.getHeroesSquare().consumeHeroByName(heroName);
+            if (consumed != null) {
+              completeHeroAcquisition(consumed);
+            } else {
+              // Hero is already owned — strip it from the owner and transfer it.
+              int ownerIdx = gameState.findHeroOwnerIndex(heroName);
+              if (ownerIdx >= 0) {
+                Hero stripped = players.get(ownerIdx).removeHeroByName(heroName);
+                if (stripped != null) {
+                  try {
+                    JSONObject emitData = new JSONObject();
+                    emitData.put("playerIndex", ownerIdx);
+                    emitData.put("heroName", heroName);
+                    socket.emit("heroLost", emitData);
+                  } catch (JSONException e) {
+                    e.printStackTrace();
+                  }
+                  completeHeroAcquisition(stripped);
+                }
+              }
+            }
           }
         });
         gameStage.addActor(heroBtn);
@@ -3041,15 +3061,15 @@ public class GameScreen extends ScreenAdapter {
     HeroesSquare hs = gameState.getHeroesSquare();
 
     if ("joker".equals(drawnSym)) {
-      // Another joker drawn — free choice from ALL remaining heroes.
-      triggerHeroChoice(hs.getAvailableAllHeroes());
+      // Another joker drawn — free choice from ALL heroes (pool + already owned).
+      triggerHeroChoice(buildHeroChoices(false, false));
     } else if (drawnIndex == 1) {
       // Ace: red suits (hearts/diamonds) → white heroes; black → black heroes.
       boolean isRed = "hearts".equals(drawnSym) || "diamonds".equals(drawnSym);
       java.util.ArrayList<Hero> choices = isRed
-          ? hs.getAvailableWhiteHeroes()
-          : hs.getAvailableBlackHeroes();
-      if (choices.isEmpty()) choices = hs.getAvailableAllHeroes(); // fallback
+          ? buildHeroChoices(true, false)
+          : buildHeroChoices(false, true);
+      if (choices.isEmpty()) choices = buildHeroChoices(false, false); // fallback
       triggerHeroChoice(choices);
     } else {
       // Direct hero assignment by card index (2-13).
@@ -3109,6 +3129,46 @@ public class GameScreen extends ScreenAdapter {
   }
 
   // ---- end hero acquisition ----
+
+  /**
+   * Build the list of hero choices for an Ace or Joker draw.
+   * Includes both heroes still available in the pool and heroes already owned by players,
+   * so that the drawing player can choose to steal a hero from its current owner.
+   * @param whiteOnly include only white heroes (for red Ace)
+   * @param blackOnly include only black heroes (for black Ace)
+   */
+  private java.util.ArrayList<Hero> buildHeroChoices(boolean whiteOnly, boolean blackOnly) {
+    HeroesSquare hs = gameState.getHeroesSquare();
+    // Start from the still-available pool heroes (filtered if needed).
+    java.util.ArrayList<Hero> result;
+    if (whiteOnly) {
+      result = new java.util.ArrayList<Hero>(hs.getAvailableWhiteHeroes());
+    } else if (blackOnly) {
+      result = new java.util.ArrayList<Hero>(hs.getAvailableBlackHeroes());
+    } else {
+      result = new java.util.ArrayList<Hero>(hs.getAvailableAllHeroes());
+    }
+    // Also include heroes already owned by any player.
+    for (int i = 0; i < players.size(); i++) {
+      java.util.ArrayList<Hero> owned = players.get(i).getHeroes();
+      for (int j = 0; j < owned.size(); j++) {
+        Hero h = owned.get(j);
+        if (!whiteOnly && !blackOnly) {
+          result.add(h);
+        } else if (whiteOnly && isWhiteHero(h.getHeroName())) {
+          result.add(h);
+        } else if (blackOnly && !isWhiteHero(h.getHeroName())) {
+          result.add(h);
+        }
+      }
+    }
+    return result;
+  }
+
+  private static boolean isWhiteHero(String name) {
+    return "Mercenaries".equals(name) || "Marshal".equals(name) || "Spy".equals(name)
+        || "Battery Tower".equals(name) || "Merchant".equals(name) || "Priest".equals(name);
+  }
 
   public void removeAllListeners(Actor actor) {
     Array<EventListener> listeners = actor.getListeners();

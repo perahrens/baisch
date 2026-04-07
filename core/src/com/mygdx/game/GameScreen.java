@@ -638,12 +638,14 @@ public class GameScreen extends ScreenAdapter {
 
     // draw game status of players
     for (int i = 0; i < players.size(); i++) {
+      // visual slot 0 = bottom (own player), 1 = left, 2 = top, 3 = right
+      int visualSlot = (i - playerIndex + 4) % 4;
       System.out.println("Player " + players.get(i).getPlayerName() + " hand = " + players.get(i).getHandCards().size());
       System.out.println("Player " + players.get(i).getPlayerName() + " def = " + players.get(i).getDefCards().size());
 
       // display dice
       Dice dice = players.get(i).getDice();
-      dice.setMapPosition(i);
+      dice.setMapPosition(visualSlot);
       gameStage.addActor(dice);
 
       // Skip all card rendering for eliminated players
@@ -682,8 +684,8 @@ public class GameScreen extends ScreenAdapter {
         // For rot 0°/180°: visual top = anchorY + H, visual bottom = anchorY
         float deckX, deckY;
         int deckRot;
-        switch (i) {
-        case 0: // king right visual edge = (WIDTH+W)/2; deck visual left = king_right + W/2
+        switch (visualSlot) {
+        case 0: // king visual right = (WIDTH+W)/2; deck visual left = king_right + W/2
           deckX = (MyGdxGame.WIDTH + cardW) / 2f + cardW / 2f + (cardH - cardW) / 2f;
           deckY = 0f;
           deckRot = 90;
@@ -743,7 +745,7 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.error("GameScreen", "kingCard is null for player " + i);
         continue;
       }
-      kingCard.setMapPosition(i, 0, 0);
+      kingCard.setMapPosition(visualSlot, 0, 0);
       // make own covered cards visible
       if (players.get(i) == currentPlayer) {
         kingCard.setActive(true);
@@ -886,7 +888,7 @@ public class GameScreen extends ScreenAdapter {
           System.out.println("Def card removed!");
         }
 
-        defCard.setMapPosition(i, j, 0);
+        defCard.setMapPosition(visualSlot, j, 0);
         if (players.get(i) == currentPlayer) {
           defCard.setActive(true);
         } else {
@@ -984,7 +986,7 @@ public class GameScreen extends ScreenAdapter {
               }
             });
           }
-          topDefCard.setMapPosition(i, j, 1);
+          topDefCard.setMapPosition(visualSlot, j, 1);
           if (players.get(i) == currentPlayer) {
             topDefCard.setActive(true);
           } else {
@@ -1002,7 +1004,7 @@ public class GameScreen extends ScreenAdapter {
       } else {
         playerLabel.setColor(0f, 0f, 0f, 1.0f);
       }
-      switch (i) {
+      switch (visualSlot) {
       case 0:
         playerLabel.setPosition((MyGdxGame.WIDTH - playerLabel.getWidth()) / 2 - kingCard.getDefHeight(),
             kingCard.getDefWidth() / 2);
@@ -1033,7 +1035,7 @@ public class GameScreen extends ScreenAdapter {
         playerHeroes.get(j).setHand(false);
         playerHeroes.get(j).setPosition(playerLabel.getX(), playerLabel.getY());
 
-        switch (i) {
+        switch (visualSlot) {
         case 0:
           playerHeroes.get(j).setPosition(
               playerHeroes.get(j).getX() - playerLabel.getWidth() - j * playerHeroes.get(j).getWidth() / 3,

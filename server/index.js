@@ -26,6 +26,8 @@ var timer;
 var GameState = require('./gameState');
 var gameState = null;
 var winnerHandled = false;
+// Tracks which hero each socket has reserved in the lobby (socketId -> heroName or 'None').
+var heroSelections = {};
 
 function checkAndHandleWinner(io) {
   if (!gameState || winnerHandled) return;
@@ -60,6 +62,11 @@ io.on('connection', function(socket) {
   socket.on('disconnect', function() {
     console.log("User Disconnected");
     socket.broadcast.emit('userDisconnected', { id:socket.id } );
+    // Release any lobby hero reservation so other players can pick it.
+    if (heroSelections[socket.id] && heroSelections[socket.id] !== 'None') {
+      socket.broadcast.emit('heroReleased', { heroName: heroSelections[socket.id] });
+    }
+    delete heroSelections[socket.id];
     for (var i = 0; i < users.length; i++) {
       if (users[i].id == socket.id) {
         users.splice(i, 1);
@@ -208,6 +215,25 @@ io.on('connection', function(socket) {
   socket.on('heroAcquired', function(data) {
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
     socket.broadcast.emit('heroAcquired', data);
+  });
+
+  // Relay hero loss to all OTHER clients (joker draw stripped hero from its owner).
+  socket.on('heroLost', function(data) {
+    console.log("heroLost: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
+    socket.broadcast.emit('heroLost', data);
+  });
+
+  // A player selected (or deselected) a hero in the lobby.
+  // Broadcast heroReserved / heroReleased so other lobby screens update their dropdowns.
+  socket.on('heroSelected', function(heroName) {
+    var oldHero = heroSelections[socket.id] || 'None';
+    heroSelections[socket.id] = heroName;
+    if (oldHero !== 'None') {
+      socket.broadcast.emit('heroReleased', { heroName: oldHero });
+    }
+    if (heroName !== 'None') {
+      socket.broadcast.emit('heroReserved', { heroName: heroName });
+    }
   });
 
   // Relay mercenary defense boost to all OTHER clients (boost is client-side only, not in server state).

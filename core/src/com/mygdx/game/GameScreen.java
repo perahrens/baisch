@@ -229,6 +229,30 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // A joker draw landed on a hero that was already owned — the owner loses the hero.
+    // Per issue #25: the drawing player gets nothing; the previous owner loses the hero.
+    socket.on("heroLost", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONObject data = (JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              int pIdx = data.getInt("playerIndex");
+              String heroName = data.getString("heroName");
+              if (pIdx >= 0 && pIdx < players.size()) {
+                players.get(pIdx).removeHeroByName(heroName);
+              }
+              gameState.setUpdateState(true);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        });
+      }
+    });
+
     // Server notifies us that one of our deployed saboteurs was destroyed by the enemy.
     // Mark it as destroyed (state 2) so the recovery clock starts.
     socket.on("saboteurDestroyed", new SocketListener() {
@@ -3031,10 +3055,24 @@ public class GameScreen extends ScreenAdapter {
       // Direct hero assignment by card index (2-13).
       Hero hero = hs.getHeroByCardIndex(drawnIndex);
       if (hero == null) {
-        // That hero is already taken — let the player choose from remaining.
-        java.util.ArrayList<Hero> choices = hs.getAvailableAllHeroes();
-        if (!choices.isEmpty()) triggerHeroChoice(choices);
-        else gameState.setUpdateState(true);
+        // That hero is already owned by a player — strip it from the owner.
+        // Per issue #25 the drawing player receives NOTHING.
+        String takenName = HeroesSquare.heroNameByCardIndex(drawnIndex);
+        if (takenName != null) {
+          int ownerIdx = gameState.findHeroOwnerIndex(takenName);
+          if (ownerIdx >= 0) {
+            players.get(ownerIdx).removeHeroByName(takenName);
+            try {
+              JSONObject emitData = new JSONObject();
+              emitData.put("playerIndex", ownerIdx);
+              emitData.put("heroName", takenName);
+              socket.emit("heroLost", emitData);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        }
+        gameState.setUpdateState(true);
       } else {
         completeHeroAcquisition(hero);
       }

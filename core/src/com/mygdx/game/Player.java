@@ -567,6 +567,19 @@ public class Player {
     heroes.add(hero);
   }
 
+  /**
+   * Remove a hero by name from this player's hero list and return it.
+   * Returns null if the player does not own a hero with that name.
+   */
+  public Hero removeHeroByName(String heroName) {
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroName.equals(heroes.get(i).getHeroName())) {
+        return heroes.remove(i);
+      }
+    }
+    return null;
+  }
+
   public ArrayList<Hero> getHeroes() {
     return heroes;
   }

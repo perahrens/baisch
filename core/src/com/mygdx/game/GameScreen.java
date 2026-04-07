@@ -520,11 +520,7 @@ public class GameScreen extends ScreenAdapter {
     // Any stateUpdate events broadcast while the constructor was queued are missed
     // because the socket listener was not yet registered. Requesting a sync here
     // ensures this client gets the current authoritative state immediately.
-    try {
-      socket.emit("requestStateSync", new JSONObject());
-    } catch (JSONException e) {
-      e.printStackTrace();
-    }
+    socket.emit("requestStateSync", new JSONObject());
   }
 
   @Override

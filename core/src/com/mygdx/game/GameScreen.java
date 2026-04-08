@@ -22,6 +22,7 @@ import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -118,6 +119,8 @@ public class GameScreen extends ScreenAdapter {
   private boolean isSpectator = false;
   private JSONObject centralizedState;
   private SocketClient socket;
+  private Game game;
+  private boolean menuOpen = false;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
   // Attack preview broadcast: set from stateUpdate when another player has a pending attack
@@ -152,6 +155,7 @@ public class GameScreen extends ScreenAdapter {
   private String startingHero = "None";
 
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero) {
+    this.game = game;
     this.startingHero = startingHero;
     this.socket = socket;
     // playerIndex == -1 means spectator — display from player 0's viewpoint, read-only
@@ -623,6 +627,7 @@ public class GameScreen extends ScreenAdapter {
 
     showGameStage(players, currentPlayer);
     showHandStage(players, currentPlayer);
+    if (menuOpen) buildMenuOverlay();
   }
 
   public void showGameStage(final ArrayList<Player> players, final Player currentPlayer) {
@@ -2786,6 +2791,104 @@ public class GameScreen extends ScreenAdapter {
     }
 
     handStage.addActor(finishTurnButton);
+
+    TextButton menuBtn = new TextButton("\u2630", MyGdxGame.skin);
+    menuBtn.setPosition(0, 0);
+    menuBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        GameScreen.this.showInGameMenu();
+      }
+    });
+    handStage.addActor(menuBtn);
+  }
+
+  private void showInGameMenu() {
+    menuOpen = true;
+    buildMenuOverlay();
+    Gdx.input.setInputProcessor(overlayStage);
+  }
+
+  private void buildMenuOverlay() {
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.6f);
+    bg.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    overlayStage.addActor(bg);
+
+    Table table = new Table();
+    table.setFillParent(true);
+
+    Label titleLabel = new Label("Game Menu", MyGdxGame.skin);
+    table.add(titleLabel).padBottom(20).row();
+
+    TextButton resumeBtn = new TextButton("Resume", MyGdxGame.skin);
+    resumeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    table.add(resumeBtn).width(200).padBottom(10).row();
+
+    if (!isSpectator) {
+      TextButton giveUpBtn = new TextButton("Give Up", MyGdxGame.skin);
+      giveUpBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          emitGiveUp();
+        }
+      });
+      table.add(giveUpBtn).width(200).padBottom(10).row();
+    } else {
+      TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
+      leaveBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          navigateToLobby();
+        }
+      });
+      table.add(leaveBtn).width(200).row();
+    }
+
+    overlayStage.addActor(table);
+  }
+
+  private void closeMenu() {
+    menuOpen = false;
+    overlayStage.clear();
+    if (!isSpectator) {
+      Gdx.input.setInputProcessor(inMulti);
+    } else {
+      Gdx.input.setInputProcessor(null);
+    }
+  }
+
+  private void emitGiveUp() {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("playerIndex", playerIndex);
+      socket.emit("giveUp", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void navigateToLobby() {
+    Gdx.app.postRunnable(new Runnable() {
+      @Override
+      public void run() {
+        game.setScreen(new MenuScreen(game, socket));
+      }
+    });
   }
 
   private void emitPriestConvert(int targetPlayerIdx, int cardId) {

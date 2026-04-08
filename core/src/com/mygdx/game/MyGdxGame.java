@@ -14,6 +14,8 @@ import com.mygdx.game.net.SocketClient;
 public class MyGdxGame extends Game implements InputProcessor {
   private SocketClient socket;
   public static SocketClient socketInstance;
+  /** Platform-supplied turn notifier. Defaults to no-op; overridden by HtmlLauncher. */
+  public static TurnNotifier turnNotifier = TurnNotifier.NOOP;
   public final static float HEIGHT = 800;
   public final static float WIDTH = 450;
 

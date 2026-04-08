@@ -1492,13 +1492,8 @@ public class GameScreen extends ScreenAdapter {
             apt.getPendingAttackDefCards().clear();
             apt.getPendingAttackOwnDefCards().clear();
           }
-          apt.getPendingAttackCards().clear();
-          apt.resetReservistAttackBonus();
-          apt.resetPendingAttackMercenaryBonus();
-          apt.setAttackPending(false);
-          apt.setAttackTargetIsKing(false);
-          if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
-          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent
+          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent.
+          // Must check BEFORE clearing pendingAttackCards.
           int coupId2 = apt.getCoupSwapPendingCardId();
           if (coupId2 != -1) {
             for (Card c : apt.getPendingAttackCards()) {
@@ -1509,6 +1504,12 @@ public class GameScreen extends ScreenAdapter {
               }
             }
           }
+          apt.getPendingAttackCards().clear();
+          apt.resetReservistAttackBonus();
+          apt.resetPendingAttackMercenaryBonus();
+          apt.setAttackPending(false);
+          apt.setAttackTargetIsKing(false);
+          if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
             c.setSelected(false);

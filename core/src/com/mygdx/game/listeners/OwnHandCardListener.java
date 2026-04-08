@@ -49,15 +49,27 @@ public class OwnHandCardListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
 
     // Warlord king swap: if own king is selected, swap it with this hand card
-    // Costs 1 take + 1 put action
+    // Costs 1 take + 1 put action.
+    // Allowed only when: player has Warlord hero, OR player has no defense cards (coup).
     if (player.getKingCard() != null && player.getKingCard().isSelected()) {
-      if (player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
+      boolean hasWarlord = player.hasHero("Warlord");
+      boolean hasDefCards = !player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty();
+      if ((hasWarlord || !hasDefCards) && player.getPlayerTurn().getTakeDefCard() > 0 && player.getPlayerTurn().getPutDefCard() > 0) {
         Card oldKing = player.getKingCard();
         Card newKing = handCard;
-        // Swap locally
+        // Swap locally — new king is always placed face-down
+        newKing.setCovered(true);
         player.setKingCard(newKing);
         player.getHandCards().remove(newKing);
         player.addHandCard(oldKing);
+        // Non-warlord coup: keep old king selected so it can immediately attack.
+        // coupSwapPendingCardId survives stateUpdate hand rebuilds, keeping the card auto-selected.
+        if (!hasWarlord) {
+          player.getPlayerTurn().setCoupSwapPendingCardId(oldKing.getCardId());
+          player.setSelectedSymbol(oldKing.getSymbol());
+          // Fresh king on board: reset king-used flag so the new board king can attack this turn
+          player.getPlayerTurn().setKingUsedThisTurn(false);
+        }
         // Deselect king
         player.getKingCard().setSelected(false);
         // Consume actions
@@ -167,6 +179,8 @@ public class OwnHandCardListener extends ClickListener {
           }
           handCard.setSelected(true);
           player.setSelectedSymbol(handCard.getSymbol());
+          // Player switched to different symbol — cancel coup-swap auto-select
+          player.getPlayerTurn().setCoupSwapPendingCardId(-1);
         }
       }
 

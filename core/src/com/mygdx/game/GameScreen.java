@@ -777,8 +777,16 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.error("GameScreen", "kingCard is null for player " + i);
         continue;
       }
+      // setMapPosition() resets isSelected=false; preserve it for the own king so that a
+      // server stateUpdate arriving while the player has their king selected does not
+      // silently deselect it. Restored regardless of kingUsedThisTurn — the king may
+      // still need to be selected for a swap even after it has already attacked this turn.
+      // Attack listeners independently guard against a second king attack.
+      boolean kingWasSelected = (players.get(i) == currentPlayer)
+          && kingCard.isSelected();
       kingCard.setMapPosition(visualSlot, 0, 0);
-      // make own covered cards visible
+      if (kingWasSelected) kingCard.setSelected(true);
+      // Own king: active (grey tint, face visible to owner); enemy king: card back
       if (players.get(i) == currentPlayer) {
         kingCard.setActive(true);
       } else {
@@ -921,6 +929,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         defCard.setMapPosition(visualSlot, j, 0);
+        // Own def card: active (grey tint, face visible to owner); enemy def card: card back
         if (players.get(i) == currentPlayer) {
           defCard.setActive(true);
         } else {
@@ -1019,6 +1028,7 @@ public class GameScreen extends ScreenAdapter {
             });
           }
           topDefCard.setMapPosition(visualSlot, j, 1);
+          // Own top def card: active (grey tint, face visible to owner); enemy: card back
           if (players.get(i) == currentPlayer) {
             topDefCard.setActive(true);
           } else {
@@ -1146,6 +1156,17 @@ public class GameScreen extends ScreenAdapter {
           }
           pt.setPlunderPending(false);
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
+          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent
+          int coupId = pt.getCoupSwapPendingCardId();
+          if (coupId != -1) {
+            for (Card c : pt.getPendingAttackCards()) {
+              if (c.getCardId() == coupId) {
+                pt.setKingUsedThisTurn(true);
+                pt.setCoupSwapPendingCardId(-1);
+                break;
+              }
+            }
+          }
           // Broadcast to server (server applies + broadcasts stateUpdate to all)
           try {
             JSONObject emitData = new JSONObject();
@@ -1478,6 +1499,18 @@ public class GameScreen extends ScreenAdapter {
             }
             apt.getPendingAttackDefCards().clear();
             apt.getPendingAttackOwnDefCards().clear();
+          }
+          // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent.
+          // Must check BEFORE clearing pendingAttackCards.
+          int coupId2 = apt.getCoupSwapPendingCardId();
+          if (coupId2 != -1) {
+            for (Card c : apt.getPendingAttackCards()) {
+              if (c.getCardId() == coupId2) {
+                apt.setKingUsedThisTurn(true);
+                apt.setCoupSwapPendingCardId(-1);
+                break;
+              }
+            }
           }
           apt.getPendingAttackCards().clear();
           apt.resetReservistAttackBonus();
@@ -2813,6 +2846,26 @@ public class GameScreen extends ScreenAdapter {
         if (tradeableCardId != -1) {
           for (Card tc : p.getHandCards()) {
             if (tc.getCardId() == tradeableCardId) { tc.setTradable(true); break; }
+          }
+        }
+
+        // Restore coup-swap auto-select: keep old king selected in hand after a non-warlord swap
+        if (p == currentPlayer) {
+          int pendingId = currentPlayer.getPlayerTurn().getCoupSwapPendingCardId();
+          if (pendingId != -1) {
+            boolean found = false;
+            for (Card hc : p.getHandCards()) {
+              if (hc.getCardId() == pendingId) {
+                hc.setSelected(true);
+                p.setSelectedSymbol(hc.getSymbol());
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              // Card no longer in hand (consumed or lost) — clear the pending flag
+              currentPlayer.getPlayerTurn().setCoupSwapPendingCardId(-1);
+            }
           }
         }
 

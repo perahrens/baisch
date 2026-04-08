@@ -12,6 +12,7 @@ import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
+import com.mygdx.game.heroes.Warlord;
 import com.mygdx.game.net.SocketClient;
 import com.mygdx.game.util.JSONArray;
 import com.mygdx.game.util.JSONException;
@@ -63,14 +64,30 @@ public class EnemyKingCardListener extends ClickListener {
     // Guard: king can only be attacked when defender has NO defense cards
     if (!defender.getDefCards().isEmpty() || !defender.getTopDefCards().isEmpty()) return;
 
-    boolean kingSelected = player.getKingCard() != null && player.getKingCard().isSelected();
-    if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
-
-    // Attacker's king: one-use-per-turn, can only attack when attacker has no def cards
-    if (kingSelected) {
-      if (pt.isKingUsedThisTurn()) return;
-      if (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty()) return;
+    // Warlord: detect before the 'nothing selected' guard — selecting the Warlord hero
+    // and clicking an enemy king (when defender has no defense) forces the king card to attack.
+    // This bypasses the restriction that the attacker must have no defense cards of their own.
+    boolean warlordAttack = false;
+    Warlord warlord = null;
+    for (Hero wh : player.getHeroes()) {
+      if ("Warlord".equals(wh.getHeroName())) { warlord = (Warlord) wh; }
+      if ("Warlord".equals(wh.getHeroName()) && wh.isSelected()) { warlordAttack = true; }
     }
+
+    boolean kingSelected = player.getKingCard() != null && player.getKingCard().isSelected();
+    if (warlordAttack) {
+      // Force king as attacker; clear any hand card selections
+      kingSelected = true;
+      for (Card hc : player.getHandCards()) hc.setSelected(false);
+      if (warlord == null || !warlord.isAttackAvailable()) return;
+    } else {
+      if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
+    }
+
+    // Attacker's king: one-use-per-turn
+    if (kingSelected && pt.isKingUsedThisTurn()) return;
+    // Without Warlord, king can only be used when attacker has no defense cards
+    if (kingSelected && !warlordAttack && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
 
     // Symbol constraint — king attacks use the king's own symbol (same as hand cards)
     Card attackCard = kingSelected ? player.getKingCard() : player.getSelectedHandCards().get(0);
@@ -138,6 +155,11 @@ public class EnemyKingCardListener extends ClickListener {
     }
 
     pt.setAttackPending(true);
+
+    // Consume Warlord charge after attack is committed
+    if (warlordAttack && warlord != null) {
+      warlord.useAttack();
+    }
 
     // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.
     BatteryTower defBt = null;

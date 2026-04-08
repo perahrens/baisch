@@ -777,7 +777,14 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.error("GameScreen", "kingCard is null for player " + i);
         continue;
       }
+      // setMapPosition() resets isSelected=false; preserve it for the own king so that a
+      // server stateUpdate arriving while the player has their king selected does not
+      // silently deselect it. Only restore when the king has not yet been used this turn.
+      boolean kingWasSelected = (players.get(i) == currentPlayer)
+          && kingCard.isSelected()
+          && !currentPlayer.getPlayerTurn().isKingUsedThisTurn();
       kingCard.setMapPosition(visualSlot, 0, 0);
+      if (kingWasSelected) kingCard.setSelected(true);
       // Own king: active (grey tint, face visible to owner); enemy king: card back
       if (players.get(i) == currentPlayer) {
         kingCard.setActive(true);

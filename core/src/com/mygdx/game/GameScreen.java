@@ -2825,6 +2825,10 @@ public class GameScreen extends ScreenAdapter {
         Player prevPlayer = gameState.getPlayers().get(prevCurrentIdx);
         prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
+        // Notify this player if it just became their turn
+        if (!isSpectator && serverCurrentIdx == playerIndex) {
+          MyGdxGame.turnNotifier.notifyYourTurn(currentPlayer.getPlayerName());
+        }
       }
       gameState.setCurrentPlayer(serverCurrentIdx);
 

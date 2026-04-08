@@ -115,6 +115,7 @@ public class GameScreen extends ScreenAdapter {
   private int merchantRevealPlayerIdx = -1;
 
   private int playerIndex;
+  private boolean isSpectator = false;
   private JSONObject centralizedState;
   private SocketClient socket;
   // Battery Tower: stored when this local player is the defender and must allow/deny
@@ -153,18 +154,20 @@ public class GameScreen extends ScreenAdapter {
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero) {
     this.startingHero = startingHero;
     this.socket = socket;
-    this.playerIndex = playerIndex;
+    // playerIndex == -1 means spectator — display from player 0's viewpoint, read-only
+    this.isSpectator = (playerIndex < 0);
+    this.playerIndex = this.isSpectator ? 0 : playerIndex;
     this.centralizedState = centralizedState;
 
     // Build all game state from the server-provided authoritative state
     gameState = new GameState(centralizedState);
     gameState.setSocket(socket);
     players = gameState.getPlayers();
-    currentPlayer = players.get(playerIndex);
+    currentPlayer = players.get(this.playerIndex);
 
-    // Apply testing starting hero if one was selected in the menu
-    if (startingHero != null && !startingHero.equals("None")) {
-      gameState.applyHeroAcquired(playerIndex, startingHero);
+    // Apply testing starting hero if one was selected in the menu (not for spectators)
+    if (!isSpectator && startingHero != null && !startingHero.equals("None")) {
+      gameState.applyHeroAcquired(this.playerIndex, startingHero);
     }
 
     // Single stateUpdate listener — replaces all specific sync events
@@ -480,9 +483,17 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Game ended — server tells all clients to return to the lobby
+    socket.on("returnToLobby", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        // MenuScreen's own returnToLobby listener will handle the screen switch;
+        // nothing to do here since MenuScreen is still registered on the socket.
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
-    fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
     gameStage.setViewport(fitVPGame);
 
     handStage = new Stage();
@@ -496,7 +507,12 @@ public class GameScreen extends ScreenAdapter {
     inMulti = new InputMultiplexer();
     inMulti.addProcessor(gameStage);
     inMulti.addProcessor(handStage);
-    Gdx.input.setInputProcessor(inMulti);
+    // Spectators watch in read-only mode — no input processing
+    if (!isSpectator) {
+      Gdx.input.setInputProcessor(inMulti);
+    } else {
+      Gdx.input.setInputProcessor(null);
+    }
 
     gameBck = new Image(MyGdxGame.skin, "white");
     gameBck.setFillParent(true);
@@ -3019,8 +3035,9 @@ public class GameScreen extends ScreenAdapter {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
     // Block all input when it is not this client's turn,
-    // EXCEPT when a Battery Tower intercept awaits the defender's decision
-    if (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null) {
+    // EXCEPT when a Battery Tower intercept awaits the defender's decision.
+    // Spectators never get input.
+    if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
       Gdx.input.setInputProcessor(inMulti);
     } else {
       Gdx.input.setInputProcessor(null);

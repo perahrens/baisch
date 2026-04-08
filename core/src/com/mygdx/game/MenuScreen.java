@@ -50,6 +50,7 @@ public class MenuScreen extends AbstractScreen {
   private int currentUsersCount;
   private boolean updateScreen = false;
   boolean timerStarted = false;
+  private boolean gameRunning = false;
 
   // Whether the player has entered a name and joined the lobby.
   private boolean lobbyJoined = false;
@@ -262,38 +263,58 @@ public class MenuScreen extends AbstractScreen {
 
     loggedInUserTable.setPosition(200, 300);
 
-    // check if all players are ready (requires >= 2)
-    if (menuState.allReady() && !timerStarted) {
-      System.out.println("All players ready...");
-      socket.emit("startTimer", 5);
-      menuState.setTimeToStart(5);
-      timerStarted = true;
+    if (gameRunning) {
+      // A game is already in progress — show status and offer spectating
+      Label gameRunningLabel = new Label("Game in progress", MyGdxGame.skin);
+      gameRunningLabel.setColor(Color.YELLOW);
+      gameRunningLabel.setPosition(200, 50);
+      menuStage.addActor(gameRunningLabel);
+
+      TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
+      watchButton.setSize(button.getWidth(), button.getHeight());
+      watchButton.setPosition((MyGdxGame.WIDTH - watchButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+      watchButton.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          socket.emit("joinSpectator", "");
+        }
+      });
+      menuStage.addActor(watchButton);
+    } else {
+      // No game running — show normal ready/start controls
+      // check if all players are ready (requires >= 2)
+      if (menuState.allReady() && !timerStarted) {
+        System.out.println("All players ready...");
+        socket.emit("startTimer", 5);
+        menuState.setTimeToStart(5);
+        timerStarted = true;
+      }
+
+      if (!menuState.allReady() && timerStarted) {
+        timerStarted = false;
+        menuState.setTimeToStart(5);
+      }
+
+      Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
+      if (timerStarted) {
+        timerLabel = new Label("Time to start ... " + menuState.getTimeToStart(), MyGdxGame.skin);
+      }
+      timerLabel.setPosition(200, 0);
+      menuStage.addActor(timerLabel);
+
+      // Rebuild hero dropdown excluding heroes reserved by other lobby players.
+      refreshHeroDropdown();
+
+      // Add hero selector directly to stage so popup coordinates work correctly
+      Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
+      heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
+      menuStage.addActor(heroLabel);
+      menuStage.addActor(heroSelectBox);
+      menuStage.addActor(button);
     }
 
-    if (!menuState.allReady() && timerStarted) {
-      timerStarted = false;
-      menuState.setTimeToStart(5);
-    }
-
-    Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
-    if (timerStarted) {
-      timerLabel = new Label("Time to start ... " + menuState.getTimeToStart(), MyGdxGame.skin);
-    }
-    timerLabel.setPosition(200, 0);
-
-    menuStage.addActor(timerLabel);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
-
-    // Rebuild hero dropdown excluding heroes reserved by other lobby players.
-    refreshHeroDropdown();
-
-    // Add hero selector directly to stage so popup coordinates work correctly
-    Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
-    heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
-    menuStage.addActor(heroLabel);
-    menuStage.addActor(heroSelectBox);
-    menuStage.addActor(button);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -514,6 +535,53 @@ public class MenuScreen extends AbstractScreen {
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error parsing heroReleased");
         }
+      }
+    });
+
+    socket.on("gameStatus", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        JSONObject data = (JSONObject) args[0];
+        try {
+          final boolean running = data.getBoolean("running");
+          Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+              gameRunning = running;
+              updateScreen = true;
+            }
+          });
+        } catch (JSONException e) {
+          Gdx.app.log("SocketIO", "Error parsing gameStatus");
+        }
+      }
+    });
+
+    socket.on("gameAlreadyRunning", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            timerStarted = false;
+            gameRunning = true;
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("returnToLobby", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            timerStarted = false;
+            gameRunning = false;
+            game.setScreen(MenuScreen.this);
+          }
+        });
       }
     });
 

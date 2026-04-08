@@ -129,6 +129,9 @@ public class MenuScreen extends AbstractScreen {
     button.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
+        MyGdxGame.turnNotifier.requestPermission(new Runnable() {
+          @Override public void run() { show(); }
+        });
         socket.emit("setUserReady", menuState.getMyUserID());
       };
     });
@@ -262,6 +265,26 @@ public class MenuScreen extends AbstractScreen {
     }
 
     loggedInUserTable.setPosition(200, 300);
+
+    // Notification permission status — shown in all lobby states
+    if (MyGdxGame.turnNotifier.isPermissionGranted()) {
+      Label notifLabel = new Label("\uD83D\uDD14 Notifications: ON", MyGdxGame.skin);
+      notifLabel.setColor(Color.GREEN);
+      notifLabel.setPosition(0, 50);
+      menuStage.addActor(notifLabel);
+    } else {
+      TextButton notifButton = new TextButton("\uD83D\uDD14 Enable notifications", MyGdxGame.skin);
+      notifButton.setPosition(0, 50);
+      notifButton.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          MyGdxGame.turnNotifier.requestPermission(new Runnable() {
+            @Override public void run() { show(); }
+          });
+        }
+      });
+      menuStage.addActor(notifButton);
+    }
 
     if (gameRunning) {
       // A game is already in progress — show status and offer spectating

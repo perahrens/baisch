@@ -779,10 +779,11 @@ public class GameScreen extends ScreenAdapter {
       }
       // setMapPosition() resets isSelected=false; preserve it for the own king so that a
       // server stateUpdate arriving while the player has their king selected does not
-      // silently deselect it. Only restore when the king has not yet been used this turn.
+      // silently deselect it. Restored regardless of kingUsedThisTurn — the king may
+      // still need to be selected for a swap even after it has already attacked this turn.
+      // Attack listeners independently guard against a second king attack.
       boolean kingWasSelected = (players.get(i) == currentPlayer)
-          && kingCard.isSelected()
-          && !currentPlayer.getPlayerTurn().isKingUsedThisTurn();
+          && kingCard.isSelected();
       kingCard.setMapPosition(visualSlot, 0, 0);
       if (kingWasSelected) kingCard.setSelected(true);
       // Own king: active (grey tint, face visible to owner); enemy king: card back

@@ -494,6 +494,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Initialize stages
     gameStage = new Stage();
+    fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
     gameStage.setViewport(fitVPGame);
 
     handStage = new Stage();

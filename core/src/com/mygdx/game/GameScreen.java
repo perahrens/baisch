@@ -570,7 +570,10 @@ public class GameScreen extends ScreenAdapter {
     Gdx.app.log("Native Heap", String.valueOf(Gdx.app.getNativeHeap()));
 
     players = gameState.getPlayers();
-    // currentPlayer stays as this client's own player (set in constructor from playerIndex)
+    // Spectators always follow the player whose turn it currently is.
+    if (isSpectator) {
+      currentPlayer = gameState.getCurrentPlayer();
+    }
 
     // On first render, broadcast Reservists count so enemies see the indicator immediately.
     // Also broadcast the starting hero so all clients know each other's heroes (the
@@ -2632,8 +2635,8 @@ public class GameScreen extends ScreenAdapter {
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
 
-    // Turn indicator
-    boolean isMyTurn = (gameState.getCurrentPlayer() == currentPlayer);
+    // Turn indicator (spectators are never "my turn")
+    boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);
 
     // "Sacrifice Joker" button — only on your turn, bottom-left of hand stage
     if (isMyTurn && !currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
@@ -2656,11 +2659,19 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
-    // Only enable finish-turn button when it is this player's turn
-    finishTurnButton.setVisible(isMyTurn);
-
-    finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
-    finishTurnButton.addListener(finishTurnButtonListener);
+    // Spectators: hide finish-turn button and show a spectator indicator instead.
+    // Regular players: show button only on their turn.
+    if (isSpectator) {
+      finishTurnButton.setVisible(false);
+      Label spectatorLabel = new Label("Spectator Mode", MyGdxGame.skin);
+      spectatorLabel.setColor(Color.CYAN);
+      spectatorLabel.setPosition(Gdx.graphics.getWidth() - spectatorLabel.getPrefWidth(), 0);
+      handStage.addActor(spectatorLabel);
+    } else {
+      finishTurnButton.setVisible(isMyTurn);
+      finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
+      finishTurnButton.addListener(finishTurnButtonListener);
+    }
 
     handStage.addActor(myPlayerLabel);
 

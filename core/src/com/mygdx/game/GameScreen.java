@@ -171,10 +171,26 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Single stateUpdate listener — replaces all specific sync events
+    final int notifyPlayerIdx = this.playerIndex; // capture field before parameter shadows it
     socket.on("stateUpdate", new SocketListener() {
       @Override
       public void call(Object... args) {
         final JSONObject data = (JSONObject) args[0];
+        // Fire turn notification here, NOT inside applyStateUpdate/postRunnable.
+        // postRunnable runs on the render thread which is paused when the tab is hidden
+        // (requestAnimationFrame throttling). WebSocket callbacks always fire.
+        try {
+          int newIdx = data.getInt("currentPlayerIndex");
+          int prevIdx = gameState.getCurrentPlayerIndex();
+          if (prevIdx != newIdx) {
+            if (!isSpectator && newIdx == notifyPlayerIdx) {
+              MyGdxGame.turnNotifier.notifyYourTurn(currentPlayer.getPlayerName());
+            } else {
+              // Turn moved to someone else — clear any active title flash
+              MyGdxGame.turnNotifier.clearNotification();
+            }
+          }
+        } catch (JSONException e) { /* ignore malformed packet */ }
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -2825,10 +2841,8 @@ public class GameScreen extends ScreenAdapter {
         Player prevPlayer = gameState.getPlayers().get(prevCurrentIdx);
         prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
-        // Notify this player if it just became their turn
-        if (!isSpectator && serverCurrentIdx == playerIndex) {
-          MyGdxGame.turnNotifier.notifyYourTurn(currentPlayer.getPlayerName());
-        }
+        // Note: turn notification is fired in the socket listener callback (not here)
+        // so it works even when the tab is hidden and the render loop is paused.
       }
       gameState.setCurrentPlayer(serverCurrentIdx);
 

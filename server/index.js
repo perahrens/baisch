@@ -21,6 +21,7 @@ app.use(require('express').static(path.join(__dirname, 'public')));
 
 
 var users = [];
+var spectators = [];
 var timeToStart;
 var timer;
 var GameState = require('./gameState');
@@ -34,17 +35,18 @@ function checkAndHandleWinner(io) {
   const winner = gameState.checkWinner();
   if (winner >= 0) {
     winnerHandled = true;
-    console.log("Winner found: player " + winner + " — restarting in 5 seconds");
-    // stateUpdate with winnerIndex already broadcast by the caller; schedule restart
+    console.log("Winner found: player " + winner + " — returning to lobby in 5 seconds");
+    // stateUpdate with winnerIndex already broadcast by the caller; schedule return to lobby
     setTimeout(function() {
       winnerHandled = false;
-      gameState = new GameState(users);
-      users.forEach(function(user, idx) {
-        io.to(user.id).emit('gameState', {
-          playerIndex: idx,
-          gameState: gameState.serialize()
-        });
-      });
+      gameState = null;
+      // Return all players and spectators to the lobby
+      users.forEach(function(u) { io.to(u.id).emit('returnToLobby'); });
+      spectators.forEach(function(sid) { io.to(sid).emit('returnToLobby'); });
+      spectators = [];
+      // Reset ready states so next game requires a fresh ready-up
+      users.forEach(function(u) { u.isReady = false; });
+      io.emit('getUsers', users);
     }, 5000);
   }
 }
@@ -58,6 +60,8 @@ io.on('connection', function(socket) {
   console.log("User Connected");
   socket.emit('socketID', { id: socket.id });
   socket.broadcast.emit('newUser', { id: socket.id });
+  // Inform the new client whether a game is already in progress
+  socket.emit('gameStatus', { running: gameState !== null });
 
   socket.on('disconnect', function() {
     console.log("User Disconnected");
@@ -72,6 +76,9 @@ io.on('connection', function(socket) {
         users.splice(i, 1);
       }
     }
+    // Also remove from spectators if present
+    var specIdx = spectators.indexOf(socket.id);
+    if (specIdx !== -1) spectators.splice(specIdx, 1);
     socket.broadcast.emit('getUsers', users);
   });
 
@@ -95,6 +102,11 @@ io.on('connection', function(socket) {
   
   socket.on('startTimer', function(seconds) {
     console.log("Start Timer");
+    if (gameState !== null) {
+      console.log("Game already running — rejecting startTimer");
+      socket.emit('gameAlreadyRunning');
+      return;
+    }
     if (users.length < 2) {
       console.log("Not enough players to start (need at least 2)");
       return;
@@ -341,6 +353,24 @@ io.on('connection', function(socket) {
       users.push(new user(socket.id, name));
     }
     io.emit('getUsers', users);
+    // Tell the joining client whether a game is currently running
+    socket.emit('gameStatus', { running: gameState !== null });
+  });
+
+  socket.on('joinSpectator', function() {
+    if (!gameState) {
+      socket.emit('gameStatus', { running: false });
+      return;
+    }
+    console.log('Spectator joined: ' + socket.id);
+    if (spectators.indexOf(socket.id) === -1) {
+      spectators.push(socket.id);
+    }
+    // Send the full game state to the spectator (playerIndex -1 = spectator/read-only)
+    socket.emit('gameState', {
+      playerIndex: -1,
+      gameState: gameState.serialize()
+    });
   });
 });
 

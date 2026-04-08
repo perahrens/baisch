@@ -37,6 +37,7 @@ public class OwnKingCardListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
 
     if (player.getSelectedHeroes().size() > 0) {
+      // Mercenaries in defense mode: clicking king adds a boost to it.
       for (int i = 0; i < player.getHeroes().size(); i++) {
         if (player.getHeroes().get(i).getHeroName() == "Mercenaries" && player.getHeroes().get(i).isSelected()) {
           Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
@@ -44,9 +45,17 @@ public class OwnKingCardListener extends ClickListener {
             mercenaries.operate();
             kingCard.addBoosted(1);
           }
+          return;
         }
       }
-    } else {
+      // Any other hero selected (e.g. Warlord after using its attack): deselect it
+      // and fall through to normal king selection below.
+      for (int i = 0; i < player.getHeroes().size(); i++) {
+        player.getHeroes().get(i).setSelected(false);
+      }
+    }
+
+    {
       // unselect all handcards
       for (int i = 0; i < handCards.size(); i++) {
         handCards.get(i).setSelected(false);

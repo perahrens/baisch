@@ -83,6 +83,29 @@ function checkAndHandleWinner(sess) {
   }
 }
 
+function leaveCurrentSession(socket) {
+  var sess = getSession(socket.id);
+  if (!sess) return;
+  var hero = sess.heroSelections[socket.id];
+  if (hero && hero !== 'None') {
+    socket.to(sess.id).emit('heroReleased', { heroName: hero });
+  }
+  delete sess.heroSelections[socket.id];
+  var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+  if (userIdx !== -1) sess.users.splice(userIdx, 1);
+  var specIdx = sess.spectators.indexOf(socket.id);
+  if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
+  socket.leave(sess.id);
+  io.to(sess.id).emit('getUsers', sess.users);
+  if (sess.users.length === 0 && sess.spectators.length === 0) {
+    if (sess.timer) clearInterval(sess.timer);
+    delete sessions[sess.id];
+    console.log('Session ' + sess.id + ' deleted (empty)');
+  }
+  delete socketToSession[socket.id];
+  broadcastSessionList();
+}
+
 var PORT = process.env.PORT || 8082;
 server.listen(PORT, function() {
   console.log("Server is now running on port " + PORT);
@@ -95,37 +118,18 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
-    var sess = getSession(socket.id);
-    if (sess) {
-      // Release any lobby hero reservation so other session members can pick it.
-      var hero = sess.heroSelections[socket.id];
-      if (hero && hero !== 'None') {
-        socket.to(sess.id).emit('heroReleased', { heroName: hero });
-      }
-      delete sess.heroSelections[socket.id];
-      // Remove from users
-      var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
-      if (userIdx !== -1) sess.users.splice(userIdx, 1);
-      // Remove from spectators if present
-      var specIdx = sess.spectators.indexOf(socket.id);
-      if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
-      // Notify remaining session members
-      io.to(sess.id).emit('userDisconnected', { id: socket.id });
-      io.to(sess.id).emit('getUsers', sess.users);
-      // Clean up empty session
-      if (sess.users.length === 0 && sess.spectators.length === 0) {
-        if (sess.timer) clearInterval(sess.timer);
-        delete sessions[sess.id];
-        console.log("Session " + sess.id + " deleted (empty)");
-      }
-      delete socketToSession[socket.id];
-      broadcastSessionList();
-    }
+    leaveCurrentSession(socket);
   });
 
   // ── Session management events ────────────────────────────────────────────
 
+  socket.on('leaveSession', function() {
+    console.log('User ' + socket.id + ' left session');
+    leaveCurrentSession(socket);
+  });
+
   socket.on('createSession', function(data) {
+    leaveCurrentSession(socket); // clean up any previous session first
     var name = (data && data.name) ? String(data.name).slice(0, 30) : 'Player';
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var sess = createSession(sessionName);
@@ -144,6 +148,8 @@ io.on('connection', function(socket) {
     var sess = sessions[data.sessionId];
     if (!sess) { socket.emit('sessionNotFound'); return; }
     if (sess.gameState !== null) { socket.emit('gameStatus', { running: true }); return; }
+    leaveCurrentSession(socket); // leave any previous session first
+    sess = sessions[data.sessionId]; // re-fetch — leaveCurrentSession may have deleted a different session
     var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
     var existing = sess.users.find(function(u) { return u.id === socket.id; });
     if (!existing) sess.users.push(makeUser(socket.id, name));

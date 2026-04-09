@@ -346,6 +346,21 @@ io.on('connection', function(socket) {
     io.emit('stateUpdate', gameState.serialize());
   });
 
+  socket.on('giveUp', function(data) {
+    if (!gameState) return;
+    var playerIdx = data.playerIndex;
+    if (playerIdx < 0 || playerIdx >= gameState.players.length) return;
+    var player = gameState.players[playerIdx];
+    if (player.isOut) return;
+    console.log("Player " + playerIdx + " (" + player.name + ") gave up");
+    player.isOut = true;
+    if (gameState.currentPlayerIndex === playerIdx) {
+      gameState.finishTurn();
+    }
+    io.emit('stateUpdate', gameState.serialize());
+    checkAndHandleWinner(io);
+  });
+
   socket.on('joinLobby', function(name) {
     console.log('User joined lobby: ' + name);
     var existing = users.find(function(u) { return u.id === socket.id; });

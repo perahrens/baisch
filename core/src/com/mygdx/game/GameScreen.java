@@ -130,7 +130,6 @@ public class GameScreen extends ScreenAdapter {
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
-  private boolean logExpanded = false;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -2104,78 +2103,16 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
-    // Activity log panel — added LAST so it renders on top of everything.
-    // Dark box, top-right corner; 50% scale by default, 100% on mouse hover.
-    if (activityLog.length() > 0) {
-      try {
-        final float padding = 6f;
-        final float lineH = roundCounter.getPrefHeight() + 4f;
-        int firstEntry = Math.max(0, activityLog.length() - 5);
-        int count = activityLog.length() - firstEntry;
-
-        float maxLabelW = 0f;
-        Label[] entryLabels = new Label[count];
-        Color[] entryColors = new Color[count];
-        for (int li = 0; li < count; li++) {
-          JSONObject entry = activityLog.getJSONObject(firstEntry + li);
-          String entryText = entry.optString("text", "");
-          boolean entryNeutral = entry.optBoolean("neutral", false);
-          boolean entrySuccess = entry.optBoolean("success", true);
-          Label lbl = new Label(entryText, MyGdxGame.skin);
-          lbl.pack();
-          maxLabelW = Math.max(maxLabelW, lbl.getWidth());
-          Color lc = entryNeutral
-              ? new Color(0.85f, 0.85f, 0.85f, 1f)
-              : (entrySuccess ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
-          entryLabels[li] = lbl;
-          entryColors[li] = lc;
-        }
-
-        float fullW = maxLabelW + 2f * padding;
-        float fullH = count * lineH + 2f * padding;
-
-        final Group logGroup = new Group();
-        logGroup.setTransform(true);
-        logGroup.setSize(fullW, fullH);
-
-        Image logBg = new Image(MyGdxGame.skin, "white");
-        logBg.setColor(0.12f, 0.12f, 0.18f, 0.90f);
-        logBg.setSize(fullW, fullH);
-        logGroup.addActor(logBg);
-
-        float ly = fullH - padding - lineH;
-        for (int li = 0; li < count; li++) {
-          Label lbl = entryLabels[li];
-          lbl.setColor(entryColors[li]);
-          lbl.setPosition(padding, ly + (lineH - lbl.getHeight()) * 0.5f);
-          logGroup.addActor(lbl);
-          ly -= lineH;
-        }
-
-        logGroup.setOrigin(fullW, fullH);
-        logGroup.setPosition(MyGdxGame.WIDTH - fullW, MyGdxGame.WIDTH - fullH);
-        logGroup.setScale(logExpanded ? 1f : 0.5f);
-
-        logGroup.addListener(new ClickListener() {
-          @Override
-          public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-            if (pointer != -1) return;
-            logExpanded = true;
-            logGroup.setScale(1f);
-          }
-          @Override
-          public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-            if (pointer != -1) return;
-            logExpanded = false;
-            logGroup.setScale(0.5f);
-          }
-        });
-
-        gameStage.addActor(logGroup);
-      } catch (JSONException e) {
-        e.printStackTrace();
+    // Menu button — upper-right corner of the board area
+    TextButton menuBtn = new TextButton("\u2630", MyGdxGame.skin);
+    menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(), MyGdxGame.WIDTH - menuBtn.getHeight());
+    menuBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        GameScreen.this.showInGameMenu();
       }
-    }
+    });
+    gameStage.addActor(menuBtn);
 
     // Merchant reveal overlay — shown on top while the current player decides Keep / 2nd Try
     Card merchantPendingCard = null;
@@ -2791,16 +2728,6 @@ public class GameScreen extends ScreenAdapter {
     }
 
     handStage.addActor(finishTurnButton);
-
-    TextButton menuBtn = new TextButton("\u2630", MyGdxGame.skin);
-    menuBtn.setPosition(0, 0);
-    menuBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        GameScreen.this.showInGameMenu();
-      }
-    });
-    handStage.addActor(menuBtn);
   }
 
   private void showInGameMenu() {
@@ -2838,6 +2765,15 @@ public class GameScreen extends ScreenAdapter {
     });
     table.add(resumeBtn).width(200).padBottom(10).row();
 
+    TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
+    historyBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        GameScreen.this.showLogOverlay();
+      }
+    });
+    table.add(historyBtn).width(200).padBottom(10).row();
+
     if (!isSpectator) {
       TextButton giveUpBtn = new TextButton("Give Up", MyGdxGame.skin);
       giveUpBtn.addListener(new ClickListener() {
@@ -2861,6 +2797,55 @@ public class GameScreen extends ScreenAdapter {
     }
 
     overlayStage.addActor(table);
+  }
+
+  private void showLogOverlay() {
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    Table logTable = new Table();
+    logTable.setFillParent(true);
+    logTable.top().pad(30f);
+
+    Label titleLabel = new Label("History", MyGdxGame.skin);
+    logTable.add(titleLabel).padBottom(16).row();
+
+    if (activityLog.length() == 0) {
+      Label emptyLabel = new Label("No history yet.", MyGdxGame.skin);
+      emptyLabel.setColor(Color.GRAY);
+      logTable.add(emptyLabel).padBottom(10).row();
+    } else {
+      try {
+        for (int i = 0; i < activityLog.length(); i++) {
+          JSONObject entry = activityLog.getJSONObject(i);
+          String text = entry.optString("text", "");
+          boolean neutral = entry.optBoolean("neutral", false);
+          boolean success = entry.optBoolean("success", true);
+          Label lbl = new Label(text, MyGdxGame.skin);
+          lbl.setWrap(true);
+          Color lc = neutral
+              ? new Color(0.85f, 0.85f, 0.85f, 1f)
+              : (success ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+          lbl.setColor(lc);
+          logTable.add(lbl).left().padBottom(4f).expandX().fillX().row();
+        }
+      } catch (JSONException e) { e.printStackTrace(); }
+    }
+
+    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    backBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        buildMenuOverlay();
+      }
+    });
+    logTable.add(backBtn).width(200).padTop(16).row();
+
+    overlayStage.addActor(logTable);
   }
 
   private void closeMenu() {

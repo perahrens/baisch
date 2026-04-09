@@ -455,6 +455,7 @@ public class MenuScreen extends AbstractScreen {
     leaveBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
+        socket.emit("leaveSession", "");
         lobbyJoined = false;
         timerStarted = false;
         gameRunning = false;

@@ -22,7 +22,9 @@ import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
@@ -118,6 +120,9 @@ public class GameScreen extends ScreenAdapter {
   private boolean isSpectator = false;
   private JSONObject centralizedState;
   private SocketClient socket;
+  private Game game;
+  private boolean menuOpen = false;
+  private InputMultiplexer menuAndGameMulti;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
   // Attack preview broadcast: set from stateUpdate when another player has a pending attack
@@ -127,7 +132,6 @@ public class GameScreen extends ScreenAdapter {
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   private JSONArray activityLog = new JSONArray();
-  private boolean logExpanded = false;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -152,6 +156,7 @@ public class GameScreen extends ScreenAdapter {
   private String startingHero = "None";
 
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero) {
+    this.game = game;
     this.startingHero = startingHero;
     this.socket = socket;
     // playerIndex == -1 means spectator — display from player 0's viewpoint, read-only
@@ -524,12 +529,11 @@ public class GameScreen extends ScreenAdapter {
     inMulti = new InputMultiplexer();
     inMulti.addProcessor(gameStage);
     inMulti.addProcessor(handStage);
-    // Spectators watch in read-only mode — no input processing
-    if (!isSpectator) {
-      Gdx.input.setInputProcessor(inMulti);
-    } else {
-      Gdx.input.setInputProcessor(null);
-    }
+    menuAndGameMulti = new InputMultiplexer();
+    menuAndGameMulti.addProcessor(overlayStage);
+    menuAndGameMulti.addProcessor(gameStage);
+    menuAndGameMulti.addProcessor(handStage);
+    // Initial input processor is set by render() each frame.
 
     gameBck = new Image(MyGdxGame.skin, "white");
     gameBck.setFillParent(true);
@@ -623,6 +627,11 @@ public class GameScreen extends ScreenAdapter {
 
     showGameStage(players, currentPlayer);
     showHandStage(players, currentPlayer);
+    if (menuOpen) {
+      buildMenuOverlay();
+    } else {
+      addMenuButtonToOverlay();
+    }
   }
 
   public void showGameStage(final ArrayList<Player> players, final Player currentPlayer) {
@@ -2099,79 +2108,6 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
-    // Activity log panel — added LAST so it renders on top of everything.
-    // Dark box, top-right corner; 50% scale by default, 100% on mouse hover.
-    if (activityLog.length() > 0) {
-      try {
-        final float padding = 6f;
-        final float lineH = roundCounter.getPrefHeight() + 4f;
-        int firstEntry = Math.max(0, activityLog.length() - 5);
-        int count = activityLog.length() - firstEntry;
-
-        float maxLabelW = 0f;
-        Label[] entryLabels = new Label[count];
-        Color[] entryColors = new Color[count];
-        for (int li = 0; li < count; li++) {
-          JSONObject entry = activityLog.getJSONObject(firstEntry + li);
-          String entryText = entry.optString("text", "");
-          boolean entryNeutral = entry.optBoolean("neutral", false);
-          boolean entrySuccess = entry.optBoolean("success", true);
-          Label lbl = new Label(entryText, MyGdxGame.skin);
-          lbl.pack();
-          maxLabelW = Math.max(maxLabelW, lbl.getWidth());
-          Color lc = entryNeutral
-              ? new Color(0.85f, 0.85f, 0.85f, 1f)
-              : (entrySuccess ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
-          entryLabels[li] = lbl;
-          entryColors[li] = lc;
-        }
-
-        float fullW = maxLabelW + 2f * padding;
-        float fullH = count * lineH + 2f * padding;
-
-        final Group logGroup = new Group();
-        logGroup.setTransform(true);
-        logGroup.setSize(fullW, fullH);
-
-        Image logBg = new Image(MyGdxGame.skin, "white");
-        logBg.setColor(0.12f, 0.12f, 0.18f, 0.90f);
-        logBg.setSize(fullW, fullH);
-        logGroup.addActor(logBg);
-
-        float ly = fullH - padding - lineH;
-        for (int li = 0; li < count; li++) {
-          Label lbl = entryLabels[li];
-          lbl.setColor(entryColors[li]);
-          lbl.setPosition(padding, ly + (lineH - lbl.getHeight()) * 0.5f);
-          logGroup.addActor(lbl);
-          ly -= lineH;
-        }
-
-        logGroup.setOrigin(fullW, fullH);
-        logGroup.setPosition(MyGdxGame.WIDTH - fullW, MyGdxGame.WIDTH - fullH);
-        logGroup.setScale(logExpanded ? 1f : 0.5f);
-
-        logGroup.addListener(new ClickListener() {
-          @Override
-          public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-            if (pointer != -1) return;
-            logExpanded = true;
-            logGroup.setScale(1f);
-          }
-          @Override
-          public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-            if (pointer != -1) return;
-            logExpanded = false;
-            logGroup.setScale(0.5f);
-          }
-        });
-
-        gameStage.addActor(logGroup);
-      } catch (JSONException e) {
-        e.printStackTrace();
-      }
-    }
-
     // Merchant reveal overlay — shown on top while the current player decides Keep / 2nd Try
     Card merchantPendingCard = null;
     for (Card hc : currentPlayer.getHandCards()) {
@@ -2647,6 +2583,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
+    finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
     finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
@@ -2786,6 +2723,174 @@ public class GameScreen extends ScreenAdapter {
     }
 
     handStage.addActor(finishTurnButton);
+  }
+
+  private void showInGameMenu() {
+    menuOpen = true;
+    buildMenuOverlay();
+    // render() will enforce overlayStage as input processor while menuOpen is true
+  }
+
+  private void buildMenuOverlay() {
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.6f);
+    bg.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    overlayStage.addActor(bg);
+
+    Table table = new Table();
+    table.setFillParent(true);
+
+    Label titleLabel = new Label("Game Menu", MyGdxGame.skin);
+    table.add(titleLabel).padBottom(20).row();
+
+    TextButton resumeBtn = new TextButton("Resume", MyGdxGame.skin);
+    resumeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    table.add(resumeBtn).width(300).height(60).padBottom(14).row();
+
+    TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
+    historyBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        GameScreen.this.showLogOverlay();
+      }
+    });
+    table.add(historyBtn).width(300).height(60).padBottom(14).row();
+
+    if (!isSpectator) {
+      TextButton giveUpBtn = new TextButton("Give Up", MyGdxGame.skin);
+      giveUpBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          emitGiveUp();
+        }
+      });
+      table.add(giveUpBtn).width(300).height(60).padBottom(14).row();
+    } else {
+      TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
+      leaveBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          navigateToLobby();
+        }
+      });
+      table.add(leaveBtn).width(300).height(60).row();
+    }
+
+    overlayStage.addActor(table);
+  }
+
+  private void showLogOverlay() {
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.top().pad(20f);
+
+    Label titleLabel = new Label("History", MyGdxGame.skin);
+    outer.add(titleLabel).padBottom(10).row();
+
+    // Scrollable inner table holds all log entries
+    final Table inner = new Table();
+    inner.top().left().pad(6f);
+
+    if (activityLog.length() == 0) {
+      Label emptyLabel = new Label("No history yet.", MyGdxGame.skin);
+      emptyLabel.setColor(Color.GRAY);
+      inner.add(emptyLabel).row();
+    } else {
+      try {
+        for (int i = 0; i < activityLog.length(); i++) {
+          JSONObject entry = activityLog.getJSONObject(i);
+          String text = entry.optString("text", "");
+          boolean neutral = entry.optBoolean("neutral", false);
+          boolean success = entry.optBoolean("success", true);
+          Label lbl = new Label(text, MyGdxGame.skin);
+          lbl.setWrap(true);
+          Color lc = neutral
+              ? new Color(0.85f, 0.85f, 0.85f, 1f)
+              : (success ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+          lbl.setColor(lc);
+          inner.add(lbl).left().padBottom(4f).expandX().fillX().row();
+        }
+      } catch (JSONException e) { e.printStackTrace(); }
+    }
+
+    ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
+    scroll.setFadeScrollBars(false);
+    scroll.setScrollingDisabled(true, false);
+    scroll.layout();
+    scroll.setScrollPercentY(1f); // start scrolled to the bottom (most recent)
+    outer.add(scroll).expandX().fillX().expandY().fillY().padBottom(8f).row();
+
+    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    backBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        buildMenuOverlay();
+      }
+    });
+      outer.add(backBtn).width(300).height(60).padTop(8).row();
+
+    overlayStage.addActor(outer);
+  }
+
+  private void addMenuButtonToOverlay() {
+    TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
+    menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
+    menuBtn.setPosition(Gdx.graphics.getWidth() - menuBtn.getWidth(),
+        Gdx.graphics.getHeight() - menuBtn.getHeight());
+    menuBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        GameScreen.this.showInGameMenu();
+      }
+    });
+    overlayStage.addActor(menuBtn);
+  }
+
+  private void closeMenu() {
+    menuOpen = false;
+    overlayStage.clear();
+    addMenuButtonToOverlay();
+    // render() will set the correct input processor next frame
+  }
+
+  private void emitGiveUp() {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("playerIndex", playerIndex);
+      socket.emit("giveUp", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void navigateToLobby() {
+    Gdx.app.postRunnable(new Runnable() {
+      @Override
+      public void run() {
+        game.setScreen(new MenuScreen(game, socket));
+      }
+    });
   }
 
   private void emitPriestConvert(int targetPlayerIdx, int cardId) {
@@ -3064,13 +3169,16 @@ public class GameScreen extends ScreenAdapter {
   public void render(float delta) {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-    // Block all input when it is not this client's turn,
-    // EXCEPT when a Battery Tower intercept awaits the defender's decision.
-    // Spectators never get input.
-    if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
-      Gdx.input.setInputProcessor(inMulti);
+    // Overlay stage always handles the menu button (and full menu when open).
+    // Game/hand stages are added only when it is this client's active turn.
+    if (menuOpen) {
+      Gdx.input.setInputProcessor(overlayStage);
+    } else if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
+      // Active turn: overlay (menu btn) + game + hand
+      Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      Gdx.input.setInputProcessor(null);
+      // Waiting or spectator: only the menu button in overlayStage is clickable
+      Gdx.input.setInputProcessor(overlayStage);
     }
 
     // check if gameState has changed

@@ -2385,6 +2385,21 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
     ArrayList<Integer> preyCardIds = currentPlayer.getPlayerTurn().getPreyCardIds();
 
+    // Compute row distribution: when >10 cards, extra cards go first to upper row then lower row
+    int handCardCount = handCards.size();
+    int upperCount, lowerCount;
+    if (handCardCount <= 5) {
+      upperCount = handCardCount;
+      lowerCount = 0;
+    } else if (handCardCount <= 10) {
+      upperCount = 5;
+      lowerCount = handCardCount - 5;
+    } else {
+      int extra = handCardCount - 10;
+      upperCount = 5 + (extra + 1) / 2;
+      lowerCount = 5 + extra / 2;
+    }
+
     for (int j = 0; j < handCards.size(); j++) {
       Card handcard = handCards.get(j);
       handcard.setCovered(false);
@@ -2394,11 +2409,16 @@ public class GameScreen extends ScreenAdapter {
       handcard.setRotation(0);
       handcard.setWidth(handcard.getDefWidth() * 2);
       handcard.setHeight(handcard.getDefHeight() * 2);
-      if (j < 5) {
-        handcard.setX(j * handcard.getWidth());
+      // Fan step: distribute count cards evenly so the last card's right edge aligns with
+      // the 5-card boundary (4 card-widths between first and last card's left edge).
+      float cardW = handcard.getWidth();
+      float upperStep = upperCount <= 1 ? cardW : Math.min(cardW, 4.0f * cardW / (upperCount - 1));
+      float lowerStep = lowerCount <= 1 ? cardW : Math.min(cardW, 4.0f * cardW / (lowerCount - 1));
+      if (j < upperCount) {
+        handcard.setX(j * upperStep);
         handcard.setY(MyGdxGame.WIDTH / 2);
       } else {
-        handcard.setX((j - 5) * handcard.getWidth());
+        handcard.setX((j - upperCount) * lowerStep);
         handcard.setY(MyGdxGame.WIDTH / 2 - handcard.getHeight());
       }
       handStage.addActor(handcard);

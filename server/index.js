@@ -69,15 +69,17 @@ function checkAndHandleWinner(sess) {
   const winner = sess.gameState.checkWinner();
   if (winner >= 0) {
     sess.winnerHandled = true;
-    console.log("Session " + sess.id + " winner: player " + winner + " — returning to lobby in 5 seconds");
+    console.log("Session " + sess.id + " winner: player " + winner + " — closing session in 5 seconds");
     setTimeout(function() {
-      sess.winnerHandled = false;
-      sess.gameState = null;
-      sess.heroSelections = {};
-      sess.users.forEach(function(u) { u.isReady = false; });
-      io.to(sess.id).emit('returnToLobby');
-      sess.spectators = [];
-      io.to(sess.id).emit('getUsers', sess.users);
+      var sessId = sess.id;
+      // Notify all participants to return to the session list
+      io.to(sessId).emit('returnToLobby');
+      // Remove all socket→session mappings so these sockets are session-less again
+      sess.users.forEach(function(u) { delete socketToSession[u.id]; });
+      sess.spectators.forEach(function(sid) { delete socketToSession[sid]; });
+      if (sess.timer) clearInterval(sess.timer);
+      // Delete the session entirely — it won't appear in the session list anymore
+      delete sessions[sessId];
       broadcastSessionList();
     }, 5000);
   }

@@ -2104,7 +2104,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Menu button — upper-right corner of the board area
-    TextButton menuBtn = new TextButton("\u2630", MyGdxGame.skin);
+    TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
     menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(), MyGdxGame.WIDTH - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {
       @Override
@@ -3152,13 +3152,18 @@ public class GameScreen extends ScreenAdapter {
   public void render(float delta) {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-    // Block all input when it is not this client's turn,
-    // EXCEPT when a Battery Tower intercept awaits the defender's decision.
-    // Spectators never get input.
-    if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
-      Gdx.input.setInputProcessor(inMulti);
+    // When the in-game menu is open, the overlay stage owns all input.
+    if (menuOpen) {
+      Gdx.input.setInputProcessor(overlayStage);
     } else {
-      Gdx.input.setInputProcessor(null);
+      // Block all input when it is not this client's turn,
+      // EXCEPT when a Battery Tower intercept awaits the defender's decision.
+      // Spectators never get input.
+      if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
+        Gdx.input.setInputProcessor(inMulti);
+      } else {
+        Gdx.input.setInputProcessor(null);
+      }
     }
 
     // check if gameState has changed

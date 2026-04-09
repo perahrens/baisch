@@ -153,7 +153,7 @@ public class MenuScreen extends AbstractScreen {
     });
 
     group.addActor(logoImage);
-    group.addActor(button);
+    // button is NOT in the group so it only appears on the lobby screen
 
     menuStage.addActor(group);
     menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
@@ -218,16 +218,15 @@ public class MenuScreen extends AbstractScreen {
     nameField.setMaxLength(20);
     nameField.setSize(button.getWidth() * 2, button.getHeight());
     nameField.setPosition(cx - nameField.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
-    // Tapping the field should raise the on-screen keyboard on mobile browsers.
-    nameField.addListener(new ClickListener() {
+    // Mobile browsers only open the keyboard from a touchstart (touchDown), not touchend.
+    nameField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
       @Override
-      public void clicked(InputEvent event, float x, float y) {
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int btn) {
         menuStage.setKeyboardFocus(nameField);
         Gdx.input.setOnscreenKeyboardVisible(true);
+        return false;
       }
     });
-    menuStage.setKeyboardFocus(nameField);
-    Gdx.input.setOnscreenKeyboardVisible(true);
 
     TextButton confirmBtn = new TextButton("Play", MyGdxGame.skin);
     confirmBtn.setSize(button.getWidth(), button.getHeight());

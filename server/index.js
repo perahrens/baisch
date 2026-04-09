@@ -29,11 +29,12 @@ var sessions = {};
 var socketToSession = {};
 var _nextSessionId = 1;
 
-function createSession(name) {
+function createSession(name, allowHeroSelection) {
   var id = 's' + (_nextSessionId++);
   sessions[id] = {
     id: id,
     name: name,
+    allowHeroSelection: allowHeroSelection !== false, // default true
     users: [],
     spectators: [],
     gameState: null,
@@ -134,12 +135,13 @@ io.on('connection', function(socket) {
     leaveCurrentSession(socket); // clean up any previous session first
     var name = (data && data.name) ? String(data.name).slice(0, 30) : 'Player';
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
-    var sess = createSession(sessionName);
+    var allowHeroSelection = (data && data.allowHeroSelection !== false);
+    var sess = createSession(sessionName, allowHeroSelection);
     sess.users.push(makeUser(socket.id, name));
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name);
-    socket.emit('sessionJoined', { sessionId: sess.id });
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ")");
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
@@ -165,7 +167,7 @@ io.on('connection', function(socket) {
         socket.emit('heroReserved', { heroName: h });
       }
     });
-    socket.emit('sessionJoined', { sessionId: sess.id });
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();

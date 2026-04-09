@@ -8,7 +8,7 @@ This glossary defines the key terms used throughout the Baisch codebase, issues,
 
 | Term | Definition |
 |---|---|
-| **Player** | A participant in a game session. Up to (currently) 2 players compete against each other. |
+| **Player** | A participant in a game session. 2–4 players compete against each other. |
 | **Spectator** | A connected user who watches an ongoing game without participating. |
 | **Current Player** | The player whose turn it is right now. |
 | **Eliminated / Out** | A player whose king card has been captured. They are removed from the turn order and can no longer act. |

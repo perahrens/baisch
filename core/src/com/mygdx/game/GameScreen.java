@@ -2583,6 +2583,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
+    finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
     finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
@@ -2757,7 +2758,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    table.add(resumeBtn).width(200).padBottom(10).row();
+    table.add(resumeBtn).width(300).height(60).padBottom(14).row();
 
     TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
     historyBtn.addListener(new ClickListener() {
@@ -2766,7 +2767,7 @@ public class GameScreen extends ScreenAdapter {
         GameScreen.this.showLogOverlay();
       }
     });
-    table.add(historyBtn).width(200).padBottom(10).row();
+    table.add(historyBtn).width(300).height(60).padBottom(14).row();
 
     if (!isSpectator) {
       TextButton giveUpBtn = new TextButton("Give Up", MyGdxGame.skin);
@@ -2777,7 +2778,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      table.add(giveUpBtn).width(200).padBottom(10).row();
+      table.add(giveUpBtn).width(300).height(60).padBottom(14).row();
     } else {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
       leaveBtn.addListener(new ClickListener() {
@@ -2787,7 +2788,7 @@ public class GameScreen extends ScreenAdapter {
           navigateToLobby();
         }
       });
-      table.add(leaveBtn).width(200).row();
+      table.add(leaveBtn).width(300).height(60).row();
     }
 
     overlayStage.addActor(table);
@@ -2848,13 +2849,14 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-    outer.add(backBtn).width(200).padTop(8).row();
+      outer.add(backBtn).width(300).height(60).padTop(8).row();
 
     overlayStage.addActor(outer);
   }
 
   private void addMenuButtonToOverlay() {
     TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
+    menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
     menuBtn.setPosition(Gdx.graphics.getWidth() - menuBtn.getWidth(),
         Gdx.graphics.getHeight() - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {

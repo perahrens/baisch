@@ -19,7 +19,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -213,37 +212,40 @@ public class MenuScreen extends AbstractScreen {
   private void showNameEntryScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
 
-    final TextField nameField = new TextField("", MyGdxGame.skin);
-    nameField.setMessageText("Enter your name");
-    nameField.setMaxLength(20);
-    nameField.setSize(button.getWidth() * 2, button.getHeight());
-    nameField.setPosition(cx - nameField.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
-    // Mobile browsers only open the keyboard from a touchstart (touchDown), not touchend.
-    nameField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
-      @Override
-      public boolean touchDown(InputEvent event, float x, float y, int pointer, int btn) {
-        menuStage.setKeyboardFocus(nameField);
-        Gdx.input.setOnscreenKeyboardVisible(true);
-        return false;
-      }
-    });
+    // Display the current name (or a placeholder) so the player can see what they typed.
+    String displayName = menuState.getMyName().isEmpty() ? "- tap to enter -" : menuState.getMyName();
+    final Label nameDisplayLabel = new Label(displayName, MyGdxGame.skin);
+    nameDisplayLabel.setPosition(cx - nameDisplayLabel.getWidth() / 2f, 0.35f * MyGdxGame.HEIGHT);
+    menuStage.addActor(nameDisplayLabel);
 
-    TextButton confirmBtn = new TextButton("Play", MyGdxGame.skin);
-    confirmBtn.setSize(button.getWidth(), button.getHeight());
-    confirmBtn.setPosition(cx - confirmBtn.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT - confirmBtn.getHeight() * 1.5f);
-    confirmBtn.addListener(new ClickListener() {
+    // A button-shaped area that opens the native text dialog on click/tap.
+    // getTextInput() is called synchronously from the DOM click event inside GWT,
+    // so the mobile keyboard always opens — unlike setOnscreenKeyboardVisible which
+    // is rejected by browsers that require focus() to originate from a touchstart.
+    TextButton enterNameButton = new TextButton("Enter your name", MyGdxGame.skin);
+    enterNameButton.setSize(button.getWidth() * 2, button.getHeight());
+    enterNameButton.setPosition(cx - enterNameButton.getWidth() / 2f, 0.25f * MyGdxGame.HEIGHT);
+    enterNameButton.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        String name = nameField.getText().trim();
-        if (name.isEmpty()) return;
-        menuState.setMyName(name);
-        nameConfirmed = true;
-        show();
+        Gdx.input.getTextInput(new com.badlogic.gdx.Input.TextInputListener() {
+          @Override
+          public void input(String text) {
+            String name = text.trim();
+            if (name.isEmpty()) return;
+            menuState.setMyName(name);
+            nameConfirmed = true;
+            Gdx.app.postRunnable(new Runnable() {
+              @Override public void run() { show(); }
+            });
+          }
+          @Override
+          public void canceled() { /* stay on name entry screen */ }
+        }, "Baisch", menuState.getMyName(), "Enter your name");
       }
     });
 
-    menuStage.addActor(nameField);
-    menuStage.addActor(confirmBtn);
+    menuStage.addActor(enterNameButton);
     Gdx.input.setInputProcessor(menuStage);
   }
 

@@ -25,10 +25,12 @@ RUN rm -rf android/assets/data/SpriteSheetCollection android/assets/data/sprites
 # time (keeping peak heap at 1 GB and avoiding OOM on Depot build machines).
 # After compilation, assemble the complete serveable directory by overlaying:
 #   webapp/  → index.html, styles.css, soundmanager2 files, etc.
-#   war/     → assets/ directory built by the PreloaderBundleGenerator
+#   war/assets/ → assets/ dir built by PreloaderBundleGenerator, served at
+#                 /assets/ so the GWT preloader (baseURL + "assets/") can find
+#                 assets.txt and all game files.
 RUN ./gradlew :html:compileGwt --no-daemon --stacktrace && \
     cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
-    cp -r /workspace/html/war/assets/. /workspace/html/build/gwt/out/
+    cp -r /workspace/html/war/assets /workspace/html/build/gwt/out/assets
 
 # ── Stage 2: Node.js server ──────────────────────────────────────────────────
 FROM node:18-alpine

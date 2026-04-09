@@ -212,18 +212,26 @@ public class MenuScreen extends AbstractScreen {
 
   private void showNameEntryScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
-    float cy = MyGdxGame.HEIGHT / 2f;
 
     final TextField nameField = new TextField("", MyGdxGame.skin);
     nameField.setMessageText("Enter your name");
     nameField.setMaxLength(20);
     nameField.setSize(button.getWidth() * 2, button.getHeight());
-    nameField.setPosition(cx - nameField.getWidth() / 2f, cy);
+    nameField.setPosition(cx - nameField.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
+    // Tapping the field should raise the on-screen keyboard on mobile browsers.
+    nameField.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        menuStage.setKeyboardFocus(nameField);
+        Gdx.input.setOnscreenKeyboardVisible(true);
+      }
+    });
     menuStage.setKeyboardFocus(nameField);
+    Gdx.input.setOnscreenKeyboardVisible(true);
 
     TextButton confirmBtn = new TextButton("Play", MyGdxGame.skin);
     confirmBtn.setSize(button.getWidth(), button.getHeight());
-    confirmBtn.setPosition(cx - confirmBtn.getWidth() / 2f, cy - confirmBtn.getHeight() * 1.5f);
+    confirmBtn.setPosition(cx - confirmBtn.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT - confirmBtn.getHeight() * 1.5f);
     confirmBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -288,34 +296,33 @@ public class MenuScreen extends AbstractScreen {
       sessTable.row();
     }
 
-    sessTable.setPosition(cx - 150, 0.35f * MyGdxGame.HEIGHT);
+    sessTable.pack();
+    sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.35f * MyGdxGame.HEIGHT);
     menuStage.addActor(sessTable);
 
-    // Create new game row
-    final TextField gameNameField = new TextField("", MyGdxGame.skin);
-    gameNameField.setMessageText("Game name");
-    gameNameField.setMaxLength(40);
-    gameNameField.setSize(button.getWidth() * 2, button.getHeight());
-    gameNameField.setPosition(cx - gameNameField.getWidth() / 2f - button.getWidth() * 0.6f, 0.15f * MyGdxGame.HEIGHT);
-
-    TextButton createBtn = new TextButton("Create", MyGdxGame.skin);
-    createBtn.setSize(button.getWidth(), button.getHeight());
-    createBtn.setPosition(cx + gameNameField.getWidth() / 2f - button.getWidth() * 0.1f, 0.15f * MyGdxGame.HEIGHT);
+    TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+    createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
+    createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.15f * MyGdxGame.HEIGHT);
     createBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        String rawName = gameNameField.getText().trim();
-        String sessionName = rawName.isEmpty() ? menuState.getMyName() + "'s game" : rawName;
-        JSONObject data = new JSONObject();
-        try {
-          data.put("name", menuState.getMyName());
-          data.put("sessionName", sessionName);
-        } catch (JSONException e) { /* ignore */ }
-        socket.emit("createSession", data);
+        Gdx.input.getTextInput(new com.badlogic.gdx.Input.TextInputListener() {
+          @Override
+          public void input(String text) {
+            String sessionName = text.trim().isEmpty() ? menuState.getMyName() + "'s game" : text.trim();
+            JSONObject data = new JSONObject();
+            try {
+              data.put("name", menuState.getMyName());
+              data.put("sessionName", sessionName);
+            } catch (JSONException e) { /* ignore */ }
+            socket.emit("createSession", data);
+          }
+          @Override
+          public void canceled() { /* stay on session list */ }
+        }, "New game", "", "Enter game name (optional)");
       }
     });
 
-    menuStage.addActor(gameNameField);
     menuStage.addActor(createBtn);
     Gdx.input.setInputProcessor(menuStage);
   }
@@ -367,7 +374,8 @@ public class MenuScreen extends AbstractScreen {
       loggedInUserTable.row();
     }
 
-    loggedInUserTable.setPosition(200, 300);
+    loggedInUserTable.pack();
+    loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
 
     // Notification permission status — shown in all lobby states
     if (MyGdxGame.turnNotifier.isPermissionGranted()) {

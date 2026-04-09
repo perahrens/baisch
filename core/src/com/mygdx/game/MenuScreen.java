@@ -63,7 +63,7 @@ public class MenuScreen extends AbstractScreen {
   // Pending game name typed on the create screen (cleared after creation)
   private String pendingSessionName = "";
   // Whether hero selection is allowed in the current session
-  private boolean sessionAllowHeroSelection = true;
+  private boolean sessionAllowHeroSelection = false;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -182,6 +182,8 @@ public class MenuScreen extends AbstractScreen {
    */
   private void refreshHeroDropdown() {
     String currentSelected = heroSelectBox.getSelected();
+    // Treat null (empty SelectBox) the same as "None" so we don't wipe startingHero.
+    if (currentSelected == null) currentSelected = "None";
     Array<String> items = new Array<String>();
     items.add("None");
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
@@ -192,11 +194,14 @@ public class MenuScreen extends AbstractScreen {
     updatingDropdown = true;
     heroSelectBox.setItems(items);
     // Keep the previous selection if it is still available; otherwise fall back to "None".
-    if (currentSelected != null && !reservedByOthers.contains(currentSelected)) {
+    if (!currentSelected.equals("None") && !reservedByOthers.contains(currentSelected)) {
       heroSelectBox.setSelected(currentSelected);
-    } else {
+    } else if (!currentSelected.equals("None")) {
+      // Hero was reserved by another player — reset.
       heroSelectBox.setSelected("None");
       menuState.setStartingHero("None");
+    } else {
+      heroSelectBox.setSelected("None");
     }
     updatingDropdown = false;
   }
@@ -323,15 +328,17 @@ public class MenuScreen extends AbstractScreen {
   private void showSessionCreateScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
 
+    // All elements must sit below the logo (logo bottom ≈ 0.9*H - logoHeight ≈ 449px on a
+    // 800px-high screen). Use the lower half of the display for all create-screen widgets.
     Label title = new Label("New game", MyGdxGame.skin);
-    title.setPosition(cx - title.getWidth() / 2f, 0.75f * MyGdxGame.HEIGHT);
+    title.setPosition(cx - title.getWidth() / 2f, 0.50f * MyGdxGame.HEIGHT);
     menuStage.addActor(title);
 
     // Button that shows the current game name and opens a native dialog to edit it
     final String nameDisplay = pendingSessionName.isEmpty() ? "Set name (optional)" : pendingSessionName;
     final TextButton gameNameBtn = new TextButton(nameDisplay, MyGdxGame.skin);
     gameNameBtn.setSize(button.getWidth() * 2, button.getHeight());
-    gameNameBtn.setPosition(cx - gameNameBtn.getWidth() / 2f, 0.55f * MyGdxGame.HEIGHT);
+    gameNameBtn.setPosition(cx - gameNameBtn.getWidth() / 2f, 0.38f * MyGdxGame.HEIGHT);
     gameNameBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -353,13 +360,13 @@ public class MenuScreen extends AbstractScreen {
     final CheckBox heroCheckbox = new CheckBox(" Allow starting hero", MyGdxGame.skin);
     heroCheckbox.setChecked(sessionAllowHeroSelection);
     heroCheckbox.pack();
-    heroCheckbox.setPosition(cx - heroCheckbox.getWidth() / 2f, 0.42f * MyGdxGame.HEIGHT);
+    heroCheckbox.setPosition(cx - heroCheckbox.getWidth() / 2f, 0.26f * MyGdxGame.HEIGHT);
     menuStage.addActor(heroCheckbox);
 
     // Create button
     TextButton confirmCreateBtn = new TextButton("Create", MyGdxGame.skin);
     confirmCreateBtn.setSize(button.getWidth(), button.getHeight());
-    confirmCreateBtn.setPosition(cx - confirmCreateBtn.getWidth() / 2f, 0.28f * MyGdxGame.HEIGHT);
+    confirmCreateBtn.setPosition(cx - confirmCreateBtn.getWidth() / 2f, 0.14f * MyGdxGame.HEIGHT);
     confirmCreateBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -512,6 +519,9 @@ public class MenuScreen extends AbstractScreen {
         heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
         menuStage.addActor(heroLabel);
         menuStage.addActor(heroSelectBox);
+      } else {
+        // No hero selection in this session — clear any stale hero from a previous session.
+        menuState.setStartingHero("None");
       }
       menuStage.addActor(button);
     }

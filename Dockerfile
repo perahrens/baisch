@@ -28,7 +28,7 @@ RUN rm -rf android/assets/data/SpriteSheetCollection android/assets/data/sprites
 #   war/     → assets/ directory built by the PreloaderBundleGenerator
 RUN ./gradlew :html:compileGwt --no-daemon --stacktrace && \
     cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
-    cp -r /workspace/html/war/. /workspace/html/build/gwt/out/
+    cp -r /workspace/html/war/assets/. /workspace/html/build/gwt/out/
 
 # ── Stage 2: Node.js server ──────────────────────────────────────────────────
 FROM node:18-alpine

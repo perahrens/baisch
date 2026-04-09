@@ -1,4 +1,0 @@
-android/assets/data/skins/shield-check-f.png filter=lfs diff=lfs merge=lfs -text
-android/assets/data/skins/arrow-down-shield.png filter=lfs diff=lfs merge=lfs -text
-android/assets/data/skins/sword.png filter=lfs diff=lfs merge=lfs -text
-android/assets/data/skins/crone.png filter=lfs diff=lfs merge=lfs -text

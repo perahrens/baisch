@@ -2064,6 +2064,10 @@ public class GameScreen extends ScreenAdapter {
               if (ownerIdx >= 0) {
                 Hero stripped = players.get(ownerIdx).removeHeroByName(heroName);
                 if (stripped != null) {
+                  // Emit heroAcquired BEFORE heroLost so other clients can
+                  // still find the hero in the old owner's list inside
+                  // applyHeroAcquired and transfer it without it disappearing.
+                  completeHeroAcquisition(stripped);
                   try {
                     JSONObject emitData = new JSONObject();
                     emitData.put("playerIndex", ownerIdx);
@@ -2072,7 +2076,6 @@ public class GameScreen extends ScreenAdapter {
                   } catch (JSONException e) {
                     e.printStackTrace();
                   }
-                  completeHeroAcquisition(stripped);
                 }
               }
             }

@@ -280,32 +280,59 @@ public class MenuScreen extends AbstractScreen {
     float cx = MyGdxGame.WIDTH / 2f;
 
     // ── Tab bar ──────────────────────────────────────────────────────────────
-    TextButton gamesTab = new TextButton("Games", MyGdxGame.skin);
-    TextButton playersTab = new TextButton("Players", MyGdxGame.skin);
+    // Plain labels (no button box) with a colored underline on the active tab.
+    final Color ACTIVE_COLOR   = Color.WHITE;
+    final Color INACTIVE_COLOR = new Color(1f, 1f, 1f, 0.35f);
+    final Color UNDERLINE_COLOR = new Color(0.98f, 0.80f, 0.25f, 1f); // warm gold
+
+    Label gamesTab   = new Label("Games",   MyGdxGame.skin);
+    Label playersTab = new Label("Players", MyGdxGame.skin);
     gamesTab.pack();
     playersTab.pack();
-    float tabGap = 16f;
+
+    float tabGap    = 32f;
     float tabsWidth = gamesTab.getWidth() + tabGap + playersTab.getWidth();
-    float tabY = 0.88f * MyGdxGame.HEIGHT;
+    float tabY      = 0.88f * MyGdxGame.HEIGHT;
+    float underlineH = 3f;
+    float underlinePad = 0f; // underline extends full label width
+
     gamesTab.setPosition(cx - tabsWidth / 2f, tabY);
     playersTab.setPosition(cx - tabsWidth / 2f + gamesTab.getWidth() + tabGap, tabY);
-    if (!showPlayersTab) {
-      gamesTab.setColor(Color.WHITE);
-      playersTab.setColor(0.55f, 0.55f, 0.55f, 1f);
-    } else {
-      gamesTab.setColor(0.55f, 0.55f, 0.55f, 1f);
-      playersTab.setColor(Color.WHITE);
-    }
-    gamesTab.addListener(new ClickListener() {
+
+    gamesTab.setColor(!showPlayersTab ? ACTIVE_COLOR : INACTIVE_COLOR);
+    playersTab.setColor(showPlayersTab  ? ACTIVE_COLOR : INACTIVE_COLOR);
+    // Labels are visual only; click handling comes from the larger invisible hit actors.
+    gamesTab.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    playersTab.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+
+    // Underline under the active tab
+    Label activeTab = !showPlayersTab ? gamesTab : playersTab;
+    Image underline = new Image(MyGdxGame.skin.newDrawable("white", UNDERLINE_COLOR));
+    underline.setSize(activeTab.getWidth() - underlinePad * 2, underlineH);
+    underline.setPosition(activeTab.getX() + underlinePad, activeTab.getY() - underlineH - 2f);
+
+    // Hit areas: invisible touch actors behind each label so tap targets are generous
+    com.badlogic.gdx.scenes.scene2d.Actor gamesHit = new com.badlogic.gdx.scenes.scene2d.Actor();
+    gamesHit.setBounds(gamesTab.getX() - 8f, tabY - 8f,
+        gamesTab.getWidth() + 16f, gamesTab.getHeight() + 16f);
+    gamesHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         showPlayersTab = false; show();
       }
     });
-    playersTab.addListener(new ClickListener() {
+
+    com.badlogic.gdx.scenes.scene2d.Actor playersHit = new com.badlogic.gdx.scenes.scene2d.Actor();
+    playersHit.setBounds(playersTab.getX() - 8f, tabY - 8f,
+        playersTab.getWidth() + 16f, playersTab.getHeight() + 16f);
+    playersHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         showPlayersTab = true; show();
       }
     });
+
+    menuStage.addActor(gamesHit);
+    menuStage.addActor(playersHit);
+    menuStage.addActor(underline);
     menuStage.addActor(gamesTab);
     menuStage.addActor(playersTab);
 
@@ -488,20 +515,44 @@ public class MenuScreen extends AbstractScreen {
     return data;
   }
 
+  private Table createStatusBadge(String text, Color bgColor, Color textColor) {
+    Table badge = new Table();
+    badge.setBackground(MyGdxGame.skin.newDrawable("white", bgColor));
+    Label label = new Label(text, MyGdxGame.skin);
+    label.setColor(textColor);
+    badge.add(label).pad(2f, 8f, 2f, 8f);
+    return badge;
+  }
+
   private void showLobbyScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+    float buttonY = 0.08f * MyGdxGame.HEIGHT;
+
+    Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
+    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
+    actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
+
+    Label lobbyTitle = new Label("Game lobby", MyGdxGame.skin);
+    lobbyTitle.setColor(1f, 1f, 1f, 0.95f);
+    lobbyTitle.setPosition(cx - lobbyTitle.getWidth() / 2f, 0.83f * MyGdxGame.HEIGHT);
+
     // logged in count
     loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);
-    loggedInCount.setPosition(0, 0);
+    loggedInCount.setPosition(0.05f * MyGdxGame.WIDTH, 0.01f * MyGdxGame.HEIGHT);
 
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
+    loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+    loggedInUserTable.pad(14f, 18f, 14f, 18f);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
     Label headLine1 = new Label("Name", MyGdxGame.skin);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
+    headLine1.setColor(1f, 1f, 1f, 0.9f);
+    headLine2.setColor(1f, 1f, 1f, 0.9f);
 
-    loggedInUserTable.add(headLine1).padRight(60);
-    loggedInUserTable.add(headLine2);
+    loggedInUserTable.add(headLine1).padRight(60).padBottom(8f);
+    loggedInUserTable.add(headLine2).padBottom(8f);
     loggedInUserTable.row();
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
@@ -512,22 +563,26 @@ public class MenuScreen extends AbstractScreen {
         nameLabel.setColor(Color.GOLD);
       }
 
-      Label isReady;
+      Table statusBadge;
       if (user.isReady()) {
-        isReady = new Label("READY", MyGdxGame.skin);
-        isReady.setColor(Color.GREEN);
+        statusBadge = createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE);
       } else {
-        isReady = new Label("WAIT", MyGdxGame.skin);
-        isReady.setColor(Color.RED);
+        statusBadge = createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
       }
 
-      loggedInUserTable.add(nameLabel).padRight(60);
-      loggedInUserTable.add(isReady);
+      loggedInUserTable.add(nameLabel).padRight(60).padBottom(6f);
+      loggedInUserTable.add(statusBadge).left().padBottom(6f);
       loggedInUserTable.row();
+      if (i < loggedInUsers.size() - 1) {
+        Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+        loggedInUserTable.add(sep).colspan(2).growX().height(1f).padTop(2f).padBottom(5f);
+        loggedInUserTable.row();
+      }
     }
 
     loggedInUserTable.pack();
-    loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
+    loggedInUserTable.setPosition(cx - loggedInUserTable.getWidth() / 2f,
+        0.47f * MyGdxGame.HEIGHT - loggedInUserTable.getHeight() / 2f);
 
     // Notification permission status — temporarily hidden to avoid overlap with lobby buttons
     // if (MyGdxGame.turnNotifier.isPermissionGranted()) {
@@ -553,7 +608,7 @@ public class MenuScreen extends AbstractScreen {
       // A game is already in progress — show status and offer spectating
       Label gameRunningLabel = new Label("Game in progress", MyGdxGame.skin);
       gameRunningLabel.setColor(Color.YELLOW);
-      gameRunningLabel.setPosition(200, 50);
+      gameRunningLabel.setPosition(cx - gameRunningLabel.getWidth() / 2f, 0.11f * MyGdxGame.HEIGHT + 46f);
       menuStage.addActor(gameRunningLabel);
 
       TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
@@ -582,10 +637,10 @@ public class MenuScreen extends AbstractScreen {
       boolean isHost = !loggedInUsers.isEmpty()
           && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
-      float buttonY = 0.08f * MyGdxGame.HEIGHT;
 
       Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
-      lobbyStatus.setPosition(200, 0);
+        lobbyStatus.setPosition(MyGdxGame.WIDTH - lobbyStatus.getWidth() - 0.05f * MyGdxGame.WIDTH,
+          0.01f * MyGdxGame.HEIGHT);
       menuStage.addActor(lobbyStatus);
 
       if (isHost) {
@@ -619,7 +674,8 @@ public class MenuScreen extends AbstractScreen {
 
       if (timerStarted) {
         Label countdownLabel = new Label("Starting in " + menuState.getTimeToStart() + "...", MyGdxGame.skin);
-        countdownLabel.setPosition(200, 25);
+        countdownLabel.setColor(Color.YELLOW);
+        countdownLabel.setPosition(cx - countdownLabel.getWidth() / 2f, buttonY + button.getHeight() + 14f);
         menuStage.addActor(countdownLabel);
       }
 
@@ -639,6 +695,8 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(button);
     }
 
+    menuStage.addActor(actionBar);
+    menuStage.addActor(lobbyTitle);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
 

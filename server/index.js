@@ -41,9 +41,17 @@ function createSession(name, allowHeroSelection) {
     heroSelections: {},
     winnerHandled: false,
     timeToStart: 0,
-    timer: null
+    timer: null,
+    hostId: null
   };
   return sessions[id];
+}
+
+/** Return a copy of sess.users with isHost set on the host entry. */
+function usersWithHost(sess) {
+  return sess.users.map(function(u) {
+    return { id: u.id, name: u.name, isReady: u.isReady, isHost: u.id === sess.hostId };
+  });
 }
 
 function getSession(socketId) {
@@ -98,8 +106,12 @@ function leaveCurrentSession(socket) {
   if (userIdx !== -1) sess.users.splice(userIdx, 1);
   var specIdx = sess.spectators.indexOf(socket.id);
   if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
+  // Transfer host if the host left
+  if (sess.hostId === socket.id) {
+    sess.hostId = sess.users.length > 0 ? sess.users[0].id : null;
+  }
   socket.leave(sess.id);
-  io.to(sess.id).emit('getUsers', sess.users);
+  io.to(sess.id).emit('getUsers', usersWithHost(sess));
   if (sess.users.length === 0 && sess.spectators.length === 0) {
     if (sess.timer) clearInterval(sess.timer);
     delete sessions[sess.id];
@@ -138,11 +150,12 @@ io.on('connection', function(socket) {
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
     var sess = createSession(sessionName, allowHeroSelection);
     sess.users.push(makeUser(socket.id, name));
+    sess.hostId = socket.id;
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
     console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ")");
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', usersWithHost(sess));
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
   });
@@ -157,6 +170,7 @@ io.on('connection', function(socket) {
     var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
     var existing = sess.users.find(function(u) { return u.id === socket.id; });
     if (!existing) sess.users.push(makeUser(socket.id, name));
+    if (!sess.hostId) sess.hostId = socket.id;
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
     console.log("User " + name + " joined session " + sess.id);
@@ -168,7 +182,7 @@ io.on('connection', function(socket) {
       }
     });
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', usersWithHost(sess));
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
   });
@@ -193,32 +207,48 @@ io.on('connection', function(socket) {
     console.log("Set User Ready: " + id);
     for (var i = 0; i < sess.users.length; i++) {
       if (sess.users[i].id === id) {
-        if (sess.users[i].isReady === false) {
-          sess.users[i].isReady = true;
-        } else {
-          sess.users[i].isReady = false;
-          clearInterval(sess.timer);
-        }
+        sess.users[i].isReady = !sess.users[i].isReady;
       }
     }
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', usersWithHost(sess));
   });
   
   socket.on('startTimer', function(seconds) {
     var sess = getSession(socket.id);
     if (!sess) return;
+    if (socket.id !== sess.hostId) {
+      console.log("startTimer rejected — not the host (session " + sess.id + ")");
+      return;
+    }
     console.log("Start Timer for session " + sess.id);
     if (sess.gameState !== null) {
       console.log("Game already running — rejecting startTimer");
       socket.emit('gameAlreadyRunning');
       return;
     }
-    if (sess.users.length < 2) {
-      console.log("Not enough players to start (need at least 2)");
+    var readyUsers   = sess.users.filter(function(u) { return u.isReady; });
+    var unreadyUsers = sess.users.filter(function(u) { return !u.isReady; });
+    if (readyUsers.length < 2) {
+      console.log("Not enough ready players to start (need at least 2, got " + readyUsers.length + ")");
       return;
+    }
+    // Return unready players to the session list
+    unreadyUsers.forEach(function(u) {
+      delete sess.heroSelections[u.id];
+      delete socketToSession[u.id];
+      var peerSocket = io.sockets.sockets[u.id];
+      if (peerSocket) peerSocket.leave(sess.id);
+      io.to(u.id).emit('returnToLobby');
+    });
+    // Keep only ready players in the session
+    sess.users = readyUsers;
+    // If host was unready, transfer host to first ready player
+    if (!sess.users.find(function(u) { return u.id === sess.hostId; })) {
+      sess.hostId = sess.users[0].id;
     }
     sess.timeToStart = seconds;
     clearInterval(sess.timer);
+    io.to(sess.id).emit('getUsers', usersWithHost(sess));
     sess.timer = setInterval(function() {
       sess.timeToStart--;
       io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });

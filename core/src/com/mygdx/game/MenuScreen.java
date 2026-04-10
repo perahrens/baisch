@@ -51,6 +51,7 @@ public class MenuScreen extends AbstractScreen {
   private boolean updateScreen = false;
   boolean timerStarted = false;
   private boolean gameRunning = false;
+  private boolean isHost = false;
 
   // Whether the player has entered a name and joined the lobby.
   private boolean lobbyJoined = false;
@@ -428,7 +429,8 @@ public class MenuScreen extends AbstractScreen {
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
       User user = loggedInUsers.get(i);
-      Label nameLabel = new Label(user.getName() + "      ", MyGdxGame.skin);
+      String nameText = user.isHost() ? user.getName() + " (host)" : user.getName();
+      Label nameLabel = new Label(nameText + "      ", MyGdxGame.skin);
 
       if (user.getUserID().equals(menuState.getMyUserID())) {
         nameLabel.setColor(Color.GOLD);
@@ -489,19 +491,7 @@ public class MenuScreen extends AbstractScreen {
       });
       menuStage.addActor(watchButton);
     } else {
-      // No game running — show normal ready/start controls
-      // check if all players are ready (requires >= 2)
-      if (menuState.allReady() && !timerStarted) {
-        System.out.println("All players ready...");
-        socket.emit("startTimer", 5);
-        menuState.setTimeToStart(5);
-        timerStarted = true;
-      }
-
-      if (!menuState.allReady() && timerStarted) {
-        timerStarted = false;
-        menuState.setTimeToStart(5);
-      }
+      // No game running — show ready toggle and, for the host, a Start button
 
       Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
       if (timerStarted) {
@@ -524,6 +514,33 @@ public class MenuScreen extends AbstractScreen {
         menuState.setStartingHero("None");
       }
       menuStage.addActor(button);
+
+      // Host-only Start button — enabled only when at least 2 players are ready
+      if (isHost && !timerStarted) {
+        int readyCount = 0;
+        ArrayList<User> users = menuState.getUsers();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).isReady()) readyCount++;
+        }
+        final boolean canStart = readyCount >= 2;
+        TextButton startButton = new TextButton("Start", MyGdxGame.skin);
+        startButton.setSize(button.getWidth(), button.getHeight());
+        startButton.setPosition((MyGdxGame.WIDTH - startButton.getWidth()) / 2f, 0.32f * MyGdxGame.HEIGHT);
+        if (!canStart) {
+          startButton.setColor(0.5f, 0.5f, 0.5f, 1f);
+        }
+        startButton.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            if (!canStart) return;
+            socket.emit("startTimer", 5);
+            menuState.setTimeToStart(5);
+            timerStarted = true;
+            show();
+          }
+        });
+        menuStage.addActor(startButton);
+      }
     }
 
     menuStage.addActor(loggedInUserTable);
@@ -539,6 +556,7 @@ public class MenuScreen extends AbstractScreen {
         lobbyJoined = false;
         timerStarted = false;
         gameRunning = false;
+        isHost = false;
         menuState.clearUsers();
         reservedByOthers.clear();
         show();
@@ -566,8 +584,6 @@ public class MenuScreen extends AbstractScreen {
     }
 
     if (menuState.getTimeToStart() <= 0 && timerStarted) {
-      Timer.instance().clear();
-      socket.emit("checkTimer", 0);
       timerStarted = false;
     }
 
@@ -660,16 +676,23 @@ public class MenuScreen extends AbstractScreen {
         JSONArray objects = (JSONArray) args[0];
         try {
           menuState.clearUsers();
+          boolean hostFound = false;
           for (int i = 0; i < objects.length(); i++) {
             String userID = objects.getJSONObject(i).getString("id");
             String name   = objects.getJSONObject(i).getString("name");
             boolean isReady = objects.getJSONObject(i).getBoolean("isReady");
+            boolean userIsHost = objects.getJSONObject(i).optBoolean("isHost", false);
             User user = new User(userID, name);
             user.setReady(isReady);
+            user.setHost(userIsHost);
             menuState.addUser(user);
+            if (userIsHost && userID.equals(menuState.getMyUserID())) {
+              hostFound = true;
+            }
             updateScreen = true;
-            Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady);
+            Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady + " host=" + userIsHost);
           }
+          isHost = hostFound;
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error parsing getUsers");
         }
@@ -810,6 +833,7 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             timerStarted = false;
             gameRunning = false;
+            isHost = false;
             lobbyJoined = false;
             menuState.clearUsers();
             reservedByOthers.clear();

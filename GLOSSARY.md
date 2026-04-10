@@ -111,10 +111,13 @@ Heroes are acquired by sacrificing a joker card. The drawn card (or player choic
 |---|---|
 | **Socket** | The WebSocket connection between a client and the server, used to synchronise all game events in real time. |
 | **Socket ID** | A unique identifier assigned by the server to each connected client. |
-| **`getUsers` event** | Server broadcast listing all currently connected users and their ready status. |
-| **`isReady`** | A flag on a user object indicating the player has clicked the ready button in the lobby. The game starts when all players are ready. |
+| **`getUsers` event** | Server broadcast listing all currently connected users, their ready status, and which one is the host. |
+| **`isReady`** | A flag on a user object indicating the player has clicked the ready button in the lobby. |
+| **`isHost`** | A flag on a user object (in `getUsers` events) indicating that player is the session host. Only the host can start the game. |
+| **Host** | The player who created the session (or the next player in line if the creator leaves). The host sees a Start button in the lobby and is the only one who can trigger the countdown. |
+| **`startTimer` event** | Emitted by the host client to begin the pre-game countdown. The server requires the sender to be the host and at least 2 ready players. Unready players are returned to the session list before the timer starts. |
 | **`stateUpdate` event** | A server broadcast sent after every game action, carrying the full serialised game state so all clients stay in sync. |
-| **`returnToLobby` event** | Sent by the server 5 seconds after a winner is found; all clients return to the lobby screen. |
+| **`returnToLobby` event** | Sent by the server 5 seconds after a winner is found, or immediately to unready players when the host starts the game; all recipients return to the session list. |
 | **Hero Selection (lobby)** | Before the game starts, players can reserve a preferred starting hero in the lobby. This is tracked server-side via `heroSelections`. |
 | **`heroReleased` event** | Broadcast when a player disconnects from the lobby, freeing their reserved hero for others. |
 

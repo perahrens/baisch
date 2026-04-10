@@ -12,6 +12,7 @@ class GameState {
       defCards: {},
       topDefCards: {},
       kingCard: null,
+      heroes: [],
       preyCards: [],
     }));
     this.pickingDecks = [[], []]; // each entry: { id, covered }
@@ -513,6 +514,35 @@ class GameState {
     this.pushLog(`${this.pname(playerIdx)} used Merchant 2nd try`, true, true);
   }
 
+  heroAcquired(playerIdx, heroName) {
+    if (!heroName) return;
+    if (playerIdx < 0 || playerIdx >= this.players.length) return;
+
+    // Keep hero ownership unique across all players.
+    for (const p of this.players) {
+      p.heroes = (p.heroes || []).filter(h => h !== heroName);
+    }
+
+    const target = this.players[playerIdx];
+    if (!target.heroes) target.heroes = [];
+    target.heroes.push(heroName);
+  }
+
+  heroLost(playerIdx, heroName) {
+    if (!heroName) return;
+
+    if (playerIdx >= 0 && playerIdx < this.players.length) {
+      const p = this.players[playerIdx];
+      p.heroes = (p.heroes || []).filter(h => h !== heroName);
+      return;
+    }
+
+    // Fallback: remove from everyone if the sender index is invalid.
+    for (const p of this.players) {
+      p.heroes = (p.heroes || []).filter(h => h !== heroName);
+    }
+  }
+
   serialize() {
     return {
       currentPlayerIndex: this.currentPlayerIndex,
@@ -530,6 +560,7 @@ class GameState {
         kingCovered: p.kingCovered !== undefined ? p.kingCovered : true,
         isOut: p.isOut || false,
         sabotaged: Object.assign({}, p.sabotaged || {}),
+        heroes: [...(p.heroes || [])],
         preyCards: [...(p.preyCards || [])],
         attackCount: p.attackCount || 0,
       })),

@@ -65,6 +65,108 @@ function makeUser(id, name) {
   return { id: id, name: name || 'Player', isReady: false };
 }
 
+function getReadyUsers(sess) {
+  return sess.users.filter(function(u) { return u.isReady; });
+}
+
+function canSessionStart(sess, requesterSocketId) {
+  if (!sess || sess.gameState !== null || !sess.users.length || sess.users[0].id !== requesterSocketId) {
+    return false;
+  }
+
+  var requester = sess.users.find(function(u) { return u.id === requesterSocketId; });
+  return !!requester && requester.isReady && getReadyUsers(sess).length >= 2;
+}
+
+function cancelStartCountdown(sess, notifyClients) {
+  if (sess.timer) {
+    clearInterval(sess.timer);
+    sess.timer = null;
+  }
+  sess.timeToStart = 0;
+  if (notifyClients) {
+    io.to(sess.id).emit('startCountdownCanceled');
+  }
+}
+
+function startCountdownForSession(sess, requesterSocketId, seconds) {
+  if (!canSessionStart(sess, requesterSocketId)) {
+    return false;
+  }
+
+  cancelStartCountdown(sess, false);
+  sess.timeToStart = seconds;
+  io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });
+
+  sess.timer = setInterval(function() {
+    if (!canSessionStart(sess, requesterSocketId)) {
+      cancelStartCountdown(sess, true);
+      return;
+    }
+
+    sess.timeToStart--;
+    io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });
+    console.log("Session " + sess.id + " seconds left: " + sess.timeToStart);
+
+    if (sess.timeToStart <= 0) {
+      cancelStartCountdown(sess, false);
+      startGameForSession(sess, requesterSocketId);
+    }
+  }, 1000);
+
+  return true;
+}
+
+function startGameForSession(sess, requesterSocketId) {
+  if (!sess || sess.gameState !== null) return false;
+
+  // Host is the first player in lobby order.
+  if (!sess.users.length || sess.users[0].id !== requesterSocketId) {
+    return false;
+  }
+
+  var readyUsers = sess.users.filter(function(u) { return u.isReady; });
+  if (readyUsers.length < 2) {
+    return false;
+  }
+
+  // Users who are not ready are removed from the session and sent back to list.
+  var removedUsers = sess.users.filter(function(u) { return !u.isReady; });
+  removedUsers.forEach(function(u) {
+    delete socketToSession[u.id];
+    delete sess.heroSelections[u.id];
+    var s = io.sockets.sockets[u.id];
+    if (s) {
+      s.leave(sess.id);
+      s.emit('leftSessionNotReady');
+      s.emit('sessionList', getSessionList());
+    }
+  });
+
+  sess.users = readyUsers;
+  sess.winnerHandled = false;
+  sess.gameState = new GameState(sess.users);
+
+  // Apply lobby starting hero selections before initial gameState broadcast.
+  sess.users.forEach(function(u, idx) {
+    var hero = sess.heroSelections[u.id];
+    if (hero && hero !== 'None') {
+      sess.gameState.heroAcquired(idx, hero);
+    }
+  });
+
+  io.to(sess.id).emit('getUsers', sess.users);
+  sess.users.forEach(function(u, idx) {
+    io.to(u.id).emit('gameState', {
+      playerIndex: idx,
+      gameState: sess.gameState.serialize()
+    });
+    console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
+  });
+  broadcastSessionList();
+  return true;
+}
+
 function checkAndHandleWinner(sess) {
   if (!sess.gameState || sess.winnerHandled) return;
   const winner = sess.gameState.checkWinner();
@@ -197,9 +299,11 @@ io.on('connection', function(socket) {
           sess.users[i].isReady = true;
         } else {
           sess.users[i].isReady = false;
-          clearInterval(sess.timer);
         }
       }
+    }
+    if (sess.timer && !canSessionStart(sess, sess.users[0] && sess.users[0].id)) {
+      cancelStartCountdown(sess, true);
     }
     io.to(sess.id).emit('getUsers', sess.users);
   });
@@ -213,49 +317,27 @@ io.on('connection', function(socket) {
       socket.emit('gameAlreadyRunning');
       return;
     }
-    if (sess.users.length < 2) {
-      console.log("Not enough players to start (need at least 2)");
+    if (!startCountdownForSession(sess, socket.id, seconds)) {
+      socket.emit('notEnoughReadyPlayers');
+    }
+  });
+
+  socket.on('startGame', function() {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    if (sess.gameState !== null) {
+      socket.emit('gameAlreadyRunning');
       return;
     }
-    sess.timeToStart = seconds;
-    clearInterval(sess.timer);
-    sess.timer = setInterval(function() {
-      sess.timeToStart--;
-      io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });
-      console.log("Session " + sess.id + " seconds left: " + sess.timeToStart);
-      if (sess.timeToStart === 0) {
-        console.log("Timer finished for session " + sess.id + ", starting game");
-        sess.winnerHandled = false;
-        sess.gameState = new GameState(sess.users);
-
-        // Apply lobby starting hero selections to the authoritative state BEFORE
-        // the initial gameState packet is sent, so all clients render the same heroes.
-        sess.users.forEach(function(u, idx) {
-          var hero = sess.heroSelections[u.id];
-          if (hero && hero !== 'None') {
-            sess.gameState.heroAcquired(idx, hero);
-          }
-        });
-
-        sess.users.forEach(function(u, idx) {
-          io.to(u.id).emit('gameState', {
-            playerIndex: idx,
-            gameState: sess.gameState.serialize()
-          });
-        });
-        clearInterval(sess.timer);
-        broadcastSessionList();
-      }
-    }, 1000);
+    if (!startCountdownForSession(sess, socket.id, 5)) {
+      socket.emit('notEnoughReadyPlayers');
+    }
   });
 
   socket.on('stopTimer', function() {
     var sess = getSession(socket.id);
     if (!sess) return;
-    if (sess.timeToStart <= 0) {
-      console.log("Timer stopped for session " + sess.id);
-      clearInterval(sess.timer);
-    }
+    cancelStartCountdown(sess, true);
   });
 
   // Client requests full state resync

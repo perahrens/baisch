@@ -173,11 +173,6 @@ public class GameScreen extends ScreenAdapter {
     players = gameState.getPlayers();
     currentPlayer = players.get(this.playerIndex);
 
-    // Apply testing starting hero if one was selected in the menu (not for spectators)
-    if (!isSpectator && startingHero != null && !startingHero.equals("None")) {
-      gameState.applyHeroAcquired(this.playerIndex, startingHero);
-    }
-
     // Single stateUpdate listener — replaces all specific sync events
     final int notifyPlayerIdx = this.playerIndex; // capture field before parameter shadows it
     socket.on("stateUpdate", new SocketListener() {
@@ -599,8 +594,6 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // On first render, broadcast Reservists count so enemies see the indicator immediately.
-    // Also broadcast the starting hero so all clients know each other's heroes (the
-    // startingHero is applied locally in the constructor but never emitted via heroAcquired).
     if (!initialReservistsBroadcastDone) {
       initialReservistsBroadcastDone = true;
       for (Hero h : currentPlayer.getHeroes()) {
@@ -608,16 +601,6 @@ public class GameScreen extends ScreenAdapter {
           emitReservistsKingBoost(((Reservists) h).countReady());
           break;
         }
-      }
-      // Broadcast starting hero to all other clients
-      if (startingHero != null && !startingHero.equals("None") && socket != null) {
-        try {
-          JSONObject emitData = new JSONObject();
-          emitData.put("playerIndex", playerIndex);
-          emitData.put("heroName", startingHero);
-          emitData.put("jokerCardId", -1);
-          socket.emit("heroAcquired", emitData);
-        } catch (Exception e) { e.printStackTrace(); }
       }
     }
 
@@ -3278,6 +3261,9 @@ public class GameScreen extends ScreenAdapter {
         p.getPlayerTurn().setPreyCardIds(newPreyIds);
         p.getPlayerTurn().setAttackCounter(pj.optInt("attackCount", 0));
       }
+
+      // Sync heroes from server-authoritative state so missed relay events do not desync views.
+      gameState.rebuildHeroesFromState(playersJson);
 
       // Sync local Saboteurs hero active count: count how many slots across all players are
       // owned by the local player (playerIndex) to keep the hero state consistent with server.

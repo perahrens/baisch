@@ -69,6 +69,15 @@ function getReadyUsers(sess) {
   return sess.users.filter(function(u) { return u.isReady; });
 }
 
+function canSessionStart(sess, requesterSocketId) {
+  if (!sess || sess.gameState !== null || !sess.users.length || sess.users[0].id !== requesterSocketId) {
+    return false;
+  }
+
+  var requester = sess.users.find(function(u) { return u.id === requesterSocketId; });
+  return !!requester && requester.isReady && getReadyUsers(sess).length >= 2;
+}
+
 function cancelStartCountdown(sess, notifyClients) {
   if (sess.timer) {
     clearInterval(sess.timer);
@@ -81,17 +90,7 @@ function cancelStartCountdown(sess, notifyClients) {
 }
 
 function startCountdownForSession(sess, requesterSocketId, seconds) {
-  if (!sess || sess.gameState !== null) return false;
-
-  // Host is the first player in lobby order.
-  if (!sess.users.length || sess.users[0].id !== requesterSocketId) {
-    return false;
-  }
-
-  var requester = sess.users.find(function(u) { return u.id === requesterSocketId; });
-  var readyUsers = getReadyUsers(sess);
-  // Host must be ready and there must be at least 2 ready players in total.
-  if (!requester || !requester.isReady || readyUsers.length < 2) {
+  if (!canSessionStart(sess, requesterSocketId)) {
     return false;
   }
 
@@ -100,8 +99,7 @@ function startCountdownForSession(sess, requesterSocketId, seconds) {
   io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });
 
   sess.timer = setInterval(function() {
-    // If ready players drop below 2, cancel countdown and wait again.
-    if (getReadyUsers(sess).length < 2) {
+    if (!canSessionStart(sess, requesterSocketId)) {
       cancelStartCountdown(sess, true);
       return;
     }
@@ -137,7 +135,7 @@ function startGameForSession(sess, requesterSocketId) {
   removedUsers.forEach(function(u) {
     delete socketToSession[u.id];
     delete sess.heroSelections[u.id];
-    var s = io.sockets.sockets.get(u.id);
+    var s = io.sockets.sockets[u.id];
     if (s) {
       s.leave(sess.id);
       s.emit('leftSessionNotReady');
@@ -163,6 +161,7 @@ function startGameForSession(sess, requesterSocketId) {
       playerIndex: idx,
       gameState: sess.gameState.serialize()
     });
+    console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
   });
   broadcastSessionList();
   return true;
@@ -303,7 +302,7 @@ io.on('connection', function(socket) {
         }
       }
     }
-    if (sess.timer && getReadyUsers(sess).length < 2) {
+    if (sess.timer && !canSessionStart(sess, sess.users[0] && sess.users[0].id)) {
       cancelStartCountdown(sess, true);
     }
     io.to(sess.id).emit('getUsers', sess.users);

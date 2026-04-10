@@ -2398,9 +2398,12 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Draw heroes and hand cards only for the current (own) player
+    // Sort BEFORE calling getHandCards() — sortHandCards() replaces the
+    // Player.handCards reference with a new ArrayList, so we must
+    // capture the sorted list after the sort completes.
+    currentPlayer.sortHandCards();
     final ArrayList<Card> handCards = currentPlayer.getHandCards();
     ArrayList<Hero> playerHeroes = currentPlayer.getHeroes();
-    currentPlayer.sortHandCards();
     ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
     ArrayList<Integer> preyCardIds = currentPlayer.getPlayerTurn().getPreyCardIds();
 

@@ -339,16 +339,25 @@ public class MenuScreen extends AbstractScreen {
     if (!showPlayersTab) {
       // ── Games tab ───────────────────────────────────────────────────────────
       Table sessTable = new Table(MyGdxGame.skin);
+      sessTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      sessTable.pad(14f, 18f, 14f, 18f);
+
       Label h1 = new Label("Name", MyGdxGame.skin);
       Label h2 = new Label("Players", MyGdxGame.skin);
       Label h3 = new Label("", MyGdxGame.skin);
-      sessTable.add(h1).padRight(20);
-      sessTable.add(h2).padRight(20);
-      sessTable.add(h3);
+      h1.setColor(1f, 1f, 1f, 0.9f);
+      h2.setColor(1f, 1f, 1f, 0.9f);
+      sessTable.add(h1).padRight(40).padBottom(8f).left();
+      sessTable.add(h2).padRight(40).padBottom(8f);
+      sessTable.add(h3).padBottom(8f);
+      sessTable.row();
+      Image hSep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.25f)));
+      sessTable.add(hSep).colspan(3).growX().height(1f).padBottom(6f);
       sessTable.row();
 
       final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
-      for (final SessionInfo s : list) {
+      for (int si = 0; si < list.size(); si++) {
+        final SessionInfo s = list.get(si);
         Label nameL = new Label(s.name, MyGdxGame.skin);
         Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
         if (s.running) {
@@ -359,9 +368,9 @@ public class MenuScreen extends AbstractScreen {
               socket.emit("joinSessionSpectator", buildJoinData(s.id));
             }
           });
-          sessTable.add(nameL).padRight(20);
-          sessTable.add(countL).padRight(20);
-          sessTable.add(watchBtn);
+          sessTable.add(nameL).padRight(40).padBottom(6f).left();
+          sessTable.add(countL).padRight(40).padBottom(6f);
+          sessTable.add(watchBtn).padBottom(6f);
         } else {
           TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
           joinBtn.addListener(new ClickListener() {
@@ -370,15 +379,27 @@ public class MenuScreen extends AbstractScreen {
               socket.emit("joinSession", buildJoinData(s.id));
             }
           });
-          sessTable.add(nameL).padRight(20);
-          sessTable.add(countL).padRight(20);
-          sessTable.add(joinBtn);
+          sessTable.add(nameL).padRight(40).padBottom(6f).left();
+          sessTable.add(countL).padRight(40).padBottom(6f);
+          sessTable.add(joinBtn).padBottom(6f);
         }
+        sessTable.row();
+        if (si < list.size() - 1) {
+          Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+          sessTable.add(sep).colspan(3).growX().height(1f).padTop(2f).padBottom(5f);
+          sessTable.row();
+        }
+      }
+
+      if (list.isEmpty()) {
+        Label empty = new Label("No games available", MyGdxGame.skin);
+        empty.setColor(0.6f, 0.6f, 0.6f, 1f);
+        sessTable.add(empty).colspan(3);
         sessTable.row();
       }
 
       sessTable.pack();
-      sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.45f * MyGdxGame.HEIGHT);
+      sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
       TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
@@ -395,24 +416,38 @@ public class MenuScreen extends AbstractScreen {
     } else {
       // ── Players tab ─────────────────────────────────────────────────────────
       Table playersTable = new Table(MyGdxGame.skin);
+      playersTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      playersTable.pad(14f, 18f, 14f, 18f);
+
       Label ph1 = new Label("Name", MyGdxGame.skin);
       Label ph2 = new Label("Status", MyGdxGame.skin);
-      playersTable.add(ph1).padRight(40);
-      playersTable.add(ph2);
+      ph1.setColor(1f, 1f, 1f, 0.9f);
+      ph2.setColor(1f, 1f, 1f, 0.9f);
+      playersTable.add(ph1).padRight(40).padBottom(8f).left();
+      playersTable.add(ph2).padBottom(8f);
+      playersTable.row();
+      Image phSep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.25f)));
+      playersTable.add(phSep).colspan(2).growX().height(1f).padBottom(6f);
       playersTable.row();
 
       final java.util.List<OnlinePlayerInfo> snapshot =
           new java.util.ArrayList<OnlinePlayerInfo>(onlinePlayers);
-      for (OnlinePlayerInfo p : snapshot) {
+      for (int pi = 0; pi < snapshot.size(); pi++) {
+        OnlinePlayerInfo p = snapshot.get(pi);
         Label nameL = new Label(p.name, MyGdxGame.skin);
         if (p.id.equals(menuState.getMyUserID())) nameL.setColor(Color.GOLD);
         Label statusL = new Label(p.status, MyGdxGame.skin);
         if (p.status.startsWith("In game")) statusL.setColor(Color.GREEN);
         else if (p.status.startsWith("In lobby")) statusL.setColor(Color.YELLOW);
         else if (p.status.startsWith("Watching")) statusL.setColor(Color.CYAN);
-        playersTable.add(nameL).padRight(40);
-        playersTable.add(statusL);
+        playersTable.add(nameL).padRight(40).padBottom(6f).left();
+        playersTable.add(statusL).padBottom(6f);
         playersTable.row();
+        if (pi < snapshot.size() - 1) {
+          Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+          playersTable.add(sep).colspan(2).growX().height(1f).padTop(2f).padBottom(5f);
+          playersTable.row();
+        }
       }
 
       if (snapshot.isEmpty()) {
@@ -423,7 +458,7 @@ public class MenuScreen extends AbstractScreen {
       }
 
       playersTable.pack();
-      playersTable.setPosition(cx - playersTable.getWidth() / 2f, 0.45f * MyGdxGame.HEIGHT);
+      playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
     }
 
@@ -537,7 +572,7 @@ public class MenuScreen extends AbstractScreen {
     float lobbyTitleScale = 1.35f;
     lobbyTitle.setFontScale(lobbyTitleScale);
     lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
-    lobbyTitle.setPosition(cx - (lobbyTitle.getPrefWidth() * lobbyTitleScale) / 2f, 0.835f * MyGdxGame.HEIGHT);
+    lobbyTitle.setPosition(Math.round(cx - lobbyTitle.getPrefWidth() / 2f), Math.round(0.835f * MyGdxGame.HEIGHT));
 
     // logged in count
     loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);

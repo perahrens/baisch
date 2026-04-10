@@ -211,8 +211,8 @@ public class GameState {
       cemeteryDeckListener = new CemeteryDeckListener(this);
       cemeteryDeck.addListener(cemeteryDeckListener);
 
-      // 7. Heroes (deterministic per player index, same as doRandomSetup)
-      doHeroSetup(players.size());
+      // 7. Heroes from server-authoritative state
+      rebuildHeroesFromState(playersJson);
 
     } catch (JSONException e) {
       e.printStackTrace();
@@ -398,6 +398,30 @@ public class GameState {
 
   public void setUpdateState(boolean updateState) {
     this.updateState = updateState;
+  }
+
+  /**
+   * Rebuild all heroes from a server-authoritative players JSON array.
+   * This resets the hero pool and player hero lists first, then reapplies
+   * ownership by player index to keep all clients deterministic.
+   */
+  public void rebuildHeroesFromState(JSONArray playersJson) throws JSONException {
+    heroesSquare = new HeroesSquare();
+
+    for (int i = 0; i < players.size(); i++) {
+      players.get(i).getHeroes().clear();
+    }
+
+    for (int i = 0; i < playersJson.length(); i++) {
+      JSONObject pj = playersJson.getJSONObject(i);
+      int idx = pj.getInt("index");
+      JSONArray heroesJson = pj.optJSONArray("heroes");
+      if (heroesJson == null) continue;
+
+      for (int h = 0; h < heroesJson.length(); h++) {
+        applyHeroAcquired(idx, heroesJson.getString(h));
+      }
+    }
   }
 
   /**

@@ -2472,6 +2472,14 @@ public class GameScreen extends ScreenAdapter {
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
       heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
+      final String heroInfoName = hero.getHeroName();
+      heroLabel.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          showHeroInfoOverlay(heroInfoName);
+          event.stop();
+        }
+      });
 
       handStage.addActor(hero);
       handStage.addActor(heroLabel);
@@ -2831,6 +2839,68 @@ public class GameScreen extends ScreenAdapter {
       });
       handStage.addActor(slotBtn);
     }
+  }
+
+  private void showHeroInfoOverlay(String heroName) {
+    menuOpen = true;
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.top().pad(20f);
+
+    Label titleLabel = new Label(heroName, MyGdxGame.skin);
+    titleLabel.setColor(Color.GOLD);
+    outer.add(titleLabel).padBottom(10).row();
+
+    Label descLabel = new Label(getHeroDescription(heroName), MyGdxGame.skin);
+    descLabel.setWrap(true);
+    outer.add(descLabel).left().expandX().fillX().padBottom(8f).row();
+
+    TextButton closeBtn = new TextButton("Close", MyGdxGame.skin);
+    closeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    outer.add(closeBtn).width(300).height(60).padTop(8).row();
+
+    overlayStage.addActor(outer);
+  }
+
+  private static String getHeroDescription(String name) {
+    if ("Warlord".equals(name)) {
+      return "Attack an enemy defense card directly with your king (1x/turn), bypassing normal restrictions. The king must match the current attack symbol. Also enables swapping your king with a hand card.";
+    } else if ("Magician".equals(name)) {
+      return "Replace an enemy defense slot with new random cards from the deck (1x/turn). Select Magician, then tap an enemy defense card to cast.";
+    } else if ("Spy".equals(name)) {
+      return "Reveal a face-down enemy defense card (1x/turn). Sacrifice a hand card to gain 2 extra reveal actions this turn.";
+    } else if ("Battery Tower".equals(name)) {
+      return "When your defense card or king is attacked, spend 1 charge to deny the attack. The attacker's hand cards are locked and revealed to you. Recharges at the start of each turn.";
+    } else if ("Fortified Tower".equals(name)) {
+      return "Stack a second defense card on top of an existing defense slot (1x/turn). Select Fortified Tower, then tap a defense slot to add the top layer.";
+    } else if ("Saboteurs".equals(name)) {
+      return "Place one of your 2 saboteurs on an empty enemy defense slot to block it. Select Saboteurs, then tap an empty enemy slot. If destroyed, the saboteur recovers after 2 turns.";
+    } else if ("Mercenaries".equals(name)) {
+      return "Boost your attack strength. With hand cards selected for attack, tap Mercenaries to add +1 attack per click. Up to 8 units; 4 recover each new turn.";
+    } else if ("Marshal".equals(name)) {
+      return "Passive: grants 3 put/take defense card actions per turn instead of the normal limit. No activation needed.";
+    } else if ("Merchant".equals(name)) {
+      return "Swap one of your hand cards for a new random card from the deck (1x/turn). Select Merchant, then tap the hand card you want to discard.";
+    } else if ("Priest".equals(name)) {
+      return "After initiating an attack, select Priest to attempt converting the enemy defense card to your attack symbol (up to 2x/turn). On success, the card is added to your defense.";
+    } else if ("Banneret".equals(name)) {
+      return "Passive: allows attacking with both symbols of the same color (hearts+diamonds or spades+clubs). Also lets you use your own defense cards as attack cards (they are discarded afterwards).";
+    } else if ("Reservists".equals(name)) {
+      return "Each ready reservist adds +1 to your king's defense strength automatically. During an attack, tap Reservists to spend one for +1 attack strength. Max 4; recovers 2 per turn.";
+    }
+    return "No information available.";
   }
 
   private void showInGameMenu() {

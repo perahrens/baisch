@@ -227,6 +227,16 @@ io.on('connection', function(socket) {
         console.log("Timer finished for session " + sess.id + ", starting game");
         sess.winnerHandled = false;
         sess.gameState = new GameState(sess.users);
+
+        // Apply lobby starting hero selections to the authoritative state BEFORE
+        // the initial gameState packet is sent, so all clients render the same heroes.
+        sess.users.forEach(function(u, idx) {
+          var hero = sess.heroSelections[u.id];
+          if (hero && hero !== 'None') {
+            sess.gameState.heroAcquired(idx, hero);
+          }
+        });
+
         sess.users.forEach(function(u, idx) {
           io.to(u.id).emit('gameState', {
             playerIndex: idx,
@@ -367,16 +377,18 @@ io.on('connection', function(socket) {
 
   socket.on('heroAcquired', function(data) {
     var sess = getSession(socket.id);
-    if (!sess) return;
+    if (!sess || !sess.gameState) return;
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
-    socket.to(sess.id).emit('heroAcquired', data);
+    sess.gameState.heroAcquired(data.playerIndex, data.heroName);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('heroLost', function(data) {
     var sess = getSession(socket.id);
-    if (!sess) return;
+    if (!sess || !sess.gameState) return;
     console.log("heroLost: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
-    socket.to(sess.id).emit('heroLost', data);
+    sess.gameState.heroLost(data.playerIndex, data.heroName);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('heroSelected', function(heroName) {

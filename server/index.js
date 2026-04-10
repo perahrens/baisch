@@ -236,7 +236,7 @@ io.on('connection', function(socket) {
     unreadyUsers.forEach(function(u) {
       delete sess.heroSelections[u.id];
       delete socketToSession[u.id];
-      var peerSocket = io.sockets.sockets[u.id];
+      var peerSocket = io.sockets.sockets[u.id]; // socket.io v2: sockets is a plain object
       if (peerSocket) peerSocket.leave(sess.id);
       io.to(u.id).emit('returnToLobby');
     });

@@ -489,26 +489,34 @@ public class MenuScreen extends AbstractScreen {
       });
       menuStage.addActor(watchButton);
     } else {
-      // No game running — show normal ready/start controls
-      // check if all players are ready (requires >= 2)
-      if (menuState.allReady() && !timerStarted) {
-        System.out.println("All players ready...");
-        socket.emit("startTimer", 5);
-        menuState.setTimeToStart(5);
-        timerStarted = true;
+      // No game running — host can start once enough players are ready.
+      int readyCount = 0;
+      for (int i = 0; i < loggedInUsers.size(); i++) {
+        if (loggedInUsers.get(i).isReady()) readyCount++;
       }
+      boolean isHost = !loggedInUsers.isEmpty()
+          && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
 
-      if (!menuState.allReady() && timerStarted) {
-        timerStarted = false;
-        menuState.setTimeToStart(5);
-      }
+      Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
+      lobbyStatus.setPosition(200, 0);
+      menuStage.addActor(lobbyStatus);
 
-      Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
-      if (timerStarted) {
-        timerLabel = new Label("Time to start ... " + menuState.getTimeToStart(), MyGdxGame.skin);
+      if (isHost) {
+        TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
+        startGameButton.setSize(button.getWidth(), button.getHeight());
+        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+        startGameButton.setDisabled(readyCount < 2);
+        startGameButton.setTouchable(readyCount < 2
+            ? com.badlogic.gdx.scenes.scene2d.Touchable.disabled
+            : com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+        startGameButton.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            socket.emit("startGame", new JSONObject());
+          }
+        });
+        menuStage.addActor(startGameButton);
       }
-      timerLabel.setPosition(200, 0);
-      menuStage.addActor(timerLabel);
 
       // Rebuild hero dropdown excluding heroes reserved by other lobby players.
       if (sessionAllowHeroSelection) {
@@ -797,6 +805,35 @@ public class MenuScreen extends AbstractScreen {
             timerStarted = false;
             gameRunning = true;
             updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("notEnoughReadyPlayers", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("leftSessionNotReady", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            lobbyJoined = false;
+            timerStarted = false;
+            gameRunning = false;
+            menuState.clearUsers();
+            reservedByOthers.clear();
+            show();
           }
         });
       }

@@ -387,25 +387,38 @@ public class Player {
   }
 
   public void sortHandCards() {
+    // Unusable cards (prey + battery-denied) go to the end.
+    ArrayList<Integer> unusableIds = new ArrayList<Integer>();
+    unusableIds.addAll(playerTurn.getPreyCardIds());
+    unusableIds.addAll(playerTurn.getBatteryDeniedAttackCardIds());
+
     ArrayList<Card> hearts = new ArrayList<Card>();
     ArrayList<Card> diamonds = new ArrayList<Card>();
     ArrayList<Card> spades = new ArrayList<Card>();
     ArrayList<Card> clubs = new ArrayList<Card>();
     ArrayList<Card> jokers = new ArrayList<Card>();
+    ArrayList<Card> unusable = new ArrayList<Card>();
 
-    // sort by symbol
+    // sort by symbol; unusable cards go into their own bucket
     for (int i = 0; i < handCards.size(); i++) {
-      String symbol = handCards.get(i).getSymbol();
+      Card c = handCards.get(i);
+      if (unusableIds.contains(c.getCardId())) {
+        unusable.add(c);
+        continue;
+      }
+      String symbol = c.getSymbol();
       if (symbol == "hearts")
-        hearts.add(handCards.get(i));
+        hearts.add(c);
       else if (symbol == "diamonds")
-        diamonds.add(handCards.get(i));
+        diamonds.add(c);
       else if (symbol == "spades")
-        spades.add(handCards.get(i));
+        spades.add(c);
       else if (symbol == "clubs")
-        clubs.add(handCards.get(i));
+        clubs.add(c);
       else if (symbol == "joker")
-        jokers.add(handCards.get(i));
+        jokers.add(c);
+      else
+        unusable.add(c); // unknown symbol treated as unusable
     }
 
     // sort each symbol by strength
@@ -438,7 +451,7 @@ public class Player {
       }
     }
 
-    // refill handCards sorted
+    // refill handCards sorted; unusable cards at the end
     handCards = new ArrayList<Card>();
     for (int i = 0; i < hearts.size(); i++)
       handCards.add(hearts.get(i));
@@ -450,6 +463,8 @@ public class Player {
       handCards.add(clubs.get(i));
     for (int i = 0; i < jokers.size(); i++)
       handCards.add(jokers.get(i));
+    for (int i = 0; i < unusable.size(); i++)
+      handCards.add(unusable.get(i));
 
   }
 

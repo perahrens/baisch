@@ -1124,7 +1124,7 @@ public class GameScreen extends ScreenAdapter {
               MyGdxGame.WIDTH - playerHeroes.get(j).getHeight());
           break;
         case 3:
-          playerHeroes.get(j).setPosition(playerHeroes.get(j).getX(),
+          playerHeroes.get(j).setPosition(MyGdxGame.WIDTH - playerHeroes.get(j).getWidth(),
               playerHeroes.get(j).getY() - 2 * playerLabel.getHeight() - j * playerHeroes.get(j).getHeight() / 3);
           break;
         default:

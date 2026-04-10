@@ -1148,14 +1148,19 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
 
-        final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
-        playerHeroes.get(j).addListener(new ClickListener() {
-          @Override
-          public void clicked(InputEvent event, float x, float y) {
-            showHeroInfoOverlay(heroInfoName_gs);
-            event.stop();
-          }
-        });
+        // Only add info listener to other players' heroes here.
+        // The current player's heroes get it via heroLabel in showHandStage.
+        if (players.get(i) != currentPlayer) {
+          playerHeroes.get(j).removeAllListeners();
+          final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
+          playerHeroes.get(j).addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              showHeroInfoOverlay(heroInfoName_gs);
+              event.stop();
+            }
+          });
+        }
         gameStage.addActor(playerHeroes.get(j));
       }
 

@@ -78,6 +78,19 @@ public class MenuScreen extends AbstractScreen {
     }
   }
 
+  // Live list of all named online players, broadcast by the server.
+  private java.util.List<OnlinePlayerInfo> onlinePlayers = new java.util.ArrayList<OnlinePlayerInfo>();
+  private boolean showPlayersTab = false;
+
+  private static class OnlinePlayerInfo {
+    String id;
+    String name;
+    String status;
+    OnlinePlayerInfo(String id, String name, String status) {
+      this.id = id; this.name = name; this.status = status;
+    }
+  }
+
   // Hero names in display order — used to rebuild the dropdown while preserving order.
   private static final String[] ALL_HERO_NAMES = {
     "Mercenaries", "Marshal", "Spy", "Battery Tower", "Merchant", "Priest",
@@ -211,9 +224,9 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.hideList();
     menuStage.clear();
 
-    menuStage.addActor(group);
-
     if (!nameConfirmed) {
+      // Logo only shown on the name-entry screen.
+      menuStage.addActor(group);
       showNameEntryScreen();
     } else if (!lobbyJoined && inSessionCreate) {
       showSessionCreateScreen();
@@ -244,6 +257,11 @@ public class MenuScreen extends AbstractScreen {
             if (name.isEmpty()) return;
             menuState.setMyName(name);
             nameConfirmed = true;
+            try {
+              JSONObject reg = new JSONObject();
+              reg.put("name", name);
+              socket.emit("registerPlayer", reg);
+            } catch (JSONException e) { /* ignore */ }
             Gdx.app.postRunnable(new Runnable() {
               @Override public void run() { show(); }
             });
@@ -261,67 +279,127 @@ public class MenuScreen extends AbstractScreen {
   private void showSessionListScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
 
-    Label title = new Label("Games", MyGdxGame.skin);
-    title.setPosition(cx - title.getWidth() / 2f, 0.75f * MyGdxGame.HEIGHT);
-    menuStage.addActor(title);
-
-    Table sessTable = new Table(MyGdxGame.skin);
-    Label h1 = new Label("Name", MyGdxGame.skin);
-    Label h2 = new Label("Players", MyGdxGame.skin);
-    Label h3 = new Label("", MyGdxGame.skin);
-    sessTable.add(h1).padRight(20);
-    sessTable.add(h2).padRight(20);
-    sessTable.add(h3);
-    sessTable.row();
-
-    final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
-    for (final SessionInfo s : list) {
-      Label nameL = new Label(s.name, MyGdxGame.skin);
-      Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
-      if (s.running) {
-        Label runL = new Label("Playing", MyGdxGame.skin);
-        runL.setColor(Color.YELLOW);
-        TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
-        watchBtn.addListener(new ClickListener() {
-          @Override
-          public void clicked(InputEvent event, float x, float y) {
-            socket.emit("joinSessionSpectator", buildJoinData(s.id));
-          }
-        });
-        sessTable.add(nameL).padRight(20);
-        sessTable.add(countL).padRight(20);
-        sessTable.add(watchBtn);
-      } else {
-        TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
-        joinBtn.addListener(new ClickListener() {
-          @Override
-          public void clicked(InputEvent event, float x, float y) {
-            socket.emit("joinSession", buildJoinData(s.id));
-          }
-        });
-        sessTable.add(nameL).padRight(20);
-        sessTable.add(countL).padRight(20);
-        sessTable.add(joinBtn);
-      }
-      sessTable.row();
+    // ── Tab bar ──────────────────────────────────────────────────────────────
+    TextButton gamesTab = new TextButton("Games", MyGdxGame.skin);
+    TextButton playersTab = new TextButton("Players", MyGdxGame.skin);
+    gamesTab.pack();
+    playersTab.pack();
+    float tabGap = 16f;
+    float tabsWidth = gamesTab.getWidth() + tabGap + playersTab.getWidth();
+    float tabY = 0.88f * MyGdxGame.HEIGHT;
+    gamesTab.setPosition(cx - tabsWidth / 2f, tabY);
+    playersTab.setPosition(cx - tabsWidth / 2f + gamesTab.getWidth() + tabGap, tabY);
+    if (!showPlayersTab) {
+      gamesTab.setColor(Color.WHITE);
+      playersTab.setColor(0.55f, 0.55f, 0.55f, 1f);
+    } else {
+      gamesTab.setColor(0.55f, 0.55f, 0.55f, 1f);
+      playersTab.setColor(Color.WHITE);
     }
-
-    sessTable.pack();
-    sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.35f * MyGdxGame.HEIGHT);
-    menuStage.addActor(sessTable);
-
-    TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
-    createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
-    createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.15f * MyGdxGame.HEIGHT);
-    createBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        inSessionCreate = true;
-        show();
+    gamesTab.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        showPlayersTab = false; show();
       }
     });
+    playersTab.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        showPlayersTab = true; show();
+      }
+    });
+    menuStage.addActor(gamesTab);
+    menuStage.addActor(playersTab);
 
-    menuStage.addActor(createBtn);
+    if (!showPlayersTab) {
+      // ── Games tab ───────────────────────────────────────────────────────────
+      Table sessTable = new Table(MyGdxGame.skin);
+      Label h1 = new Label("Name", MyGdxGame.skin);
+      Label h2 = new Label("Players", MyGdxGame.skin);
+      Label h3 = new Label("", MyGdxGame.skin);
+      sessTable.add(h1).padRight(20);
+      sessTable.add(h2).padRight(20);
+      sessTable.add(h3);
+      sessTable.row();
+
+      final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
+      for (final SessionInfo s : list) {
+        Label nameL = new Label(s.name, MyGdxGame.skin);
+        Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
+        if (s.running) {
+          TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
+          watchBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              socket.emit("joinSessionSpectator", buildJoinData(s.id));
+            }
+          });
+          sessTable.add(nameL).padRight(20);
+          sessTable.add(countL).padRight(20);
+          sessTable.add(watchBtn);
+        } else {
+          TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
+          joinBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              socket.emit("joinSession", buildJoinData(s.id));
+            }
+          });
+          sessTable.add(nameL).padRight(20);
+          sessTable.add(countL).padRight(20);
+          sessTable.add(joinBtn);
+        }
+        sessTable.row();
+      }
+
+      sessTable.pack();
+      sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.45f * MyGdxGame.HEIGHT);
+      menuStage.addActor(sessTable);
+
+      TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+      createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
+      createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.08f * MyGdxGame.HEIGHT);
+      createBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          inSessionCreate = true;
+          show();
+        }
+      });
+      menuStage.addActor(createBtn);
+    } else {
+      // ── Players tab ─────────────────────────────────────────────────────────
+      Table playersTable = new Table(MyGdxGame.skin);
+      Label ph1 = new Label("Name", MyGdxGame.skin);
+      Label ph2 = new Label("Status", MyGdxGame.skin);
+      playersTable.add(ph1).padRight(40);
+      playersTable.add(ph2);
+      playersTable.row();
+
+      final java.util.List<OnlinePlayerInfo> snapshot =
+          new java.util.ArrayList<OnlinePlayerInfo>(onlinePlayers);
+      for (OnlinePlayerInfo p : snapshot) {
+        Label nameL = new Label(p.name, MyGdxGame.skin);
+        if (p.id.equals(menuState.getMyUserID())) nameL.setColor(Color.GOLD);
+        Label statusL = new Label(p.status, MyGdxGame.skin);
+        if (p.status.startsWith("In game")) statusL.setColor(Color.GREEN);
+        else if (p.status.startsWith("In lobby")) statusL.setColor(Color.YELLOW);
+        else if (p.status.startsWith("Watching")) statusL.setColor(Color.CYAN);
+        playersTable.add(nameL).padRight(40);
+        playersTable.add(statusL);
+        playersTable.row();
+      }
+
+      if (snapshot.isEmpty()) {
+        Label empty = new Label("No players online", MyGdxGame.skin);
+        empty.setColor(0.6f, 0.6f, 0.6f, 1f);
+        playersTable.add(empty).colspan(2);
+        playersTable.row();
+      }
+
+      playersTable.pack();
+      playersTable.setPosition(cx - playersTable.getWidth() / 2f, 0.45f * MyGdxGame.HEIGHT);
+      menuStage.addActor(playersTable);
+    }
+
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -867,6 +945,7 @@ public class MenuScreen extends AbstractScreen {
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
+            showPlayersTab = false;
             menuState.clearUsers();
             reservedByOthers.clear();
             show();
@@ -884,6 +963,7 @@ public class MenuScreen extends AbstractScreen {
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
+            showPlayersTab = false;
             menuState.clearUsers();
             reservedByOthers.clear();
             game.setScreen(MenuScreen.this);
@@ -912,6 +992,32 @@ public class MenuScreen extends AbstractScreen {
               }
             } catch (JSONException e) {
               Gdx.app.log("SocketIO", "Error parsing sessionList");
+            }
+            if (!lobbyJoined) updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("playerList", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONArray arr = (JSONArray) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            onlinePlayers.clear();
+            try {
+              for (int i = 0; i < arr.length(); i++) {
+                JSONObject p = arr.getJSONObject(i);
+                onlinePlayers.add(new OnlinePlayerInfo(
+                  p.getString("id"),
+                  p.getString("name"),
+                  p.getString("status")
+                ));
+              }
+            } catch (JSONException e) {
+              Gdx.app.log("SocketIO", "Error parsing playerList");
             }
             if (!lobbyJoined) updateScreen = true;
           }

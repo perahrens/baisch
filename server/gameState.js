@@ -56,6 +56,7 @@ class GameState {
       p.defCardsCovered = { 1: true, 2: true, 3: true };
       p.topDefCardsCovered = {};
       p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
+      p.attackCount = 0; // number of enemy attacks this turn (reset on finishTurn)
     }
   }
 
@@ -322,6 +323,7 @@ class GameState {
   defAttackResolved(attackerIdx, defenderIdx, positionId, level, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     this.pendingAttack = null;
     const attacker = this.players[attackerIdx];
+    attacker.attackCount = (attacker.attackCount || 0) + 1;
     const defender = this.players[defenderIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
@@ -374,7 +376,10 @@ class GameState {
     // Always use the server's own authoritative currentPlayerIndex — never trust the client.
     const currentPlayerIndex = this.currentPlayerIndex;
     this.lastMerchantReveal = null; // clear Merchant 2nd-try reveal on turn end
-    if (this.players[currentPlayerIndex]) this.players[currentPlayerIndex].preyCards = [];
+    if (this.players[currentPlayerIndex]) {
+      this.players[currentPlayerIndex].preyCards = [];
+      this.players[currentPlayerIndex].attackCount = 0; // reset for next turn
+    }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
     let next = (currentPlayerIndex + 1) % n;
@@ -383,6 +388,27 @@ class GameState {
       next = (next + 1) % n;
     }
     this.currentPlayerIndex = next;
+  }
+
+  exposeDefCard(playerIdx, slot) {
+    const p = this.players[playerIdx];
+    if (!p) return;
+    if (!p.defCardsCovered) p.defCardsCovered = {};
+    if (!p.topDefCardsCovered) p.topDefCardsCovered = {};
+    // Expose the top card first if present (it sits on the regular card)
+    if (p.topDefCards[slot] !== undefined) {
+      p.topDefCardsCovered[slot] = false;
+    } else if (p.defCards[slot] !== undefined) {
+      p.defCardsCovered[slot] = false;
+    }
+    this.pushLog(`${this.pname(playerIdx)} exposed slot ${slot} (no attack)`, false, true);
+  }
+
+  exposeKingCard(playerIdx) {
+    const p = this.players[playerIdx];
+    if (!p) return;
+    p.kingCovered = false;
+    this.pushLog(`${this.pname(playerIdx)} exposed their king (no attack)`, false, true);
   }
 
   checkWinner() {
@@ -410,6 +436,7 @@ class GameState {
 
   kingAttackResolved(attackerIdx, defenderIdx, success, attackCardIds, kingUsed) {
     const attacker = this.players[attackerIdx];
+    attacker.attackCount = (attacker.attackCount || 0) + 1;
     const defender = this.players[defenderIdx];
     for (const cardId of attackCardIds) {
       const i = attacker.hand.indexOf(cardId);
@@ -504,6 +531,7 @@ class GameState {
         isOut: p.isOut || false,
         sabotaged: Object.assign({}, p.sabotaged || {}),
         preyCards: [...(p.preyCards || [])],
+        attackCount: p.attackCount || 0,
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

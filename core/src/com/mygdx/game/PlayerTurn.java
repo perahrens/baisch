@@ -33,6 +33,10 @@ public class PlayerTurn {
     return attackCounter;
   }
 
+  public void setAttackCounter(int v) {
+    attackCounter = v;
+  }
+
   public void decreaseTakeDefCard() {
     takeDefCard -= 1;
   }

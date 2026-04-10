@@ -1133,7 +1133,7 @@ public class GameScreen extends ScreenAdapter {
           break;
         case 1:
           playerHeroes.get(j).setPosition(playerHeroes.get(j).getX(),
-              playerHeroes.get(j).getY() + j * playerHeroes.get(j).getHeight() / 3);
+              playerHeroes.get(j).getY() + 2 * playerLabel.getHeight() + j * playerHeroes.get(j).getHeight() / 3);
           break;
         case 2:
           playerHeroes.get(j).setPosition(

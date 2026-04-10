@@ -19,36 +19,94 @@ app.get('/', function(req, res, next) {
 
 app.use(require('express').static(path.join(__dirname, 'public')));
 
-
-var users = [];
-var spectators = [];
-var timeToStart;
-var timer;
 var GameState = require('./gameState');
-var gameState = null;
-var winnerHandled = false;
-// Tracks which hero each socket has reserved in the lobby (socketId -> heroName or 'None').
-var heroSelections = {};
 
-function checkAndHandleWinner(io) {
-  if (!gameState || winnerHandled) return;
-  const winner = gameState.checkWinner();
+// ─── Session management ───────────────────────────────────────────────────────
+// sessions: { [sessionId]: { id, name, users[], spectators[], gameState,
+//             heroSelections{}, winnerHandled, timeToStart, timer } }
+var sessions = {};
+// socketToSession: { [socketId]: sessionId } — for O(1) session lookup
+var socketToSession = {};
+var _nextSessionId = 1;
+
+function createSession(name, allowHeroSelection) {
+  var id = 's' + (_nextSessionId++);
+  sessions[id] = {
+    id: id,
+    name: name,
+    allowHeroSelection: allowHeroSelection !== false, // default true
+    users: [],
+    spectators: [],
+    gameState: null,
+    heroSelections: {},
+    winnerHandled: false,
+    timeToStart: 0,
+    timer: null
+  };
+  return sessions[id];
+}
+
+function getSession(socketId) {
+  var sid = socketToSession[socketId];
+  return sid ? sessions[sid] : null;
+}
+
+function getSessionList() {
+  return Object.values(sessions).map(function(s) {
+    return { id: s.id, name: s.name, playerCount: s.users.length, running: s.gameState !== null };
+  });
+}
+
+function broadcastSessionList() {
+  io.emit('sessionList', getSessionList());
+}
+
+function makeUser(id, name) {
+  return { id: id, name: name || 'Player', isReady: false };
+}
+
+function checkAndHandleWinner(sess) {
+  if (!sess.gameState || sess.winnerHandled) return;
+  const winner = sess.gameState.checkWinner();
   if (winner >= 0) {
-    winnerHandled = true;
-    console.log("Winner found: player " + winner + " — returning to lobby in 5 seconds");
-    // stateUpdate with winnerIndex already broadcast by the caller; schedule return to lobby
+    sess.winnerHandled = true;
+    console.log("Session " + sess.id + " winner: player " + winner + " — closing session in 5 seconds");
     setTimeout(function() {
-      winnerHandled = false;
-      gameState = null;
-      // Return all players and spectators to the lobby
-      users.forEach(function(u) { io.to(u.id).emit('returnToLobby'); });
-      spectators.forEach(function(sid) { io.to(sid).emit('returnToLobby'); });
-      spectators = [];
-      // Reset ready states so next game requires a fresh ready-up
-      users.forEach(function(u) { u.isReady = false; });
-      io.emit('getUsers', users);
+      var sessId = sess.id;
+      // Notify all participants to return to the session list
+      io.to(sessId).emit('returnToLobby');
+      // Remove all socket→session mappings so these sockets are session-less again
+      sess.users.forEach(function(u) { delete socketToSession[u.id]; });
+      sess.spectators.forEach(function(sid) { delete socketToSession[sid]; });
+      if (sess.timer) clearInterval(sess.timer);
+      // Delete the session entirely — it won't appear in the session list anymore
+      delete sessions[sessId];
+      broadcastSessionList();
     }, 5000);
   }
+}
+
+function leaveCurrentSession(socket) {
+  var sess = getSession(socket.id);
+  if (!sess) return;
+  var hero = sess.heroSelections[socket.id];
+  if (hero && hero !== 'None') {
+    socket.to(sess.id).emit('heroReleased', { heroName: hero });
+  }
+  delete sess.heroSelections[socket.id];
+  var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+  if (userIdx !== -1) sess.users.splice(userIdx, 1);
+  var specIdx = sess.spectators.indexOf(socket.id);
+  if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
+  socket.leave(sess.id);
+  io.to(sess.id).emit('getUsers', sess.users);
+  if (sess.users.length === 0 && sess.spectators.length === 0) {
+    if (sess.timer) clearInterval(sess.timer);
+    delete sessions[sess.id];
+    console.log('Session ' + sess.id + ' deleted (empty)');
+  }
+  delete socketToSession[socket.id];
+  broadcastSessionList();
 }
 
 var PORT = process.env.PORT || 8082;
@@ -57,340 +115,398 @@ server.listen(PORT, function() {
 });
 
 io.on('connection', function(socket) {
-  console.log("User Connected");
+  console.log("User Connected: " + socket.id);
   socket.emit('socketID', { id: socket.id });
-  socket.broadcast.emit('newUser', { id: socket.id });
-  // Inform the new client whether a game is already in progress
-  socket.emit('gameStatus', { running: gameState !== null });
+  socket.emit('sessionList', getSessionList());
 
   socket.on('disconnect', function() {
-    console.log("User Disconnected");
-    socket.broadcast.emit('userDisconnected', { id:socket.id } );
-    // Release any lobby hero reservation so other players can pick it.
-    if (heroSelections[socket.id] && heroSelections[socket.id] !== 'None') {
-      socket.broadcast.emit('heroReleased', { heroName: heroSelections[socket.id] });
-    }
-    delete heroSelections[socket.id];
-    for (var i = 0; i < users.length; i++) {
-      if (users[i].id == socket.id) {
-        users.splice(i, 1);
-      }
-    }
-    // Also remove from spectators if present
-    var specIdx = spectators.indexOf(socket.id);
-    if (specIdx !== -1) spectators.splice(specIdx, 1);
-    socket.broadcast.emit('getUsers', users);
+    console.log("User Disconnected: " + socket.id);
+    leaveCurrentSession(socket);
   });
 
+  // ── Session management events ────────────────────────────────────────────
+
+  socket.on('leaveSession', function() {
+    console.log('User ' + socket.id + ' left session');
+    leaveCurrentSession(socket);
+  });
+
+  socket.on('createSession', function(data) {
+    leaveCurrentSession(socket); // clean up any previous session first
+    var name = (data && data.name) ? String(data.name).slice(0, 30) : 'Player';
+    var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
+    var allowHeroSelection = (data && data.allowHeroSelection !== false);
+    var sess = createSession(sessionName, allowHeroSelection);
+    sess.users.push(makeUser(socket.id, name));
+    socketToSession[socket.id] = sess.id;
+    socket.join(sess.id);
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ")");
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
+    io.to(sess.id).emit('getUsers', sess.users);
+    socket.emit('gameStatus', { running: false });
+    broadcastSessionList();
+  });
+
+  socket.on('joinSession', function(data) {
+    if (!data || !data.sessionId) return;
+    var sess = sessions[data.sessionId];
+    if (!sess) { socket.emit('sessionNotFound'); return; }
+    if (sess.gameState !== null) { socket.emit('gameStatus', { running: true }); return; }
+    leaveCurrentSession(socket); // leave any previous session first
+    sess = sessions[data.sessionId]; // re-fetch — leaveCurrentSession may have deleted a different session
+    var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
+    var existing = sess.users.find(function(u) { return u.id === socket.id; });
+    if (!existing) sess.users.push(makeUser(socket.id, name));
+    socketToSession[socket.id] = sess.id;
+    socket.join(sess.id);
+    console.log("User " + name + " joined session " + sess.id);
+    // Send existing hero reservations to the new joiner
+    Object.keys(sess.heroSelections).forEach(function(sid) {
+      var h = sess.heroSelections[sid];
+      if (h && h !== 'None' && sid !== socket.id) {
+        socket.emit('heroReserved', { heroName: h });
+      }
+    });
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
+    io.to(sess.id).emit('getUsers', sess.users);
+    socket.emit('gameStatus', { running: false });
+    broadcastSessionList();
+  });
+
+  socket.on('joinSessionSpectator', function(data) {
+    if (!data || !data.sessionId) return;
+    var sess = sessions[data.sessionId];
+    if (!sess || !sess.gameState) { socket.emit('gameStatus', { running: false }); return; }
+    console.log("Spectator joined session " + sess.id + ": " + socket.id);
+    if (sess.spectators.indexOf(socket.id) === -1) sess.spectators.push(socket.id);
+    socketToSession[socket.id] = sess.id;
+    socket.join(sess.id);
+    socket.emit('sessionJoined', { sessionId: sess.id });
+    socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize() });
+  });
+
+  // ── Lobby events ─────────────────────────────────────────────────────────
+
   socket.on('setUserReady', function(id) {
-    console.log("Set User Ready" + id);
-    //socket.emit('userReady', { id:socket.id } );
-    //socket.broadcast.emit('userReady', { id:socket.id } );
-    for (var i = 0; i < users.length; i++) {
-      if (users[i].id == id) {
-        if (users[i].isReady == false) {
-          users[i].isReady = true;
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    console.log("Set User Ready: " + id);
+    for (var i = 0; i < sess.users.length; i++) {
+      if (sess.users[i].id === id) {
+        if (sess.users[i].isReady === false) {
+          sess.users[i].isReady = true;
         } else {
-          users[i].isReady = false;
-          clearInterval(timer);
+          sess.users[i].isReady = false;
+          clearInterval(sess.timer);
         }
       }
     }
-    socket.emit('getUsers', users);
-    socket.broadcast.emit('getUsers', users);
+    io.to(sess.id).emit('getUsers', sess.users);
   });
   
   socket.on('startTimer', function(seconds) {
-    console.log("Start Timer");
-    if (gameState !== null) {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    console.log("Start Timer for session " + sess.id);
+    if (sess.gameState !== null) {
       console.log("Game already running — rejecting startTimer");
       socket.emit('gameAlreadyRunning');
       return;
     }
-    if (users.length < 2) {
+    if (sess.users.length < 2) {
       console.log("Not enough players to start (need at least 2)");
       return;
     }
-    timeToStart = seconds;
-    clearInterval(timer);
-    timer = setInterval(function() {
-      timeToStart--;
-      socket.emit('updateTimer', { seconds: timeToStart });
-      socket.broadcast.emit('updateTimer', { seconds: timeToStart });
-      console.log("Seconds left ... " + timeToStart)
-      if (timeToStart == 0) {
-        console.log("Timer finished, broadcast to users");
-        winnerHandled = false;
-        gameState = new GameState(users);
-        users.forEach((user, idx) => {
-          io.to(user.id).emit('gameState', {
+    sess.timeToStart = seconds;
+    clearInterval(sess.timer);
+    sess.timer = setInterval(function() {
+      sess.timeToStart--;
+      io.to(sess.id).emit('updateTimer', { seconds: sess.timeToStart });
+      console.log("Session " + sess.id + " seconds left: " + sess.timeToStart);
+      if (sess.timeToStart === 0) {
+        console.log("Timer finished for session " + sess.id + ", starting game");
+        sess.winnerHandled = false;
+        sess.gameState = new GameState(sess.users);
+        sess.users.forEach(function(u, idx) {
+          io.to(u.id).emit('gameState', {
             playerIndex: idx,
-            gameState: gameState.serialize()
+            gameState: sess.gameState.serialize()
           });
         });
-        clearInterval(timer);
+        clearInterval(sess.timer);
+        broadcastSessionList();
       }
     }, 1000);
   });
-  
-  socket.on('stopTimer', function(none) {
-    if (timeToStart <= 0) {
-      console.log("Timer stopped!");
-      clearInterval(timer);
+
+  socket.on('stopTimer', function() {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    if (sess.timeToStart <= 0) {
+      console.log("Timer stopped for session " + sess.id);
+      clearInterval(sess.timer);
     }
   });
 
-  // Client requests full state resync — used when a tab was inactive during initialization
-  // and may have missed stateUpdate events before its GameScreen was fully set up.
+  // Client requests full state resync
   socket.on('requestStateSync', function() {
-    if (gameState) {
-      socket.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (sess && sess.gameState) {
+      socket.emit('stateUpdate', sess.gameState.serialize());
     }
   });
 
   socket.on('finishTurn', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("Turn finished by player index: " + data.currentPlayerIndex);
-    // Guard: only advance if the requesting client agrees on who the current player is.
-    // Rejects stale or duplicate finishTurn events from desynced clients.
-    if (data.currentPlayerIndex !== gameState.currentPlayerIndex) {
-      console.log("finishTurn rejected: server currentPlayerIndex=" + gameState.currentPlayerIndex + ", client sent=" + data.currentPlayerIndex);
+    if (data.currentPlayerIndex !== sess.gameState.currentPlayerIndex) {
+      console.log("finishTurn rejected: server currentPlayerIndex=" + sess.gameState.currentPlayerIndex + ", client sent=" + data.currentPlayerIndex);
       return;
     }
-    gameState.finishTurn();
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.finishTurn();
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('putDefCard', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("putDefCard: playerIdx=" + data.playerIdx + " pos=" + data.positionId + " cardId=" + data.cardId);
-    gameState.putDefCard(data.playerIdx, data.positionId, data.cardId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.putDefCard(data.playerIdx, data.positionId, data.cardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('takeDefCard', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("takeDefCard: playerIdx=" + data.playerIdx + " pos=" + data.positionId);
-    gameState.takeDefCard(data.playerIdx, data.positionId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.takeDefCard(data.playerIdx, data.positionId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('addToCemetery', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("addToCemetery: playerIdx=" + data.playerIdx + " cardIds=" + data.cardIds + " draw=" + data.drawFromDeck);
-    gameState.addToCemetery(data.playerIdx, data.cardIds || [], data.drawFromDeck || 0);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.addToCemetery(data.playerIdx, data.cardIds || [], data.drawFromDeck || 0);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('discardDefCards', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("discardDefCards: playerIdx=" + data.playerIdx);
-    gameState.discardDefCards(data.playerIdx, data.slots || []);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.discardDefCards(data.playerIdx, data.slots || []);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('plunderPreview', function(data) {
-    if (!gameState) return;
-    gameState.setPlunderPreview(data);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.setPlunderPreview(data);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('plunderResolved', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
-    gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
-    io.emit('stateUpdate', gameState.serialize());
-    checkAndHandleWinner(io);
+    sess.gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    checkAndHandleWinner(sess);
   });
 
   socket.on('attackPreview', function(data) {
-    if (!gameState) return;
-    gameState.setAttackPreview(data);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.setAttackPreview(data);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('defAttackResolved', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
-    gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
-    io.emit('stateUpdate', gameState.serialize());
-    checkAndHandleWinner(io);
+    sess.gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    checkAndHandleWinner(sess);
   });
 
   socket.on('kingAttackResolved', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("kingAttackResolved: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " success=" + data.success);
-    gameState.kingAttackResolved(data.attackerIdx, data.defenderIdx, data.success, data.attackCardIds || [], data.kingUsed || false);
-    io.emit('stateUpdate', gameState.serialize());
-    checkAndHandleWinner(io);
+    sess.gameState.kingAttackResolved(data.attackerIdx, data.defenderIdx, data.success, data.attackCardIds || [], data.kingUsed || false);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    checkAndHandleWinner(sess);
   });
 
   socket.on('jokerSacrifice', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("jokerSacrifice: playerIdx=" + data.playerIdx);
-    gameState.jokerSacrifice(data.playerIdx, data.jokerCardId, data.drawnCardId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.jokerSacrifice(data.playerIdx, data.jokerCardId, data.drawnCardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Relay hero acquisition to all OTHER clients so they can update their local state.
   socket.on('heroAcquired', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess) return;
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
-    socket.broadcast.emit('heroAcquired', data);
+    socket.to(sess.id).emit('heroAcquired', data);
   });
 
-  // Relay hero loss to all OTHER clients (joker draw stripped hero from its owner).
   socket.on('heroLost', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess) return;
     console.log("heroLost: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
-    socket.broadcast.emit('heroLost', data);
+    socket.to(sess.id).emit('heroLost', data);
   });
 
-  // A player selected (or deselected) a hero in the lobby.
-  // Broadcast heroReserved / heroReleased so other lobby screens update their dropdowns.
   socket.on('heroSelected', function(heroName) {
-    var oldHero = heroSelections[socket.id] || 'None';
-    heroSelections[socket.id] = heroName;
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    var oldHero = sess.heroSelections[socket.id] || 'None';
+    sess.heroSelections[socket.id] = heroName;
     if (oldHero !== 'None') {
-      socket.broadcast.emit('heroReleased', { heroName: oldHero });
+      socket.to(sess.id).emit('heroReleased', { heroName: oldHero });
     }
     if (heroName !== 'None') {
-      socket.broadcast.emit('heroReserved', { heroName: heroName });
+      socket.to(sess.id).emit('heroReserved', { heroName: heroName });
     }
   });
 
-  // Relay mercenary defense boost to all OTHER clients (boost is client-side only, not in server state).
   socket.on('mercDefBoost', function(data) {
-    socket.broadcast.emit('mercDefBoost', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('mercDefBoost', data);
   });
 
-  // Relay Reservists ready count to all OTHER clients.
   socket.on('reservistsKingBoost', function(data) {
-    socket.broadcast.emit('reservistsKingBoost', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('reservistsKingBoost', data);
   });
 
-  // Warlord: swap king card with a hand card (costs 1 take + 1 put).
   socket.on('warlordKingSwap', function(data) {
-    gameState.warlordKingSwap(data.playerIdx, data.oldKingCardId, data.newKingCardId);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.warlordKingSwap(data.playerIdx, data.oldKingCardId, data.newKingCardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Merchant: player discards a card and draws a replacement (1st draw, face-down to others).
   socket.on('merchantTrade', function(data) {
-    gameState.merchantTrade(data.playerIdx, data.discardedCardId, data.drawnCardId);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.merchantTrade(data.playerIdx, data.discardedCardId, data.drawnCardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Merchant 2nd try: player discards 1st drawn card, draws once more (2nd draw revealed to all).
   socket.on('merchantSecondTry', function(data) {
-    gameState.merchantSecondTry(data.playerIdx, data.firstCardId, data.secondCardId, data.isJoker);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.merchantSecondTry(data.playerIdx, data.firstCardId, data.secondCardId, data.isJoker);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Fortified Tower: stack a hand card on top of an existing defense card.
   socket.on('fortifiedTowerStack', function(data) {
-    gameState.putTopDefCard(data.playerIdx, data.slot, data.cardId);
-    io.emit('stateUpdate', gameState.serialize());
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.putTopDefCard(data.playerIdx, data.slot, data.cardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Magician: discard enemy defense card(s) and replace with a new deck card.
   socket.on('magicianSwap', function(data) {
-    gameState.magicianSwap(data.playerIdx, data.targetPlayerIdx, data.positionId,
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.magicianSwap(data.playerIdx, data.targetPlayerIdx, data.positionId,
         data.bottomCardId, data.bottomCovered, data.topCardId, data.topCovered);
-    io.emit('stateUpdate', gameState.serialize());
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Relay spy flip to all OTHER clients.
   socket.on('spyFlip', function(data) {
-    socket.broadcast.emit('spyFlip', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('spyFlip', data);
   });
 
-  // Battery Tower: relay attack intercept and responses between attacker and defender.
   socket.on('batteryDefenseCheck', function(data) {
-    socket.broadcast.emit('batteryDefenseCheck', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('batteryDefenseCheck', data);
   });
+
   socket.on('batteryAllowAttack', function(data) {
-    socket.broadcast.emit('batteryAllowAttack', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('batteryAllowAttack', data);
   });
+
   socket.on('batteryDenyAttack', function(data) {
-    socket.broadcast.emit('batteryDenyAttack', data);
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.to(sess.id).emit('batteryDenyAttack', data);
   });
 
-  // Priest: attacker takes a matching card from an enemy's hand.
   socket.on('priestConvert', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("priestConvert: attackerIdx=" + data.attackerIdx + " targetIdx=" + data.targetPlayerIdx + " cardId=" + data.cardId);
-    gameState.priestConvert(data.attackerIdx, data.targetPlayerIdx, data.cardId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.priestConvert(data.attackerIdx, data.targetPlayerIdx, data.cardId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Saboteurs: place a saboteur on an enemy defense slot (card or empty field).
   socket.on('sabotage', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("sabotage: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
-    gameState.sabotage(data.attackerIdx, data.defenderIdx, data.positionId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.sabotage(data.attackerIdx, data.defenderIdx, data.positionId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Saboteurs: owner recalls a saboteur from an enemy slot.
   socket.on('sabotageCallback', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("sabotageCallback: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
-    gameState.sabotageCallback(data.attackerIdx, data.defenderIdx, data.positionId);
-    io.emit('stateUpdate', gameState.serialize());
+    sess.gameState.sabotageCallback(data.attackerIdx, data.defenderIdx, data.positionId);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Saboteurs: defender sacrifices their defense card to destroy the saboteur.
   socket.on('sabotageSacrifice', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("sabotageSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId);
-    const attackerIdx = gameState.sabotageSacrifice(data.defenderIdx, data.positionId);
-    if (attackerIdx !== undefined && users[attackerIdx]) {
-      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    const attackerIdx = sess.gameState.sabotageSacrifice(data.defenderIdx, data.positionId);
+    if (attackerIdx !== undefined && sess.users[attackerIdx]) {
+      io.to(sess.users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
     }
-    io.emit('stateUpdate', gameState.serialize());
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  // Saboteurs: defender sacrifices a hand card to destroy a saboteur on an empty slot.
   socket.on('sabotageEmptySlotSacrifice', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     console.log("sabotageEmptySlotSacrifice: defenderIdx=" + data.defenderIdx + " pos=" + data.positionId + " card=" + data.handCardId);
-    const attackerIdx = gameState.sabotageEmptySlotSacrifice(data.defenderIdx, data.positionId, data.handCardId);
-    if (attackerIdx !== undefined && users[attackerIdx]) {
-      io.to(users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
+    const attackerIdx = sess.gameState.sabotageEmptySlotSacrifice(data.defenderIdx, data.positionId, data.handCardId);
+    if (attackerIdx !== undefined && sess.users[attackerIdx]) {
+      io.to(sess.users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
     }
-    io.emit('stateUpdate', gameState.serialize());
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('giveUp', function(data) {
-    if (!gameState) return;
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
     var playerIdx = data.playerIndex;
-    if (playerIdx < 0 || playerIdx >= gameState.players.length) return;
-    var player = gameState.players[playerIdx];
+    if (playerIdx < 0 || playerIdx >= sess.gameState.players.length) return;
+    var player = sess.gameState.players[playerIdx];
     if (player.isOut) return;
-    console.log("Player " + playerIdx + " (" + player.name + ") gave up");
+    console.log("Player " + playerIdx + " (" + player.name + ") gave up in session " + sess.id);
     player.isOut = true;
-    if (gameState.currentPlayerIndex === playerIdx) {
-      gameState.finishTurn();
+    if (sess.gameState.currentPlayerIndex === playerIdx) {
+      sess.gameState.finishTurn();
     }
-    io.emit('stateUpdate', gameState.serialize());
-    checkAndHandleWinner(io);
-  });
-
-  socket.on('joinLobby', function(name) {
-    console.log('User joined lobby: ' + name);
-    var existing = users.find(function(u) { return u.id === socket.id; });
-    if (!existing) {
-      users.push(new user(socket.id, name));
-    }
-    io.emit('getUsers', users);
-    // Tell the joining client whether a game is currently running
-    socket.emit('gameStatus', { running: gameState !== null });
-  });
-
-  socket.on('joinSpectator', function() {
-    if (!gameState) {
-      socket.emit('gameStatus', { running: false });
-      return;
-    }
-    console.log('Spectator joined: ' + socket.id);
-    if (spectators.indexOf(socket.id) === -1) {
-      spectators.push(socket.id);
-    }
-    // Send the full game state to the spectator (playerIndex -1 = spectator/read-only)
-    socket.emit('gameState', {
-      playerIndex: -1,
-      gameState: gameState.serialize()
-    });
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    checkAndHandleWinner(sess);
   });
 });
-
-function user(id, name) {
-  this.id = id;
-  this.name = name || 'Player';
-  this.isReady = false;
-}

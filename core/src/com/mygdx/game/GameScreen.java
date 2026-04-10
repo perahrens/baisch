@@ -62,6 +62,7 @@ import com.mygdx.game.heroes.Saboteurs;
 import com.mygdx.game.net.SocketClient;
 import com.mygdx.game.net.SocketListener;
 import com.mygdx.game.util.JSONException;
+import com.mygdx.game.heroes.HeroDescriptions;
 
 //public class GameScreen extends AbstractScreen {
 public class GameScreen extends ScreenAdapter {
@@ -1147,6 +1148,19 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
 
+        // Only add info listener to other players' heroes here.
+        // The current player's heroes get it via heroLabel in showHandStage.
+        if (players.get(i) != currentPlayer) {
+          playerHeroes.get(j).removeAllListeners();
+          final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
+          playerHeroes.get(j).addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              showHeroInfoOverlay(heroInfoName_gs);
+              event.stop();
+            }
+          });
+        }
         gameStage.addActor(playerHeroes.get(j));
       }
 
@@ -2472,6 +2486,14 @@ public class GameScreen extends ScreenAdapter {
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
       heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
+      final String heroInfoName = hero.getHeroName();
+      heroLabel.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          showHeroInfoOverlay(heroInfoName);
+          event.stop();
+        }
+      });
 
       handStage.addActor(hero);
       handStage.addActor(heroLabel);
@@ -2831,6 +2853,49 @@ public class GameScreen extends ScreenAdapter {
       });
       handStage.addActor(slotBtn);
     }
+  }
+
+  private void showHeroInfoOverlay(String heroName) {
+    menuOpen = true;
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.top().pad(20f);
+
+    Label titleLabel = new Label(heroName, MyGdxGame.skin);
+    titleLabel.setColor(Color.GOLD);
+    outer.add(titleLabel).padBottom(10).row();
+
+    Table descTable = new Table();
+    descTable.top().left().pad(4f);
+    Label descLabel = new Label(getHeroDescription(heroName), MyGdxGame.skin);
+    descLabel.setWrap(true);
+    descTable.add(descLabel).left().expandX().fillX().row();
+    ScrollPane descScroll = new ScrollPane(descTable, MyGdxGame.skin);
+    descScroll.setFadeScrollBars(false);
+    descScroll.setScrollingDisabled(true, false);
+    outer.add(descScroll).expandX().fillX().expandY().fillY().padBottom(8f).row();
+
+    TextButton closeBtn = new TextButton("Close", MyGdxGame.skin);
+    closeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        closeMenu();
+      }
+    });
+    outer.add(closeBtn).width(300).height(60).padTop(8).row();
+
+    overlayStage.addActor(outer);
+  }
+
+  private static String getHeroDescription(String name) {
+    return HeroDescriptions.get(name);
   }
 
   private void showInGameMenu() {
@@ -3287,8 +3352,8 @@ public class GameScreen extends ScreenAdapter {
       // Active turn: overlay (menu btn) + game + hand
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Waiting or spectator: only the menu button in overlayStage is clickable
-      Gdx.input.setInputProcessor(overlayStage);
+      // Waiting or spectator: overlay + game/hand so hero info is tappable
+      Gdx.input.setInputProcessor(menuAndGameMulti);
     }
 
     // check if gameState has changed

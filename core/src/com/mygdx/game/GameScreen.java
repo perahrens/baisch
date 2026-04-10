@@ -2858,9 +2858,15 @@ public class GameScreen extends ScreenAdapter {
     titleLabel.setColor(Color.GOLD);
     outer.add(titleLabel).padBottom(10).row();
 
+    Table descTable = new Table();
+    descTable.top().left().pad(4f);
     Label descLabel = new Label(getHeroDescription(heroName), MyGdxGame.skin);
     descLabel.setWrap(true);
-    outer.add(descLabel).left().expandX().fillX().padBottom(8f).row();
+    descTable.add(descLabel).left().expandX().fillX().row();
+    ScrollPane descScroll = new ScrollPane(descTable, MyGdxGame.skin);
+    descScroll.setFadeScrollBars(false);
+    descScroll.setScrollingDisabled(true, false);
+    outer.add(descScroll).expandX().fillX().expandY().fillY().padBottom(8f).row();
 
     TextButton closeBtn = new TextButton("Close", MyGdxGame.skin);
     closeBtn.addListener(new ClickListener() {
@@ -2876,29 +2882,35 @@ public class GameScreen extends ScreenAdapter {
 
   private static String getHeroDescription(String name) {
     if ("Warlord".equals(name)) {
-      return "Attack an enemy defense card directly with your king (1x/turn), bypassing normal restrictions. The king must match the current attack symbol. Also enables swapping your king with a hand card.";
+      return "ABILITY 1 - Direct king attack (1x/turn): Allows your king to attack an enemy defense card directly, bypassing the normal restriction that requires you to have no own defense cards first. The king must still match the current attack symbol and cannot be combined with hand cards in the same attack. To use: select the Warlord, then tap an enemy defense card.\n\n"
+           + "ABILITY 2 - King swap: Swap your king card with a hand card. The hand card becomes the new king; the old king moves to your hand. To use: select your own king card, then tap the hand card you want to place as the new king.";
     } else if ("Magician".equals(name)) {
-      return "Replace an enemy defense slot with new random cards from the deck (1x/turn). Select Magician, then tap an enemy defense card to cast.";
+      return "Replaces all cards in an enemy defense slot with random cards drawn from the deck (1x/turn). The replaced cards go to the cemetery. The new cards inherit an inverted face state: cards that were face-down are placed face-up, and vice versa. If the slot was stacked (two cards), both layers are replaced independently.\n\nTo use: select the Magician, then tap any enemy defense card.";
     } else if ("Spy".equals(name)) {
-      return "Reveal a face-down enemy defense card (1x/turn). Sacrifice a hand card to gain 2 extra reveal actions this turn.";
+      return "Lets you peek at a face-down enemy defense card by flipping it face-up (only you can see the identity; it stays flipped for you until the turn ends). Starts with 1 flip action per turn.\n\nExtend mode: sacrifice one of your own defense cards to gain 2 extra flip actions this turn (max 3 total). To sacrifice: with the Spy selected, tap your own defense card.\n\nTo flip an enemy card: select the Spy, then tap the enemy face-down card.";
     } else if ("Battery Tower".equals(name)) {
-      return "When your defense card or king is attacked, spend 1 charge to deny the attack. The attacker's hand cards are locked and revealed to you. Recharges at the start of each turn.";
+      return "Defensive ability (passive trigger, 1 charge/turn): When one of your defense cards or your king is attacked, you can spend the charge to deny the attack entirely. The attacker's hand cards are locked for the rest of the turn and their attack cards are revealed to you.\n\nTo use: when an incoming attack prompt appears, tap the Battery Tower button to activate it. The charge refills automatically at the start of your next turn.";
     } else if ("Fortified Tower".equals(name)) {
-      return "Stack a second defense card on top of an existing defense slot (1x/turn). Select Fortified Tower, then tap a defense slot to add the top layer.";
+      return "Adds a second defense card on top of an existing defense slot, stacking two layers of protection (1x/turn). The attacker must break through the top card before reaching the bottom card.\n\nTo use: select the Fortified Tower, then tap one of your own defense slots that already has a card. A new card from the deck will be placed face-down on top of that slot.";
     } else if ("Saboteurs".equals(name)) {
-      return "Place one of your 2 saboteurs on an empty enemy defense slot to block it. Select Saboteurs, then tap an empty enemy slot. If destroyed, the saboteur recovers after 2 turns.";
+      return "You have 2 saboteur units. A saboteur placed on an empty enemy defense slot blocks it — the enemy cannot place a defense card there while the saboteur is active. The enemy can call it back (removing the saboteur) on their turn.\n\nIf the enemy attacks through the sabotaged slot and wins, the saboteur is destroyed and takes 2 turns to recover.\n\nTo use: select Saboteurs, then tap an empty enemy defense slot.";
     } else if ("Mercenaries".equals(name)) {
-      return "Boost your attack strength. With hand cards selected for attack, tap Mercenaries to add +1 attack per click. Up to 8 units; 4 recover each new turn.";
+      return "ATTACK BOOST: With attack hand cards already selected, tap the Mercenaries hero to send one mercenary unit into battle, adding +1 to your attack strength. You can tap multiple times to boost further, as long as ready units remain.\n\n"
+           + "DEFENSE BOOST: Select the Mercenaries hero, then tap one of your own defense cards to assign a mercenary to it, adding +1 to that card's defense strength.\n\n"
+           + "You have up to 8 units total. 4 recover each new turn. Units used in a failed attack are lost.";
     } else if ("Marshal".equals(name)) {
-      return "Passive: grants 3 put/take defense card actions per turn instead of the normal limit. No activation needed.";
+      return "Passive ability (no activation needed): Normally you have 1 take and 1 put action for defense cards per turn. With the Marshal in play, both limits are replaced by a shared pool of 3 actions that can be used freely for any combination of takes and puts.\n\nThis allows you to rearrange your defense cards far more flexibly within a single turn.";
     } else if ("Merchant".equals(name)) {
-      return "Swap one of your hand cards for a new random card from the deck (1x/turn). Select Merchant, then tap the hand card you want to discard.";
+      return "Lets you trade away a hand card for a new random card from the deck (1x/turn). The drawn card is shown to you first — you can choose to keep it or spend the trade action a second time to draw again (the first card is discarded).\n\nTo use: select the Merchant, then tap the hand card you want to replace.";
     } else if ("Priest".equals(name)) {
-      return "After initiating an attack, select Priest to attempt converting the enemy defense card to your attack symbol (up to 2x/turn). On success, the card is added to your defense.";
+      return "After you initiate an attack on an enemy defense card, you can use the Priest to attempt to convert the defending card to your attack symbol (up to 2 attempts per turn). The enemy's hand (the cards behind the defense) is revealed to you, and you pick a card. On success, the picked card is added to your hand.\n\nThe Priest is only usable when your attack symbol has been set (i.e. after you have started an attack). To use: select the Priest after initiating an attack, then follow the conversion dialog.";
     } else if ("Banneret".equals(name)) {
-      return "Passive: allows attacking with both symbols of the same color (hearts+diamonds or spades+clubs). Also lets you use your own defense cards as attack cards (they are discarded afterwards).";
+      return "Passive ability (no activation needed): Normally you can only attack with cards of your active symbol. The Banneret grants a second attack symbol of the same color automatically (hearts unlocks diamonds, diamonds unlocks hearts, spades unlocks clubs, clubs unlocks spades), so you can use both in the same attack.\n\n"
+           + "In addition, the Banneret allows you to use your own defense cards as attack cards. Select a combination of hand cards and own defense cards, then attack as usual. The used defense cards are discarded to the cemetery after the attack.";
     } else if ("Reservists".equals(name)) {
-      return "Each ready reservist adds +1 to your king's defense strength automatically. During an attack, tap Reservists to spend one for +1 attack strength. Max 4; recovers 2 per turn.";
+      return "DEFENSE: Each ready reservist automatically adds +1 to your king card's defense strength, with no action required.\n\n"
+           + "ATTACK BOOST: During an attack, after the attack preview screen appears, tap the Reservists button to spend one reservist for +1 attack strength. You can tap multiple times.\n\n"
+           + "You have up to 4 reservists. You start with 2 ready. 2 recover each new turn.";
     }
     return "No information available.";
   }

@@ -131,6 +131,8 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingPlunderBroadcast = null;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
+  // Set when the current player ended their turn without attacking -- they must expose a defense card.
+  private boolean pendingExposeCard = false;
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
@@ -2640,9 +2642,44 @@ public class GameScreen extends ScreenAdapter {
       spectatorLabel.setColor(Color.CYAN);
       spectatorLabel.setPosition(Gdx.graphics.getWidth() - spectatorLabel.getPrefWidth(), 0);
       handStage.addActor(spectatorLabel);
+    } else if (isMyTurn && pendingExposeCard) {
+      finishTurnButton.setVisible(false);
+      addExposeCardOverlay();
     } else {
       finishTurnButton.setVisible(isMyTurn);
-      finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
+      finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket) {
+        private boolean checkedPenalty = false;
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          if (checkedPenalty) { super.clicked(event, x, y); return; }
+          checkedPenalty = true;
+          if (currentPlayer.getPlayerTurn().getAttackCounter() == 0) {
+            boolean hasCoveredCard = false;
+            for (Card c : currentPlayer.getDefCards().values()) {
+              if (c.isCovered()) { hasCoveredCard = true; break; }
+            }
+            if (!hasCoveredCard) {
+              for (Card c : currentPlayer.getTopDefCards().values()) {
+                if (c.isCovered()) { hasCoveredCard = true; break; }
+              }
+            }
+            if (hasCoveredCard) {
+              pendingExposeCard = true;
+              gameState.setUpdateState(true);
+              return;
+            }
+            Card king = currentPlayer.getKingCard();
+            if (king != null && king.isCovered()) {
+              try {
+                JSONObject exposeData = new JSONObject();
+                exposeData.put("playerIdx", playerIndex);
+                socket.emit("exposeKingCard", exposeData);
+              } catch (JSONException ex) { ex.printStackTrace(); }
+            }
+          }
+          super.clicked(event, x, y);
+        }
+      };
       finishTurnButton.addListener(finishTurnButtonListener);
     }
 
@@ -2743,6 +2780,57 @@ public class GameScreen extends ScreenAdapter {
     }
 
     handStage.addActor(finishTurnButton);
+  }
+
+  private void addExposeCardOverlay() {
+    float stageW = Gdx.graphics.getWidth();
+    float stageH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setSize(stageW, stageH);
+    bg.setPosition(0, 0);
+    bg.setColor(0f, 0f, 0f, 0.72f);
+    handStage.addActor(bg);
+
+    Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
+    prompt.setColor(Color.YELLOW);
+    prompt.setPosition(stageW / 2f - prompt.getPrefWidth() / 2f, stageH - prompt.getPrefHeight() - 6);
+    handStage.addActor(prompt);
+
+    float btnW = stageW / 4f;
+    float btnX = 4;
+    Map<Integer, Card> defCards    = currentPlayer.getDefCards();
+    Map<Integer, Card> topDefCards = currentPlayer.getTopDefCards();
+    for (int slot = 1; slot <= 3; slot++) {
+      Card covered = null;
+      if (topDefCards.containsKey(slot) && topDefCards.get(slot).isCovered()) {
+        covered = topDefCards.get(slot);
+      } else if (defCards.containsKey(slot) && defCards.get(slot).isCovered()) {
+        covered = defCards.get(slot);
+      }
+      if (covered == null) continue;
+      final int finalSlot = slot;
+      TextButton slotBtn = new TextButton("Slot " + slot, MyGdxGame.skin);
+      slotBtn.setSize(btnW, slotBtn.getPrefHeight() * 1.5f);
+      slotBtn.setPosition(btnX, stageH / 2f - slotBtn.getHeight() / 2f);
+      btnX += btnW + 4;
+      slotBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          pendingExposeCard = false;
+          try {
+            JSONObject exposeData = new JSONObject();
+            exposeData.put("playerIdx", playerIndex);
+            exposeData.put("slot", finalSlot);
+            socket.emit("exposeDefCard", exposeData);
+            JSONObject ftData = new JSONObject();
+            ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+            socket.emit("finishTurn", ftData);
+          } catch (JSONException ex) { ex.printStackTrace(); }
+        }
+      });
+      handStage.addActor(slotBtn);
+    }
   }
 
   private void showInGameMenu() {
@@ -2966,6 +3054,7 @@ public class GameScreen extends ScreenAdapter {
         Player prevPlayer = gameState.getPlayers().get(prevCurrentIdx);
         prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
+        pendingExposeCard = false;
         // Note: turn notification is fired in the socket listener callback (not here)
         // so it works even when the tab is hidden and the render loop is paused.
       }
@@ -3116,6 +3205,7 @@ public class GameScreen extends ScreenAdapter {
           for (int pr = 0; pr < preyJson.length(); pr++) newPreyIds.add(preyJson.getInt(pr));
         }
         p.getPlayerTurn().setPreyCardIds(newPreyIds);
+        p.getPlayerTurn().setAttackCounter(pj.optInt("attackCount", 0));
       }
 
       // Sync local Saboteurs hero active count: count how many slots across all players are
@@ -3193,7 +3283,7 @@ public class GameScreen extends ScreenAdapter {
     // Game/hand stages are added only when it is this client's active turn.
     if (menuOpen) {
       Gdx.input.setInputProcessor(overlayStage);
-    } else if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null)) {
+    } else if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null || pendingExposeCard)) {
       // Active turn: overlay (menu btn) + game + hand
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {

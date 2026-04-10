@@ -422,13 +422,13 @@ public class MenuScreen extends AbstractScreen {
     Label headLine1 = new Label("Name", MyGdxGame.skin);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
 
-    loggedInUserTable.add(headLine1);
+    loggedInUserTable.add(headLine1).padRight(60);
     loggedInUserTable.add(headLine2);
     loggedInUserTable.row();
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
       User user = loggedInUsers.get(i);
-      Label nameLabel = new Label(user.getName() + "      ", MyGdxGame.skin);
+      Label nameLabel = new Label(user.getName(), MyGdxGame.skin);
 
       if (user.getUserID().equals(menuState.getMyUserID())) {
         nameLabel.setColor(Color.GOLD);
@@ -443,7 +443,7 @@ public class MenuScreen extends AbstractScreen {
         isReady.setColor(Color.RED);
       }
 
-      loggedInUserTable.add(nameLabel);
+      loggedInUserTable.add(nameLabel).padRight(60);
       loggedInUserTable.add(isReady);
       loggedInUserTable.row();
     }
@@ -451,25 +451,25 @@ public class MenuScreen extends AbstractScreen {
     loggedInUserTable.pack();
     loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
 
-    // Notification permission status — shown in all lobby states
-    if (MyGdxGame.turnNotifier.isPermissionGranted()) {
-      Label notifLabel = new Label("\uD83D\uDD14 Notifications: ON", MyGdxGame.skin);
-      notifLabel.setColor(Color.GREEN);
-      notifLabel.setPosition(0, 50);
-      menuStage.addActor(notifLabel);
-    } else {
-      TextButton notifButton = new TextButton("\uD83D\uDD14 Enable notifications", MyGdxGame.skin);
-      notifButton.setPosition(0, 50);
-      notifButton.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
-          MyGdxGame.turnNotifier.requestPermission(new Runnable() {
-            @Override public void run() { show(); }
-          });
-        }
-      });
-      menuStage.addActor(notifButton);
-    }
+    // Notification permission status — temporarily hidden to avoid overlap with lobby buttons
+    // if (MyGdxGame.turnNotifier.isPermissionGranted()) {
+    //   Label notifLabel = new Label("\uD83D\uDD14 Notifications: ON", MyGdxGame.skin);
+    //   notifLabel.setColor(Color.GREEN);
+    //   notifLabel.setPosition(0, 50);
+    //   menuStage.addActor(notifLabel);
+    // } else {
+    //   TextButton notifButton = new TextButton("\uD83D\uDD14 Enable notifications", MyGdxGame.skin);
+    //   notifButton.setPosition(0, 50);
+    //   notifButton.addListener(new ClickListener() {
+    //     @Override
+    //     public void clicked(InputEvent event, float x, float y) {
+    //       MyGdxGame.turnNotifier.requestPermission(new Runnable() {
+    //         @Override public void run() { show(); }
+    //       });
+    //     }
+    //   });
+    //   menuStage.addActor(notifButton);
+    // }
 
     if (gameRunning) {
       // A game is already in progress — show status and offer spectating
@@ -504,6 +504,7 @@ public class MenuScreen extends AbstractScreen {
       boolean isHost = !loggedInUsers.isEmpty()
           && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
+      float buttonY = 0.08f * MyGdxGame.HEIGHT;
 
       Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
       lobbyStatus.setPosition(200, 0);
@@ -512,8 +513,10 @@ public class MenuScreen extends AbstractScreen {
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
         startGameButton.setSize(button.getWidth(), button.getHeight());
-        // Keep Start and Ready separate from hero selector area.
-        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.01f * MyGdxGame.HEIGHT);
+        float buttonGap = 20f;
+        float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
+        float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
+        startGameButton.setPosition(startButtonX, buttonY);
         startGameButton.setDisabled(!canHostStart);
         startGameButton.setTouchable(!canHostStart
             ? com.badlogic.gdx.scenes.scene2d.Touchable.disabled
@@ -531,10 +534,9 @@ public class MenuScreen extends AbstractScreen {
         });
         menuStage.addActor(startGameButton);
 
-        // Host still needs the ready toggle, but place it below Start.
-        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.09f * MyGdxGame.HEIGHT);
+        button.setPosition(readyButtonX, buttonY);
       } else {
-        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, buttonY);
       }
 
       if (timerStarted) {
@@ -596,12 +598,6 @@ public class MenuScreen extends AbstractScreen {
     if (updateScreen) {
       updateScreen = false;
       show();
-    }
-
-    if (menuState.getTimeToStart() <= 0 && timerStarted) {
-      Timer.instance().clear();
-      socket.emit("checkTimer", 0);
-      timerStarted = false;
     }
 
     menuStage.act(delta);

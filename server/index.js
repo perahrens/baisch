@@ -341,6 +341,22 @@ io.on('connection', function(socket) {
     checkAndHandleWinner(sess);
   });
 
+  socket.on('exposeDefCard', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    console.log("exposeDefCard: playerIdx=" + data.playerIdx + " slot=" + data.slot);
+    sess.gameState.exposeDefCard(data.playerIdx, data.slot);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
+  socket.on('exposeKingCard', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    console.log("exposeKingCard: playerIdx=" + data.playerIdx);
+    sess.gameState.exposeKingCard(data.playerIdx);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('jokerSacrifice', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

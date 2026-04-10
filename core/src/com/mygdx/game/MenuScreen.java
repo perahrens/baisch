@@ -531,10 +531,13 @@ public class MenuScreen extends AbstractScreen {
     Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
     actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
     actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
+    actionBar.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
 
     Label lobbyTitle = new Label("Game lobby", MyGdxGame.skin);
-    lobbyTitle.setColor(1f, 1f, 1f, 0.95f);
-    lobbyTitle.setPosition(cx - lobbyTitle.getWidth() / 2f, 0.83f * MyGdxGame.HEIGHT);
+    float lobbyTitleScale = 1.35f;
+    lobbyTitle.setFontScale(lobbyTitleScale);
+    lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
+    lobbyTitle.setPosition(cx - (lobbyTitle.getPrefWidth() * lobbyTitleScale) / 2f, 0.835f * MyGdxGame.HEIGHT);
 
     // logged in count
     loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);

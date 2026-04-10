@@ -3344,8 +3344,8 @@ public class GameScreen extends ScreenAdapter {
       // Active turn: overlay (menu btn) + game + hand
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Waiting or spectator: overlay + game/hand so hero info is tappable
-      Gdx.input.setInputProcessor(menuAndGameMulti);
+      // Waiting or spectator: only overlay/menu input; block gameplay interactions
+      Gdx.input.setInputProcessor(overlayStage);
     }
 
     // check if gameState has changed

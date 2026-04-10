@@ -17,9 +17,9 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -54,6 +54,29 @@ public class MenuScreen extends AbstractScreen {
 
   // Whether the player has entered a name and joined the lobby.
   private boolean lobbyJoined = false;
+
+  // Whether the player has entered a name and reached the session-list screen
+  private boolean nameConfirmed = false;
+
+  // True while the session-creation sub-screen is shown
+  private boolean inSessionCreate = false;
+  // Pending game name typed on the create screen (cleared after creation)
+  private String pendingSessionName = "";
+  // Whether hero selection is allowed in the current session
+  private boolean sessionAllowHeroSelection = false;
+
+  // The session list received from the server
+  private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
+
+  private static class SessionInfo {
+    String id;
+    String name;
+    int playerCount;
+    boolean running;
+    SessionInfo(String id, String name, int playerCount, boolean running) {
+      this.id = id; this.name = name; this.playerCount = playerCount; this.running = running;
+    }
+  }
 
   // Hero names in display order — used to rebuild the dropdown while preserving order.
   private static final String[] ALL_HERO_NAMES = {
@@ -137,7 +160,7 @@ public class MenuScreen extends AbstractScreen {
     });
 
     group.addActor(logoImage);
-    group.addActor(button);
+    // button is NOT in the group so it only appears on the lobby screen
 
     menuStage.addActor(group);
     menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
@@ -159,6 +182,8 @@ public class MenuScreen extends AbstractScreen {
    */
   private void refreshHeroDropdown() {
     String currentSelected = heroSelectBox.getSelected();
+    // Treat null (empty SelectBox) the same as "None" so we don't wipe startingHero.
+    if (currentSelected == null) currentSelected = "None";
     Array<String> items = new Array<String>();
     items.add("None");
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
@@ -169,11 +194,14 @@ public class MenuScreen extends AbstractScreen {
     updatingDropdown = true;
     heroSelectBox.setItems(items);
     // Keep the previous selection if it is still available; otherwise fall back to "None".
-    if (currentSelected != null && !reservedByOthers.contains(currentSelected)) {
+    if (!currentSelected.equals("None") && !reservedByOthers.contains(currentSelected)) {
       heroSelectBox.setSelected(currentSelected);
-    } else {
+    } else if (!currentSelected.equals("None")) {
+      // Hero was reserved by another player — reset.
       heroSelectBox.setSelected("None");
       menuState.setStartingHero("None");
+    } else {
+      heroSelectBox.setSelected("None");
     }
     updatingDropdown = false;
   }
@@ -185,43 +213,201 @@ public class MenuScreen extends AbstractScreen {
 
     menuStage.addActor(group);
 
-    if (!lobbyJoined) {
+    if (!nameConfirmed) {
       showNameEntryScreen();
+    } else if (!lobbyJoined && inSessionCreate) {
+      showSessionCreateScreen();
+    } else if (!lobbyJoined) {
+      showSessionListScreen();
     } else {
       showLobbyScreen();
     }
   }
 
   private void showNameEntryScreen() {
-    TextButton enterNameButton = new TextButton("Enter your name", MyGdxGame.skin);
-    enterNameButton.setSize(button.getWidth(), button.getHeight());
-    enterNameButton.setPosition((MyGdxGame.WIDTH - enterNameButton.getWidth()) / 2f, 0.45f * MyGdxGame.HEIGHT);
+    float cx = MyGdxGame.WIDTH / 2f;
+
+    // A button-shaped area that opens the native text dialog on click/tap.
+    // getTextInput() is called synchronously from the DOM click event inside GWT,
+    // so the mobile keyboard always opens.
+    String label = menuState.getMyName().isEmpty() ? "Enter your name" : menuState.getMyName();
+    TextButton enterNameButton = new TextButton(label, MyGdxGame.skin);
+    enterNameButton.setSize(button.getWidth() * 2, button.getHeight());
+    enterNameButton.setPosition(cx - enterNameButton.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
     enterNameButton.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        Gdx.input.getTextInput(new Input.TextInputListener() {
+        Gdx.input.getTextInput(new com.badlogic.gdx.Input.TextInputListener() {
           @Override
           public void input(String text) {
             String name = text.trim();
-            if (name.isEmpty()) {
-              showNameEntryScreen();
-              return;
-            }
+            if (name.isEmpty()) return;
             menuState.setMyName(name);
-            lobbyJoined = true;
-            socket.emit("joinLobby", name);
-            show();
+            nameConfirmed = true;
+            Gdx.app.postRunnable(new Runnable() {
+              @Override public void run() { show(); }
+            });
           }
           @Override
-          public void canceled() {
-            // Stay on name entry screen
-          }
-        }, "Baisch", "", "Enter your name");
+          public void canceled() { /* stay on name entry screen */ }
+        }, "Baisch", menuState.getMyName(), "Enter your name");
       }
     });
 
     menuStage.addActor(enterNameButton);
     Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private void showSessionListScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+
+    Label title = new Label("Games", MyGdxGame.skin);
+    title.setPosition(cx - title.getWidth() / 2f, 0.75f * MyGdxGame.HEIGHT);
+    menuStage.addActor(title);
+
+    Table sessTable = new Table(MyGdxGame.skin);
+    Label h1 = new Label("Name", MyGdxGame.skin);
+    Label h2 = new Label("Players", MyGdxGame.skin);
+    Label h3 = new Label("", MyGdxGame.skin);
+    sessTable.add(h1).padRight(20);
+    sessTable.add(h2).padRight(20);
+    sessTable.add(h3);
+    sessTable.row();
+
+    final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
+    for (final SessionInfo s : list) {
+      Label nameL = new Label(s.name, MyGdxGame.skin);
+      Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
+      if (s.running) {
+        Label runL = new Label("Playing", MyGdxGame.skin);
+        runL.setColor(Color.YELLOW);
+        TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
+        watchBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            socket.emit("joinSessionSpectator", buildJoinData(s.id));
+          }
+        });
+        sessTable.add(nameL).padRight(20);
+        sessTable.add(countL).padRight(20);
+        sessTable.add(watchBtn);
+      } else {
+        TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
+        joinBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            socket.emit("joinSession", buildJoinData(s.id));
+          }
+        });
+        sessTable.add(nameL).padRight(20);
+        sessTable.add(countL).padRight(20);
+        sessTable.add(joinBtn);
+      }
+      sessTable.row();
+    }
+
+    sessTable.pack();
+    sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.35f * MyGdxGame.HEIGHT);
+    menuStage.addActor(sessTable);
+
+    TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+    createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
+    createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.15f * MyGdxGame.HEIGHT);
+    createBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        inSessionCreate = true;
+        show();
+      }
+    });
+
+    menuStage.addActor(createBtn);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private void showSessionCreateScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+
+    // All elements must sit below the logo (logo bottom ≈ 0.9*H - logoHeight ≈ 449px on a
+    // 800px-high screen). Use the lower half of the display for all create-screen widgets.
+    Label title = new Label("New game", MyGdxGame.skin);
+    title.setPosition(cx - title.getWidth() / 2f, 0.50f * MyGdxGame.HEIGHT);
+    menuStage.addActor(title);
+
+    // Button that shows the current game name and opens a native dialog to edit it
+    final String nameDisplay = pendingSessionName.isEmpty() ? "Set name (optional)" : pendingSessionName;
+    final TextButton gameNameBtn = new TextButton(nameDisplay, MyGdxGame.skin);
+    gameNameBtn.setSize(button.getWidth() * 2, button.getHeight());
+    gameNameBtn.setPosition(cx - gameNameBtn.getWidth() / 2f, 0.38f * MyGdxGame.HEIGHT);
+    gameNameBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        Gdx.input.getTextInput(new com.badlogic.gdx.Input.TextInputListener() {
+          @Override
+          public void input(String text) {
+            pendingSessionName = text.trim();
+            Gdx.app.postRunnable(new Runnable() {
+              @Override public void run() { show(); }
+            });
+          }
+          @Override public void canceled() { /* keep current name */ }
+        }, "New game", pendingSessionName, "Enter game name (optional)");
+      }
+    });
+    menuStage.addActor(gameNameBtn);
+
+    // Checkbox: allow starting hero selection
+    final CheckBox heroCheckbox = new CheckBox(" Allow starting hero", MyGdxGame.skin);
+    heroCheckbox.setChecked(sessionAllowHeroSelection);
+    heroCheckbox.pack();
+    heroCheckbox.setPosition(cx - heroCheckbox.getWidth() / 2f, 0.26f * MyGdxGame.HEIGHT);
+    menuStage.addActor(heroCheckbox);
+
+    // Create button
+    TextButton confirmCreateBtn = new TextButton("Create", MyGdxGame.skin);
+    confirmCreateBtn.setSize(button.getWidth(), button.getHeight());
+    confirmCreateBtn.setPosition(cx - confirmCreateBtn.getWidth() / 2f, 0.14f * MyGdxGame.HEIGHT);
+    confirmCreateBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        String sessionName = pendingSessionName.isEmpty()
+            ? menuState.getMyName() + "'s game" : pendingSessionName;
+        sessionAllowHeroSelection = heroCheckbox.isChecked();
+        JSONObject data = new JSONObject();
+        try {
+          data.put("name", menuState.getMyName());
+          data.put("sessionName", sessionName);
+          data.put("allowHeroSelection", sessionAllowHeroSelection);
+        } catch (JSONException e) { /* ignore */ }
+        socket.emit("createSession", data);
+        pendingSessionName = "";
+        inSessionCreate = false;
+      }
+    });
+    menuStage.addActor(confirmCreateBtn);
+
+    // Back button
+    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    backBtn.setPosition(10, MyGdxGame.HEIGHT - backBtn.getHeight() - 10);
+    backBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        inSessionCreate = false;
+        show();
+      }
+    });
+    menuStage.addActor(backBtn);
+
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private JSONObject buildJoinData(String sessionId) {
+    JSONObject data = new JSONObject();
+    try {
+      data.put("sessionId", sessionId);
+      data.put("name", menuState.getMyName());
+    } catch (JSONException e) { /* ignore */ }
+    return data;
   }
 
   private void showLobbyScreen() {
@@ -234,9 +420,7 @@ public class MenuScreen extends AbstractScreen {
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
     Label headLine1 = new Label("Name", MyGdxGame.skin);
-    headLine1.setFontScale(1.2f);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
-    headLine2.setFontScale(1.2f);
 
     loggedInUserTable.add(headLine1);
     loggedInUserTable.add(headLine2);
@@ -264,7 +448,8 @@ public class MenuScreen extends AbstractScreen {
       loggedInUserTable.row();
     }
 
-    loggedInUserTable.setPosition(200, 300);
+    loggedInUserTable.pack();
+    loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
 
     // Notification permission status — shown in all lobby states
     if (MyGdxGame.turnNotifier.isPermissionGranted()) {
@@ -326,18 +511,41 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(timerLabel);
 
       // Rebuild hero dropdown excluding heroes reserved by other lobby players.
-      refreshHeroDropdown();
+      if (sessionAllowHeroSelection) {
+        refreshHeroDropdown();
 
-      // Add hero selector directly to stage so popup coordinates work correctly
-      Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
-      heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
-      menuStage.addActor(heroLabel);
-      menuStage.addActor(heroSelectBox);
+        // Add hero selector directly to stage so popup coordinates work correctly
+        Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
+        heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
+        menuStage.addActor(heroLabel);
+        menuStage.addActor(heroSelectBox);
+      } else {
+        // No hero selection in this session — clear any stale hero from a previous session.
+        menuState.setStartingHero("None");
+      }
       menuStage.addActor(button);
     }
 
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
+
+    // Leave session — returns to session list
+    TextButton leaveBtn = new TextButton("Leave", MyGdxGame.skin);
+    leaveBtn.setPosition(10, MyGdxGame.HEIGHT - leaveBtn.getHeight() - 10);
+    leaveBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        socket.emit("leaveSession", "");
+        lobbyJoined = false;
+        timerStarted = false;
+        gameRunning = false;
+        menuState.clearUsers();
+        reservedByOthers.clear();
+        show();
+      }
+    });
+    menuStage.addActor(leaveBtn);
+
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -602,7 +810,67 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             timerStarted = false;
             gameRunning = false;
+            lobbyJoined = false;
+            menuState.clearUsers();
+            reservedByOthers.clear();
             game.setScreen(MenuScreen.this);
+          }
+        });
+      }
+    });
+
+    socket.on("sessionList", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONArray arr = (JSONArray) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            sessionList.clear();
+            try {
+              for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                sessionList.add(new SessionInfo(
+                  o.getString("id"),
+                  o.getString("name"),
+                  o.getInt("playerCount"),
+                  o.getBoolean("running")
+                ));
+              }
+            } catch (JSONException e) {
+              Gdx.app.log("SocketIO", "Error parsing sessionList");
+            }
+            if (!lobbyJoined) updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("sessionJoined", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONObject data = (JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              sessionAllowHeroSelection = data.optBoolean("allowHeroSelection", true);
+            } catch (Exception e) { /* keep default */ }
+            lobbyJoined = true;
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("sessionNotFound", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            // Session was removed between list refresh and join — just refresh
+            updateScreen = true;
           }
         });
       }

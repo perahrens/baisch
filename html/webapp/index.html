@@ -16,6 +16,18 @@
        </body>
 
        <script>
+              // Prevent libGDX's global keydown handler from swallowing backspace
+              // when the user is typing inside a native text input (getTextInput overlay).
+              // useCapture=true ensures this runs before libGDX's bubbling-phase listener.
+              document.addEventListener('keydown', function(e) {
+                if (e.keyCode === 8) { // Backspace
+                  var el = document.activeElement;
+                  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                    e.stopImmediatePropagation();
+                  }
+                }
+              }, true);
+
               function handleMouseDown(evt) {
                 evt.preventDefault();
                 evt.stopPropagation();

@@ -494,8 +494,16 @@ public class MenuScreen extends AbstractScreen {
       for (int i = 0; i < loggedInUsers.size(); i++) {
         if (loggedInUsers.get(i).isReady()) readyCount++;
       }
+      boolean amReady = false;
+      for (int i = 0; i < loggedInUsers.size(); i++) {
+        if (loggedInUsers.get(i).getUserID().equals(menuState.getMyUserID())) {
+          amReady = loggedInUsers.get(i).isReady();
+          break;
+        }
+      }
       boolean isHost = !loggedInUsers.isEmpty()
           && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
+      boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
 
       Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
       lobbyStatus.setPosition(200, 0);
@@ -504,12 +512,17 @@ public class MenuScreen extends AbstractScreen {
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
         startGameButton.setSize(button.getWidth(), button.getHeight());
-        // Keep Start and Ready separate so both remain visible to host.
-        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.18f * MyGdxGame.HEIGHT);
-        startGameButton.setDisabled(readyCount < 2);
-        startGameButton.setTouchable(readyCount < 2
+        // Keep Start and Ready separate from hero selector area.
+        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.01f * MyGdxGame.HEIGHT);
+        startGameButton.setDisabled(!canHostStart);
+        startGameButton.setTouchable(!canHostStart
             ? com.badlogic.gdx.scenes.scene2d.Touchable.disabled
             : com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+        if (canHostStart) {
+          startGameButton.setColor(0.2f, 0.8f, 0.2f, 1f);
+        } else {
+          startGameButton.setColor(0.6f, 0.6f, 0.6f, 1f);
+        }
         startGameButton.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -519,9 +532,15 @@ public class MenuScreen extends AbstractScreen {
         menuStage.addActor(startGameButton);
 
         // Host still needs the ready toggle, but place it below Start.
-        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.08f * MyGdxGame.HEIGHT);
+        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.09f * MyGdxGame.HEIGHT);
       } else {
         button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+      }
+
+      if (timerStarted) {
+        Label countdownLabel = new Label("Starting in " + menuState.getTimeToStart() + "...", MyGdxGame.skin);
+        countdownLabel.setPosition(200, 25);
+        menuStage.addActor(countdownLabel);
       }
 
       // Rebuild hero dropdown excluding heroes reserved by other lobby players.
@@ -737,11 +756,26 @@ public class MenuScreen extends AbstractScreen {
         try {
           int timeToStart = data.getInt("seconds");
           menuState.setTimeToStart(timeToStart);
+          timerStarted = timeToStart > 0;
           Gdx.app.log("SocketIO", "Seconds to start game: " + timeToStart);
           show();
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error in timer!");
         }
+      }
+    });
+
+    socket.on("startCountdownCanceled", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            timerStarted = false;
+            menuState.setTimeToStart(5);
+            updateScreen = true;
+          }
+        });
       }
     });
 

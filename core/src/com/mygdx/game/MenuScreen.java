@@ -504,7 +504,8 @@ public class MenuScreen extends AbstractScreen {
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
         startGameButton.setSize(button.getWidth(), button.getHeight());
-        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+        // Keep Start and Ready separate so both remain visible to host.
+        startGameButton.setPosition((MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f, 0.18f * MyGdxGame.HEIGHT);
         startGameButton.setDisabled(readyCount < 2);
         startGameButton.setTouchable(readyCount < 2
             ? com.badlogic.gdx.scenes.scene2d.Touchable.disabled
@@ -516,6 +517,11 @@ public class MenuScreen extends AbstractScreen {
           }
         });
         menuStage.addActor(startGameButton);
+
+        // Host still needs the ready toggle, but place it below Start.
+        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.08f * MyGdxGame.HEIGHT);
+      } else {
+        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
       }
 
       // Rebuild hero dropdown excluding heroes reserved by other lobby players.

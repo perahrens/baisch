@@ -406,6 +406,14 @@ public class GameState {
    */
   public void applyHeroAcquired(int playerIdx, String heroName) {
     Hero hero = heroesSquare.consumeHeroByName(heroName);
+    if (hero == null) {
+      // Hero was stolen from another player (not drawn from the square).
+      // Strip it from whoever currently owns it so there are no duplicates.
+      int ownerIdx = findHeroOwnerIndex(heroName);
+      if (ownerIdx >= 0 && ownerIdx != playerIdx) {
+        hero = players.get(ownerIdx).removeHeroByName(heroName);
+      }
+    }
     if (hero != null && playerIdx >= 0 && playerIdx < players.size()) {
       players.get(playerIdx).addHero(hero);
     }

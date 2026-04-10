@@ -422,13 +422,13 @@ public class MenuScreen extends AbstractScreen {
     Label headLine1 = new Label("Name", MyGdxGame.skin);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
 
-    loggedInUserTable.add(headLine1);
+    loggedInUserTable.add(headLine1).padRight(60);
     loggedInUserTable.add(headLine2);
     loggedInUserTable.row();
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
       User user = loggedInUsers.get(i);
-      Label nameLabel = new Label(user.getName() + "      ", MyGdxGame.skin);
+      Label nameLabel = new Label(user.getName(), MyGdxGame.skin);
 
       if (user.getUserID().equals(menuState.getMyUserID())) {
         nameLabel.setColor(Color.GOLD);
@@ -443,7 +443,7 @@ public class MenuScreen extends AbstractScreen {
         isReady.setColor(Color.RED);
       }
 
-      loggedInUserTable.add(nameLabel);
+      loggedInUserTable.add(nameLabel).padRight(60);
       loggedInUserTable.add(isReady);
       loggedInUserTable.row();
     }
@@ -451,25 +451,25 @@ public class MenuScreen extends AbstractScreen {
     loggedInUserTable.pack();
     loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
 
-    // Notification permission status — shown in all lobby states
-    if (MyGdxGame.turnNotifier.isPermissionGranted()) {
-      Label notifLabel = new Label("\uD83D\uDD14 Notifications: ON", MyGdxGame.skin);
-      notifLabel.setColor(Color.GREEN);
-      notifLabel.setPosition(0, 50);
-      menuStage.addActor(notifLabel);
-    } else {
-      TextButton notifButton = new TextButton("\uD83D\uDD14 Enable notifications", MyGdxGame.skin);
-      notifButton.setPosition(0, 50);
-      notifButton.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
-          MyGdxGame.turnNotifier.requestPermission(new Runnable() {
-            @Override public void run() { show(); }
-          });
-        }
-      });
-      menuStage.addActor(notifButton);
-    }
+    // Notification permission status — temporarily hidden to avoid overlap with lobby buttons
+    // if (MyGdxGame.turnNotifier.isPermissionGranted()) {
+    //   Label notifLabel = new Label("\uD83D\uDD14 Notifications: ON", MyGdxGame.skin);
+    //   notifLabel.setColor(Color.GREEN);
+    //   notifLabel.setPosition(0, 50);
+    //   menuStage.addActor(notifLabel);
+    // } else {
+    //   TextButton notifButton = new TextButton("\uD83D\uDD14 Enable notifications", MyGdxGame.skin);
+    //   notifButton.setPosition(0, 50);
+    //   notifButton.addListener(new ClickListener() {
+    //     @Override
+    //     public void clicked(InputEvent event, float x, float y) {
+    //       MyGdxGame.turnNotifier.requestPermission(new Runnable() {
+    //         @Override public void run() { show(); }
+    //       });
+    //     }
+    //   });
+    //   menuStage.addActor(notifButton);
+    // }
 
     if (gameRunning) {
       // A game is already in progress — show status and offer spectating
@@ -489,26 +489,61 @@ public class MenuScreen extends AbstractScreen {
       });
       menuStage.addActor(watchButton);
     } else {
-      // No game running — show normal ready/start controls
-      // check if all players are ready (requires >= 2)
-      if (menuState.allReady() && !timerStarted) {
-        System.out.println("All players ready...");
-        socket.emit("startTimer", 5);
-        menuState.setTimeToStart(5);
-        timerStarted = true;
+      // No game running — host can start once enough players are ready.
+      int readyCount = 0;
+      for (int i = 0; i < loggedInUsers.size(); i++) {
+        if (loggedInUsers.get(i).isReady()) readyCount++;
+      }
+      boolean amReady = false;
+      for (int i = 0; i < loggedInUsers.size(); i++) {
+        if (loggedInUsers.get(i).getUserID().equals(menuState.getMyUserID())) {
+          amReady = loggedInUsers.get(i).isReady();
+          break;
+        }
+      }
+      boolean isHost = !loggedInUsers.isEmpty()
+          && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
+      boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
+      float buttonY = 0.08f * MyGdxGame.HEIGHT;
+
+      Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
+      lobbyStatus.setPosition(200, 0);
+      menuStage.addActor(lobbyStatus);
+
+      if (isHost) {
+        TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
+        startGameButton.setSize(button.getWidth(), button.getHeight());
+        float buttonGap = 20f;
+        float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
+        float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
+        startGameButton.setPosition(startButtonX, buttonY);
+        startGameButton.setDisabled(!canHostStart);
+        startGameButton.setTouchable(!canHostStart
+            ? com.badlogic.gdx.scenes.scene2d.Touchable.disabled
+            : com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+        if (canHostStart) {
+          startGameButton.setColor(0.2f, 0.8f, 0.2f, 1f);
+        } else {
+          startGameButton.setColor(0.6f, 0.6f, 0.6f, 1f);
+        }
+        startGameButton.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            socket.emit("startGame", new JSONObject());
+          }
+        });
+        menuStage.addActor(startGameButton);
+
+        button.setPosition(readyButtonX, buttonY);
+      } else {
+        button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, buttonY);
       }
 
-      if (!menuState.allReady() && timerStarted) {
-        timerStarted = false;
-        menuState.setTimeToStart(5);
-      }
-
-      Label timerLabel = new Label("Waiting for players ... ", MyGdxGame.skin);
       if (timerStarted) {
-        timerLabel = new Label("Time to start ... " + menuState.getTimeToStart(), MyGdxGame.skin);
+        Label countdownLabel = new Label("Starting in " + menuState.getTimeToStart() + "...", MyGdxGame.skin);
+        countdownLabel.setPosition(200, 25);
+        menuStage.addActor(countdownLabel);
       }
-      timerLabel.setPosition(200, 0);
-      menuStage.addActor(timerLabel);
 
       // Rebuild hero dropdown excluding heroes reserved by other lobby players.
       if (sessionAllowHeroSelection) {
@@ -563,12 +598,6 @@ public class MenuScreen extends AbstractScreen {
     if (updateScreen) {
       updateScreen = false;
       show();
-    }
-
-    if (menuState.getTimeToStart() <= 0 && timerStarted) {
-      Timer.instance().clear();
-      socket.emit("checkTimer", 0);
-      timerStarted = false;
     }
 
     menuStage.act(delta);
@@ -723,11 +752,26 @@ public class MenuScreen extends AbstractScreen {
         try {
           int timeToStart = data.getInt("seconds");
           menuState.setTimeToStart(timeToStart);
+          timerStarted = timeToStart > 0;
           Gdx.app.log("SocketIO", "Seconds to start game: " + timeToStart);
           show();
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error in timer!");
         }
+      }
+    });
+
+    socket.on("startCountdownCanceled", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            timerStarted = false;
+            menuState.setTimeToStart(5);
+            updateScreen = true;
+          }
+        });
       }
     });
 
@@ -797,6 +841,35 @@ public class MenuScreen extends AbstractScreen {
             timerStarted = false;
             gameRunning = true;
             updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("notEnoughReadyPlayers", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("leftSessionNotReady", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            lobbyJoined = false;
+            timerStarted = false;
+            gameRunning = false;
+            menuState.clearUsers();
+            reservedByOthers.clear();
+            show();
           }
         });
       }

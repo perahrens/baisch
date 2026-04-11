@@ -1138,20 +1138,18 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
 
-        // Add info listener for all non-active board heroes.
-        // Active player's detailed hero info is still handled via heroLabel in showHandStage.
-        boolean shouldShowBoardHeroInfo = players.get(i) != gameState.getCurrentPlayer();
-        if (shouldShowBoardHeroInfo) {
-          playerHeroes.get(j).removeAllListeners();
-          final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
-          playerHeroes.get(j).addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-              showHeroInfoOverlay(heroInfoName_gs);
-              event.stop();
-            }
-          });
-        }
+        // All board heroes get an info overlay click listener.
+        // (Local player's own heroes are moved to handStage by showHandStage, so the
+        //  listener added here gets replaced there — no conflict.)
+        playerHeroes.get(j).removeAllListeners();
+        final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
+        playerHeroes.get(j).addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            showHeroInfoOverlay(heroInfoName_gs);
+            event.stop();
+          }
+        });
         gameStage.addActor(playerHeroes.get(j));
       }
 

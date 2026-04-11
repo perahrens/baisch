@@ -17,6 +17,7 @@ public class HtmlLauncher extends GwtApplication {
         WebSocketClient socketClient = new WebSocketClient(getServerUrl());
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
+        MyGdxGame.playerStorage = new BrowserPlayerStorage();
         return new MyGdxGame();
     }
 

@@ -130,6 +130,8 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingAttackBroadcast = null;
   // Plunder preview broadcast: set from stateUpdate when another player has a pending plunder
   private JSONObject pendingPlunderBroadcast = null;
+  // Pending hero selection after a successful king defeat (attacker must choose one hero)
+  private java.util.ArrayList<String> pendingKingDefeatHeroOptions = null;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
@@ -2073,6 +2075,53 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
+    // King-defeat hero selection overlay — shown to the attacker when they must pick one of the
+    // defeated player's heroes. Only appears when pendingKingDefeatHeroOptions is populated.
+    if (pendingKingDefeatHeroOptions != null && !pendingKingDefeatHeroOptions.isEmpty()) {
+      final java.util.ArrayList<String> kdOptions = pendingKingDefeatHeroOptions;
+
+      Image kdOverlay = new Image(MyGdxGame.skin, "white");
+      kdOverlay.setFillParent(true);
+      kdOverlay.setColor(0f, 0f, 0f, 0.78f);
+      gameStage.addActor(kdOverlay);
+
+      Label kdTitle = new Label("Choose a Hero from the defeated player:", MyGdxGame.skin);
+      kdTitle.setColor(Color.GOLD);
+      kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
+      gameStage.addActor(kdTitle);
+
+      float btnW    = MyGdxGame.WIDTH / 5f;
+      float btnGapX = MyGdxGame.WIDTH * 0.05f;
+      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      float startY  = MyGdxGame.WIDTH * 0.62f;
+      float rowH    = 0f;
+
+      for (int ci = 0; ci < kdOptions.size(); ci++) {
+        final String heroName = kdOptions.get(ci);
+        TextButton heroBtn = new TextButton(heroName, MyGdxGame.skin);
+        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
+        int col = ci % 4;
+        int row = ci / 4;
+        heroBtn.setWidth(btnW);
+        heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
+        heroBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            pendingKingDefeatHeroOptions = null;
+            try {
+              JSONObject emitData = new JSONObject();
+              emitData.put("heroName", heroName);
+              socket.emit("heroSelectedFromKingDefeat", emitData);
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+            gameState.setUpdateState(true);
+          }
+        });
+        gameStage.addActor(heroBtn);
+      }
+    }
+
     // Sword overlay on both harvest decks when plunder is available — added late so it sits above all cards.
     // Crone overlay on own king card when king attack is possible.
     if (gameState.getCurrentPlayer() == currentPlayer) {
@@ -3300,6 +3349,21 @@ public class GameScreen extends ScreenAdapter {
         pendingPlunderBroadcast = serverPendingPlunder;
       } else {
         pendingPlunderBroadcast = null;
+      }
+
+      // Sync pending hero selection after king defeat (only relevant to the attacker)
+      JSONObject serverPendingHeroSel = state.optJSONObject("pendingHeroSelection");
+      if (serverPendingHeroSel != null && serverPendingHeroSel.optInt("attackerIdx", -1) == playerIndex) {
+        JSONArray optionsJson = serverPendingHeroSel.optJSONArray("options");
+        if (optionsJson != null && optionsJson.length() > 0) {
+          java.util.ArrayList<String> opts = new java.util.ArrayList<String>();
+          for (int oi = 0; oi < optionsJson.length(); oi++) opts.add(optionsJson.getString(oi));
+          pendingKingDefeatHeroOptions = opts;
+        } else {
+          pendingKingDefeatHeroOptions = null;
+        }
+      } else {
+        pendingKingDefeatHeroOptions = null;
       }
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)

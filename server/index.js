@@ -477,6 +477,18 @@ io.on('connection', function(socket) {
     checkAndHandleWinner(sess);
   });
 
+  socket.on('heroSelectedFromKingDefeat', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var pending = sess.gameState.pendingHeroSelection;
+    if (!pending) return;
+    var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (userIdx !== pending.attackerIdx) return;
+    console.log("heroSelectedFromKingDefeat: attacker=" + userIdx + " hero=" + data.heroName);
+    sess.gameState.resolveHeroSelection(data.heroName);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('exposeDefCard', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

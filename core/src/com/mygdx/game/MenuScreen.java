@@ -1184,6 +1184,26 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    socket.on("duplicateTab", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            menuStage.clear();
+            Label msg = new Label(
+                "This game was opened in another browser tab.\nThis tab is no longer active.",
+                MyGdxGame.skin);
+            msg.setPosition(
+                MyGdxGame.WIDTH / 2f - msg.getPrefWidth() / 2f,
+                MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+            menuStage.addActor(msg);
+            Gdx.input.setInputProcessor(menuStage);
+          }
+        });
+      }
+    });
+
     // Connect only after all listeners are registered so no events are missed
     socket.connect();
   }

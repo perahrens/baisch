@@ -9,4 +9,6 @@ public interface SocketClient {
   void on(String event, SocketListener listener);
   void emit(String event, Object data);
   void connect();
+  /** Cleanly disconnect and prevent auto-reconnect. */
+  void disconnect();
 }

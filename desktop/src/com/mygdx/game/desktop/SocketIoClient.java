@@ -24,6 +24,11 @@ public class SocketIoClient implements SocketClient {
   }
 
   @Override
+  public void disconnect() {
+    socket.disconnect();
+  }
+
+  @Override
   public void on(String event, final SocketListener listener) {
     socket.on(event, new Emitter.Listener() {
       @Override

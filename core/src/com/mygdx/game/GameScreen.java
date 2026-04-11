@@ -309,9 +309,14 @@ public class GameScreen extends ScreenAdapter {
               int slot = data.getInt("slot");
               int level = data.getInt("level");
               Player p = gameState.getPlayers().get(tIdx);
-              Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
-              Card c = cards.get(slot);
-              if (c != null) c.setCovered(false);
+              if (slot == -1) {
+                // Spy flipped the king card
+                if (p.getKingCard() != null) p.getKingCard().setCovered(false);
+              } else {
+                Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
+                Card c = cards.get(slot);
+                if (c != null) c.setCovered(false);
+              }
               gameState.setUpdateState(true);
             } catch (JSONException e) {
               e.printStackTrace();

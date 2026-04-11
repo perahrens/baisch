@@ -2525,12 +2525,23 @@ public class GameScreen extends ScreenAdapter {
       }
 
       hero.removeAllListeners();
-      ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer(), gameState);
-      hero.addListener(ownHeroListener);
+      final String heroInfoName = hero.getHeroName();
+      if (currentPlayer == gameState.getCurrentPlayer()) {
+        ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer(), gameState);
+        hero.addListener(ownHeroListener);
+      } else {
+        // Not our turn — hero is not usable; clicking the image shows info instead.
+        hero.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            showHeroInfoOverlay(heroInfoName);
+            event.stop();
+          }
+        });
+      }
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
       heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
-      final String heroInfoName = hero.getHeroName();
       heroLabel.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {

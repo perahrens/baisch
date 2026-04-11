@@ -3002,7 +3002,7 @@ public class GameScreen extends ScreenAdapter {
     table.add(historyBtn).width(300).height(60).padBottom(14).row();
 
     final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
-    TextButton musicBtn = new TextButton(musicOn ? "\u266a Music ON" : "\u266a Music OFF", MyGdxGame.skin);
+    TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {

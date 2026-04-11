@@ -625,7 +625,7 @@ public class MenuScreen extends AbstractScreen {
    */
   private void addMusicToggleButton(final Stage stage) {
     final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
-    TextButton musicBtn = new TextButton(enabled ? "\u266a ON" : "\u266a OFF", MyGdxGame.skin);
+    TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
     musicBtn.pack();
     musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
     musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
@@ -640,17 +640,34 @@ public class MenuScreen extends AbstractScreen {
     });
     stage.addActor(musicBtn);
 
-    // Start music on the first user touch (browser autoplay is blocked until a gesture).
+    // On the first touch anywhere on this stage, unlock browser autoplay for any other actors.
     if (!MyGdxGame.musicStarted) {
       stage.addCaptureListener(new InputListener() {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-          MyGdxGame.ensureMusicStarted();
+          // Only auto-start if the touch is NOT on the music button itself
+          // (the button's own click listener handles its case via setMusicEnabled).
+          com.badlogic.gdx.scenes.scene2d.Actor hit =
+              stage.hit(x + stage.getCamera().position.x - stage.getWidth() / 2f,
+                        y + stage.getCamera().position.y - stage.getHeight() / 2f, true);
+          if (hit == null || !isChildOf(hit, musicBtn)) {
+            MyGdxGame.ensureMusicStarted();
+          }
           stage.removeCaptureListener(this);
-          return false; // do not consume; let the actual actor handle the click
+          return false;
         }
       });
     }
+  }
+
+  private static boolean isChildOf(com.badlogic.gdx.scenes.scene2d.Actor actor,
+      com.badlogic.gdx.scenes.scene2d.Actor parent) {
+    com.badlogic.gdx.scenes.scene2d.Actor a = actor;
+    while (a != null) {
+      if (a == parent) return true;
+      a = a.getParent();
+    }
+    return false;
   }
 
   private Table createStatusBadge(String text, Color bgColor, Color textColor) {

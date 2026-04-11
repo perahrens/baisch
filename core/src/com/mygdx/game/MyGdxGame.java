@@ -80,14 +80,15 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
   }
 
-  /** Toggle music on/off, persist the preference, and update playback immediately. */
+  /** Toggle music on/off, persist the preference, and update playback immediately.
+   *  A button click counts as a user gesture so we always unlock autoplay when enabling. */
   static void setMusicEnabled(boolean enabled) {
     playerStorage.saveMusicEnabled(enabled);
-    if (activeMusic == null) return;
-    if (enabled && musicStarted) {
-      activeMusic.play();
+    if (enabled) {
+      musicStarted = true; // button click = valid user gesture
+      if (activeMusic != null) activeMusic.play();
     } else {
-      activeMusic.pause();
+      if (activeMusic != null) activeMusic.pause();
     }
   }
 

@@ -32,6 +32,8 @@ import com.mygdx.game.net.SocketListener;
 
 public class MenuScreen extends AbstractScreen {
 
+  private static final String RULES_URL = "https://perahrens.github.io/baisch/";
+
   private SocketClient socket;
 
   private Stage menuStage;
@@ -461,6 +463,17 @@ public class MenuScreen extends AbstractScreen {
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
     }
+
+    TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
+    rulesBtn.setSize(button.getWidth(), button.getHeight());
+    rulesBtn.setPosition(20f, 0.08f * MyGdxGame.HEIGHT);
+    rulesBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        Gdx.net.openURI(RULES_URL);
+      }
+    });
+    menuStage.addActor(rulesBtn);
 
     Gdx.input.setInputProcessor(menuStage);
   }

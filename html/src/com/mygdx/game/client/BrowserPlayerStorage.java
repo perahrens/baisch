@@ -37,4 +37,29 @@ public class BrowserPlayerStorage implements PlayerStorage {
   public native void saveName(String name) /*-{
     if (name) $wnd.localStorage.setItem('baisch_player_name', name);
   }-*/;
+
+  @Override
+  public native String getSavedSessionId() /*-{
+    return $wnd.localStorage.getItem('baisch_session_id') || '';
+  }-*/;
+
+  @Override
+  public native void saveSessionId(String id) /*-{
+    if (id) $wnd.localStorage.setItem('baisch_session_id', id);
+  }-*/;
+
+  @Override
+  public native void clearSessionId() /*-{
+    $wnd.localStorage.removeItem('baisch_session_id');
+  }-*/;
+
+  @Override
+  public native boolean getSavedShowPlayersTab() /*-{
+    return $wnd.localStorage.getItem('baisch_players_tab') === '1';
+  }-*/;
+
+  @Override
+  public native void saveShowPlayersTab(boolean val) /*-{
+    $wnd.localStorage.setItem('baisch_players_tab', val ? '1' : '0');
+  }-*/;
 }

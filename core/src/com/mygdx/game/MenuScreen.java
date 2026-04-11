@@ -78,6 +78,19 @@ public class MenuScreen extends AbstractScreen {
     }
   }
 
+  // Live list of all named online players, broadcast by the server.
+  private java.util.List<OnlinePlayerInfo> onlinePlayers = new java.util.ArrayList<OnlinePlayerInfo>();
+  private boolean showPlayersTab = false;
+
+  private static class OnlinePlayerInfo {
+    String id;
+    String name;
+    String status;
+    OnlinePlayerInfo(String id, String name, String status) {
+      this.id = id; this.name = name; this.status = status;
+    }
+  }
+
   // Hero names in display order — used to rebuild the dropdown while preserving order.
   private static final String[] ALL_HERO_NAMES = {
     "Mercenaries", "Marshal", "Spy", "Battery Tower", "Merchant", "Priest",
@@ -211,9 +224,9 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.hideList();
     menuStage.clear();
 
-    menuStage.addActor(group);
-
     if (!nameConfirmed) {
+      // Logo only shown on the name-entry screen.
+      menuStage.addActor(group);
       showNameEntryScreen();
     } else if (!lobbyJoined && inSessionCreate) {
       showSessionCreateScreen();
@@ -244,6 +257,11 @@ public class MenuScreen extends AbstractScreen {
             if (name.isEmpty()) return;
             menuState.setMyName(name);
             nameConfirmed = true;
+            try {
+              JSONObject reg = new JSONObject();
+              reg.put("name", name);
+              socket.emit("registerPlayer", reg);
+            } catch (JSONException e) { /* ignore */ }
             Gdx.app.postRunnable(new Runnable() {
               @Override public void run() { show(); }
             });
@@ -261,67 +279,189 @@ public class MenuScreen extends AbstractScreen {
   private void showSessionListScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
 
-    Label title = new Label("Games", MyGdxGame.skin);
-    title.setPosition(cx - title.getWidth() / 2f, 0.75f * MyGdxGame.HEIGHT);
-    menuStage.addActor(title);
+    // ── Tab bar ──────────────────────────────────────────────────────────────
+    // Plain labels (no button box) with a colored underline on the active tab.
+    final Color ACTIVE_COLOR   = Color.WHITE;
+    final Color INACTIVE_COLOR = new Color(1f, 1f, 1f, 0.35f);
+    final Color UNDERLINE_COLOR = new Color(0.98f, 0.80f, 0.25f, 1f); // warm gold
 
-    Table sessTable = new Table(MyGdxGame.skin);
-    Label h1 = new Label("Name", MyGdxGame.skin);
-    Label h2 = new Label("Players", MyGdxGame.skin);
-    Label h3 = new Label("", MyGdxGame.skin);
-    sessTable.add(h1).padRight(20);
-    sessTable.add(h2).padRight(20);
-    sessTable.add(h3);
-    sessTable.row();
+    Label gamesTab   = new Label("Games",   MyGdxGame.skin);
+    Label playersTab = new Label("Players", MyGdxGame.skin);
+    gamesTab.pack();
+    playersTab.pack();
 
-    final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
-    for (final SessionInfo s : list) {
-      Label nameL = new Label(s.name, MyGdxGame.skin);
-      Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
-      if (s.running) {
-        Label runL = new Label("Playing", MyGdxGame.skin);
-        runL.setColor(Color.YELLOW);
-        TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
-        watchBtn.addListener(new ClickListener() {
-          @Override
-          public void clicked(InputEvent event, float x, float y) {
-            socket.emit("joinSessionSpectator", buildJoinData(s.id));
-          }
-        });
-        sessTable.add(nameL).padRight(20);
-        sessTable.add(countL).padRight(20);
-        sessTable.add(watchBtn);
-      } else {
-        TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
-        joinBtn.addListener(new ClickListener() {
-          @Override
-          public void clicked(InputEvent event, float x, float y) {
-            socket.emit("joinSession", buildJoinData(s.id));
-          }
-        });
-        sessTable.add(nameL).padRight(20);
-        sessTable.add(countL).padRight(20);
-        sessTable.add(joinBtn);
-      }
-      sessTable.row();
-    }
+    float tabGap    = 32f;
+    float tabsWidth = gamesTab.getWidth() + tabGap + playersTab.getWidth();
+    float tabY      = 0.88f * MyGdxGame.HEIGHT;
+    float underlineH = 3f;
+    float underlinePad = 0f; // underline extends full label width
 
-    sessTable.pack();
-    sessTable.setPosition(cx - sessTable.getWidth() / 2f, 0.35f * MyGdxGame.HEIGHT);
-    menuStage.addActor(sessTable);
+    gamesTab.setPosition(cx - tabsWidth / 2f, tabY);
+    playersTab.setPosition(cx - tabsWidth / 2f + gamesTab.getWidth() + tabGap, tabY);
 
-    TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
-    createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
-    createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.15f * MyGdxGame.HEIGHT);
-    createBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        inSessionCreate = true;
-        show();
+    gamesTab.setColor(!showPlayersTab ? ACTIVE_COLOR : INACTIVE_COLOR);
+    playersTab.setColor(showPlayersTab  ? ACTIVE_COLOR : INACTIVE_COLOR);
+    // Labels are visual only; click handling comes from the larger invisible hit actors.
+    gamesTab.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    playersTab.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+
+    // Underline under the active tab
+    Label activeTab = !showPlayersTab ? gamesTab : playersTab;
+    Image underline = new Image(MyGdxGame.skin.newDrawable("white", UNDERLINE_COLOR));
+    underline.setSize(activeTab.getWidth() - underlinePad * 2, underlineH);
+    underline.setPosition(activeTab.getX() + underlinePad, activeTab.getY() - underlineH - 2f);
+
+    // Hit areas: invisible touch actors behind each label so tap targets are generous
+    com.badlogic.gdx.scenes.scene2d.Actor gamesHit = new com.badlogic.gdx.scenes.scene2d.Actor();
+    gamesHit.setBounds(gamesTab.getX() - 8f, tabY - 8f,
+        gamesTab.getWidth() + 16f, gamesTab.getHeight() + 16f);
+    gamesHit.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        showPlayersTab = false; show();
       }
     });
 
-    menuStage.addActor(createBtn);
+    com.badlogic.gdx.scenes.scene2d.Actor playersHit = new com.badlogic.gdx.scenes.scene2d.Actor();
+    playersHit.setBounds(playersTab.getX() - 8f, tabY - 8f,
+        playersTab.getWidth() + 16f, playersTab.getHeight() + 16f);
+    playersHit.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        showPlayersTab = true; show();
+      }
+    });
+
+    menuStage.addActor(gamesHit);
+    menuStage.addActor(playersHit);
+    menuStage.addActor(underline);
+    menuStage.addActor(gamesTab);
+    menuStage.addActor(playersTab);
+
+    if (!showPlayersTab) {
+      // ── Games tab ───────────────────────────────────────────────────────────
+      Table sessTable = new Table(MyGdxGame.skin);
+      sessTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      sessTable.pad(14f, 18f, 14f, 18f);
+
+      Label h1 = new Label("Name", MyGdxGame.skin);
+      Label h2 = new Label("Players", MyGdxGame.skin);
+      Label h3 = new Label("", MyGdxGame.skin);
+      h1.setColor(1f, 1f, 1f, 0.9f);
+      h2.setColor(1f, 1f, 1f, 0.9f);
+      sessTable.add(h1).padRight(40).padBottom(8f).left();
+      sessTable.add(h2).padRight(40).padBottom(8f);
+      sessTable.add(h3).padBottom(8f);
+      sessTable.row();
+      Image hSep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.25f)));
+      sessTable.add(hSep).colspan(3).growX().height(1f).padBottom(6f);
+      sessTable.row();
+
+      final java.util.List<SessionInfo> list = new java.util.ArrayList<SessionInfo>(sessionList);
+      for (int si = 0; si < list.size(); si++) {
+        final SessionInfo s = list.get(si);
+        Label nameL = new Label(s.name, MyGdxGame.skin);
+        Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
+        if (s.running) {
+          TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
+          watchBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              socket.emit("joinSessionSpectator", buildJoinData(s.id));
+            }
+          });
+          sessTable.add(nameL).padRight(40).padBottom(6f).left();
+          sessTable.add(countL).padRight(40).padBottom(6f);
+          sessTable.add(watchBtn).padBottom(6f);
+        } else {
+          TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
+          joinBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              socket.emit("joinSession", buildJoinData(s.id));
+            }
+          });
+          sessTable.add(nameL).padRight(40).padBottom(6f).left();
+          sessTable.add(countL).padRight(40).padBottom(6f);
+          sessTable.add(joinBtn).padBottom(6f);
+        }
+        sessTable.row();
+        if (si < list.size() - 1) {
+          Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+          sessTable.add(sep).colspan(3).growX().height(1f).padTop(2f).padBottom(5f);
+          sessTable.row();
+        }
+      }
+
+      if (list.isEmpty()) {
+        Label empty = new Label("No games available", MyGdxGame.skin);
+        empty.setColor(0.6f, 0.6f, 0.6f, 1f);
+        sessTable.add(empty).colspan(3);
+        sessTable.row();
+      }
+
+      sessTable.pack();
+      sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
+      menuStage.addActor(sessTable);
+
+      TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+      createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
+      createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.08f * MyGdxGame.HEIGHT);
+      createBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          inSessionCreate = true;
+          show();
+        }
+      });
+      menuStage.addActor(createBtn);
+    } else {
+      // ── Players tab ─────────────────────────────────────────────────────────
+      Table playersTable = new Table(MyGdxGame.skin);
+      playersTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      playersTable.pad(14f, 18f, 14f, 18f);
+
+      Label ph1 = new Label("Name", MyGdxGame.skin);
+      Label ph2 = new Label("Status", MyGdxGame.skin);
+      ph1.setColor(1f, 1f, 1f, 0.9f);
+      ph2.setColor(1f, 1f, 1f, 0.9f);
+      playersTable.add(ph1).padRight(40).padBottom(8f).left();
+      playersTable.add(ph2).padBottom(8f);
+      playersTable.row();
+      Image phSep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.25f)));
+      playersTable.add(phSep).colspan(2).growX().height(1f).padBottom(6f);
+      playersTable.row();
+
+      final java.util.List<OnlinePlayerInfo> snapshot =
+          new java.util.ArrayList<OnlinePlayerInfo>(onlinePlayers);
+      for (int pi = 0; pi < snapshot.size(); pi++) {
+        OnlinePlayerInfo p = snapshot.get(pi);
+        Label nameL = new Label(p.name, MyGdxGame.skin);
+        if (p.id.equals(menuState.getMyUserID())) nameL.setColor(Color.GOLD);
+        Label statusL = new Label(p.status, MyGdxGame.skin);
+        if (p.status.startsWith("In game")) statusL.setColor(Color.GREEN);
+        else if (p.status.startsWith("In lobby")) statusL.setColor(Color.YELLOW);
+        else if (p.status.startsWith("Watching")) statusL.setColor(Color.CYAN);
+        playersTable.add(nameL).padRight(40).padBottom(6f).left();
+        playersTable.add(statusL).padBottom(6f);
+        playersTable.row();
+        if (pi < snapshot.size() - 1) {
+          Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+          playersTable.add(sep).colspan(2).growX().height(1f).padTop(2f).padBottom(5f);
+          playersTable.row();
+        }
+      }
+
+      if (snapshot.isEmpty()) {
+        Label empty = new Label("No players online", MyGdxGame.skin);
+        empty.setColor(0.6f, 0.6f, 0.6f, 1f);
+        playersTable.add(empty).colspan(2);
+        playersTable.row();
+      }
+
+      playersTable.pack();
+      playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
+      menuStage.addActor(playersTable);
+    }
+
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -410,20 +550,47 @@ public class MenuScreen extends AbstractScreen {
     return data;
   }
 
+  private Table createStatusBadge(String text, Color bgColor, Color textColor) {
+    Table badge = new Table();
+    badge.setBackground(MyGdxGame.skin.newDrawable("white", bgColor));
+    Label label = new Label(text, MyGdxGame.skin);
+    label.setColor(textColor);
+    badge.add(label).pad(2f, 8f, 2f, 8f);
+    return badge;
+  }
+
   private void showLobbyScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+    float buttonY = 0.08f * MyGdxGame.HEIGHT;
+
+    Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
+    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
+    actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
+    actionBar.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+
+    Label lobbyTitle = new Label("Game lobby", MyGdxGame.skin);
+    float lobbyTitleScale = 1.35f;
+    lobbyTitle.setFontScale(lobbyTitleScale);
+    lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
+    lobbyTitle.setPosition(Math.round(cx - lobbyTitle.getPrefWidth() / 2f), Math.round(0.835f * MyGdxGame.HEIGHT));
+
     // logged in count
     loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);
-    loggedInCount.setPosition(0, 0);
+    loggedInCount.setPosition(0.05f * MyGdxGame.WIDTH, 0.01f * MyGdxGame.HEIGHT);
 
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
+    loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+    loggedInUserTable.pad(14f, 18f, 14f, 18f);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
     Label headLine1 = new Label("Name", MyGdxGame.skin);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
+    headLine1.setColor(1f, 1f, 1f, 0.9f);
+    headLine2.setColor(1f, 1f, 1f, 0.9f);
 
-    loggedInUserTable.add(headLine1).padRight(60);
-    loggedInUserTable.add(headLine2);
+    loggedInUserTable.add(headLine1).padRight(60).padBottom(8f);
+    loggedInUserTable.add(headLine2).padBottom(8f);
     loggedInUserTable.row();
 
     for (int i = 0; i < loggedInUsers.size(); i++) {
@@ -434,22 +601,26 @@ public class MenuScreen extends AbstractScreen {
         nameLabel.setColor(Color.GOLD);
       }
 
-      Label isReady;
+      Table statusBadge;
       if (user.isReady()) {
-        isReady = new Label("READY", MyGdxGame.skin);
-        isReady.setColor(Color.GREEN);
+        statusBadge = createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE);
       } else {
-        isReady = new Label("WAIT", MyGdxGame.skin);
-        isReady.setColor(Color.RED);
+        statusBadge = createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
       }
 
-      loggedInUserTable.add(nameLabel).padRight(60);
-      loggedInUserTable.add(isReady);
+      loggedInUserTable.add(nameLabel).padRight(60).padBottom(6f);
+      loggedInUserTable.add(statusBadge).left().padBottom(6f);
       loggedInUserTable.row();
+      if (i < loggedInUsers.size() - 1) {
+        Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+        loggedInUserTable.add(sep).colspan(2).growX().height(1f).padTop(2f).padBottom(5f);
+        loggedInUserTable.row();
+      }
     }
 
     loggedInUserTable.pack();
-    loggedInUserTable.setPosition((MyGdxGame.WIDTH - loggedInUserTable.getWidth()) / 2f, 300);
+    loggedInUserTable.setPosition(cx - loggedInUserTable.getWidth() / 2f,
+        0.47f * MyGdxGame.HEIGHT - loggedInUserTable.getHeight() / 2f);
 
     // Notification permission status — temporarily hidden to avoid overlap with lobby buttons
     // if (MyGdxGame.turnNotifier.isPermissionGranted()) {
@@ -475,7 +646,7 @@ public class MenuScreen extends AbstractScreen {
       // A game is already in progress — show status and offer spectating
       Label gameRunningLabel = new Label("Game in progress", MyGdxGame.skin);
       gameRunningLabel.setColor(Color.YELLOW);
-      gameRunningLabel.setPosition(200, 50);
+      gameRunningLabel.setPosition(cx - gameRunningLabel.getWidth() / 2f, 0.11f * MyGdxGame.HEIGHT + 46f);
       menuStage.addActor(gameRunningLabel);
 
       TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
@@ -504,10 +675,10 @@ public class MenuScreen extends AbstractScreen {
       boolean isHost = !loggedInUsers.isEmpty()
           && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
-      float buttonY = 0.08f * MyGdxGame.HEIGHT;
 
       Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
-      lobbyStatus.setPosition(200, 0);
+        lobbyStatus.setPosition(MyGdxGame.WIDTH - lobbyStatus.getWidth() - 0.05f * MyGdxGame.WIDTH,
+          0.01f * MyGdxGame.HEIGHT);
       menuStage.addActor(lobbyStatus);
 
       if (isHost) {
@@ -541,7 +712,8 @@ public class MenuScreen extends AbstractScreen {
 
       if (timerStarted) {
         Label countdownLabel = new Label("Starting in " + menuState.getTimeToStart() + "...", MyGdxGame.skin);
-        countdownLabel.setPosition(200, 25);
+        countdownLabel.setColor(Color.YELLOW);
+        countdownLabel.setPosition(cx - countdownLabel.getWidth() / 2f, buttonY + button.getHeight() + 14f);
         menuStage.addActor(countdownLabel);
       }
 
@@ -561,6 +733,8 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(button);
     }
 
+    menuStage.addActor(actionBar);
+    menuStage.addActor(lobbyTitle);
     menuStage.addActor(loggedInUserTable);
     menuStage.addActor(loggedInCount);
 
@@ -867,6 +1041,7 @@ public class MenuScreen extends AbstractScreen {
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
+            showPlayersTab = false;
             menuState.clearUsers();
             reservedByOthers.clear();
             show();
@@ -884,6 +1059,7 @@ public class MenuScreen extends AbstractScreen {
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
+            showPlayersTab = false;
             menuState.clearUsers();
             reservedByOthers.clear();
             game.setScreen(MenuScreen.this);
@@ -912,6 +1088,32 @@ public class MenuScreen extends AbstractScreen {
               }
             } catch (JSONException e) {
               Gdx.app.log("SocketIO", "Error parsing sessionList");
+            }
+            if (!lobbyJoined) updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("playerList", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONArray arr = (JSONArray) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            onlinePlayers.clear();
+            try {
+              for (int i = 0; i < arr.length(); i++) {
+                JSONObject p = arr.getJSONObject(i);
+                onlinePlayers.add(new OnlinePlayerInfo(
+                  p.getString("id"),
+                  p.getString("name"),
+                  p.getString("status")
+                ));
+              }
+            } catch (JSONException e) {
+              Gdx.app.log("SocketIO", "Error parsing playerList");
             }
             if (!lobbyJoined) updateScreen = true;
           }

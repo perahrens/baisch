@@ -29,6 +29,29 @@ var sessions = {};
 var socketToSession = {};
 var _nextSessionId = 1;
 
+// All connected sockets with their display names (set via registerPlayer).
+// { [socketId]: { id, name } }
+var connectedPlayers = {};
+
+function getPlayerStatus(socketId) {
+  var sessId = socketToSession[socketId];
+  if (!sessId) return 'Online';
+  var sess = sessions[sessId];
+  if (!sess) return 'Online';
+  if (sess.spectators.indexOf(socketId) !== -1) return 'Watching: ' + sess.name;
+  if (sess.gameState !== null) return 'In game: ' + sess.name;
+  return 'In lobby: ' + sess.name;
+}
+
+function broadcastPlayerList() {
+  var list = Object.keys(connectedPlayers)
+    .filter(function(sid) { return connectedPlayers[sid].name; })
+    .map(function(sid) {
+      return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
+    });
+  io.emit('playerList', list);
+}
+
 function createSession(name, allowHeroSelection) {
   var id = 's' + (_nextSessionId++);
   sessions[id] = {
@@ -164,6 +187,7 @@ function startGameForSession(sess, requesterSocketId) {
     console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
   });
   broadcastSessionList();
+  broadcastPlayerList();
   return true;
 }
 
@@ -184,6 +208,7 @@ function checkAndHandleWinner(sess) {
       // Delete the session entirely — it won't appear in the session list anymore
       delete sessions[sessId];
       broadcastSessionList();
+      broadcastPlayerList();
     }, 5000);
   }
 }
@@ -209,6 +234,7 @@ function leaveCurrentSession(socket) {
   }
   delete socketToSession[socket.id];
   broadcastSessionList();
+  broadcastPlayerList();
 }
 
 var PORT = process.env.PORT || 8082;
@@ -218,12 +244,20 @@ server.listen(PORT, function() {
 
 io.on('connection', function(socket) {
   console.log("User Connected: " + socket.id);
+  connectedPlayers[socket.id] = { id: socket.id, name: '' };
   socket.emit('socketID', { id: socket.id });
   socket.emit('sessionList', getSessionList());
+  socket.emit('playerList', Object.keys(connectedPlayers)
+    .filter(function(sid) { return connectedPlayers[sid].name; })
+    .map(function(sid) {
+      return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
+    }));
 
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
+    delete connectedPlayers[socket.id];
     leaveCurrentSession(socket);
+    broadcastPlayerList();
   });
 
   // ── Session management events ────────────────────────────────────────────
@@ -233,9 +267,16 @@ io.on('connection', function(socket) {
     leaveCurrentSession(socket);
   });
 
+  socket.on('registerPlayer', function(data) {
+    var name = (data && data.name) ? String(data.name).slice(0, 30) : '';
+    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
+    broadcastPlayerList();
+  });
+
   socket.on('createSession', function(data) {
     leaveCurrentSession(socket); // clean up any previous session first
     var name = (data && data.name) ? String(data.name).slice(0, 30) : 'Player';
+    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
     var sess = createSession(sessionName, allowHeroSelection);
@@ -247,6 +288,7 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
+    broadcastPlayerList();
   });
 
   socket.on('joinSession', function(data) {
@@ -257,6 +299,7 @@ io.on('connection', function(socket) {
     leaveCurrentSession(socket); // leave any previous session first
     sess = sessions[data.sessionId]; // re-fetch — leaveCurrentSession may have deleted a different session
     var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
+    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
     var existing = sess.users.find(function(u) { return u.id === socket.id; });
     if (!existing) sess.users.push(makeUser(socket.id, name));
     socketToSession[socket.id] = sess.id;
@@ -273,6 +316,7 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
+    broadcastPlayerList();
   });
 
   socket.on('joinSessionSpectator', function(data) {

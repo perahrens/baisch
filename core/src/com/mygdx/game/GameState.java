@@ -402,12 +402,26 @@ public class GameState {
 
   /**
    * Rebuild all heroes from a server-authoritative players JSON array.
-   * This resets the hero pool and player hero lists first, then reapplies
-   * ownership by player index to keep all clients deterministic.
+   *
+   * <p>Existing hero instances are reused for heroes the same player already owns. This
+   * preserves all per-turn counters through routine stateUpdate syncs so heroes cannot be
+   * exploited by triggering a server event to reset their counters.
+   *
+   * <p>Server-authoritative per-turn counters are ALWAYS applied so the client never runs
+   * ahead of what the server permits.
    */
+  @SuppressWarnings("unchecked")
   public void rebuildHeroesFromState(JSONArray playersJson) throws JSONException {
-    heroesSquare = new HeroesSquare();
+    // Save current hero instances keyed by playerIdx -> heroName.
+    java.util.Map<String, Hero>[] savedHeroes = new java.util.Map[players.size()];
+    for (int i = 0; i < players.size(); i++) {
+      savedHeroes[i] = new java.util.HashMap<String, Hero>();
+      for (Hero h : players.get(i).getHeroes()) {
+        savedHeroes[i].put(h.getHeroName(), h);
+      }
+    }
 
+    heroesSquare = new HeroesSquare();
     for (int i = 0; i < players.size(); i++) {
       players.get(i).getHeroes().clear();
     }
@@ -419,7 +433,40 @@ public class GameState {
       if (heroesJson == null) continue;
 
       for (int h = 0; h < heroesJson.length(); h++) {
-        applyHeroAcquired(idx, heroesJson.getString(h));
+        String heroName = heroesJson.getString(h);
+        Hero existing = (savedHeroes[idx] != null) ? savedHeroes[idx].get(heroName) : null;
+        if (existing != null) {
+          // Reuse existing instance -- preserves mid-turn state.
+          heroesSquare.consumeHeroByName(heroName);
+          players.get(idx).addHero(existing);
+        } else {
+          // New acquisition or reconnect: get a fresh hero from the pool.
+          applyHeroAcquired(idx, heroName);
+        }
+        // Always apply server-authoritative per-turn counters.
+        ArrayList<Hero> heroList = players.get(idx).getHeroes();
+        Hero syncedHero = heroList.get(heroList.size() - 1);
+        if (syncedHero instanceof com.mygdx.game.heroes.Priest) {
+          int serverAttempts = pj.optInt("priestConversionAttempts", 2);
+          ((com.mygdx.game.heroes.Priest) syncedHero).setConversionAttempts(serverAttempts);
+        } else if (syncedHero instanceof com.mygdx.game.heroes.Magician) {
+          int serverSpells = pj.optInt("magicianSpells", 1);
+          ((com.mygdx.game.heroes.Magician) syncedHero).setSpells(serverSpells);
+        } else if (syncedHero instanceof com.mygdx.game.heroes.Merchant) {
+          int serverTrades = pj.optInt("merchantTrades", 1);
+          ((com.mygdx.game.heroes.Merchant) syncedHero).setTrades(serverTrades);
+        } else if (syncedHero instanceof com.mygdx.game.heroes.Warlord) {
+          int serverAttacks = pj.optInt("warlordAttacks", 1);
+          ((com.mygdx.game.heroes.Warlord) syncedHero).setAttacks(serverAttacks);
+        } else if (syncedHero instanceof com.mygdx.game.heroes.Spy) {
+          int serverSpyAttacks = pj.optInt("spyAttacks", 1);
+          int serverSpyMaxAttacks = pj.optInt("spyMaxAttacks", 1);
+          int serverSpyExtends = pj.optInt("spyExtends", 1);
+          com.mygdx.game.heroes.Spy spy = (com.mygdx.game.heroes.Spy) syncedHero;
+          spy.setSpyAttacks(serverSpyAttacks);
+          spy.setSpyMaxAttacks(serverSpyMaxAttacks);
+          spy.setSpyExtends(serverSpyExtends);
+        }
       }
     }
   }

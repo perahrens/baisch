@@ -1138,9 +1138,10 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
 
-        // Only add info listener to other players' heroes here.
-        // The current player's heroes get it via heroLabel in showHandStage.
-        if (players.get(i) != currentPlayer) {
+        // Add info listener for all non-active board heroes.
+        // Active player's detailed hero info is still handled via heroLabel in showHandStage.
+        boolean shouldShowBoardHeroInfo = players.get(i) != gameState.getCurrentPlayer();
+        if (shouldShowBoardHeroInfo) {
           playerHeroes.get(j).removeAllListeners();
           final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
           playerHeroes.get(j).addListener(new ClickListener() {

@@ -59,6 +59,12 @@ class GameState {
       p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
       p.attackCount = 0; // number of enemy attacks this turn (reset on finishTurn)
       p.priestConversionAttempts = 2; // Priest hero: attempts remaining this turn
+      p.magicianSpells = 1; // Magician hero: spells remaining this turn
+      p.merchantTrades = 1; // Merchant hero: trades remaining this turn
+      p.warlordAttacks = 1; // Warlord hero: king swap/attack uses remaining this turn
+      p.spyAttacks = 1; // Spy hero: flips remaining this turn
+      p.spyMaxAttacks = 1; // Spy hero: max flips displayed this turn
+      p.spyExtends = 1; // Spy hero: extends remaining this turn
     }
   }
 
@@ -233,6 +239,12 @@ class GameState {
   }
 
   magicianSwap(playerIdx, targetPlayerIdx, positionId, newBottomCardId, bottomCovered, newTopCardId, topCovered) {
+    const attacker = this.players[playerIdx];
+    if ((attacker.magicianSpells || 0) <= 0) {
+      console.log(`magicianSwap: rejected — player ${playerIdx} has no spells remaining`);
+      return;
+    }
+
     const target = this.players[targetPlayerIdx];
     // Discard old bottom card
     const oldBottom = target.defCards[positionId];
@@ -254,7 +266,55 @@ class GameState {
       if (!target.topDefCardsCovered) target.topDefCardsCovered = {};
       target.topDefCardsCovered[positionId] = topCovered;
     }
+    attacker.magicianSpells--;
     this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s shield [${positionId}]`, true);
+  }
+
+  spyFlip(playerIdx) {
+    const p = this.players[playerIdx];
+    if (!p) return false;
+    if ((p.spyAttacks || 0) <= 0) {
+      console.log(`spyFlip: rejected attack — player ${playerIdx} has no spy attacks remaining`);
+      return false;
+    }
+    p.spyAttacks--;
+    return true;
+  }
+
+  spyExtend(playerIdx, cardId) {
+    const p = this.players[playerIdx];
+    if (!p) return false;
+    if ((p.spyExtends || 0) <= 0) {
+      console.log(`spyExtend: rejected — player ${playerIdx} has no extends remaining`);
+      return false;
+    }
+    // Remove the sacrificed card from hand, defCards, or topDefCards
+    if (cardId !== undefined && cardId !== null) {
+      const handIdx = p.hand.indexOf(cardId);
+      if (handIdx !== -1) {
+        p.hand.splice(handIdx, 1);
+      } else {
+        for (const key of Object.keys(p.defCards || {})) {
+          if (p.defCards[key] === cardId) {
+            delete p.defCards[key];
+            if (p.defCardsCovered) delete p.defCardsCovered[key];
+            break;
+          }
+        }
+        for (const key of Object.keys(p.topDefCards || {})) {
+          if (p.topDefCards[key] === cardId) {
+            delete p.topDefCards[key];
+            if (p.topDefCardsCovered) delete p.topDefCardsCovered[key];
+            break;
+          }
+        }
+      }
+      this.cemetery.push(cardId);
+    }
+    p.spyExtends--;
+    p.spyAttacks = Math.min((p.spyAttacks || 0) + 2, 3);
+    p.spyMaxAttacks = Math.min((p.spyMaxAttacks || 1) + 2, 3);
+    return true;
   }
 
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
@@ -388,6 +448,12 @@ class GameState {
       this.players[currentPlayerIndex].preyCards = [];
       this.players[currentPlayerIndex].attackCount = 0; // reset for next turn
       this.players[currentPlayerIndex].priestConversionAttempts = 2; // reset Priest uses for next turn
+      this.players[currentPlayerIndex].magicianSpells = 1;
+      this.players[currentPlayerIndex].merchantTrades = 1;
+      this.players[currentPlayerIndex].warlordAttacks = 1;
+      this.players[currentPlayerIndex].spyAttacks = 1;
+      this.players[currentPlayerIndex].spyMaxAttacks = 1;
+      this.players[currentPlayerIndex].spyExtends = 1;
     }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
@@ -494,17 +560,26 @@ class GameState {
 
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
     const p = this.players[playerIdx];
+    if ((p.warlordAttacks || 0) <= 0) {
+      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no attacks remaining`);
+      return;
+    }
     const handIdx = p.hand.indexOf(newKingCardId);
     if (handIdx === -1) return;
     p.hand.splice(handIdx, 1);
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
     p.kingCovered = true; // new king is always placed face-down
+    p.warlordAttacks--;
     this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
   }
 
   merchantTrade(playerIdx, discardedCardId, drawnCardId) {
     const p = this.players[playerIdx];
+    if ((p.merchantTrades || 0) <= 0) {
+      console.log(`merchantTrade: rejected — player ${playerIdx} has no trades remaining`);
+      return;
+    }
     this.lastMerchantReveal = null;
     // Remove discarded card from hand, defCards, or topDefCards
     const handIdx = p.hand.indexOf(discardedCardId);
@@ -523,6 +598,7 @@ class GameState {
     const deckIdx = this.deck.indexOf(drawnCardId);
     if (deckIdx !== -1) this.deck.splice(deckIdx, 1);
     p.hand.push(drawnCardId);
+    p.merchantTrades--;
     this.pushLog(`${this.pname(playerIdx)} used Merchant trade`, true, true);
   }
 
@@ -595,6 +671,12 @@ class GameState {
         preyCards: [...(p.preyCards || [])],
         attackCount: p.attackCount || 0,
         priestConversionAttempts: p.priestConversionAttempts !== undefined ? p.priestConversionAttempts : 2,
+        magicianSpells: p.magicianSpells !== undefined ? p.magicianSpells : 1,
+        merchantTrades: p.merchantTrades !== undefined ? p.merchantTrades : 1,
+        warlordAttacks: p.warlordAttacks !== undefined ? p.warlordAttacks : 1,
+        spyAttacks: p.spyAttacks !== undefined ? p.spyAttacks : 1,
+        spyMaxAttacks: p.spyMaxAttacks !== undefined ? p.spyMaxAttacks : 1,
+        spyExtends: p.spyExtends !== undefined ? p.spyExtends : 1,
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

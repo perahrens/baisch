@@ -18,8 +18,29 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
+        installAudioContextUnlocker();
         return new MyGdxGame();
     }
+
+    /**
+     * Installs a one-shot DOM-level listener that resumes the Web Audio AudioContext
+     * on the first user gesture (click or touchstart). This activates the page for
+     * audio playback under browser autoplay policy, which is required on mobile
+     * before any HTMLAudioElement.play() call can succeed from a rAF callback.
+     */
+    private static native void installAudioContextUnlocker() /*-{
+        var handler = function() {
+            var AudioCtx = $wnd.AudioContext || $wnd.webkitAudioContext;
+            if (AudioCtx) {
+                var ctx = new AudioCtx();
+                ctx.resume().then(function() { ctx.close(); });
+            }
+            $doc.removeEventListener('touchstart', handler, true);
+            $doc.removeEventListener('click',      handler, true);
+        };
+        $doc.addEventListener('touchstart', handler, true);
+        $doc.addEventListener('click',      handler, true);
+    }-*/;
 
     /**
      * In local dev the GWT frontend is served on port 8080 while the Node server

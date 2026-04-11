@@ -286,6 +286,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showNameEntryScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // A button-shaped area that opens the native text dialog on click/tap.
@@ -529,6 +530,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showSessionCreateScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // All elements must sit below the logo (logo bottom ≈ 0.9*H - logoHeight ≈ 449px on a
@@ -639,7 +641,7 @@ public class MenuScreen extends AbstractScreen {
     stage.addActor(musicBtn);
 
     // Start music on the first user touch (browser autoplay is blocked until a gesture).
-    if (MyGdxGame.bgMusic != null && !MyGdxGame.musicStarted) {
+    if (!MyGdxGame.musicStarted) {
       stage.addCaptureListener(new InputListener() {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
@@ -661,6 +663,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showLobbyScreen() {
+    MyGdxGame.setMusicTrack(timerStarted ? MyGdxGame.musicIntrigue : MyGdxGame.musicDrums);
     float cx = MyGdxGame.WIDTH / 2f;
     float buttonY = 0.08f * MyGdxGame.HEIGHT;
 

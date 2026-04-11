@@ -593,6 +593,7 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void show() {
+    MyGdxGame.setMusicTrack(null); // no music during the game
     Gdx.app.log("Java Heap", String.valueOf(Gdx.app.getJavaHeap()));
     Gdx.app.log("Native Heap", String.valueOf(Gdx.app.getNativeHeap()));
 

@@ -302,6 +302,13 @@ public class EnemyDefCardListener extends ClickListener {
     // Consume Warlord charge after attack is committed
     if (warlordAttack && warlord != null) {
       warlord.useAttack();
+      if (socket != null) {
+        try {
+          JSONObject warlordData = new JSONObject();
+          warlordData.put("playerIdx", playerIdx);
+          socket.emit("warlordDirectAttack", warlordData);
+        } catch (JSONException e) { e.printStackTrace(); }
+      }
     }
 
     // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.

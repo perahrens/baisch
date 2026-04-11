@@ -558,6 +558,17 @@ class GameState {
     this.pendingHeroSelection = null;
   }
 
+  warlordDirectAttack(playerIdx) {
+    const p = this.players[playerIdx];
+    if ((p.warlordAttacks || 0) <= 0) {
+      console.log(`warlordDirectAttack: rejected — player ${playerIdx} has no attacks remaining`);
+      return false;
+    }
+    p.warlordAttacks--;
+    this.pushLog(`${this.pname(playerIdx)} used Warlord direct attack`, true, true);
+    return true;
+  }
+
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
     const p = this.players[playerIdx];
     if ((p.warlordAttacks || 0) <= 0) {

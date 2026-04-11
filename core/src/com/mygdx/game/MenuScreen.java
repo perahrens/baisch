@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -322,6 +323,7 @@ public class MenuScreen extends AbstractScreen {
     });
 
     menuStage.addActor(enterNameButton);
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -522,6 +524,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(rulesBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -599,6 +602,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(backBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -610,6 +614,41 @@ public class MenuScreen extends AbstractScreen {
       data.put("token", MyGdxGame.playerStorage.getToken());
     } catch (JSONException e) { /* ignore */ }
     return data;
+  }
+
+  /**
+   * Adds a small music on/off toggle button to the top-right corner of the given stage.
+   * Also installs a one-shot capture listener so the first touch anywhere starts music
+   * (works around browser autoplay restrictions).
+   */
+  private void addMusicToggleButton(final Stage stage) {
+    final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
+    TextButton musicBtn = new TextButton(enabled ? "\u266a ON" : "\u266a OFF", MyGdxGame.skin);
+    musicBtn.pack();
+    musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
+    musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
+        MyGdxGame.HEIGHT - musicBtn.getHeight() - 10);
+    musicBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        boolean newEnabled = !MyGdxGame.playerStorage.getMusicEnabled();
+        MyGdxGame.setMusicEnabled(newEnabled);
+        show();
+      }
+    });
+    stage.addActor(musicBtn);
+
+    // Start music on the first user touch (browser autoplay is blocked until a gesture).
+    if (MyGdxGame.bgMusic != null && !MyGdxGame.musicStarted) {
+      stage.addCaptureListener(new InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          MyGdxGame.ensureMusicStarted();
+          stage.removeCaptureListener(this);
+          return false; // do not consume; let the actual actor handle the click
+        }
+      });
+    }
   }
 
   private Table createStatusBadge(String text, Color bgColor, Color textColor) {
@@ -818,6 +857,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(leaveBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 

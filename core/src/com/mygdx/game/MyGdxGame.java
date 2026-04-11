@@ -3,6 +3,7 @@ package com.mygdx.game;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -27,6 +28,46 @@ public class MyGdxGame extends Game implements InputProcessor {
   static Skin skin;
   static Stage stage;
 
+  /** Background music instance. Null if the audio file is not found. */
+  static Music bgMusic = null;
+  /** True once bgMusic.play() has been called (guards against double-start). */
+  static boolean musicStarted = false;
+
+  /** Load the background music file without starting playback. */
+  static void loadMusic() {
+    try {
+      bgMusic = Gdx.audio.newMusic(Gdx.files.internal("data/sounds/music.mp3"));
+      bgMusic.setLooping(true);
+    } catch (Exception e) {
+      Gdx.app.log("Audio", "Background music not found — place data/sounds/music.mp3 to enable it");
+      bgMusic = null;
+    }
+  }
+
+  /**
+   * Start the music if it is enabled and not yet playing.
+   * Must be called from inside a user-gesture handler (click/touch) so that
+   * browsers allow audio playback.
+   */
+  static void ensureMusicStarted() {
+    if (bgMusic != null && !musicStarted && playerStorage.getMusicEnabled()) {
+      bgMusic.play();
+      musicStarted = true;
+    }
+  }
+
+  /** Toggle music on/off, persist the preference, and update playback immediately. */
+  static void setMusicEnabled(boolean enabled) {
+    playerStorage.saveMusicEnabled(enabled);
+    if (bgMusic == null) return;
+    if (enabled) {
+      bgMusic.play();
+      musicStarted = true;
+    } else {
+      bgMusic.pause();
+    }
+  }
+
   @Override
   public void create() {
 
@@ -38,6 +79,8 @@ public class MyGdxGame extends Game implements InputProcessor {
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
+    loadMusic();
+
     connectSocket();
 
     setScreen(new MenuScreen(this, socket));
@@ -48,7 +91,7 @@ public class MyGdxGame extends Game implements InputProcessor {
 
   @Override
   public void dispose() {
-
+    if (bgMusic != null) bgMusic.dispose();
   }
 
   @Override

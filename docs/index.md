@@ -20,7 +20,13 @@ Shared board:
 - cemetery (discard pile)
 - 2 center picking decks for plunder
 
-At round start, players roll dice to determine turn order.
+## Turn Order
+
+Default rule:
+- At round start, players roll dice to determine turn order.
+
+Optional rule:
+- Skip dice and use fixed clockwise order from a chosen starting player.
 
 ## Turn Flow
 
@@ -99,20 +105,86 @@ Draw mapping:
 | Black Ace | Choose a black hero (8-K) |
 | Joker | Free choice of any hero |
 
-Hero quick summary:
+### White Heroes
 
-- Mercenaries: spend units for temporary attack boosts.
-- Marshal: stronger take/put economy per turn.
-- Spy: reveal hidden enemy defense cards.
-- Battery Tower: deny one incoming attack and lock attacker cards.
-- Merchant: discard one card to draw one card.
-- Priest: convert matching-suit enemy hand cards after attack setup.
-- Reservists: boost king defense and optionally boost attack.
-- Banneret: allows mixed-color attack behavior and own-defense attack support.
-- Saboteurs: block enemy defense slots.
-- Fortified Tower: add a top defense card to stack defense values.
-- Magician: replace defense cards with fresh draws.
-- Warlord: special king-driven attack options and king swap utility.
+#### Mercenaries
+
+![Mercenaries](images/mercenaries.png)
+
+You can spend mercenary units to add temporary attack power. Units regenerate over time, so this hero is best for creating short, explosive attack turns.
+
+#### Marshal
+
+![Marshal](images/general.png)
+
+Improves defense management economy. You can perform more efficient take/put sequencing each turn, which helps stabilize your board while still preparing attacks.
+
+#### Spy
+
+![Spy](images/spy.png)
+
+Reveals hidden enemy defense cards. With extra cost, Spy can reveal additional cards. This turns uncertainty into information and enables stronger attack planning.
+
+#### Battery Tower
+
+![Battery Tower](images/batterytower.png)
+
+Can deny one incoming attack (when charged), causing the attacker to lose access to the committed attack cards for that turn. Excellent defensive tempo tool.
+
+#### Merchant
+
+![Merchant](images/merchant.png)
+
+Trade one card for a fresh draw. Useful for filtering weak cards out of hand and improving attack or defense consistency.
+
+#### Priest
+
+![Priest](images/priest.png)
+
+After attack setup, can attempt to convert enemy hand cards matching the current attack suit. Strong when timed around suit control.
+
+### Dark Heroes
+
+#### Reservists
+
+![Reservists](images/reservists.png)
+
+Provide passive king-defense value and can also be spent as temporary attack boosts. Flexible hero for both defense and finishing power.
+
+#### Banneret
+
+![Banneret](images/lieutenant.png)
+
+Expands attack composition and supports using own defense cards in attack scenarios. High tactical depth hero for advanced turns.
+
+#### Saboteurs
+
+![Saboteurs](images/saboteurs.png)
+
+Can block enemy defense slots, limiting opponent defense management options until the saboteur is removed.
+
+#### Fortified Tower
+
+![Fortified Tower](images/fortifiedtower.png)
+
+Allows stacking a top defense card onto an existing slot. Attackers must beat the combined defense strength.
+
+#### Magician
+
+![Magician](images/mage.png)
+
+Can replace defense cards with fresh cards from the deck. Useful for disruption or for forcing uncertainty onto key enemy slots.
+
+#### Warlord
+
+![Warlord](images/warlord.png)
+
+Enables special king-driven attack options and king swap utility, allowing aggressive tactical lines that are not available to other heroes.
+
+## Optional Rules
+
+- Turn order variant: fixed clockwise order (no dice roll each round).
+- Recommended for faster games and simpler onboarding.
 
 ## Win Condition
 

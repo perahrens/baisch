@@ -329,6 +329,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showSessionListScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // ── Tab bar ──────────────────────────────────────────────────────────────
@@ -630,12 +631,18 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
     musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
         MyGdxGame.HEIGHT - musicBtn.getHeight() - 10);
+    // Tracks whether this button instance has seen its first click yet.
+    // Set to true if music was already started before this screen was built.
+    final boolean[] firstClickDone = { MyGdxGame.musicStarted };
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        if (!MyGdxGame.musicStarted) {
-          // First user gesture via this button: always start music (never toggle off on first click).
-          MyGdxGame.setMusicEnabled(true);
+        boolean wasAlreadyStarted = firstClickDone[0];
+        firstClickDone[0] = true;
+        if (!wasAlreadyStarted && MyGdxGame.playerStorage.getMusicEnabled()) {
+          // First click when music is enabled: the capture listener already called
+          // ensureMusicStarted() on touchDown (in the DOM gesture context). Just
+          // keep music enabled and refresh the screen — do NOT toggle off.
         } else {
           MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
         }
@@ -644,30 +651,20 @@ public class MenuScreen extends AbstractScreen {
     });
     stage.addActor(musicBtn);
 
-    // On the first touch on any actor other than the music button, unlock browser autoplay.
-    // Use event.getTarget() — reliable; no coordinate conversion needed.
+    // On the first touch anywhere (including the music button), unlock browser
+    // autoplay by calling ensureMusicStarted() synchronously from touchDown.
+    // touchDown fires in the real DOM event context, which Chrome accepts for
+    // unlocking the autoplay policy — unlike clicked() which runs in rAF.
     if (!MyGdxGame.musicStarted) {
       stage.addCaptureListener(new InputListener() {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-          if (!isChildOf(event.getTarget(), musicBtn)) {
-            MyGdxGame.ensureMusicStarted();
-          }
+          MyGdxGame.ensureMusicStarted();
           stage.removeCaptureListener(this);
           return false;
         }
       });
     }
-  }
-
-  private static boolean isChildOf(com.badlogic.gdx.scenes.scene2d.Actor actor,
-      com.badlogic.gdx.scenes.scene2d.Actor parent) {
-    com.badlogic.gdx.scenes.scene2d.Actor a = actor;
-    while (a != null) {
-      if (a == parent) return true;
-      a = a.getParent();
-    }
-    return false;
   }
 
   private Table createStatusBadge(String text, Color bgColor, Color textColor) {

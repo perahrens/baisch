@@ -651,6 +651,13 @@ io.on('connection', function(socket) {
     socket.to(sess.id).emit('reservistsKingBoost', data);
   });
 
+  socket.on('warlordDirectAttack', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.warlordDirectAttack(data.playerIdx);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('warlordKingSwap', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

@@ -116,12 +116,13 @@ public class MenuScreen extends AbstractScreen {
     menuState = new MenuState();
     configSocketEvents(socket);
 
-    // Pre-populate name from local storage so returning players skip the name-entry screen.
+    // Pre-populate name and UI state from local storage so returning players skip the name-entry screen.
     String savedName = MyGdxGame.playerStorage.getSavedName();
     if (!savedName.isEmpty()) {
       menuState.setMyName(savedName);
       nameConfirmed = true;
     }
+    showPlayersTab = MyGdxGame.playerStorage.getSavedShowPlayersTab();
 
     // create menu screen
     group = new Group();
@@ -328,7 +329,7 @@ public class MenuScreen extends AbstractScreen {
         gamesTab.getWidth() + 16f, gamesTab.getHeight() + 16f);
     gamesHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = false; show();
+        showPlayersTab = false; MyGdxGame.playerStorage.saveShowPlayersTab(false); show();
       }
     });
 
@@ -337,7 +338,7 @@ public class MenuScreen extends AbstractScreen {
         playersTab.getWidth() + 16f, playersTab.getHeight() + 16f);
     playersHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = true; show();
+        showPlayersTab = true; MyGdxGame.playerStorage.saveShowPlayersTab(true); show();
       }
     });
 
@@ -769,6 +770,7 @@ public class MenuScreen extends AbstractScreen {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         socket.emit("leaveSession", "");
+        MyGdxGame.playerStorage.clearSessionId();
         lobbyJoined = false;
         timerStarted = false;
         gameRunning = false;
@@ -856,6 +858,11 @@ public class MenuScreen extends AbstractScreen {
               autoReg.put("name", menuState.getMyName());
               autoReg.put("token", MyGdxGame.playerStorage.getToken());
               socket.emit("registerPlayer", autoReg);
+              // Try to rejoin the session the player was in before the refresh.
+              String savedSessId = MyGdxGame.playerStorage.getSavedSessionId();
+              if (!savedSessId.isEmpty()) {
+                socket.emit("joinSession", buildJoinData(savedSessId));
+              }
             } catch (JSONException ex) { /* ignore */ }
           }
         } catch (JSONException e) {
@@ -1071,6 +1078,7 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            MyGdxGame.playerStorage.clearSessionId();
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1089,6 +1097,7 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            MyGdxGame.playerStorage.clearSessionId();
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
@@ -1163,6 +1172,8 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             try {
               sessionAllowHeroSelection = data.optBoolean("allowHeroSelection", true);
+              String sessId = data.optString("sessionId", "");
+              if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
             updateScreen = true;
@@ -1177,7 +1188,8 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            // Session was removed between list refresh and join — just refresh
+            // The session we tried to rejoin no longer exists — clear the stale id.
+            MyGdxGame.playerStorage.clearSessionId();
             updateScreen = true;
           }
         });

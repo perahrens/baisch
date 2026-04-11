@@ -25,10 +25,33 @@ public interface PlayerStorage {
   /** Persists the player's display name so it survives a page refresh. */
   void saveName(String name);
 
+  /**
+   * Returns the session ID the player was last in (lobby or running game), or an empty string.
+   * Used to auto-rejoin the right screen on page refresh.
+   */
+  String getSavedSessionId();
+
+  /** Persists the session ID the player just joined. */
+  void saveSessionId(String id);
+
+  /** Clears the saved session ID (e.g. when leaving a session or returning to the session list). */
+  void clearSessionId();
+
+  /** Returns true if the "Players" tab was active on the session-list screen before the last refresh. */
+  boolean getSavedShowPlayersTab();
+
+  /** Persists the current tab selection on the session-list screen. */
+  void saveShowPlayersTab(boolean playersTabActive);
+
   /** No-op implementation used on desktop and as a safe default. */
   PlayerStorage NOOP = new PlayerStorage() {
-    @Override public String getToken()            { return ""; }
-    @Override public String getSavedName()        { return ""; }
-    @Override public void   saveName(String name) { }
+    @Override public String  getToken()                          { return ""; }
+    @Override public String  getSavedName()                      { return ""; }
+    @Override public void    saveName(String name)               { }
+    @Override public String  getSavedSessionId()                 { return ""; }
+    @Override public void    saveSessionId(String id)            { }
+    @Override public void    clearSessionId()                    { }
+    @Override public boolean getSavedShowPlayersTab()            { return false; }
+    @Override public void    saveShowPlayersTab(boolean val)     { }
   };
 }

@@ -116,6 +116,13 @@ public class MenuScreen extends AbstractScreen {
     menuState = new MenuState();
     configSocketEvents(socket);
 
+    // Pre-populate name from local storage so returning players skip the name-entry screen.
+    String savedName = MyGdxGame.playerStorage.getSavedName();
+    if (!savedName.isEmpty()) {
+      menuState.setMyName(savedName);
+      nameConfirmed = true;
+    }
+
     // create menu screen
     group = new Group();
     group.setBounds(0, 0, MyGdxGame.WIDTH, MyGdxGame.HEIGHT);
@@ -258,10 +265,12 @@ public class MenuScreen extends AbstractScreen {
             String name = text.trim();
             if (name.isEmpty()) return;
             menuState.setMyName(name);
+            MyGdxGame.playerStorage.saveName(name);
             nameConfirmed = true;
             try {
               JSONObject reg = new JSONObject();
               reg.put("name", name);
+              reg.put("token", MyGdxGame.playerStorage.getToken());
               socket.emit("registerPlayer", reg);
             } catch (JSONException e) { /* ignore */ }
             Gdx.app.postRunnable(new Runnable() {
@@ -531,6 +540,7 @@ public class MenuScreen extends AbstractScreen {
           data.put("name", menuState.getMyName());
           data.put("sessionName", sessionName);
           data.put("allowHeroSelection", sessionAllowHeroSelection);
+          data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
@@ -559,6 +569,7 @@ public class MenuScreen extends AbstractScreen {
     try {
       data.put("sessionId", sessionId);
       data.put("name", menuState.getMyName());
+      data.put("token", MyGdxGame.playerStorage.getToken());
     } catch (JSONException e) { /* ignore */ }
     return data;
   }
@@ -838,6 +849,15 @@ public class MenuScreen extends AbstractScreen {
           String myUserID = data.getString("id");
           menuState.setMyUserID(myUserID);
           Gdx.app.log("SocketIO", "My ID: " + myUserID);
+          // If we already have a saved name (restored from storage), register immediately.
+          if (nameConfirmed && !menuState.getMyName().isEmpty()) {
+            try {
+              JSONObject autoReg = new JSONObject();
+              autoReg.put("name", menuState.getMyName());
+              autoReg.put("token", MyGdxGame.playerStorage.getToken());
+              socket.emit("registerPlayer", autoReg);
+            } catch (JSONException ex) { /* ignore */ }
+          }
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error getting ID");
         }

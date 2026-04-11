@@ -16,6 +16,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static SocketClient socketInstance;
   /** Platform-supplied turn notifier. Defaults to no-op; overridden by HtmlLauncher. */
   public static TurnNotifier turnNotifier = TurnNotifier.NOOP;
+  /** Platform-supplied player identity storage. Defaults to no-op; overridden by HtmlLauncher. */
+  public static PlayerStorage playerStorage = PlayerStorage.NOOP;
   public final static float HEIGHT = 800;
   public final static float WIDTH = 450;
 

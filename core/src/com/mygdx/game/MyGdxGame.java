@@ -28,43 +28,66 @@ public class MyGdxGame extends Game implements InputProcessor {
   static Skin skin;
   static Stage stage;
 
-  /** Background music instance. Null if the audio file is not found. */
-  static Music bgMusic = null;
-  /** True once bgMusic.play() has been called (guards against double-start). */
+  // --- Music tracks ---
+  /** Menu screens (name-entry, session list, create-game). */
+  static Music musicShimmer  = null;
+  /** Game lobby while waiting (no countdown). */
+  static Music musicDrums    = null;
+  /** Lobby countdown. */
+  static Music musicIntrigue = null;
+  /** Currently selected track (null = silence). */
+  static Music activeMusic   = null;
+  /** True once a user gesture has occurred — required to unblock browser autoplay. */
   static boolean musicStarted = false;
 
-  /** Load the background music file without starting playback. */
-  static void loadMusic() {
+  private static Music loadTrack(String path) {
     try {
-      bgMusic = Gdx.audio.newMusic(Gdx.files.internal("data/sounds/music.mp3"));
-      bgMusic.setLooping(true);
+      Music m = Gdx.audio.newMusic(Gdx.files.internal(path));
+      m.setLooping(true);
+      return m;
     } catch (Exception e) {
-      Gdx.app.log("Audio", "Background music not found — place data/sounds/music.mp3 to enable it");
-      bgMusic = null;
+      Gdx.app.log("Audio", "Track not found: " + path);
+      return null;
+    }
+  }
+
+  static void loadMusic() {
+    musicShimmer  = loadTrack("data/sounds/freesound_community-desert-shimmer-24684.mp3");
+    musicDrums    = loadTrack("data/sounds/tatamusic-battle-warrior-fighting-drums-478210.mp3");
+    musicIntrigue = loadTrack("data/sounds/34724807-castle-of-intrigue-288660.mp3");
+  }
+
+  /** Switch to a new track (pass null for silence). Silently ignores redundant calls. */
+  static void setMusicTrack(Music newTrack) {
+    if (activeMusic == newTrack) return;
+    if (activeMusic != null) activeMusic.pause();
+    activeMusic = newTrack;
+    if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()) {
+      activeMusic.play();
     }
   }
 
   /**
-   * Start the music if it is enabled and not yet playing.
-   * Must be called from inside a user-gesture handler (click/touch) so that
-   * browsers allow audio playback.
+   * Called on the first user touch to unblock browser autoplay.
+   * Starts the currently active track if music is enabled.
    */
   static void ensureMusicStarted() {
-    if (bgMusic != null && !musicStarted && playerStorage.getMusicEnabled()) {
-      bgMusic.play();
+    if (!musicStarted) {
       musicStarted = true;
+      if (activeMusic != null && playerStorage.getMusicEnabled()) {
+        activeMusic.play();
+      }
     }
   }
 
   /** Toggle music on/off, persist the preference, and update playback immediately. */
   static void setMusicEnabled(boolean enabled) {
     playerStorage.saveMusicEnabled(enabled);
-    if (bgMusic == null) return;
-    if (enabled) {
-      bgMusic.play();
-      musicStarted = true;
+    if (activeMusic == null) return;
+    if (enabled && musicStarted) {
+      activeMusic.play();
     } else {
-      bgMusic.pause();
+      activeMusic.pause();
     }
   }
 
@@ -91,7 +114,9 @@ public class MyGdxGame extends Game implements InputProcessor {
 
   @Override
   public void dispose() {
-    if (bgMusic != null) bgMusic.dispose();
+    if (musicShimmer  != null) musicShimmer.dispose();
+    if (musicDrums    != null) musicDrums.dispose();
+    if (musicIntrigue != null) musicIntrigue.dispose();
   }
 
   @Override

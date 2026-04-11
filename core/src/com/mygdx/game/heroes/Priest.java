@@ -34,6 +34,11 @@ public class Priest extends Hero {
     return conversionAttempts;
   }
 
+  public void setConversionAttempts(int n) {
+    conversionAttempts = n;
+    isSelectable = (n > 0);
+  }
+
   public void conversion() {
     conversionAttempts = 0;
   }

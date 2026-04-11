@@ -650,20 +650,32 @@ public class MenuScreen extends AbstractScreen {
     });
     stage.addActor(musicBtn);
 
-    // On the first touch anywhere (including the music button), unlock browser
-    // autoplay by calling ensureMusicStarted() synchronously from touchDown.
-    // touchDown fires in the real DOM event context, which Chrome accepts for
-    // unlocking the autoplay policy — unlike clicked() which runs in rAF.
+    // On the first touch on any actor OTHER than the music button, start playback.
+    // Skipping the music button avoids the race where touchDown starts the track
+    // and then clicked() immediately sees isPlaying=true and toggles it off.
+    // The AudioContext DOM unlocker in HtmlLauncher ensures play() works from rAF.
     if (!MyGdxGame.musicStarted) {
       stage.addCaptureListener(new InputListener() {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-          MyGdxGame.ensureMusicStarted();
+          if (!isChildOf(event.getTarget(), musicBtn)) {
+            MyGdxGame.ensureMusicStarted();
+          }
           stage.removeCaptureListener(this);
           return false;
         }
       });
     }
+  }
+
+  private static boolean isChildOf(com.badlogic.gdx.scenes.scene2d.Actor actor,
+      com.badlogic.gdx.scenes.scene2d.Actor parent) {
+    com.badlogic.gdx.scenes.scene2d.Actor a = actor;
+    while (a != null) {
+      if (a == parent) return true;
+      a = a.getParent();
+    }
+    return false;
   }
 
   private Table createStatusBadge(String text, Color bgColor, Color textColor) {

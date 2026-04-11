@@ -83,6 +83,11 @@ public class MenuScreen extends AbstractScreen {
   // Live list of all named online players, broadcast by the server.
   private java.util.List<OnlinePlayerInfo> onlinePlayers = new java.util.ArrayList<OnlinePlayerInfo>();
   private boolean showPlayersTab = false;
+  // True while waiting for the server to confirm reconnect to a running game.
+  // Suppresses the lobby flash that would otherwise appear before gameState arrives.
+  private boolean reconnecting = false;
+  // True when the server kicked this tab because the same token opened a new tab.
+  private boolean disconnectedByDuplicateTab = false;
 
   private static class OnlinePlayerInfo {
     String id;
@@ -115,6 +120,20 @@ public class MenuScreen extends AbstractScreen {
     // init game
     menuState = new MenuState();
     configSocketEvents(socket);
+
+    // Pre-populate name and UI state from local storage so returning players skip the name-entry screen.
+    String savedName = MyGdxGame.playerStorage.getSavedName();
+    if (!savedName.isEmpty()) {
+      menuState.setMyName(savedName);
+      nameConfirmed = true;
+    }
+    showPlayersTab = MyGdxGame.playerStorage.getSavedShowPlayersTab();
+    // If the player was mid-game when they refreshed, suppress the lobby flash by
+    // entering reconnecting mode.  show() will display a spinner until gameState
+    // arrives (or sessionNotFound clears the flag and falls back to the lobby).
+    if (nameConfirmed && !MyGdxGame.playerStorage.getSavedSessionId().isEmpty()) {
+      reconnecting = true;
+    }
 
     // create menu screen
     group = new Group();
@@ -226,7 +245,11 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.hideList();
     menuStage.clear();
 
-    if (!nameConfirmed) {
+    if (disconnectedByDuplicateTab) {
+      showDuplicateTabScreen();
+    } else if (reconnecting) {
+      showReconnectingScreen();
+    } else if (!nameConfirmed) {
       // Logo only shown on the name-entry screen.
       menuStage.addActor(group);
       showNameEntryScreen();
@@ -237,6 +260,28 @@ public class MenuScreen extends AbstractScreen {
     } else {
       showLobbyScreen();
     }
+  }
+
+  private void showDuplicateTabScreen() {
+    Label msg = new Label(
+        "This game was opened in another browser tab.\nThis tab is no longer active.",
+        MyGdxGame.skin);
+    msg.pack();
+    msg.setPosition(
+        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
+        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+    menuStage.addActor(msg);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private void showReconnectingScreen() {
+    Label msg = new Label("Reconnecting...", MyGdxGame.skin);
+    msg.pack();
+    msg.setPosition(
+        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
+        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+    menuStage.addActor(msg);
+    Gdx.input.setInputProcessor(menuStage);
   }
 
   private void showNameEntryScreen() {
@@ -258,10 +303,12 @@ public class MenuScreen extends AbstractScreen {
             String name = text.trim();
             if (name.isEmpty()) return;
             menuState.setMyName(name);
+            MyGdxGame.playerStorage.saveName(name);
             nameConfirmed = true;
             try {
               JSONObject reg = new JSONObject();
               reg.put("name", name);
+              reg.put("token", MyGdxGame.playerStorage.getToken());
               socket.emit("registerPlayer", reg);
             } catch (JSONException e) { /* ignore */ }
             Gdx.app.postRunnable(new Runnable() {
@@ -319,7 +366,7 @@ public class MenuScreen extends AbstractScreen {
         gamesTab.getWidth() + 16f, gamesTab.getHeight() + 16f);
     gamesHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = false; show();
+        showPlayersTab = false; MyGdxGame.playerStorage.saveShowPlayersTab(false); show();
       }
     });
 
@@ -328,7 +375,7 @@ public class MenuScreen extends AbstractScreen {
         playersTab.getWidth() + 16f, playersTab.getHeight() + 16f);
     playersHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = true; show();
+        showPlayersTab = true; MyGdxGame.playerStorage.saveShowPlayersTab(true); show();
       }
     });
 
@@ -531,6 +578,7 @@ public class MenuScreen extends AbstractScreen {
           data.put("name", menuState.getMyName());
           data.put("sessionName", sessionName);
           data.put("allowHeroSelection", sessionAllowHeroSelection);
+          data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
@@ -559,6 +607,7 @@ public class MenuScreen extends AbstractScreen {
     try {
       data.put("sessionId", sessionId);
       data.put("name", menuState.getMyName());
+      data.put("token", MyGdxGame.playerStorage.getToken());
     } catch (JSONException e) { /* ignore */ }
     return data;
   }
@@ -758,6 +807,7 @@ public class MenuScreen extends AbstractScreen {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         socket.emit("leaveSession", "");
+        MyGdxGame.playerStorage.clearSessionId();
         lobbyJoined = false;
         timerStarted = false;
         gameRunning = false;
@@ -838,6 +888,20 @@ public class MenuScreen extends AbstractScreen {
           String myUserID = data.getString("id");
           menuState.setMyUserID(myUserID);
           Gdx.app.log("SocketIO", "My ID: " + myUserID);
+          // If we already have a saved name (restored from storage), register immediately.
+          if (nameConfirmed && !menuState.getMyName().isEmpty()) {
+            try {
+              JSONObject autoReg = new JSONObject();
+              autoReg.put("name", menuState.getMyName());
+              autoReg.put("token", MyGdxGame.playerStorage.getToken());
+              socket.emit("registerPlayer", autoReg);
+              // Try to rejoin the session the player was in before the refresh.
+              String savedSessId = MyGdxGame.playerStorage.getSavedSessionId();
+              if (!savedSessId.isEmpty()) {
+                socket.emit("joinSession", buildJoinData(savedSessId));
+              }
+            } catch (JSONException ex) { /* ignore */ }
+          }
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error getting ID");
         }
@@ -1051,6 +1115,8 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1069,6 +1135,8 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
@@ -1143,6 +1211,8 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             try {
               sessionAllowHeroSelection = data.optBoolean("allowHeroSelection", true);
+              String sessId = data.optString("sessionId", "");
+              if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
             updateScreen = true;
@@ -1157,8 +1227,28 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            // Session was removed between list refresh and join — just refresh
+            // The session we tried to rejoin no longer exists — clear the stale id and
+            // drop back to the lobby so the player can start or join a fresh game.
+            MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("duplicateTab", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        // Disconnect first so socket.io does not auto-reconnect and ping-pong with the new tab.
+        socket.disconnect();
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            // Set the flag before setScreen so that show() renders the right message.
+            // This works whether the old tab is on MenuScreen or GameScreen.
+            disconnectedByDuplicateTab = true;
+            game.setScreen(MenuScreen.this);
           }
         });
       }

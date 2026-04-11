@@ -33,6 +33,19 @@ var _nextSessionId = 1;
 // { [socketId]: { id, name } }
 var connectedPlayers = {};
 
+// Guest-token map — survives socket reconnections.
+// { [token]: { name, socketId, sessionId, playerIdx } }
+// token is a UUID v4 generated client-side and stored in the browser's localStorage.
+var tokenMap = {};
+
+function findTokenBySocketId(socketId) {
+  var keys = Object.keys(tokenMap);
+  for (var i = 0; i < keys.length; i++) {
+    if (tokenMap[keys[i]].socketId === socketId) return keys[i];
+  }
+  return null;
+}
+
 function getPlayerStatus(socketId) {
   var sessId = socketToSession[socketId];
   if (!sessId) return 'Online';
@@ -84,8 +97,8 @@ function broadcastSessionList() {
   io.emit('sessionList', getSessionList());
 }
 
-function makeUser(id, name) {
-  return { id: id, name: name || 'Player', isReady: false };
+function makeUser(id, name, token) {
+  return { id: id, name: name || 'Player', isReady: false, token: token || null };
 }
 
 function getReadyUsers(sess) {
@@ -185,6 +198,11 @@ function startGameForSession(sess, requesterSocketId) {
       gameState: sess.gameState.serialize()
     });
     console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
+    // Persist player index in token map so they can reconnect to the right slot.
+    if (u.token && tokenMap[u.token]) {
+      tokenMap[u.token].playerIdx = idx;
+      tokenMap[u.token].sessionId = sess.id;
+    }
   });
   broadcastSessionList();
   broadcastPlayerList();
@@ -202,7 +220,14 @@ function checkAndHandleWinner(sess) {
       // Notify all participants to return to the session list
       io.to(sessId).emit('returnToLobby');
       // Remove all socket→session mappings so these sockets are session-less again
-      sess.users.forEach(function(u) { delete socketToSession[u.id]; });
+      sess.users.forEach(function(u) {
+        delete socketToSession[u.id];
+        // Clear token map session binding so the player is not auto-reconnected to a dead game.
+        if (u.token && tokenMap[u.token]) {
+          delete tokenMap[u.token].sessionId;
+          delete tokenMap[u.token].playerIdx;
+        }
+      });
       sess.spectators.forEach(function(sid) { delete socketToSession[sid]; });
       if (sess.timer) clearInterval(sess.timer);
       // Delete the session entirely — it won't appear in the session list anymore
@@ -255,6 +280,20 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
+    // If the player was in a running game, preserve their session slot so they
+    // can reconnect transparently (same game, same player index).
+    var sess = getSession(socket.id);
+    if (sess && sess.gameState !== null) {
+      var token = findTokenBySocketId(socket.id);
+      if (token) {
+        tokenMap[token].socketId = null;
+        delete socketToSession[socket.id];
+        delete connectedPlayers[socket.id];
+        broadcastPlayerList();
+        console.log('Player with token ' + token.slice(0, 8) + '... went offline — slot preserved in session ' + sess.id);
+        return;
+      }
+    }
     delete connectedPlayers[socket.id];
     leaveCurrentSession(socket);
     broadcastPlayerList();
@@ -269,7 +308,51 @@ io.on('connection', function(socket) {
 
   socket.on('registerPlayer', function(data) {
     var name = (data && data.name) ? String(data.name).slice(0, 30) : '';
+    var token = (data && data.token) ? String(data.token).slice(0, 64) : null;
     if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
+
+    if (token) {
+      if (!tokenMap[token]) tokenMap[token] = {};
+
+      // If another socket is still alive with this token it is a duplicate tab.
+      // Kick the old connection so only the most-recent tab is active.
+      var prevSocketId = tokenMap[token].socketId;
+      if (prevSocketId && prevSocketId !== socket.id) {
+        var prevSocket = io.sockets.sockets[prevSocketId];
+        if (prevSocket) {
+          console.log('Duplicate tab for token ' + token.slice(0, 8) + '... — disconnecting old socket ' + prevSocketId);
+          prevSocket.emit('duplicateTab');
+          prevSocket.disconnect(true);
+        }
+      }
+
+      tokenMap[token].name = name;
+      tokenMap[token].socketId = socket.id;
+
+      // Reconnect player to an active game if their token still has a live session slot.
+      var sessId = tokenMap[token].sessionId;
+      var playerIdx = tokenMap[token].playerIdx;
+      if (sessId !== undefined && playerIdx !== undefined) {
+        var sess = sessions[sessId];
+        if (sess && sess.gameState !== null) {
+          var user = sess.users.find(function(u) { return u.token === token; });
+          if (user) {
+            delete socketToSession[user.id]; // remove stale old-socket entry
+            user.id = socket.id;
+            socketToSession[socket.id] = sessId;
+            socket.join(sessId);
+            socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize() });
+            broadcastPlayerList();
+            console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to session ' + sessId + ' as player ' + playerIdx);
+            return;
+          }
+        }
+        // Session no longer exists or game not running — clear stale token session info.
+        delete tokenMap[token].sessionId;
+        delete tokenMap[token].playerIdx;
+      }
+    }
+
     broadcastPlayerList();
   });
 
@@ -280,7 +363,14 @@ io.on('connection', function(socket) {
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
     var sess = createSession(sessionName, allowHeroSelection);
-    sess.users.push(makeUser(socket.id, name));
+    var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
+    sess.users.push(makeUser(socket.id, name, cToken));
+    if (cToken) {
+      if (!tokenMap[cToken]) tokenMap[cToken] = {};
+      tokenMap[cToken].name = name;
+      tokenMap[cToken].socketId = socket.id;
+      tokenMap[cToken].sessionId = sess.id;
+    }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
     console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ")");
@@ -299,9 +389,16 @@ io.on('connection', function(socket) {
     leaveCurrentSession(socket); // leave any previous session first
     sess = sessions[data.sessionId]; // re-fetch — leaveCurrentSession may have deleted a different session
     var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
+    var jToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
     var existing = sess.users.find(function(u) { return u.id === socket.id; });
-    if (!existing) sess.users.push(makeUser(socket.id, name));
+    if (!existing) sess.users.push(makeUser(socket.id, name, jToken));
+    if (jToken) {
+      if (!tokenMap[jToken]) tokenMap[jToken] = {};
+      tokenMap[jToken].name = name;
+      tokenMap[jToken].socketId = socket.id;
+      tokenMap[jToken].sessionId = sess.id;
+    }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
     console.log("User " + name + " joined session " + sess.id);

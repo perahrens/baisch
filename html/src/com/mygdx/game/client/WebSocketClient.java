@@ -83,4 +83,14 @@ public class WebSocketClient implements SocketClient {
   private native void nativeDoConnect(JavaScriptObject sock) /*-{
     sock.connect();
   }-*/;
+
+  @Override
+  public void disconnect() {
+    nativeDoDisconnect(jsSocket);
+  }
+
+  private native void nativeDoDisconnect(JavaScriptObject sock) /*-{
+    // Calling sock.disconnect() on the client stops auto-reconnect in socket.io v2.
+    sock.disconnect();
+  }-*/;
 }

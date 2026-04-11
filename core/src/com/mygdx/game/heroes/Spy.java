@@ -41,6 +41,24 @@ public class Spy extends Hero {
     return spyExtends;
   }
 
+  public void setSpyAttacks(int spyAttacks) {
+    this.spyAttacks = Math.max(0, spyAttacks);
+  }
+
+  public void setSpyMaxAttacks(int spyMaxAttacks) {
+    this.spyMaxAttacks = Math.max(1, spyMaxAttacks);
+  }
+
+  public void setSpyExtends(int spyExtends) {
+    this.spyExtends = Math.max(0, spyExtends);
+    if (this.spyAttacks <= 0 && this.spyExtends <= 0) {
+      isReady = false;
+      isSelected = false;
+    } else {
+      isReady = true;
+    }
+  }
+
   public void spyExtend() {
     // sacrifice a card: spend the extend charge, gain +2 actions
     spyExtends--;

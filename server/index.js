@@ -689,8 +689,21 @@ io.on('connection', function(socket) {
 
   socket.on('spyFlip', function(data) {
     var sess = getSession(socket.id);
-    if (!sess) return;
+    if (!sess || !sess.gameState) return;
+    var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (userIdx === -1) return;
+    if (!sess.gameState.spyFlip(userIdx)) return;
     socket.to(sess.id).emit('spyFlip', data);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
+  socket.on('spyExtend', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (userIdx === -1) return;
+    if (!sess.gameState.spyExtend(userIdx, data.cardId)) return;
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
   socket.on('batteryDefenseCheck', function(data) {

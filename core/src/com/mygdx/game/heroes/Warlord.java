@@ -32,6 +32,16 @@ public class Warlord extends Hero {
 
   public int getAttacks() { return attacks; }
 
+  public void setAttacks(int attacks) {
+    this.attacks = Math.max(0, attacks);
+    if (this.attacks > 0) {
+      isSelectable = true;
+    } else {
+      isSelectable = false;
+      isSelected = false;
+    }
+  }
+
   public boolean isAttackAvailable() { return attacks > 0; }
 
   /** Spend the Warlord's attack charge for this turn. */

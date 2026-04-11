@@ -1,91 +1,108 @@
-# Baisch - Rules Book
+# Baisch - Complete Rulebook
 
-This page is the short and practical rules reference for live games.
+This rulebook is written to work for both:
+- offline/tabletop card play
+- the online implementation at https://perahrens.github.io/baisch/
 
-## Goal
+The interface can differ, but the gameplay rules are the same.
 
-Be the last player still in the game.
+## 1. Goal
 
-You are eliminated when your king is defeated in a king assault.
+Eliminate all opponents.
 
-## Setup Overview
+A player is eliminated when their king is defeated in a king assault.
+
+## 2. Components
+
+- Standard 52-card deck
+- 3 Joker cards
+- Hero pieces/tokens (or equivalent markers)
+- Optional dice (for turn-order variant)
+
+## 3. Setup
 
 Each player starts with:
 - 1 king card (face-down)
-- up to 3 defense cards in slots 1-3 (face-down)
-- hand cards
+- up to 3 face-down defense cards in slots 1 to 3
+- remaining cards in hand
 
-Shared board:
-- main deck
-- cemetery (discard pile)
-- 2 center picking decks for plunder
+Shared area:
+- Main deck (draw pile)
+- Cemetery (discard pile)
+- 2 center picking decks (plunder targets)
 
-## Turn Order
+## 4. Turn Order
 
 Default rule:
-- At round start, players roll dice to determine turn order.
+- At the start of each round, players roll dice.
+- Highest roll goes first; continue in descending order.
 
 Optional rule:
-- Skip dice and use fixed clockwise order from a chosen starting player.
+- No dice roll.
+- Use fixed clockwise order from a chosen starting player.
 
-## Turn Flow
-
-On your turn, you can:
-- take one of your defense cards back to hand
-- put a hand card as a new face-down defense card
-- plunder one picking deck
-- attack enemy defense cards
-- attack an enemy king if legal
-- use hero abilities
-
-End your turn with Finish Turn.
-
-## Card Strength Basics
+## 5. Card Values
 
 - Number cards: face value
-- J, Q, K, A: 11, 12, 13, 14
-- Joker in hand attacks as a wild high-impact card
-- Joker as a defense card counts as 1
+- J = 11, Q = 12, K = 13, A = 14
+- Joker:
+  - in defense counts as 1
+  - in attack is a wild high-impact card
 
-## Core Actions
+## 6. Turn Structure
 
-### 1) Plunder
+On your turn, you may perform legal actions in any valid order, then finish turn.
 
-Attack one of the two center picking decks.
+Core actions:
+- Manage defense (take/put)
+- Plunder a center picking deck
+- Attack enemy defense cards
+- Assault enemy king (when legal)
+- Use hero abilities
 
-- Success: you take all cards from that picking deck.
-- Fail: the deck grows and becomes a larger future target.
+## 7. Core Rules
 
-### 2) Attack Enemy Defense
+### 7.1 Manage Defense (Take/Put)
 
-Use hand cards to beat an enemy defense value.
+- Take: move one of your own defense cards back to hand.
+- Put: place one hand card face-down into an open defense slot.
 
-- Success: captured card(s) go to your hand as prey cards.
-- Fail: target remains and is usually revealed.
+### 7.2 Plunder
 
-### 3) King Assault (Attack Enemy King)
+Attack one of the 2 center picking decks.
 
-If the enemy has no defense left, you can attack their king.
+- Success: if your attack value beats the top defense value, you take all cards in that picking deck.
+- Failure: attack cards go to cemetery; the attacked picking deck grows.
 
-- Success: defender is eliminated.
-- If you used your own king and fail, you can be eliminated.
+### 7.3 Attack Enemy Defense
 
-### 4) Manage Defense
+- Build attack value with legal attack cards.
+- If attack value beats target defense value: capture target card(s).
+- If not: target remains; hidden card is usually revealed.
 
-Build and reposition your defense to stay protected while preparing attacks.
+### 7.4 King Assault
 
-## Prey Cards
+You may attack an enemy king only when king-assault conditions are met by your rule set (normally when enemy defense is cleared).
 
-Captured cards this turn are prey cards.
+- Success: enemy is eliminated.
+- Failure with your own king committed: you can be eliminated.
 
-- Prey cards are locked for the rest of your current turn.
-- They become usable normally on your next turn.
+### 7.5 Prey Cards
 
-## Heroes
+Cards captured during your current turn are prey cards.
 
-You gain heroes by sacrificing a joker.
+- Prey cards are locked for the rest of the turn.
+- They become usable from your next turn onward.
 
-Draw mapping:
+### 7.6 No-Attack Reveal Rule
+
+If your turn ends without performing an attack, reveal one of your defense cards.
+
+## 8. Hero Acquisition
+
+Heroes are obtained by sacrificing a Joker.
+
+Hero mapping by drawn card:
 
 | Drawn Card | Hero / Result |
 |---|---|
@@ -105,6 +122,8 @@ Draw mapping:
 | Black Ace | Choose a black hero (8-K) |
 | Joker | Free choice of any hero |
 
+## 9. Complete Hero Rules (How To Use)
+
 ### White Heroes
 
 #### Mercenaries
@@ -112,93 +131,80 @@ Draw mapping:
 ![Mercenaries](images/mercenaries.png)
 
 How to use:
-- Select Mercenaries during your turn before resolving an attack.
-- Spend one ready mercenary to add +1 attack value.
-- Repeat as needed while ready units are available.
+1. Before resolving an attack/plunder, activate Mercenaries.
+2. Spend ready units: each spent unit gives +1 attack value.
+3. Resolve combat with boosted total.
 
-Important rules:
-- Mercenaries are temporary units and recover over turns.
-- They can be used to swing close attack or plunder calculations.
-- If a mercenary on a defended position is destroyed, it is lost and must recover.
-
-Best use:
-- Save units for key combats where +1 to +3 changes the outcome.
+Limits and details:
+- Units are finite and recover over turns.
+- In the online game, up to 8 total units exist, with ready/destroyed states.
+- Use only what is needed to secure the result.
 
 #### Marshal
 
 ![Marshal](images/general.png)
 
 How to use:
-- Marshal modifies your defense management economy each turn.
-- You can perform more mobilization actions (take/put) than normal.
+1. During your turn, perform additional mobilization actions.
+2. Mobilization means take or put of defense cards.
 
-Important rules:
-- Mobilization means taking a defense card back to hand or placing one from hand to defense.
-- Use this to rebuild defense without sacrificing tempo.
-
-Best use:
-- Reorganize weak slots and still keep enough cards for attacks in the same turn.
+Limits and details:
+- Marshal increases defense-management economy versus baseline rules.
+- Online implementation uses a higher per-turn mobilization budget.
 
 #### Spy
 
 ![Spy](images/spy.png)
 
 How to use:
-- Activate Spy during your turn to reveal a face-down enemy defense card.
-- If available in your ruleset, discard one hand card to gain additional reveals.
+1. Activate Spy and choose a face-down enemy defense card.
+2. Reveal it (information gain).
+3. Optional extension: discard one hand card to gain extra spy reveals.
 
-Important rules:
-- Revealed cards remove uncertainty and let you plan exact attack sums.
-- Spy is strongest before committing high-value attack cards.
-
-Best use:
-- Reveal first, then choose the lowest-risk attack target.
+Complete Spy details:
+- Base: 1 spy reveal attack per turn.
+- Extension: you may discard one card to gain +2 additional spy reveals.
+- This extension can be used once per turn (while extend is available).
+- If no face-down enemy defense card is available (all are face-up), Spy may target and reveal the enemy king.
 
 #### Battery Tower
 
 ![Battery Tower](images/batterytower.png)
 
 How to use:
-- Battery Tower triggers when an opponent attacks your defense or king.
-- Choose to deny the attack while the tower is charged.
+1. Opponent declares attack on your defense/king.
+2. If Battery Tower is charged, choose to deny.
+3. Attack is canceled/denied per rules, and attacker loses access to committed attack cards for that turn.
 
-Important rules:
-- Denied attack cards are locked for the attacker for the rest of that turn.
-- Tower typically has limited charges and must recover.
-
-Best use:
-- Deny expensive attacks to create major tempo advantage.
+Limits and details:
+- Usually one charge/use per turn cycle.
+- Must recover/recharge before next deny.
 
 #### Merchant
 
 ![Merchant](images/merchant.png)
 
 How to use:
-- During your turn, select Merchant and one card you want to replace.
-- Discard that card and draw a replacement from the main deck.
+1. During your turn, choose one card to trade (from hand; in some variants also legal from defense interactions).
+2. Discard chosen card to cemetery.
+3. Draw replacement from main deck.
 
-Important rules:
-- Merchant is usually limited to one trade per turn.
-- Use it to remove low-impact or off-plan cards.
-
-Best use:
-- Fix weak hands before a planned attack turn.
+Limits and details:
+- Usually 1 trade per turn.
+- Online rules may reveal the final trade draw to all players.
 
 #### Priest
 
 ![Priest](images/priest.png)
 
 How to use:
-- First establish your current attack suit (by starting an attack).
-- Activate Priest and choose an opponent hand target.
-- If revealed card matches your active suit, you convert/steal it; otherwise it is returned.
+1. First establish current attack suit by starting an attack.
+2. Activate Priest and target an opponent hand card.
+3. If revealed card matches your active attack suit, convert/keep it; otherwise return it.
 
-Important rules:
-- Priest has limited attempts per turn.
-- Timing matters: Priest is only strong after suit has been fixed for your turn.
-
-Best use:
-- Use right after setting a suit where opponents are likely to hold many cards.
+Limits and details:
+- Usually up to 2 conversion attempts per turn.
+- Priest is only selectable after attack suit is set.
 
 ### Dark Heroes
 
@@ -207,105 +213,94 @@ Best use:
 ![Reservists](images/reservists.png)
 
 How to use:
-- Reservists passively reinforce king defense.
-- During attack/plunder resolution, spend reservists for +1 attack each when needed.
+1. Keep reservists for passive king-defense boost.
+2. Spend reservists during attack/plunder for +1 each when needed.
 
-Important rules:
-- Units are finite and recover over turns.
-- Spending too many reduces your king safety.
-
-Best use:
-- Keep a defensive baseline, spend only the minimum needed to secure key wins.
+Limits and details:
+- Spending improves offense but weakens defense buffer.
+- Units recover over turns.
 
 #### Banneret
 
 ![Banneret](images/lieutenant.png)
 
 How to use:
-- Banneret allows broader attack composition (paired suits / mixed pattern, depending on your table rules).
-- It also enables attack lines that include your own defense cards.
+1. Use Banneret to broaden legal attack composition.
+2. In supported contexts, include own defense cards in attack builds.
 
-Important rules:
-- Confirm your active suit pattern before committing cards.
-- You trade board security for offensive burst when using own defense cards.
-
-Best use:
-- Convert a stable defense into a sudden high-value finishing attack.
+Limits and details:
+- Use carefully: converting defense into attack can open your board.
+- Confirm suit-combination legality before committing cards.
 
 #### Saboteurs
 
 ![Saboteurs](images/saboteurs.png)
 
 How to use:
-- During your turn, place a saboteur on an enemy defense slot.
-- That slot becomes blocked for defense management until cleared.
+1. Place saboteur on enemy defense slot.
+2. Block that slot from normal defense management.
 
-Important rules:
-- Saboteurs are limited units with recovery time after destruction.
-- Opponents can remove them by resolving the slot through combat/sacrifice rules.
-
-Best use:
-- Lock high-value slots to prevent enemy repositioning before your next attack.
+Limits and details:
+- Saboteurs are limited units with destruction/repair/recovery states.
+- Defender can clear sabotage through legal removal/sacrifice/combat outcomes.
 
 #### Fortified Tower
 
 ![Fortified Tower](images/fortifiedtower.png)
 
 How to use:
-- Select Fortified Tower and choose one of your existing defense slots.
-- Place an extra face-down top defense card onto that slot.
+1. Choose one of your defense slots.
+2. Add a face-down top defense card.
+3. Defender value becomes combined stack value.
 
-Important rules:
-- Attacker must beat the combined defense value to capture it.
-- Usually limited number of tower uses per turn.
-
-Best use:
-- Protect key slot(s) right before passing turn.
+Limits and details:
+- Usually 1 stack action per turn.
+- Attackers must beat combined strength to capture.
 
 #### Magician
 
 ![Magician](images/mage.png)
 
 How to use:
-- During your turn, target an existing defense slot (yours or enemy, depending on table rules).
-- Replace the slot card(s) with fresh draw(s) from the main deck.
+1. Target a defense slot (enemy or own, depending on format).
+2. Replace card(s) with fresh draw(s) from deck.
+3. Old card(s) go to cemetery.
 
-Important rules:
-- Replaced cards go to cemetery.
-- Usually one spell use per turn.
-
-Best use:
-- Reset strong revealed enemy defenses into unknown or weaker values.
+Limits and details:
+- Usually 1 spell per turn.
+- Powerful for disrupting known strong defenses.
 
 #### Warlord
 
 ![Warlord](images/warlord.png)
 
 How to use:
-- Warlord unlocks aggressive king-based attack options.
-- You can launch special king attacks and use king-swap tactics.
+1. Activate Warlord to unlock special king-based attack line.
+2. Optionally perform king swap (variant/implementation-specific) for tactical setup.
 
-Important rules:
-- King-based attacks are high risk: failed commits can expose your own king.
-- Respect one-use/charge limits per turn where applicable.
+Limits and details:
+- King-based aggression is high risk.
+- Failed king-committed attacks can cause self-elimination.
 
-Best use:
-- Use after reducing enemy defense to convert initiative into elimination pressure.
+## 10. Optional Rules
 
-## Optional Rules
+- Fixed clockwise turn order (no dice each round).
+- Faster mode: shorter timer / fewer planning pauses.
 
-- Turn order variant: fixed clockwise order (no dice roll each round).
-- Recommended for faster games and simpler onboarding.
+## 11. Win Condition
 
-## Win Condition
+Last non-eliminated player wins.
 
-The last non-eliminated player wins.
+## 12. Quick Beginner Guide
 
-## New Player Tips
+1. Keep at least one strong hidden defense.
+2. Use plunder to stabilize weak hands.
+3. Do not commit king assaults unless odds are clearly favorable.
+4. Use heroes for timing advantage, not just raw value.
+5. Track enemy resources (charges, units, per-turn uses).
 
-1. Keep at least one strong hidden defense while building offense.
-2. Plunder early if your hand is weak.
-3. Avoid king assault unless odds are clearly good.
-4. Use jokers when a hero can immediately impact your turn.
-5. Track enemy hero resources before committing attacks.
+## 13. Notes on Offline vs Online
 
+- Offline and online use the same core mechanics.
+- Online UI may automate checks and reveal states.
+- If a table rule conflicts with this page, agree house rules before game start.

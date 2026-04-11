@@ -625,7 +625,7 @@ public class MenuScreen extends AbstractScreen {
    */
   private void addMusicToggleButton(final Stage stage) {
     final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
-    TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
+    final TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
     musicBtn.pack();
     musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
     musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
@@ -647,9 +647,7 @@ public class MenuScreen extends AbstractScreen {
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
           // Only auto-start if the touch is NOT on the music button itself
           // (the button's own click listener handles its case via setMusicEnabled).
-          com.badlogic.gdx.scenes.scene2d.Actor hit =
-              stage.hit(x + stage.getCamera().position.x - stage.getWidth() / 2f,
-                        y + stage.getCamera().position.y - stage.getHeight() / 2f, true);
+          com.badlogic.gdx.scenes.scene2d.Actor hit = stage.hit(x, y, true);
           if (hit == null || !isChildOf(hit, musicBtn)) {
             MyGdxGame.ensureMusicStarted();
           }

@@ -2298,8 +2298,9 @@ public class GameScreen extends ScreenAdapter {
                   gameState.setPriestTargetPlayerIdx(-1);
                   gameState.setPriestRevealedCardId(-1);
                 } else {
-                  // Miss — reveal it
+                  // Miss — reveal it and notify server to decrement the counter
                   gameState.setPriestRevealedCardId(tc.getCardId());
+                  emitPriestAttemptFailed();
                 }
                 gameState.setUpdateState(true);
               }
@@ -3130,6 +3131,15 @@ public class GameScreen extends ScreenAdapter {
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
+  private void emitPriestAttemptFailed() {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("attackerIdx", playerIndex);
+      socket.emit("priestAttemptFailed", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
   private void emitReservistsKingBoost(int count) {
     if (socket == null) return;
     try {
@@ -3353,9 +3363,33 @@ public class GameScreen extends ScreenAdapter {
         pendingAttackBroadcast = null;
       }
 
-      // Sync plunder preview for the watcher overlay
+      // Sync plunder preview — restore overlay for attacker on reconnect, watcher overlay for others
       JSONObject serverPendingPlunder = state.optJSONObject("pendingPlunder");
-      if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
+      if (serverPendingPlunder != null
+          && serverPendingPlunder.optInt("attackerIdx", -1) == playerIndex
+          && !currentPlayer.getPlayerTurn().isPlunderPending()) {
+        // Restore the plunder confirmation overlay so it reappears after a page refresh
+        PlayerTurn rpt = currentPlayer.getPlayerTurn();
+        rpt.setPlunderPending(true);
+        rpt.setPendingPickingDeckIndex(serverPendingPlunder.optInt("deckIndex", 0));
+        rpt.setPlunderSuccess(serverPendingPlunder.optBoolean("success", false));
+        rpt.setKingUsed(serverPendingPlunder.optBoolean("kingUsed", false));
+        rpt.setPendingPlunderAttackSum(serverPendingPlunder.optInt("attackSum", 0));
+        rpt.setPendingPlunderDefStrength(serverPendingPlunder.optInt("defStrength", 0));
+        ArrayList<Card> rptAtkCards = new ArrayList<Card>();
+        JSONArray rptAtkIds = serverPendingPlunder.optJSONArray("attackCardIds");
+        if (rptAtkIds != null) {
+          for (int rai = 0; rai < rptAtkIds.length(); rai++) rptAtkCards.add(Card.fromCardId(rptAtkIds.getInt(rai)));
+        }
+        rpt.setPendingAttackCards(rptAtkCards);
+        ArrayList<Card> rptOwnDefCards = new ArrayList<Card>();
+        JSONArray rptOwnDefIds = serverPendingPlunder.optJSONArray("ownDefCardIds");
+        if (rptOwnDefIds != null) {
+          for (int rai = 0; rai < rptOwnDefIds.length(); rai++) rptOwnDefCards.add(Card.fromCardId(rptOwnDefIds.getInt(rai)));
+        }
+        rpt.setPendingAttackOwnDefCards(rptOwnDefCards);
+        pendingPlunderBroadcast = null;
+      } else if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
         pendingPlunderBroadcast = serverPendingPlunder;
       } else {
         pendingPlunderBroadcast = null;

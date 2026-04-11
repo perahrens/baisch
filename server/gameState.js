@@ -73,7 +73,17 @@ class GameState {
   }
 
   setPlunderPreview(data) {
-    this.pendingPlunder = data;
+    // Immediately remove committed hand-based attack cards from attacker's hand.
+    // This prevents them reappearing in hand if the player refreshes before confirming the overlay.
+    const p = data.attackerIdx !== undefined ? this.players[data.attackerIdx] : null;
+    const lockedHandCards = [];
+    if (p && data.attackCardIds) {
+      for (const cardId of data.attackCardIds) {
+        const i = p.hand.indexOf(cardId);
+        if (i !== -1) { p.hand.splice(i, 1); lockedHandCards.push(cardId); }
+      }
+    }
+    this.pendingPlunder = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
   }
 
   setAttackPreview(data) {
@@ -142,6 +152,13 @@ class GameState {
     return this.deck.pop();
   }
 
+  priestAttemptFailed(attackerIdx) {
+    const attacker = this.players[attackerIdx];
+    if ((attacker.priestConversionAttempts || 0) <= 0) return;
+    attacker.priestConversionAttempts--;
+    this.pushLog(`${this.pname(attackerIdx)} (Priest) missed — no match`, false);
+  }
+
   priestConvert(attackerIdx, targetPlayerIdx, cardId) {
     const attacker = this.players[attackerIdx];
     // Enforce server-authoritative attempt limit (2 per turn).
@@ -155,7 +172,7 @@ class GameState {
       target.hand.splice(idx, 1);
       attacker.hand.push(cardId);
     }
-    attacker.priestConversionAttempts--;
+    attacker.priestConversionAttempts = 0; // success burns all remaining attempts
     this.pushLog(`${this.pname(attackerIdx)} (Priest) took card from ${this.pname(targetPlayerIdx)}`, true);
   }
 
@@ -348,11 +365,14 @@ class GameState {
   }
 
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    // Use cards pre-locked in setPlunderPreview if available (prevents reappearance on refresh)
+    const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
-    for (const cardId of attackCardIds) {
+    const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
+    for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);
-      if (i !== -1) attacker.hand.splice(i, 1);
+      if (i !== -1) attacker.hand.splice(i, 1); // already removed from hand if locking was used
       this.cemetery.push(cardId);
     }
     // Banneret: own def cards used as attackers go to cemetery

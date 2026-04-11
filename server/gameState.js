@@ -58,6 +58,16 @@ class GameState {
       p.topDefCardsCovered = {};
       p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
       p.attackCount = 0; // number of enemy attacks this turn (reset on finishTurn)
+      p.priestConversionAttempts = 2; // Priest hero: attempts remaining this turn
+      p.magicianSpells = 1; // Magician hero: spells remaining this turn
+      p.merchantTrades = 1; // Merchant hero: trades remaining this turn
+      p.warlordAttacks = 1; // Warlord hero: king swap/attack uses remaining this turn
+      p.spyAttacks = 1; // Spy hero: flips remaining this turn
+      p.spyMaxAttacks = 1; // Spy hero: max flips displayed this turn
+      p.spyExtends = 1; // Spy hero: extends remaining this turn
+      p.pickingDeckAttacks = 1; // plunder attempts remaining this turn
+      p.attackingSymbol = 'none'; // first attack symbol this turn (locked after first attack)
+      p.attackingSymbol2 = 'none'; // Banneret extended symbol
     }
   }
 
@@ -66,10 +76,29 @@ class GameState {
   }
 
   setPlunderPreview(data) {
-    this.pendingPlunder = data;
+    // Immediately remove committed hand-based attack cards from attacker's hand.
+    // This prevents them reappearing in hand if the player refreshes before confirming the overlay.
+    const p = data.attackerIdx !== undefined ? this.players[data.attackerIdx] : null;
+    if (p) {
+      if (p.pickingDeckAttacks > 0) p.pickingDeckAttacks--;
+      if (data.attackingSymbol) { p.attackingSymbol = data.attackingSymbol; p.attackingSymbol2 = data.attackingSymbol2 || 'none'; }
+    }
+    const lockedHandCards = [];
+    if (p && data.attackCardIds) {
+      for (const cardId of data.attackCardIds) {
+        const i = p.hand.indexOf(cardId);
+        if (i !== -1) { p.hand.splice(i, 1); lockedHandCards.push(cardId); }
+      }
+    }
+    this.pendingPlunder = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
   }
 
   setAttackPreview(data) {
+    // Track attacking symbol so the client can restore it on page refresh
+    if (data.attackerIdx !== undefined && data.attackingSymbol) {
+      const atk = this.players[data.attackerIdx];
+      if (atk) { atk.attackingSymbol = data.attackingSymbol; atk.attackingSymbol2 = data.attackingSymbol2 || 'none'; }
+    }
     this.pendingAttack = data;
     // Mark targeted defense card(s) as face-up so the defender sees the reveal immediately
     const { defenderIdx, positionId, level } = data;
@@ -135,14 +164,27 @@ class GameState {
     return this.deck.pop();
   }
 
-  priestConvert(attackerIdx, targetPlayerIdx, cardId) {
-    const target = this.players[targetPlayerIdx];
+  priestAttemptFailed(attackerIdx) {
     const attacker = this.players[attackerIdx];
+    if ((attacker.priestConversionAttempts || 0) <= 0) return;
+    attacker.priestConversionAttempts--;
+    this.pushLog(`${this.pname(attackerIdx)} (Priest) missed — no match`, false);
+  }
+
+  priestConvert(attackerIdx, targetPlayerIdx, cardId) {
+    const attacker = this.players[attackerIdx];
+    // Enforce server-authoritative attempt limit (2 per turn).
+    if ((attacker.priestConversionAttempts || 0) <= 0) {
+      console.log(`priestConvert: rejected — player ${attackerIdx} has no attempts remaining`);
+      return;
+    }
+    const target = this.players[targetPlayerIdx];
     const idx = target.hand.indexOf(cardId);
     if (idx !== -1) {
       target.hand.splice(idx, 1);
       attacker.hand.push(cardId);
     }
+    attacker.priestConversionAttempts = 0; // success burns all remaining attempts
     this.pushLog(`${this.pname(attackerIdx)} (Priest) took card from ${this.pname(targetPlayerIdx)}`, true);
   }
 
@@ -226,6 +268,12 @@ class GameState {
   }
 
   magicianSwap(playerIdx, targetPlayerIdx, positionId, newBottomCardId, bottomCovered, newTopCardId, topCovered) {
+    const attacker = this.players[playerIdx];
+    if ((attacker.magicianSpells || 0) <= 0) {
+      console.log(`magicianSwap: rejected — player ${playerIdx} has no spells remaining`);
+      return;
+    }
+
     const target = this.players[targetPlayerIdx];
     // Discard old bottom card
     const oldBottom = target.defCards[positionId];
@@ -247,7 +295,55 @@ class GameState {
       if (!target.topDefCardsCovered) target.topDefCardsCovered = {};
       target.topDefCardsCovered[positionId] = topCovered;
     }
+    attacker.magicianSpells--;
     this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s shield [${positionId}]`, true);
+  }
+
+  spyFlip(playerIdx) {
+    const p = this.players[playerIdx];
+    if (!p) return false;
+    if ((p.spyAttacks || 0) <= 0) {
+      console.log(`spyFlip: rejected attack — player ${playerIdx} has no spy attacks remaining`);
+      return false;
+    }
+    p.spyAttacks--;
+    return true;
+  }
+
+  spyExtend(playerIdx, cardId) {
+    const p = this.players[playerIdx];
+    if (!p) return false;
+    if ((p.spyExtends || 0) <= 0) {
+      console.log(`spyExtend: rejected — player ${playerIdx} has no extends remaining`);
+      return false;
+    }
+    // Remove the sacrificed card from hand, defCards, or topDefCards
+    if (cardId !== undefined && cardId !== null) {
+      const handIdx = p.hand.indexOf(cardId);
+      if (handIdx !== -1) {
+        p.hand.splice(handIdx, 1);
+      } else {
+        for (const key of Object.keys(p.defCards || {})) {
+          if (p.defCards[key] === cardId) {
+            delete p.defCards[key];
+            if (p.defCardsCovered) delete p.defCardsCovered[key];
+            break;
+          }
+        }
+        for (const key of Object.keys(p.topDefCards || {})) {
+          if (p.topDefCards[key] === cardId) {
+            delete p.topDefCards[key];
+            if (p.topDefCardsCovered) delete p.topDefCardsCovered[key];
+            break;
+          }
+        }
+      }
+      this.cemetery.push(cardId);
+    }
+    p.spyExtends--;
+    p.spyAttacks = Math.min((p.spyAttacks || 0) + 2, 3);
+    p.spyMaxAttacks = Math.min((p.spyMaxAttacks || 1) + 2, 3);
+    return true;
   }
 
   addToCemetery(playerIdx, cardIds, drawFromDeck) {
@@ -281,11 +377,14 @@ class GameState {
   }
 
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    // Use cards pre-locked in setPlunderPreview if available (prevents reappearance on refresh)
+    const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
-    for (const cardId of attackCardIds) {
+    const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
+    for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);
-      if (i !== -1) attacker.hand.splice(i, 1);
+      if (i !== -1) attacker.hand.splice(i, 1); // already removed from hand if locking was used
       this.cemetery.push(cardId);
     }
     // Banneret: own def cards used as attackers go to cemetery
@@ -380,6 +479,16 @@ class GameState {
     if (this.players[currentPlayerIndex]) {
       this.players[currentPlayerIndex].preyCards = [];
       this.players[currentPlayerIndex].attackCount = 0; // reset for next turn
+      this.players[currentPlayerIndex].priestConversionAttempts = 2; // reset Priest uses for next turn
+      this.players[currentPlayerIndex].magicianSpells = 1;
+      this.players[currentPlayerIndex].merchantTrades = 1;
+      this.players[currentPlayerIndex].warlordAttacks = 1;
+      this.players[currentPlayerIndex].spyAttacks = 1;
+      this.players[currentPlayerIndex].spyMaxAttacks = 1;
+      this.players[currentPlayerIndex].spyExtends = 1;
+      this.players[currentPlayerIndex].pickingDeckAttacks = 1;
+      this.players[currentPlayerIndex].attackingSymbol = 'none';
+      this.players[currentPlayerIndex].attackingSymbol2 = 'none';
     }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
@@ -484,19 +593,39 @@ class GameState {
     this.pendingHeroSelection = null;
   }
 
+  warlordDirectAttack(playerIdx) {
+    const p = this.players[playerIdx];
+    if ((p.warlordAttacks || 0) <= 0) {
+      console.log(`warlordDirectAttack: rejected — player ${playerIdx} has no attacks remaining`);
+      return false;
+    }
+    p.warlordAttacks--;
+    this.pushLog(`${this.pname(playerIdx)} used Warlord direct attack`, true, true);
+    return true;
+  }
+
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
     const p = this.players[playerIdx];
+    if ((p.warlordAttacks || 0) <= 0) {
+      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no attacks remaining`);
+      return;
+    }
     const handIdx = p.hand.indexOf(newKingCardId);
     if (handIdx === -1) return;
     p.hand.splice(handIdx, 1);
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
     p.kingCovered = true; // new king is always placed face-down
+    p.warlordAttacks--;
     this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
   }
 
   merchantTrade(playerIdx, discardedCardId, drawnCardId) {
     const p = this.players[playerIdx];
+    if ((p.merchantTrades || 0) <= 0) {
+      console.log(`merchantTrade: rejected — player ${playerIdx} has no trades remaining`);
+      return;
+    }
     this.lastMerchantReveal = null;
     // Remove discarded card from hand, defCards, or topDefCards
     const handIdx = p.hand.indexOf(discardedCardId);
@@ -515,6 +644,7 @@ class GameState {
     const deckIdx = this.deck.indexOf(drawnCardId);
     if (deckIdx !== -1) this.deck.splice(deckIdx, 1);
     p.hand.push(drawnCardId);
+    p.merchantTrades--;
     this.pushLog(`${this.pname(playerIdx)} used Merchant trade`, true, true);
   }
 
@@ -586,6 +716,16 @@ class GameState {
         heroes: [...(p.heroes || [])],
         preyCards: [...(p.preyCards || [])],
         attackCount: p.attackCount || 0,
+        priestConversionAttempts: p.priestConversionAttempts !== undefined ? p.priestConversionAttempts : 2,
+        magicianSpells: p.magicianSpells !== undefined ? p.magicianSpells : 1,
+        merchantTrades: p.merchantTrades !== undefined ? p.merchantTrades : 1,
+        warlordAttacks: p.warlordAttacks !== undefined ? p.warlordAttacks : 1,
+        spyAttacks: p.spyAttacks !== undefined ? p.spyAttacks : 1,
+        spyMaxAttacks: p.spyMaxAttacks !== undefined ? p.spyMaxAttacks : 1,
+        spyExtends: p.spyExtends !== undefined ? p.spyExtends : 1,
+        pickingDeckAttacks: p.pickingDeckAttacks !== undefined ? p.pickingDeckAttacks : 1,
+        attackingSymbol: p.attackingSymbol || 'none',
+        attackingSymbol2: p.attackingSymbol2 || 'none',
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

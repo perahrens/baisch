@@ -145,6 +145,8 @@ public class PickingDeckListener extends ClickListener {
             JSONArray ownDefIds = new JSONArray();
             for (Card c : ownDefSnapshot) ownDefIds.put(c.getCardId());
             preview.put("ownDefCardIds", ownDefIds);
+            preview.put("attackingSymbol", pt.getAttackingSymbol()[0]);
+            preview.put("attackingSymbol2", pt.getAttackingSymbol()[1]);
             gameState.getSocket().emit("plunderPreview", preview);
           } catch (JSONException e) { e.printStackTrace(); }
         }

@@ -34,6 +34,16 @@ public class Merchant extends Hero {
     return trades;
   }
 
+  public void setTrades(int trades) {
+    this.trades = Math.max(0, trades);
+    if (this.trades > 0) {
+      isSelectable = true;
+    } else {
+      isSelectable = false;
+      isSelected = false;
+    }
+  }
+
   @Override
   public void recover() {
     trades = 1;

@@ -110,7 +110,15 @@ public class OwnHandCardListener extends ClickListener {
             System.out.println("Spy sacrifice handcard " + handCard.getStrength());
             cemeteryDeck.addCard(handCard);
             player.getHandCards().remove(handCard);
+            final int sacrificedCardId = handCard.getCardId();
             spy.spyExtend();
+            if (socket != null) {
+              try {
+                JSONObject extendData = new JSONObject();
+                extendData.put("cardId", sacrificedCardId);
+                socket.emit("spyExtend", extendData);
+              } catch (JSONException e) { e.printStackTrace(); }
+            }
             if (gameState != null) gameState.setUpdateState(true);
           }
           return;

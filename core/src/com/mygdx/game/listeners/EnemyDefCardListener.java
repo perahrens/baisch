@@ -302,6 +302,13 @@ public class EnemyDefCardListener extends ClickListener {
     // Consume Warlord charge after attack is committed
     if (warlordAttack && warlord != null) {
       warlord.useAttack();
+      if (socket != null) {
+        try {
+          JSONObject warlordData = new JSONObject();
+          warlordData.put("playerIdx", playerIdx);
+          socket.emit("warlordDirectAttack", warlordData);
+        } catch (JSONException e) { e.printStackTrace(); }
+      }
     }
 
     // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.
@@ -415,6 +422,8 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("mercenaryBonus", player.getPlayerTurn().getPendingAttackMercenaryBonus());
       data.put("reservistBonus", player.getPlayerTurn().getReservistAttackBonus());
       data.put("success", success);
+      data.put("attackingSymbol", player.getPlayerTurn().getAttackingSymbol()[0]);
+      data.put("attackingSymbol2", player.getPlayerTurn().getAttackingSymbol()[1]);
       socket.emit("attackPreview", data);
     } catch (JSONException e) { e.printStackTrace(); }
   }

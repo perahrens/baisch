@@ -106,7 +106,15 @@ public class OwnDefCardListener extends ClickListener {
               } else {
                 defCards.remove(posId);
               }
+              final int sacrificedCardId = selectedCard.getCardId();
               spy.spyExtend();
+              if (socket != null) {
+                try {
+                  JSONObject extendData = new JSONObject();
+                  extendData.put("cardId", sacrificedCardId);
+                  socket.emit("spyExtend", extendData);
+                } catch (JSONException e) { e.printStackTrace(); }
+              }
               gameState.setUpdateState(true);
             }
           } else if (player.getHeroes().get(i).getHeroName() == "Merchant"

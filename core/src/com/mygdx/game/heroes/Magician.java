@@ -34,4 +34,14 @@ public class Magician extends Hero {
     return spells;
   }
 
+  public void setSpells(int spells) {
+    this.spells = Math.max(0, spells);
+    if (this.spells > 0) {
+      isSelectable = true;
+    } else {
+      isSelectable = false;
+      isSelected = false;
+    }
+  }
+
 }

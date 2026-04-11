@@ -409,6 +409,8 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
                     previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
+                    previewData.put("attackingSymbol", pt.getAttackingSymbol()[0]);
+                    previewData.put("attackingSymbol2", pt.getAttackingSymbol()[1]);
                     theSocket.emit("attackPreview", previewData);
                   } catch (JSONException ex) { ex.printStackTrace(); }
                 }
@@ -1138,19 +1140,18 @@ public class GameScreen extends ScreenAdapter {
           break;
         }
 
-        // Only add info listener to other players' heroes here.
-        // The current player's heroes get it via heroLabel in showHandStage.
-        if (players.get(i) != currentPlayer) {
-          playerHeroes.get(j).removeAllListeners();
-          final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
-          playerHeroes.get(j).addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-              showHeroInfoOverlay(heroInfoName_gs);
-              event.stop();
-            }
-          });
-        }
+        // All board heroes get an info overlay click listener.
+        // (Local player's own heroes are moved to handStage by showHandStage, so the
+        //  listener added here gets replaced there — no conflict.)
+        playerHeroes.get(j).removeAllListeners();
+        final String heroInfoName_gs = playerHeroes.get(j).getHeroName();
+        playerHeroes.get(j).addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            showHeroInfoOverlay(heroInfoName_gs);
+            event.stop();
+          }
+        });
         gameStage.addActor(playerHeroes.get(j));
       }
 
@@ -1767,6 +1768,8 @@ public class GameScreen extends ScreenAdapter {
                       resPreview.put("mercenaryBonus", apt.getPendingAttackMercenaryBonus());
                       resPreview.put("reservistBonus", apt.getReservistAttackBonus());
                       resPreview.put("success", newSuccess);
+                      resPreview.put("attackingSymbol", apt.getAttackingSymbol()[0]);
+                      resPreview.put("attackingSymbol2", apt.getAttackingSymbol()[1]);
                       socket.emit("attackPreview", resPreview);
                     } catch (JSONException ex) { ex.printStackTrace(); }
                   }
@@ -2299,8 +2302,9 @@ public class GameScreen extends ScreenAdapter {
                   gameState.setPriestTargetPlayerIdx(-1);
                   gameState.setPriestRevealedCardId(-1);
                 } else {
-                  // Miss — reveal it
+                  // Miss — reveal it and notify server to decrement the counter
                   gameState.setPriestRevealedCardId(tc.getCardId());
+                  emitPriestAttemptFailed();
                 }
                 gameState.setUpdateState(true);
               }
@@ -2524,12 +2528,23 @@ public class GameScreen extends ScreenAdapter {
       }
 
       hero.removeAllListeners();
-      ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer(), gameState);
-      hero.addListener(ownHeroListener);
+      final String heroInfoName = hero.getHeroName();
+      if (currentPlayer == gameState.getCurrentPlayer()) {
+        ownHeroListener = new OwnHeroListener(hero, gameState.getCurrentPlayer(), gameState);
+        hero.addListener(ownHeroListener);
+      } else {
+        // Not our turn — hero is not usable; clicking the image shows info instead.
+        hero.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            showHeroInfoOverlay(heroInfoName);
+            event.stop();
+          }
+        });
+      }
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
       heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
-      final String heroInfoName = hero.getHeroName();
       heroLabel.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -3120,6 +3135,15 @@ public class GameScreen extends ScreenAdapter {
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
+  private void emitPriestAttemptFailed() {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("attackerIdx", playerIndex);
+      socket.emit("priestAttemptFailed", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+  }
+
   private void emitReservistsKingBoost(int count) {
     if (socket == null) return;
     try {
@@ -3314,6 +3338,14 @@ public class GameScreen extends ScreenAdapter {
         }
         p.getPlayerTurn().setPreyCardIds(newPreyIds);
         p.getPlayerTurn().setAttackCounter(pj.optInt("attackCount", 0));
+
+        // Restore per-turn client counters from server-authoritative state so they survive page refresh
+        if (p == currentPlayer) {
+          p.getPlayerTurn().setPickingDeckAttacks(pj.optInt("pickingDeckAttacks", 1));
+          p.getPlayerTurn().setAttackingSymbolDirect(
+              pj.optString("attackingSymbol", "none"),
+              pj.optString("attackingSymbol2", "none"));
+        }
       }
 
       // Sync heroes from server-authoritative state so missed relay events do not desync views.
@@ -3343,9 +3375,33 @@ public class GameScreen extends ScreenAdapter {
         pendingAttackBroadcast = null;
       }
 
-      // Sync plunder preview for the watcher overlay
+      // Sync plunder preview — restore overlay for attacker on reconnect, watcher overlay for others
       JSONObject serverPendingPlunder = state.optJSONObject("pendingPlunder");
-      if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
+      if (serverPendingPlunder != null
+          && serverPendingPlunder.optInt("attackerIdx", -1) == playerIndex
+          && !currentPlayer.getPlayerTurn().isPlunderPending()) {
+        // Restore the plunder confirmation overlay so it reappears after a page refresh
+        PlayerTurn rpt = currentPlayer.getPlayerTurn();
+        rpt.setPlunderPending(true);
+        rpt.setPendingPickingDeckIndex(serverPendingPlunder.optInt("deckIndex", 0));
+        rpt.setPlunderSuccess(serverPendingPlunder.optBoolean("success", false));
+        rpt.setKingUsed(serverPendingPlunder.optBoolean("kingUsed", false));
+        rpt.setPendingPlunderAttackSum(serverPendingPlunder.optInt("attackSum", 0));
+        rpt.setPendingPlunderDefStrength(serverPendingPlunder.optInt("defStrength", 0));
+        ArrayList<Card> rptAtkCards = new ArrayList<Card>();
+        JSONArray rptAtkIds = serverPendingPlunder.optJSONArray("attackCardIds");
+        if (rptAtkIds != null) {
+          for (int rai = 0; rai < rptAtkIds.length(); rai++) rptAtkCards.add(Card.fromCardId(rptAtkIds.getInt(rai)));
+        }
+        rpt.setPendingAttackCards(rptAtkCards);
+        ArrayList<Card> rptOwnDefCards = new ArrayList<Card>();
+        JSONArray rptOwnDefIds = serverPendingPlunder.optJSONArray("ownDefCardIds");
+        if (rptOwnDefIds != null) {
+          for (int rai = 0; rai < rptOwnDefIds.length(); rai++) rptOwnDefCards.add(Card.fromCardId(rptOwnDefIds.getInt(rai)));
+        }
+        rpt.setPendingAttackOwnDefCards(rptOwnDefCards);
+        pendingPlunderBroadcast = null;
+      } else if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
         pendingPlunderBroadcast = serverPendingPlunder;
       } else {
         pendingPlunderBroadcast = null;
@@ -3409,11 +3465,13 @@ public class GameScreen extends ScreenAdapter {
     // Game/hand stages are added only when it is this client's active turn.
     if (menuOpen) {
       Gdx.input.setInputProcessor(overlayStage);
-    } else if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null || pendingExposeCard)) {
-      // Active turn: overlay (menu btn) + game + hand
+    } else if (!isSpectator) {
+      // Active turn OR waiting: include game+hand stages so hero info overlays work when not your turn.
+      // Game-action listeners (EnemyDefCardListener etc.) require selected cards/heroes which are
+      // never set during a non-active turn, so enabling these stages is safe.
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Waiting or spectator: only overlay/menu input; block gameplay interactions
+      // Spectator: only overlay/menu input
       Gdx.input.setInputProcessor(overlayStage);
     }
 

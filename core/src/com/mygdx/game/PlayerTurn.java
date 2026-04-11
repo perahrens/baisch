@@ -21,6 +21,10 @@ public class PlayerTurn {
     pickingDeckAttacks -= 1;
   }
 
+  public void setPickingDeckAttacks(int v) {
+    pickingDeckAttacks = v;
+  }
+
   public int getPickingDeckAttacks() {
     return pickingDeckAttacks;
   }
@@ -64,6 +68,12 @@ public class PlayerTurn {
         if (symbol == "clubs") attackingSymbol[1] = "spades";
       }
     }
+  }
+
+  // Directly restore both symbol slots from server state (used by applyStateUpdate on page refresh).
+  public void setAttackingSymbolDirect(String sym1, String sym2) {
+    attackingSymbol[0] = sym1;
+    attackingSymbol[1] = sym2;
   }
 
   public String[] getAttackingSymbol() {

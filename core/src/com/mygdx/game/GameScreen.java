@@ -409,6 +409,8 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
                     previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
+                    previewData.put("attackingSymbol", pt.getAttackingSymbol()[0]);
+                    previewData.put("attackingSymbol2", pt.getAttackingSymbol()[1]);
                     theSocket.emit("attackPreview", previewData);
                   } catch (JSONException ex) { ex.printStackTrace(); }
                 }
@@ -1766,6 +1768,8 @@ public class GameScreen extends ScreenAdapter {
                       resPreview.put("mercenaryBonus", apt.getPendingAttackMercenaryBonus());
                       resPreview.put("reservistBonus", apt.getReservistAttackBonus());
                       resPreview.put("success", newSuccess);
+                      resPreview.put("attackingSymbol", apt.getAttackingSymbol()[0]);
+                      resPreview.put("attackingSymbol2", apt.getAttackingSymbol()[1]);
                       socket.emit("attackPreview", resPreview);
                     } catch (JSONException ex) { ex.printStackTrace(); }
                   }
@@ -3334,6 +3338,14 @@ public class GameScreen extends ScreenAdapter {
         }
         p.getPlayerTurn().setPreyCardIds(newPreyIds);
         p.getPlayerTurn().setAttackCounter(pj.optInt("attackCount", 0));
+
+        // Restore per-turn client counters from server-authoritative state so they survive page refresh
+        if (p == currentPlayer) {
+          p.getPlayerTurn().setPickingDeckAttacks(pj.optInt("pickingDeckAttacks", 1));
+          p.getPlayerTurn().setAttackingSymbolDirect(
+              pj.optString("attackingSymbol", "none"),
+              pj.optString("attackingSymbol2", "none"));
+        }
       }
 
       // Sync heroes from server-authoritative state so missed relay events do not desync views.
@@ -3453,11 +3465,13 @@ public class GameScreen extends ScreenAdapter {
     // Game/hand stages are added only when it is this client's active turn.
     if (menuOpen) {
       Gdx.input.setInputProcessor(overlayStage);
-    } else if (!isSpectator && (gameState.getCurrentPlayer() == currentPlayer || pendingBatteryDefCheck != null || pendingBatteryResultCards != null || pendingExposeCard)) {
-      // Active turn: overlay (menu btn) + game + hand
+    } else if (!isSpectator) {
+      // Active turn OR waiting: include game+hand stages so hero info overlays work when not your turn.
+      // Game-action listeners (EnemyDefCardListener etc.) require selected cards/heroes which are
+      // never set during a non-active turn, so enabling these stages is safe.
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Waiting or spectator: only overlay/menu input; block gameplay interactions
+      // Spectator: only overlay/menu input
       Gdx.input.setInputProcessor(overlayStage);
     }
 

@@ -633,22 +633,24 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        boolean newEnabled = !MyGdxGame.playerStorage.getMusicEnabled();
-        MyGdxGame.setMusicEnabled(newEnabled);
+        if (!MyGdxGame.musicStarted) {
+          // First user gesture via this button: always start music (never toggle off on first click).
+          MyGdxGame.setMusicEnabled(true);
+        } else {
+          MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
+        }
         show();
       }
     });
     stage.addActor(musicBtn);
 
-    // On the first touch anywhere on this stage, unlock browser autoplay for any other actors.
+    // On the first touch on any actor other than the music button, unlock browser autoplay.
+    // Use event.getTarget() — reliable; no coordinate conversion needed.
     if (!MyGdxGame.musicStarted) {
       stage.addCaptureListener(new InputListener() {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-          // Only auto-start if the touch is NOT on the music button itself
-          // (the button's own click listener handles its case via setMusicEnabled).
-          com.badlogic.gdx.scenes.scene2d.Actor hit = stage.hit(x, y, true);
-          if (hit == null || !isChildOf(hit, musicBtn)) {
+          if (!isChildOf(event.getTarget(), musicBtn)) {
             MyGdxGame.ensureMusicStarted();
           }
           stage.removeCaptureListener(this);

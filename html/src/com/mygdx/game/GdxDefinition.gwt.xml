@@ -8,6 +8,12 @@
 
 	<inherits name='MyGdxGame' />
 	<entry-point class='com.mygdx.game.client.HtmlLauncher' />
+
+	<!-- Restrict to modern browsers only — IE and legacy Edge are obsolete in 2026.
+	     "safari" covers Chrome, Safari, Edge (Chromium) and their mobile variants.
+	     "gecko1_8" covers Firefox.
+	     This halves the number of GWT permutations and roughly halves compile time. -->
+	<set-property name="user.agent" value="safari,gecko1_8" />
 	<set-configuration-property name='xsiframe.failIfScriptTag' value='FALSE'/>
 	<set-configuration-property name="gdx.assetpath" value="../android/assets" />
 </module>

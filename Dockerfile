@@ -1,13 +1,23 @@
+# syntax=docker/dockerfile:1
 # ── Stage 1: Build the GWT frontend ──────────────────────────────────────────
 FROM eclipse-temurin:11-jdk AS gwt-build
 
 WORKDIR /workspace
 
-# Copy only the files Gradle needs first so layer caching works for dependency
-# downloads even when source files change.
+# Copy only the build descriptor files first.  This layer is cached until those
+# files change, allowing the dependency-download step below to be skipped on
+# most deploys.
 COPY gradlew gradlew.bat gradle.properties settings.gradle build.gradle ./
 COPY gradle/ gradle/
+COPY core/build.gradle  core/build.gradle
+COPY html/build.gradle  html/build.gradle
 RUN chmod +x gradlew
+
+# Resolve and cache all Gradle/GWT dependencies without compiling source.
+# The --mount=type=cache keeps the Gradle home across builds on the same
+# Depot builder, so JARs are not re-downloaded on every source change.
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :html:dependencies --no-daemon -q
 
 # Copy all subproject sources.
 COPY core/   core/
@@ -21,14 +31,19 @@ COPY html/   html/
 COPY android/assets/ android/assets/
 RUN rm -rf android/assets/data/SpriteSheetCollection android/assets/data/sprites
 
-# Full optimised compile with localWorkers=1 so only one permutation runs at a
-# time (keeping peak heap at 1 GB and avoiding OOM on Depot build machines).
+# Full optimised compile.  The Gradle home cache is shared with the dependency
+# step so previously downloaded JARs are still present.
+# The GWT work dir cache preserves the unit cache between Docker builds,
+# enabling incremental compilation when only a few source files changed
+# (typically 3-5x faster than a cold compile).
 # After compilation, assemble the complete serveable directory by overlaying:
 #   webapp/  → index.html, styles.css, soundmanager2 files, etc.
 #   war/assets/ → assets/ dir built by PreloaderBundleGenerator, served at
 #                 /assets/ so the GWT preloader (baseURL + "assets/") can find
 #                 assets.txt and all game files.
-RUN ./gradlew :html:compileGwt --no-daemon --stacktrace && \
+RUN --mount=type=cache,target=/root/.gradle \
+    --mount=type=cache,target=/workspace/html/build/gwt/work \
+    ./gradlew :html:compileGwt --no-daemon --stacktrace && \
     cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
     cp -r /workspace/html/war/assets /workspace/html/build/gwt/out/assets
 

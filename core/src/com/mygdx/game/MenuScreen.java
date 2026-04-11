@@ -83,6 +83,11 @@ public class MenuScreen extends AbstractScreen {
   // Live list of all named online players, broadcast by the server.
   private java.util.List<OnlinePlayerInfo> onlinePlayers = new java.util.ArrayList<OnlinePlayerInfo>();
   private boolean showPlayersTab = false;
+  // True while waiting for the server to confirm reconnect to a running game.
+  // Suppresses the lobby flash that would otherwise appear before gameState arrives.
+  private boolean reconnecting = false;
+  // True when the server kicked this tab because the same token opened a new tab.
+  private boolean disconnectedByDuplicateTab = false;
 
   private static class OnlinePlayerInfo {
     String id;
@@ -123,6 +128,12 @@ public class MenuScreen extends AbstractScreen {
       nameConfirmed = true;
     }
     showPlayersTab = MyGdxGame.playerStorage.getSavedShowPlayersTab();
+    // If the player was mid-game when they refreshed, suppress the lobby flash by
+    // entering reconnecting mode.  show() will display a spinner until gameState
+    // arrives (or sessionNotFound clears the flag and falls back to the lobby).
+    if (nameConfirmed && !MyGdxGame.playerStorage.getSavedSessionId().isEmpty()) {
+      reconnecting = true;
+    }
 
     // create menu screen
     group = new Group();
@@ -234,7 +245,11 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox.hideList();
     menuStage.clear();
 
-    if (!nameConfirmed) {
+    if (disconnectedByDuplicateTab) {
+      showDuplicateTabScreen();
+    } else if (reconnecting) {
+      showReconnectingScreen();
+    } else if (!nameConfirmed) {
       // Logo only shown on the name-entry screen.
       menuStage.addActor(group);
       showNameEntryScreen();
@@ -245,6 +260,28 @@ public class MenuScreen extends AbstractScreen {
     } else {
       showLobbyScreen();
     }
+  }
+
+  private void showDuplicateTabScreen() {
+    Label msg = new Label(
+        "This game was opened in another browser tab.\nThis tab is no longer active.",
+        MyGdxGame.skin);
+    msg.pack();
+    msg.setPosition(
+        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
+        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+    menuStage.addActor(msg);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  private void showReconnectingScreen() {
+    Label msg = new Label("Reconnecting...", MyGdxGame.skin);
+    msg.pack();
+    msg.setPosition(
+        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
+        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+    menuStage.addActor(msg);
+    Gdx.input.setInputProcessor(menuStage);
   }
 
   private void showNameEntryScreen() {
@@ -1079,6 +1116,7 @@ public class MenuScreen extends AbstractScreen {
           @Override
           public void run() {
             MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1098,6 +1136,7 @@ public class MenuScreen extends AbstractScreen {
           @Override
           public void run() {
             MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
@@ -1188,8 +1227,10 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            // The session we tried to rejoin no longer exists — clear the stale id.
+            // The session we tried to rejoin no longer exists — clear the stale id and
+            // drop back to the lobby so the player can start or join a fresh game.
             MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
             updateScreen = true;
           }
         });
@@ -1204,16 +1245,10 @@ public class MenuScreen extends AbstractScreen {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
-            menuStage.clear();
-            Label msg = new Label(
-                "This game was opened in another browser tab.\nThis tab is no longer active.",
-                MyGdxGame.skin);
-            msg.pack();
-            msg.setPosition(
-                MyGdxGame.WIDTH / 2f - msg.getPrefWidth() / 2f,
-                MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
-            menuStage.addActor(msg);
-            Gdx.input.setInputProcessor(menuStage);
+            // Set the flag before setScreen so that show() renders the right message.
+            // This works whether the old tab is on MenuScreen or GameScreen.
+            disconnectedByDuplicateTab = true;
+            game.setScreen(MenuScreen.this);
           }
         });
       }

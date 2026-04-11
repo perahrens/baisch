@@ -187,6 +187,7 @@ function startGameForSession(sess, requesterSocketId) {
     console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
   });
   broadcastSessionList();
+  broadcastPlayerList();
   return true;
 }
 
@@ -207,6 +208,7 @@ function checkAndHandleWinner(sess) {
       // Delete the session entirely — it won't appear in the session list anymore
       delete sessions[sessId];
       broadcastSessionList();
+      broadcastPlayerList();
     }, 5000);
   }
 }

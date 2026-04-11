@@ -1,6 +1,7 @@
 package com.mygdx.game.listeners;
 
 import java.util.ArrayList;
+import java.util.Map;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -12,6 +13,7 @@ import com.mygdx.game.heroes.BatteryTower;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Reservists;
+import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.heroes.Warlord;
 import com.mygdx.game.net.SocketClient;
 import com.mygdx.game.util.JSONArray;
@@ -60,6 +62,36 @@ public class EnemyKingCardListener extends ClickListener {
       }
     }
     if (defender == null || defender == player) return;
+
+    // Spy peek: if Spy is selected with attacks remaining and ALL of the defender's
+    // defense cards are already face-up, allow flipping the king card.
+    for (int si = 0; si < player.getHeroes().size(); si++) {
+      Hero h = player.getHeroes().get(si);
+      if ("Spy".equals(h.getHeroName()) && h.isSelected()) {
+        Spy spy = (Spy) h;
+        if (spy.getSpyAttacks() > 0
+            && kingCard.isCovered()
+            && !player.getKingCard().isSelected()
+            && player.getSelectedHandCards().isEmpty()) {
+          boolean allFaceUp = true;
+          for (Card dc : defender.getDefCards().values()) {
+            if (dc.isCovered()) { allFaceUp = false; break; }
+          }
+          if (allFaceUp) {
+            for (Card dc : defender.getTopDefCards().values()) {
+              if (dc.isCovered()) { allFaceUp = false; break; }
+            }
+          }
+          if (allFaceUp) {
+            kingCard.setCovered(false);
+            spy.spyAttack();
+            emitSpyKingFlip(defenderIdx);
+            if (gameState != null) gameState.setUpdateState(true);
+          }
+        }
+        return;
+      }
+    }
 
     // Guard: king can only be attacked when defender has NO defense cards
     if (!defender.getDefCards().isEmpty() || !defender.getTopDefCards().isEmpty()) return;
@@ -184,5 +216,16 @@ public class EnemyKingCardListener extends ClickListener {
     }
 
     if (gameState != null) gameState.setUpdateState(true);
+  }
+
+  private void emitSpyKingFlip(int defenderIdx) {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("targetPlayerIdx", defenderIdx);
+      data.put("slot", -1); // -1 signals a king card flip
+      data.put("level", -1);
+      socket.emit("spyFlip", data);
+    } catch (JSONException e) { e.printStackTrace(); }
   }
 }

@@ -739,6 +739,13 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
+  socket.on('priestAttemptFailed', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.priestAttemptFailed(data.attackerIdx);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('sabotage', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

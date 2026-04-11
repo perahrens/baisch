@@ -313,6 +313,19 @@ io.on('connection', function(socket) {
 
     if (token) {
       if (!tokenMap[token]) tokenMap[token] = {};
+
+      // If another socket is still alive with this token it is a duplicate tab.
+      // Kick the old connection so only the most-recent tab is active.
+      var prevSocketId = tokenMap[token].socketId;
+      if (prevSocketId && prevSocketId !== socket.id) {
+        var prevSocket = io.sockets.sockets[prevSocketId];
+        if (prevSocket) {
+          console.log('Duplicate tab for token ' + token.slice(0, 8) + '... — disconnecting old socket ' + prevSocketId);
+          prevSocket.emit('duplicateTab');
+          prevSocket.disconnect(true);
+        }
+      }
+
       tokenMap[token].name = name;
       tokenMap[token].socketId = socket.id;
 

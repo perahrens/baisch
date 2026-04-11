@@ -65,6 +65,9 @@ class GameState {
       p.spyAttacks = 1; // Spy hero: flips remaining this turn
       p.spyMaxAttacks = 1; // Spy hero: max flips displayed this turn
       p.spyExtends = 1; // Spy hero: extends remaining this turn
+      p.pickingDeckAttacks = 1; // plunder attempts remaining this turn
+      p.attackingSymbol = 'none'; // first attack symbol this turn (locked after first attack)
+      p.attackingSymbol2 = 'none'; // Banneret extended symbol
     }
   }
 
@@ -76,6 +79,10 @@ class GameState {
     // Immediately remove committed hand-based attack cards from attacker's hand.
     // This prevents them reappearing in hand if the player refreshes before confirming the overlay.
     const p = data.attackerIdx !== undefined ? this.players[data.attackerIdx] : null;
+    if (p) {
+      if (p.pickingDeckAttacks > 0) p.pickingDeckAttacks--;
+      if (data.attackingSymbol) { p.attackingSymbol = data.attackingSymbol; p.attackingSymbol2 = data.attackingSymbol2 || 'none'; }
+    }
     const lockedHandCards = [];
     if (p && data.attackCardIds) {
       for (const cardId of data.attackCardIds) {
@@ -87,6 +94,11 @@ class GameState {
   }
 
   setAttackPreview(data) {
+    // Track attacking symbol so the client can restore it on page refresh
+    if (data.attackerIdx !== undefined && data.attackingSymbol) {
+      const atk = this.players[data.attackerIdx];
+      if (atk) { atk.attackingSymbol = data.attackingSymbol; atk.attackingSymbol2 = data.attackingSymbol2 || 'none'; }
+    }
     this.pendingAttack = data;
     // Mark targeted defense card(s) as face-up so the defender sees the reveal immediately
     const { defenderIdx, positionId, level } = data;
@@ -474,6 +486,9 @@ class GameState {
       this.players[currentPlayerIndex].spyAttacks = 1;
       this.players[currentPlayerIndex].spyMaxAttacks = 1;
       this.players[currentPlayerIndex].spyExtends = 1;
+      this.players[currentPlayerIndex].pickingDeckAttacks = 1;
+      this.players[currentPlayerIndex].attackingSymbol = 'none';
+      this.players[currentPlayerIndex].attackingSymbol2 = 'none';
     }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
@@ -708,6 +723,9 @@ class GameState {
         spyAttacks: p.spyAttacks !== undefined ? p.spyAttacks : 1,
         spyMaxAttacks: p.spyMaxAttacks !== undefined ? p.spyMaxAttacks : 1,
         spyExtends: p.spyExtends !== undefined ? p.spyExtends : 1,
+        pickingDeckAttacks: p.pickingDeckAttacks !== undefined ? p.pickingDeckAttacks : 1,
+        attackingSymbol: p.attackingSymbol || 'none',
+        attackingSymbol2: p.attackingSymbol2 || 'none',
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

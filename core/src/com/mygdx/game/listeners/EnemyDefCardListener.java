@@ -422,6 +422,8 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("mercenaryBonus", player.getPlayerTurn().getPendingAttackMercenaryBonus());
       data.put("reservistBonus", player.getPlayerTurn().getReservistAttackBonus());
       data.put("success", success);
+      data.put("attackingSymbol", player.getPlayerTurn().getAttackingSymbol()[0]);
+      data.put("attackingSymbol2", player.getPlayerTurn().getAttackingSymbol()[1]);
       socket.emit("attackPreview", data);
     } catch (JSONException e) { e.printStackTrace(); }
   }

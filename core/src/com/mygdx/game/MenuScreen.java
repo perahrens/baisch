@@ -1187,6 +1187,8 @@ public class MenuScreen extends AbstractScreen {
     socket.on("duplicateTab", new SocketListener() {
       @Override
       public void call(Object... args) {
+        // Disconnect first so socket.io does not auto-reconnect and ping-pong with the new tab.
+        socket.disconnect();
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -1194,6 +1196,7 @@ public class MenuScreen extends AbstractScreen {
             Label msg = new Label(
                 "This game was opened in another browser tab.\nThis tab is no longer active.",
                 MyGdxGame.skin);
+            msg.pack();
             msg.setPosition(
                 MyGdxGame.WIDTH / 2f - msg.getPrefWidth() / 2f,
                 MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);

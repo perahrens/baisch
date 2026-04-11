@@ -631,18 +631,17 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
     musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
         MyGdxGame.HEIGHT - musicBtn.getHeight() - 10);
-    // Tracks whether this button instance has seen its first click yet.
-    // Set to true if music was already started before this screen was built.
-    final boolean[] firstClickDone = { MyGdxGame.musicStarted };
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        boolean wasAlreadyStarted = firstClickDone[0];
-        firstClickDone[0] = true;
-        if (!wasAlreadyStarted && MyGdxGame.playerStorage.getMusicEnabled()) {
-          // First click when music is enabled: the capture listener already called
-          // ensureMusicStarted() on touchDown (in the DOM gesture context). Just
-          // keep music enabled and refresh the screen — do NOT toggle off.
+        boolean actuallyPlaying = MyGdxGame.activeMusic != null
+            && MyGdxGame.activeMusic.isPlaying();
+        if (MyGdxGame.playerStorage.getMusicEnabled() && !actuallyPlaying) {
+          // Music is enabled in preferences but not playing yet (Chrome autoplay
+          // prevention on fresh page load). The capture listener's touchDown already
+          // called ensureMusicStarted(); call setMusicEnabled(true) as a belt-and-
+          // suspenders backup to guarantee playback starts.
+          MyGdxGame.setMusicEnabled(true);
         } else {
           MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
         }

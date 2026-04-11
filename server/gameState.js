@@ -58,6 +58,7 @@ class GameState {
       p.topDefCardsCovered = {};
       p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
       p.attackCount = 0; // number of enemy attacks this turn (reset on finishTurn)
+      p.priestConversionAttempts = 2; // Priest hero: attempts remaining this turn
     }
   }
 
@@ -136,13 +137,19 @@ class GameState {
   }
 
   priestConvert(attackerIdx, targetPlayerIdx, cardId) {
-    const target = this.players[targetPlayerIdx];
     const attacker = this.players[attackerIdx];
+    // Enforce server-authoritative attempt limit (2 per turn).
+    if ((attacker.priestConversionAttempts || 0) <= 0) {
+      console.log(`priestConvert: rejected — player ${attackerIdx} has no attempts remaining`);
+      return;
+    }
+    const target = this.players[targetPlayerIdx];
     const idx = target.hand.indexOf(cardId);
     if (idx !== -1) {
       target.hand.splice(idx, 1);
       attacker.hand.push(cardId);
     }
+    attacker.priestConversionAttempts--;
     this.pushLog(`${this.pname(attackerIdx)} (Priest) took card from ${this.pname(targetPlayerIdx)}`, true);
   }
 
@@ -380,6 +387,7 @@ class GameState {
     if (this.players[currentPlayerIndex]) {
       this.players[currentPlayerIndex].preyCards = [];
       this.players[currentPlayerIndex].attackCount = 0; // reset for next turn
+      this.players[currentPlayerIndex].priestConversionAttempts = 2; // reset Priest uses for next turn
     }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
@@ -586,6 +594,7 @@ class GameState {
         heroes: [...(p.heroes || [])],
         preyCards: [...(p.preyCards || [])],
         attackCount: p.attackCount || 0,
+        priestConversionAttempts: p.priestConversionAttempts !== undefined ? p.priestConversionAttempts : 2,
       })),
       pickingDecks: this.pickingDecks.map(d => d.map(c => ({ id: c.id, covered: c.covered }))),
       winnerIndex: this.checkWinner(),

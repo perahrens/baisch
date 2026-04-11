@@ -447,18 +447,41 @@ class GameState {
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
       this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}!`, true);
-      // Defender loses their king and is eliminated; attacker gains their cards
+      // Defender loses their king and is eliminated; attacker gains their cards as prey
       defender.isOut = true;
-      for (const cardId of defender.hand) attacker.hand.push(cardId);
+      if (!attacker.preyCards) attacker.preyCards = [];
+      for (const cardId of defender.hand) {
+        attacker.hand.push(cardId);
+        attacker.preyCards.push(cardId);
+      }
       defender.hand = [];
       if (defender.kingCard !== null) {
         attacker.hand.push(defender.kingCard);
+        attacker.preyCards.push(defender.kingCard);
         defender.kingCard = null;
+      }
+      // Hero stealing: auto-transfer if defender has exactly one hero; queue selection otherwise
+      const defHeroes = defender.heroes || [];
+      if (defHeroes.length === 1) {
+        this.heroAcquired(attackerIdx, defHeroes[0]);
+      } else if (defHeroes.length > 1) {
+        this.pendingHeroSelection = { attackerIdx, defenderIdx, options: [...defHeroes] };
       }
     } else {
       this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed`, false);
       if (kingUsed) attacker.isOut = true;
     }
+  }
+
+  resolveHeroSelection(heroName) {
+    if (!this.pendingHeroSelection) return;
+    const { attackerIdx, defenderIdx } = this.pendingHeroSelection;
+    const defender = this.players[defenderIdx];
+    // Remove all of the defender's heroes (they return to the pool / are lost)
+    defender.heroes = [];
+    // Give the chosen hero to the attacker (heroAcquired removes it from all players first)
+    this.heroAcquired(attackerIdx, heroName);
+    this.pendingHeroSelection = null;
   }
 
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
@@ -570,6 +593,7 @@ class GameState {
       merchantReveal: this.lastMerchantReveal || null,
       pendingAttack: this.pendingAttack || null,
       pendingPlunder: this.pendingPlunder || null,
+      pendingHeroSelection: this.pendingHeroSelection || null,
     };
   }
 }

@@ -41,9 +41,13 @@ RUN rm -rf android/assets/data/SpriteSheetCollection android/assets/data/sprites
 #   war/assets/ → assets/ dir built by PreloaderBundleGenerator, served at
 #                 /assets/ so the GWT preloader (baseURL + "assets/") can find
 #                 assets.txt and all game files.
+# The sounds/ subdirectory is NOT managed by PreloaderBundleGenerator; we copy
+# it explicitly from android/assets so all audio files are always present.
 RUN --mount=type=cache,target=/root/.gradle \
     --mount=type=cache,target=/workspace/html/build/gwt/work \
     ./gradlew :html:compileGwt --no-daemon --stacktrace && \
+    mkdir -p /workspace/html/war/assets/data/sounds && \
+    cp /workspace/android/assets/data/sounds/*.mp3 /workspace/html/war/assets/data/sounds/ && \
     cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
     cp -r /workspace/html/war/assets /workspace/html/build/gwt/out/assets
 

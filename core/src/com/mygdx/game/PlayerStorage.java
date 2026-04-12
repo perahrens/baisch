@@ -43,6 +43,12 @@ public interface PlayerStorage {
   /** Persists the current tab selection on the session-list screen. */
   void saveShowPlayersTab(boolean playersTabActive);
 
+  /** Returns true if background music should play (default: true). */
+  boolean getMusicEnabled();
+
+  /** Persists the music on/off preference. */
+  void saveMusicEnabled(boolean enabled);
+
   /** No-op implementation used on desktop and as a safe default. */
   PlayerStorage NOOP = new PlayerStorage() {
     @Override public String  getToken()                          { return ""; }
@@ -53,5 +59,7 @@ public interface PlayerStorage {
     @Override public void    clearSessionId()                    { }
     @Override public boolean getSavedShowPlayersTab()            { return false; }
     @Override public void    saveShowPlayersTab(boolean val)     { }
+    @Override public boolean getMusicEnabled()                   { return true; }
+    @Override public void    saveMusicEnabled(boolean enabled)   { }
   };
 }

@@ -2941,7 +2941,6 @@ public class GameScreen extends ScreenAdapter {
     finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
     finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
-    myPlayerLabel.setPosition(Gdx.graphics.getWidth() - myPlayerLabel.getWidth(), finishTurnButton.getHeight());
 
     // Turn indicator (spectators are never "my turn")
     boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);
@@ -3016,101 +3015,103 @@ public class GameScreen extends ScreenAdapter {
       finishTurnButton.addListener(finishTurnButtonListener);
     }
 
-    handStage.addActor(myPlayerLabel);
+    // ----- Player HUD panel (name chip + action indicators) -----
+    float hudPad = 4f;
+    float iconH = texArrowDownShield.getHeight() / 10f;
 
-    // Add attacking symbol
-    String attackingSymbol = currentPlayer.getPlayerTurn().getAttackingSymbol()[0];
-    Texture symbolTexture;
-    TextureRegion symbolRegion;
+    // Determine shield availability (always shown on player's turn; greyed when used)
+    Marshal marshalHero = null;
+    for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
+      if (currentPlayer.getHeroes().get(mi).getHeroName() == "Marshal") {
+        marshalHero = (Marshal) currentPlayer.getHeroes().get(mi);
+        break;
+      }
+    }
+    PlayerTurn ptHand = currentPlayer.getPlayerTurn();
+    boolean takeShieldAvail = isMyTurn && (marshalHero != null
+        ? marshalHero.getMobilizations() > 0 : ptHand.getTakeDefCard() > 0);
+    boolean putShieldAvail  = isMyTurn && (marshalHero != null
+        ? marshalHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0);
+
+    // Attacking symbols
+    String attackingSymbol    = ptHand.getAttackingSymbol()[0];
+    String attackingSymbolExt = ptHand.getAttackingSymbol()[1];
+
+    TextureRegion sym1Region;
+    boolean sym1IsRed;
     if (attackingSymbol == "hearts") {
-      symbolTexture = texHearts;
-      symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
+      sym1Region = new TextureRegion(texHearts, 0, 0, 512, 512);    sym1IsRed = true;
     } else if (attackingSymbol == "diamonds") {
-      symbolTexture = texDiamonds;
-      symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
+      sym1Region = new TextureRegion(texDiamonds, 0, 0, 512, 512);  sym1IsRed = true;
     } else if (attackingSymbol == "clubs") {
-      symbolTexture = texClubs;
-      symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
+      sym1Region = new TextureRegion(texClubs, 0, 0, 512, 512);     sym1IsRed = false;
     } else if (attackingSymbol == "spades") {
-      symbolTexture = texSpades;
-      symbolRegion = new TextureRegion(symbolTexture, 0, 0, 512, 512);
+      sym1Region = new TextureRegion(texSpades, 0, 0, 512, 512);    sym1IsRed = false;
     } else {
-      symbolTexture = texSomeSymbol;
-      symbolRegion = new TextureRegion(symbolTexture, 0, 0, 342, 512);
+      sym1Region = new TextureRegion(texSomeSymbol, 0, 0, 342, 512); sym1IsRed = false;
     }
 
-    Image symbolImage = new Image(symbolRegion);
-    symbolImage.setBounds(symbolImage.getX(), symbolImage.getY(), symbolImage.getWidth() / 10f,
-        symbolImage.getHeight() / 10f);
-    symbolImage.setPosition(Gdx.graphics.getWidth() - symbolImage.getWidth(),
-        finishTurnButton.getHeight() + myPlayerLabel.getHeight());
-    handStage.addActor(symbolImage);
+    // Icon row: [arrow-shield] [shield-check] [sym1] [sym2?]
+    Table iconsRow = new Table();
 
-    String attackingSymbolExt = currentPlayer.getPlayerTurn().getAttackingSymbol()[1];
-    if (attackingSymbolExt != "none") {
-      Texture symbolTextureExt = texSomeSymbol;
-      TextureRegion symbolRegionExt = new TextureRegion(symbolTexture, 0, 0, 342, 512);
-      if (attackingSymbolExt == "hearts") {
-        symbolTextureExt = texHearts;
-        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
-      } else if (attackingSymbolExt == "diamonds") {
-        symbolTextureExt = texDiamonds;
-        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
-      } else if (attackingSymbolExt == "clubs") {
-        symbolTextureExt = texClubs;
-        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
-      } else if (attackingSymbolExt == "spades") {
-        symbolTextureExt = texSpades;
-        symbolRegionExt = new TextureRegion(symbolTextureExt, 0, 0, 512, 512);
-      }
-
-      Image symbolImageExt = new Image(symbolRegionExt);
-      symbolImageExt.setBounds(symbolImageExt.getX(), symbolImageExt.getY(), symbolImageExt.getWidth() / 10f,
-          symbolImageExt.getHeight() / 10f);
-      symbolImageExt.setPosition(Gdx.graphics.getWidth() - 1.5f * symbolImage.getWidth(),
-          finishTurnButton.getHeight() + myPlayerLabel.getHeight());
-      handStage.addActor(symbolImageExt);
-    }
-
-    // Shield indicators to the left of the attack symbol:
-    //   arrow-down-shield = take defense card available (bottom slot)
-    //   shield-check-f    = put defense card available (top slot)
     if (isMyTurn) {
-      PlayerTurn ptHand = currentPlayer.getPlayerTurn();
-      float iconSize = symbolImage.getHeight();
-      float iconX = symbolImage.getX() - iconSize - 2f;
-      float slot0Y = symbolImage.getY();
-      float slot1Y = symbolImage.getY() + iconSize;
-      Marshal marshalHero = null;
-      for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
-        if (currentPlayer.getHeroes().get(mi).getHeroName() == "Marshal") {
-          marshalHero = (Marshal) currentPlayer.getHeroes().get(mi);
-          break;
-        }
-      }
-      boolean showTakeShield = marshalHero != null ? marshalHero.getMobilizations() > 0 : ptHand.getTakeDefCard() > 0;
-      boolean showPutShield  = marshalHero != null ? marshalHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0;
-      if (showTakeShield) {
-        Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
-            0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
-          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-        };
-        arrowShieldImg.setSize(iconSize, iconSize);
-        arrowShieldImg.setPosition(iconX, slot0Y);
-        arrowShieldImg.setColor(Color.GREEN);
-        handStage.addActor(arrowShieldImg);
-      }
-      if (showPutShield) {
-        Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
-            0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
-          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-        };
-        shieldCheckImg.setSize(iconSize, iconSize);
-        shieldCheckImg.setPosition(iconX, slot1Y);
-        shieldCheckImg.setColor(Color.GREEN);
-        handStage.addActor(shieldCheckImg);
-      }
+      Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
+          0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
+        @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+      };
+      arrowShieldImg.setColor(takeShieldAvail ? Color.GREEN : new Color(0.3f, 0.3f, 0.3f, 0.6f));
+      iconsRow.add(arrowShieldImg).size(iconH, iconH).padRight(2f);
+
+      Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
+          0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
+        @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+      };
+      shieldCheckImg.setColor(putShieldAvail ? Color.GREEN : new Color(0.3f, 0.3f, 0.3f, 0.6f));
+      iconsRow.add(shieldCheckImg).size(iconH, iconH).padRight(2f);
     }
+
+    // Symbol 1 with solid white background
+    Table sym1Cell = new Table(MyGdxGame.skin);
+    sym1Cell.setBackground(MyGdxGame.skin.newDrawable("white", Color.WHITE));
+    Image sym1Img = new Image(sym1Region);
+    sym1Img.setColor(sym1IsRed ? Color.RED : Color.BLACK);
+    sym1Cell.add(sym1Img).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    iconsRow.add(sym1Cell).size(iconH, iconH);
+
+    // Symbol 2 (Banneret) with solid white background — only if present
+    if (attackingSymbolExt != "none") {
+      TextureRegion sym2Region;
+      boolean sym2IsRed;
+      if (attackingSymbolExt == "hearts") {
+        sym2Region = new TextureRegion(texHearts, 0, 0, 512, 512);    sym2IsRed = true;
+      } else if (attackingSymbolExt == "diamonds") {
+        sym2Region = new TextureRegion(texDiamonds, 0, 0, 512, 512);  sym2IsRed = true;
+      } else if (attackingSymbolExt == "clubs") {
+        sym2Region = new TextureRegion(texClubs, 0, 0, 512, 512);     sym2IsRed = false;
+      } else if (attackingSymbolExt == "spades") {
+        sym2Region = new TextureRegion(texSpades, 0, 0, 512, 512);    sym2IsRed = false;
+      } else {
+        sym2Region = new TextureRegion(texSomeSymbol, 0, 0, 342, 512); sym2IsRed = false;
+      }
+      Table sym2Cell = new Table(MyGdxGame.skin);
+      sym2Cell.setBackground(MyGdxGame.skin.newDrawable("white", Color.WHITE));
+      Image sym2Img = new Image(sym2Region);
+      sym2Img.setColor(sym2IsRed ? Color.RED : Color.BLACK);
+      sym2Cell.add(sym2Img).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+      iconsRow.add(sym2Cell).size(iconH, iconH).padLeft(2f);
+    }
+
+    // Unified HUD panel: dark semi-transparent background, name above icons
+    Table hudPanel = new Table(MyGdxGame.skin);
+    hudPanel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.4f)));
+    hudPanel.pad(hudPad);
+    hudPanel.add(myPlayerLabel).padBottom(2f).row();
+    hudPanel.add(iconsRow);
+    hudPanel.pack();
+    hudPanel.setPosition(
+        Gdx.graphics.getWidth() - hudPanel.getWidth() - 2f,
+        finishTurnButton.getHeight() + 2f);
+    handStage.addActor(hudPanel);
 
     handStage.addActor(finishTurnButton);
   }

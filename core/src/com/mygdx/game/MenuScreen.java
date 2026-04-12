@@ -1129,24 +1129,9 @@ public class MenuScreen extends AbstractScreen {
           final int playerIndex = data.getInt("playerIndex");
           final JSONObject gameState = data.getJSONObject("gameState");
           Gdx.app.log("SocketIO", "Received centralized game state, playerIndex: " + playerIndex);
-          Gdx.app.log("DBG_GAMESTATE", "setupPhase=" + gameState.optBoolean("setupPhase", false)
-              + " playerCount=" + gameState.optJSONArray("players").length()
-              + " pickingDecks=" + gameState.optJSONArray("pickingDecks").length());
-          // Log each player's key fields to find nulls
-          com.mygdx.game.util.JSONArray playerArr = gameState.optJSONArray("players");
-          for (int _i = 0; _i < playerArr.length(); _i++) {
-            com.mygdx.game.util.JSONObject _p = playerArr.getJSONObject(_i);
-            Gdx.app.log("DBG_PLAYER_" + _i,
-                "name=" + _p.optString("name", "?") +
-                " kingCard=" + _p.optInt("kingCard", -1) +
-                " hand=" + _p.optJSONArray("hand").length() +
-                " attackingSymbol=" + _p.optString("attackingSymbol", "?") +
-                " heroes=" + _p.optJSONArray("heroes").length());
-          }
           Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-              Gdx.app.log("DBG_GAMESTATE", "Creating GameScreen...");
               game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero()));
             }
           });

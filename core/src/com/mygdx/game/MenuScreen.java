@@ -781,7 +781,7 @@ public class MenuScreen extends AbstractScreen {
 
     // logged in count
     loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);
-    loggedInCount.setPosition(0.05f * MyGdxGame.WIDTH, 0.01f * MyGdxGame.HEIGHT);
+    loggedInCount.setPosition(0.05f * MyGdxGame.WIDTH, 0.055f * MyGdxGame.HEIGHT);
 
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
@@ -882,8 +882,8 @@ public class MenuScreen extends AbstractScreen {
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
 
       Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
-        lobbyStatus.setPosition(MyGdxGame.WIDTH - lobbyStatus.getWidth() - 0.05f * MyGdxGame.WIDTH,
-          0.01f * MyGdxGame.HEIGHT);
+      lobbyStatus.setPosition(MyGdxGame.WIDTH - lobbyStatus.getWidth() - 0.05f * MyGdxGame.WIDTH,
+          0.055f * MyGdxGame.HEIGHT);
       menuStage.addActor(lobbyStatus);
 
       if (isHost) {

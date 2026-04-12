@@ -45,7 +45,7 @@ public class HtmlLauncher extends GwtApplication {
             try {
                 var s = new $wnd.Audio();
                 s.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-                s.play().catch(function(){});
+                s.play().then(null, function(){});
             } catch(e) {}
         };
         $doc.addEventListener('touchstart', handler, true);

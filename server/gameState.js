@@ -1,7 +1,9 @@
 // Server-authoritative game state
 
 class GameState {
-  constructor(users) {
+  constructor(users, opts) {
+    const startingCards = (opts && opts.startingCards) ? Math.min(10, Math.max(6, parseInt(opts.startingCards, 10))) : 8;
+    const manualSetup = !!(opts && opts.manualSetup);
     this.deck = this.generateCards();
     this.cemetery = [];
     this.players = users.map((user, idx) => ({
@@ -21,9 +23,90 @@ class GameState {
     this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
     this.pendingAttack = null; // current attack preview broadcast, cleared on defAttackResolved
     this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
-    this.dealCards(8);
-    this.doSetup();
-    this.initPickingDecks();
+    this.setupPhase = manualSetup;
+    this.setupSubmitted = {}; // { playerIdx: true } — tracks who confirmed during manual setup
+    this.dealCards(startingCards);
+    if (manualSetup) {
+      this.initPlayerStats(); // init combat counters without placing king/def/cemetery
+    } else {
+      this.doSetup();
+      this.initPickingDecks();
+    }
+  }
+
+  /** Initialise per-player combat counters (shared by auto and manual setup). */
+  initPlayerStats() {
+    for (const p of this.players) {
+      p.kingCovered = true;
+      p.isOut = false;
+      p.defCardsCovered = { 1: true, 2: true, 3: true };
+      p.topDefCardsCovered = {};
+      p.sabotaged = {};
+      p.attackCount = 0;
+      p.priestConversionAttempts = 2;
+      p.magicianSpells = 1;
+      p.merchantTrades = 1;
+      p.warlordAttacks = 1;
+      p.spyAttacks = 1;
+      p.spyMaxAttacks = 1;
+      p.spyExtends = 1;
+      p.pickingDeckAttacks = 1;
+      p.attackingSymbol = 'none';
+      p.attackingSymbol2 = 'none';
+    }
+  }
+
+  /**
+   * Apply a manual setup submission for one player.
+   * kingCardId and defCardIds (array of 3) must all be in the player's current hand.
+   * Returns true on success, false if validation fails.
+   */
+  applyManualSetup(playerIdx, kingCardId, defCardIds, discardCardIds) {
+    const p = this.players[playerIdx];
+    if (!p) return false;
+    if (this.setupSubmitted[playerIdx]) return false; // already submitted
+
+    const ids = [kingCardId, ...defCardIds];
+    if (ids.length !== 4) return false;
+
+    // All cards must be in hand and no duplicates
+    const seen = new Set();
+    for (const id of ids) {
+      if (p.hand.indexOf(id) === -1) return false;
+      if (seen.has(id)) return false;
+      seen.add(id);
+    }
+
+    // Remove from hand and place
+    for (const id of ids) {
+      const i = p.hand.indexOf(id);
+      p.hand.splice(i, 1);
+    }
+    p.kingCard = kingCardId;
+    p.defCards = { 1: defCardIds[0], 2: defCardIds[1], 3: defCardIds[2] };
+
+    // Remove discarded cards from hand (must not be king or def; anything else is fair game)
+    if (Array.isArray(discardCardIds)) {
+      const keepSet = new Set([kingCardId, ...defCardIds]);
+      for (const id of discardCardIds) {
+        if (keepSet.has(id)) continue; // ignore invalid discard of selected cards
+        const i = p.hand.indexOf(id);
+        if (i !== -1) p.hand.splice(i, 1);
+      }
+    }
+
+    this.setupSubmitted[playerIdx] = true;
+
+    // If all players have submitted, finalise setup and start the game
+    let allDone = true;
+    for (let i = 0; i < this.players.length; i++) {
+      if (!this.setupSubmitted[i]) { allDone = false; break; }
+    }
+    if (allDone) {
+      this.setupPhase = false;
+      this.initPickingDecks();
+    }
+    return true;
   }
 
   generateCards() {
@@ -48,26 +131,11 @@ class GameState {
 
   // Mirrors Java doRandomSetup: king + 3 defCards + 2 cemetery per player
   doSetup() {
+    this.initPlayerStats();
     for (const p of this.players) {
       p.kingCard = p.hand.pop();
-      p.kingCovered = true;
-      p.isOut = false;
       for (let j = 1; j <= 3; j++) p.defCards[j] = p.hand.pop();
       for (let j = 0; j < 2; j++) this.cemetery.push(p.hand.pop());
-      p.defCardsCovered = { 1: true, 2: true, 3: true };
-      p.topDefCardsCovered = {};
-      p.sabotaged = {}; // { slotId: attackerPlayerIdx } — tracks which slots have a saboteur
-      p.attackCount = 0; // number of enemy attacks this turn (reset on finishTurn)
-      p.priestConversionAttempts = 2; // Priest hero: attempts remaining this turn
-      p.magicianSpells = 1; // Magician hero: spells remaining this turn
-      p.merchantTrades = 1; // Merchant hero: trades remaining this turn
-      p.warlordAttacks = 1; // Warlord hero: king swap/attack uses remaining this turn
-      p.spyAttacks = 1; // Spy hero: flips remaining this turn
-      p.spyMaxAttacks = 1; // Spy hero: max flips displayed this turn
-      p.spyExtends = 1; // Spy hero: extends remaining this turn
-      p.pickingDeckAttacks = 1; // plunder attempts remaining this turn
-      p.attackingSymbol = 'none'; // first attack symbol this turn (locked after first attack)
-      p.attackingSymbol2 = 'none'; // Banneret extended symbol
     }
   }
 
@@ -699,6 +767,8 @@ class GameState {
   serialize() {
     return {
       currentPlayerIndex: this.currentPlayerIndex,
+      setupPhase: this.setupPhase || false,
+      setupSubmitted: Object.assign({}, this.setupSubmitted || {}),
       deck: [...this.deck],
       cemetery: [...this.cemetery],
       players: this.players.map(p => ({

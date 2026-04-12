@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -285,6 +286,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showNameEntryScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // A button-shaped area that opens the native text dialog on click/tap.
@@ -322,10 +324,12 @@ public class MenuScreen extends AbstractScreen {
     });
 
     menuStage.addActor(enterNameButton);
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
   private void showSessionListScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // ── Tab bar ──────────────────────────────────────────────────────────────
@@ -522,10 +526,12 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(rulesBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
   private void showSessionCreateScreen() {
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
     // All elements must sit below the logo (logo bottom ≈ 0.9*H - logoHeight ≈ 449px on a
@@ -599,6 +605,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(backBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -612,6 +619,64 @@ public class MenuScreen extends AbstractScreen {
     return data;
   }
 
+  /**
+   * Adds a small music on/off toggle button to the top-right corner of the given stage.
+   * Also installs a one-shot capture listener so the first touch anywhere starts music
+   * (works around browser autoplay restrictions).
+   */
+  private void addMusicToggleButton(final Stage stage) {
+    final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
+    final TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
+    musicBtn.pack();
+    musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
+    musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
+        MyGdxGame.HEIGHT - musicBtn.getHeight() - 10);
+    musicBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        // If musicStarted is true BUT music is not actually playing, the DOM handler
+        // just started it; don't toggle off. Otherwise, normal toggle.
+        boolean actuallyPlaying = MyGdxGame.activeMusic != null
+            && MyGdxGame.activeMusic.isPlaying();
+        if (MyGdxGame.musicStarted && MyGdxGame.playerStorage.getMusicEnabled() && !actuallyPlaying) {
+          // DOM handler set musicStarted but play() may have failed; retry.
+          MyGdxGame.setMusicEnabled(true);
+        } else {
+          MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
+        }
+        show();
+      }
+    });
+    stage.addActor(musicBtn);
+
+    // On the first touch on any actor OTHER than the music button, start playback.
+    // Skipping the music button avoids the race where touchDown starts the track
+    // and then clicked() immediately sees isPlaying=true and toggles it off.
+    // The AudioContext DOM unlocker in HtmlLauncher ensures play() works from rAF.
+    if (!MyGdxGame.musicStarted) {
+      stage.addCaptureListener(new InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          if (!isChildOf(event.getTarget(), musicBtn)) {
+            MyGdxGame.ensureMusicStarted();
+          }
+          stage.removeCaptureListener(this);
+          return false;
+        }
+      });
+    }
+  }
+
+  private static boolean isChildOf(com.badlogic.gdx.scenes.scene2d.Actor actor,
+      com.badlogic.gdx.scenes.scene2d.Actor parent) {
+    com.badlogic.gdx.scenes.scene2d.Actor a = actor;
+    while (a != null) {
+      if (a == parent) return true;
+      a = a.getParent();
+    }
+    return false;
+  }
+
   private Table createStatusBadge(String text, Color bgColor, Color textColor) {
     Table badge = new Table();
     badge.setBackground(MyGdxGame.skin.newDrawable("white", bgColor));
@@ -622,6 +687,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showLobbyScreen() {
+    MyGdxGame.setMusicTrack(timerStarted ? MyGdxGame.musicIntrigue : MyGdxGame.musicDrums);
     float cx = MyGdxGame.WIDTH / 2f;
     float buttonY = 0.08f * MyGdxGame.HEIGHT;
 
@@ -818,6 +884,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(leaveBtn);
 
+    addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 

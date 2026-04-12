@@ -18,8 +18,38 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
-        return new MyGdxGame();
+        MyGdxGame app = new MyGdxGame();
+        installAudioUnlocker(app);
+        return app;
     }
+
+    /**
+     * Installs a one-shot DOM listener that on the first valid user activation event
+     * unlocks audio and starts the music track.
+     *
+     * IMPORTANT: We listen for 'touchend' and 'click', NOT 'touchstart'.
+     * Android Chrome only grants audio playback permission on activation events
+     * like touchend, click, or pointerup — NOT on touchstart.
+     * (touchstart fires too early; the browser hasn't committed to treating
+     * the gesture as user activation yet.)
+     */
+    private static native void installAudioUnlocker(MyGdxGame app) /*-{
+        var handler = function(evt) {
+            $doc.removeEventListener('touchend', handler, true);
+            $doc.removeEventListener('click',    handler, true);
+
+            // Unlock Web Audio API (iOS Safari)
+            var AudioCtx = $wnd.AudioContext || $wnd.webkitAudioContext;
+            if (AudioCtx) {
+                try { var ctx = new AudioCtx(); ctx.resume().then(function() { ctx.close(); }); } catch(e) {}
+            }
+
+            // Start the actual music track — now from a valid activation event
+            app.@com.mygdx.game.MyGdxGame::resumeMusicIfEnabled()();
+        };
+        $doc.addEventListener('touchend', handler, true);
+        $doc.addEventListener('click',    handler, true);
+    }-*/;
 
     /**
      * In local dev the GWT frontend is served on port 8080 while the Node server

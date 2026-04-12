@@ -62,4 +62,15 @@ public class BrowserPlayerStorage implements PlayerStorage {
   public native void saveShowPlayersTab(boolean val) /*-{
     $wnd.localStorage.setItem('baisch_players_tab', val ? '1' : '0');
   }-*/;
+
+  @Override
+  public native boolean getMusicEnabled() /*-{
+    var val = $wnd.localStorage.getItem('baisch_music_enabled');
+    return val === null || val === '1';
+  }-*/;
+
+  @Override
+  public native void saveMusicEnabled(boolean enabled) /*-{
+    $wnd.localStorage.setItem('baisch_music_enabled', enabled ? '1' : '0');
+  }-*/;
 }

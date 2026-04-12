@@ -65,12 +65,14 @@ function broadcastPlayerList() {
   io.emit('playerList', list);
 }
 
-function createSession(name, allowHeroSelection) {
+function createSession(name, allowHeroSelection, maxCards, manualSetup) {
   var id = 's' + (_nextSessionId++);
   sessions[id] = {
     id: id,
     name: name,
     allowHeroSelection: allowHeroSelection !== false, // default true
+    maxCards: Math.min(10, Math.max(6, parseInt(maxCards, 10) || 8)),
+    manualSetup: !!manualSetup,
     users: [],
     spectators: [],
     gameState: null,
@@ -181,7 +183,7 @@ function startGameForSession(sess, requesterSocketId) {
 
   sess.users = readyUsers;
   sess.winnerHandled = false;
-  sess.gameState = new GameState(sess.users);
+  sess.gameState = new GameState(sess.users, { maxCards: sess.maxCards, manualSetup: sess.manualSetup });
 
   // Apply lobby starting hero selections before initial gameState broadcast.
   sess.users.forEach(function(u, idx) {
@@ -362,7 +364,9 @@ io.on('connection', function(socket) {
     if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
-    var sess = createSession(sessionName, allowHeroSelection);
+    var maxCards = (data && data.maxCards) ? parseInt(data.maxCards, 10) : 8;
+    var manualSetup = !!(data && data.manualSetup);
+    var sess = createSession(sessionName, allowHeroSelection, maxCards, manualSetup);
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
     if (cToken) {
@@ -373,8 +377,8 @@ io.on('connection', function(socket) {
     }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ")");
-    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", maxCards: " + sess.maxCards + ", manualSetup: " + manualSetup + ")");
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, maxCards: sess.maxCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
@@ -409,7 +413,7 @@ io.on('connection', function(socket) {
         socket.emit('heroReserved', { heroName: h });
       }
     });
-    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection });
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, maxCards: sess.maxCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
@@ -486,6 +490,35 @@ io.on('connection', function(socket) {
     var sess = getSession(socket.id);
     if (sess && sess.gameState) {
       socket.emit('stateUpdate', sess.gameState.serialize());
+    }
+  });
+
+  // Manual setup phase: player submits their king and defense card choices
+  socket.on('submitSetup', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState || !sess.gameState.setupPhase) return;
+    var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (playerIdx === -1) return;
+    var kingCardId = data && data.kingCardId;
+    var defCardIds = data && Array.isArray(data.defCardIds) ? data.defCardIds : [];
+    if (defCardIds.length !== 3) return;
+    var discardCardIds = data && Array.isArray(data.discardCardIds) ? data.discardCardIds : [];
+    var ok = sess.gameState.applyManualSetup(playerIdx, kingCardId, defCardIds, discardCardIds);
+    if (!ok) {
+      console.log('submitSetup rejected for player ' + playerIdx + ' in session ' + sess.id);
+      return;
+    }
+    console.log('submitSetup accepted for player ' + playerIdx + ' in session ' + sess.id + (sess.gameState.setupPhase ? ' (waiting for others)' : ' (setup complete)'));
+    // Broadcast updated state to all players
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    // Persist player indices once setup is complete
+    if (!sess.gameState.setupPhase) {
+      sess.users.forEach(function(u, idx) {
+        if (u.token && tokenMap[u.token]) {
+          tokenMap[u.token].playerIdx = idx;
+          tokenMap[u.token].sessionId = sess.id;
+        }
+      });
     }
   });
 

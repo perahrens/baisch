@@ -67,6 +67,9 @@ public class MenuScreen extends AbstractScreen {
   private String pendingSessionName = "";
   // Whether hero selection is allowed in the current session
   private boolean sessionAllowHeroSelection = false;
+  // Pending create-screen settings
+  private boolean pendingManualSetup = false;
+  private int pendingMaxCards = 8;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -535,17 +538,27 @@ public class MenuScreen extends AbstractScreen {
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
-    // All elements must sit below the logo (logo bottom ≈ 0.9*H - logoHeight ≈ 449px on a
-    // 800px-high screen). Use the lower half of the display for all create-screen widgets.
-    Label title = new Label("New game", MyGdxGame.skin);
-    title.setPosition(cx - title.getWidth() / 2f, 0.50f * MyGdxGame.HEIGHT);
-    menuStage.addActor(title);
+    // ── Back button (top-left) ───────────────────────────────────────────────
+    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    backBtn.pack();
+    backBtn.setPosition(10, MyGdxGame.HEIGHT - backBtn.getHeight() - 10);
+    backBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        inSessionCreate = false;
+        show();
+      }
+    });
+    menuStage.addActor(backBtn);
 
-    // Button that shows the current game name and opens a native dialog to edit it
+    // ── Title ────────────────────────────────────────────────────────────────
+    Label title = new Label("New game", MyGdxGame.skin);
+    title.setFontScale(1.3f);
+    title.pack();
+
+    // ── Game name button ─────────────────────────────────────────────────────
     final String nameDisplay = pendingSessionName.isEmpty() ? "Set name (optional)" : pendingSessionName;
     final TextButton gameNameBtn = new TextButton(nameDisplay, MyGdxGame.skin);
-    gameNameBtn.setSize(button.getWidth() * 2, button.getHeight());
-    gameNameBtn.setPosition(cx - gameNameBtn.getWidth() / 2f, 0.38f * MyGdxGame.HEIGHT);
     gameNameBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -561,50 +574,77 @@ public class MenuScreen extends AbstractScreen {
         }, "New game", pendingSessionName, "Enter game name (optional)");
       }
     });
-    menuStage.addActor(gameNameBtn);
 
-    // Checkbox: allow starting hero selection
+    // ── Starting cards selector ──────────────────────────────────────────────
+    Label cardsLabel = new Label("Starting cards:", MyGdxGame.skin);
+    final SelectBox<String> cardsBox = new SelectBox<String>(MyGdxGame.skin);
+    Array<String> cardOptions = new Array<String>();
+    for (int n = 6; n <= 10; n++) cardOptions.add(String.valueOf(n));
+    cardsBox.setItems(cardOptions);
+    cardsBox.setSelected(String.valueOf(pendingMaxCards));
+
+    // ── Checkboxes ───────────────────────────────────────────────────────────
+    final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
+    manualSetupCheckbox.setChecked(pendingManualSetup);
+
     final CheckBox heroCheckbox = new CheckBox(" Allow starting hero", MyGdxGame.skin);
     heroCheckbox.setChecked(sessionAllowHeroSelection);
-    heroCheckbox.pack();
-    heroCheckbox.setPosition(cx - heroCheckbox.getWidth() / 2f, 0.26f * MyGdxGame.HEIGHT);
-    menuStage.addActor(heroCheckbox);
 
-    // Create button
-    TextButton confirmCreateBtn = new TextButton("Create", MyGdxGame.skin);
-    confirmCreateBtn.setSize(button.getWidth(), button.getHeight());
-    confirmCreateBtn.setPosition(cx - confirmCreateBtn.getWidth() / 2f, 0.14f * MyGdxGame.HEIGHT);
+    // ── Create button ────────────────────────────────────────────────────────
+    final TextButton confirmCreateBtn = new TextButton("Create", MyGdxGame.skin);
     confirmCreateBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         String sessionName = pendingSessionName.isEmpty()
             ? menuState.getMyName() + "'s game" : pendingSessionName;
         sessionAllowHeroSelection = heroCheckbox.isChecked();
+        pendingManualSetup = manualSetupCheckbox.isChecked();
+        try {
+          pendingMaxCards = Integer.parseInt(cardsBox.getSelected());
+        } catch (NumberFormatException ex) { pendingMaxCards = 8; }
         JSONObject data = new JSONObject();
         try {
           data.put("name", menuState.getMyName());
           data.put("sessionName", sessionName);
           data.put("allowHeroSelection", sessionAllowHeroSelection);
+          data.put("maxCards", pendingMaxCards);
+          data.put("manualSetup", pendingManualSetup);
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
+        pendingManualSetup = false;
+        pendingMaxCards = 8;
         inSessionCreate = false;
       }
     });
-    menuStage.addActor(confirmCreateBtn);
 
-    // Back button
-    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
-    backBtn.setPosition(10, MyGdxGame.HEIGHT - backBtn.getHeight() - 10);
-    backBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        inSessionCreate = false;
-        show();
-      }
-    });
-    menuStage.addActor(backBtn);
+    // ── Table layout (no overlap guaranteed) ────────────────────────────────
+    Table form = new Table(MyGdxGame.skin);
+    form.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.18f)));
+    form.pad(20f, 24f, 20f, 24f);
+    float colW = MyGdxGame.WIDTH * 0.72f;
+
+    form.add(title).colspan(2).center().padBottom(18f);
+    form.row();
+    form.add(gameNameBtn).colspan(2).fillX().padBottom(14f);
+    form.row();
+    form.add(cardsLabel).left().padRight(12f).padBottom(14f);
+    form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
+    form.row();
+    form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
+    form.row();
+    form.add(heroCheckbox).colspan(2).left().padBottom(18f);
+    form.row();
+    form.add(confirmCreateBtn).colspan(2).center();
+
+    form.pack();
+    // Centre the form vertically in the lower 55% of the screen (below the logo area)
+    float formTop = 0.82f * MyGdxGame.HEIGHT;
+    form.setPosition(
+        Math.round(cx - form.getWidth() / 2f),
+        Math.round(formTop - form.getHeight()));
+    menuStage.addActor(form);
 
     addMusicToggleButton(menuStage);
     addLogoutButton(menuStage);

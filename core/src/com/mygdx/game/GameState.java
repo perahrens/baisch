@@ -30,6 +30,11 @@ public class GameState {
 
   private boolean updateState;
 
+  // True while the manual setup phase is in progress (server uses setupPhase flag).
+  private boolean setupPhase = false;
+  public boolean isSetupPhase() { return setupPhase; }
+  public void setSetupPhase(boolean v) { setupPhase = v; }
+
   private SocketClient socket;
 
   private int winnerIndex = -1;
@@ -125,10 +130,14 @@ public class GameState {
     try {
       // 1. Build players (hand, defCards, topDefCards, kingCard)
       JSONArray playersJson = fullState.getJSONArray("players");
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing " + playersJson.length() + " players");
       for (int i = 0; i < playersJson.length(); i++) {
         JSONObject pj = playersJson.getJSONObject(i);
         int idx = pj.getInt("index");
         String name = pj.optString("name", "Player " + idx);
+        com.badlogic.gdx.Gdx.app.log("DBG_GS", "player[" + i + "] name=" + name
+            + " kingCard=" + pj.optInt("kingCard", -1)
+            + " hand=" + pj.getJSONArray("hand").length());
         Player p = new Player(name);
 
         JSONArray handJson = pj.getJSONArray("hand");
@@ -154,7 +163,8 @@ public class GameState {
           p.topDefCards.put(Integer.parseInt(key), tdc);
         }
 
-        p.setKingCard(Card.fromCardId(pj.getInt("kingCard")));
+        int kingId = pj.optInt("kingCard", 0);
+        if (kingId > 0) p.setKingCard(Card.fromCardId(kingId));
 
         // Saboteurs slot state
         JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
@@ -171,6 +181,7 @@ public class GameState {
       roundOrder = new ArrayList<Player>(players);
 
       // 2. Deck
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing deck");
       cardDeck = new CardDeck(true);
       JSONArray deckJson = fullState.getJSONArray("deck");
       for (int i = 0; i < deckJson.length(); i++) {
@@ -178,12 +189,14 @@ public class GameState {
       }
 
       // 3. Cemetery
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing cemetery");
       JSONArray cemJson = fullState.getJSONArray("cemetery");
       for (int i = 0; i < cemJson.length(); i++) {
         cemeteryDeck.getCards().add(Card.fromCardId(cemJson.getInt(i)));
       }
 
       // 4. Picking decks
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing pickingDecks");
       JSONArray pickJson = fullState.getJSONArray("pickingDecks");
       for (int i = 0; i < pickJson.length(); i++) {
         PickingDeck pd = new PickingDeck();
@@ -198,21 +211,31 @@ public class GameState {
       }
 
       // 5. Current player (sequential order, start from server's currentPlayerIndex)
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing currentPlayer");
       int cpIdx = fullState.getInt("currentPlayerIndex");
       currentPlayerIt = roundOrder.iterator();
       for (int i = 0; i < cpIdx; i++) currentPlayerIt.next();
-      currentPlayer = currentPlayerIt.next();
-
-      // 6. Listeners
-      pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1), 0);
-      pickingDecks.get(0).addListener(pickingDeckListenerOne);
-      pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0), 1);
-      pickingDecks.get(1).addListener(pickingDeckListenerTwo);
+        currentPlayer = roundOrder.get(cpIdx);
+      // 6. Listeners (only if picking decks are initialised — not true during setup phase)
+      if (pickingDecks.size() >= 2) {
+        pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1), 0);
+        pickingDecks.get(0).addListener(pickingDeckListenerOne);
+        pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0), 1);
+        pickingDecks.get(1).addListener(pickingDeckListenerTwo);
+      } else {
+        // Ensure we always have two (possibly empty) picking deck slots
+        while (pickingDecks.size() < 2) pickingDecks.add(new PickingDeck());
+      }
       cemeteryDeckListener = new CemeteryDeckListener(this);
       cemeteryDeck.addListener(cemeteryDeckListener);
 
       // 7. Heroes from server-authoritative state
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "rebuilding heroes");
       rebuildHeroesFromState(playersJson);
+
+      // 8. Setup phase flag
+      com.badlogic.gdx.Gdx.app.log("DBG_GS", "done, setupPhase=" + setupPhase);
+      setupPhase = fullState.optBoolean("setupPhase", false);
 
     } catch (JSONException e) {
       e.printStackTrace();
@@ -404,15 +427,17 @@ public class GameState {
    * Rebuild all heroes from a server-authoritative players JSON array.
    *
    * <p>Existing hero instances are reused for heroes the same player already owns. This
-   * preserves all per-turn counters through routine stateUpdate syncs so heroes cannot be
-   * exploited by triggering a server event to reset their counters.
+   * preserves all per-turn counters (Priest conversionAttempts, Merchant trades, Marshal
+   * mobilizations, etc.) through routine stateUpdate syncs so heroes cannot be exploited by
+   * triggering a server event to "reload" their counters.
    *
-   * <p>Server-authoritative per-turn counters are ALWAYS applied so the client never runs
-   * ahead of what the server permits.
+   * <p>When a hero instance is newly created (first acquisition or reconnect), the server-
+   * serialized counter is applied — e.g. {@code priestConversionAttempts} — so that a
+   * reconnecting player cannot use more attempts than the server permits.
    */
-  @SuppressWarnings("unchecked")
   public void rebuildHeroesFromState(JSONArray playersJson) throws JSONException {
-    // Save current hero instances keyed by playerIdx -> heroName.
+    // Save current hero instances keyed by playerIdx → heroName.
+    @SuppressWarnings("unchecked")
     java.util.Map<String, Hero>[] savedHeroes = new java.util.Map[players.size()];
     for (int i = 0; i < players.size(); i++) {
       savedHeroes[i] = new java.util.HashMap<String, Hero>();
@@ -435,17 +460,20 @@ public class GameState {
       for (int h = 0; h < heroesJson.length(); h++) {
         String heroName = heroesJson.getString(h);
         Hero existing = (savedHeroes[idx] != null) ? savedHeroes[idx].get(heroName) : null;
+        Hero syncedHero;
         if (existing != null) {
-          // Reuse existing instance -- preserves mid-turn state.
-          heroesSquare.consumeHeroByName(heroName);
+          // Reuse existing instance — preserves mid-turn state for all heroes.
+          heroesSquare.consumeHeroByName(heroName); // remove from pool to keep it consistent
           players.get(idx).addHero(existing);
+          syncedHero = existing;
         } else {
           // New acquisition or reconnect: get a fresh hero from the pool.
           applyHeroAcquired(idx, heroName);
+          ArrayList<Hero> heroList = players.get(idx).getHeroes();
+          syncedHero = heroList.get(heroList.size() - 1);
         }
-        // Always apply server-authoritative per-turn counters.
-        ArrayList<Hero> heroList = players.get(idx).getHeroes();
-        Hero syncedHero = heroList.get(heroList.size() - 1);
+
+        // Apply server-authoritative hero counters so reconnects cannot refresh turn-limited actions.
         if (syncedHero instanceof com.mygdx.game.heroes.Priest) {
           int serverAttempts = pj.optInt("priestConversionAttempts", 2);
           ((com.mygdx.game.heroes.Priest) syncedHero).setConversionAttempts(serverAttempts);
@@ -489,6 +517,7 @@ public class GameState {
       players.get(playerIdx).addHero(hero);
     }
   }
+
   /**
    * Find the index of the player who currently owns a hero with the given name.
    * Returns -1 if no player owns that hero.

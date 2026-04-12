@@ -49,6 +49,9 @@ public interface PlayerStorage {
   /** Persists the music on/off preference. */
   void saveMusicEnabled(boolean enabled);
 
+  /** Clears the saved player name (logout). */
+  void clearName();
+
   /** No-op implementation used on desktop and as a safe default. */
   PlayerStorage NOOP = new PlayerStorage() {
     @Override public String  getToken()                          { return ""; }
@@ -61,5 +64,6 @@ public interface PlayerStorage {
     @Override public void    saveShowPlayersTab(boolean val)     { }
     @Override public boolean getMusicEnabled()                   { return true; }
     @Override public void    saveMusicEnabled(boolean enabled)   { }
+    @Override public void    clearName()                         { }
   };
 }

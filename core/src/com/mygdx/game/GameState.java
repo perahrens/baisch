@@ -5,11 +5,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.mygdx.game.util.JSONArray;
+import com.mygdx.game.util.JSONException;
+import com.mygdx.game.util.JSONObject;
 
-import io.socket.client.Socket;
+import com.mygdx.game.net.SocketClient;
 
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.listeners.CemeteryDeckListener;
@@ -30,12 +30,7 @@ public class GameState {
 
   private boolean updateState;
 
-  // True while the manual setup phase is in progress (server uses setupPhase flag).
-  private boolean setupPhase = false;
-  public boolean isSetupPhase() { return setupPhase; }
-  public void setSetupPhase(boolean v) { setupPhase = v; }
-
-  private Socket socket;
+  private SocketClient socket;
 
   private int winnerIndex = -1;
   public int getWinnerIndex() { return winnerIndex; }
@@ -55,7 +50,7 @@ public class GameState {
   private CemeteryDeckListener cemeteryDeckListener;
 
   public SocketClient getSocket() { return socket; }
-  public void setSocket(Socket socket) { this.socket = socket; }
+  public void setSocket(SocketClient socket) { this.socket = socket; }
 
   // Constructor for centralized (server-driven) game state.
   // Players already have their hand cards from the server.
@@ -159,8 +154,7 @@ public class GameState {
           p.topDefCards.put(Integer.parseInt(key), tdc);
         }
 
-        int kingId = pj.optInt("kingCard", 0);
-        if (kingId > 0) p.setKingCard(Card.fromCardId(kingId));
+        p.setKingCard(Card.fromCardId(pj.getInt("kingCard")));
 
         // Saboteurs slot state
         JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
@@ -207,25 +201,18 @@ public class GameState {
       int cpIdx = fullState.getInt("currentPlayerIndex");
       currentPlayerIt = roundOrder.iterator();
       for (int i = 0; i < cpIdx; i++) currentPlayerIt.next();
-        currentPlayer = roundOrder.get(cpIdx);
-      // 6. Listeners (only if picking decks are initialised — not true during setup phase)
-      if (pickingDecks.size() >= 2) {
-        pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1), 0);
-        pickingDecks.get(0).addListener(pickingDeckListenerOne);
-        pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0), 1);
-        pickingDecks.get(1).addListener(pickingDeckListenerTwo);
-      } else {
-        // Ensure we always have two (possibly empty) picking deck slots
-        while (pickingDecks.size() < 2) pickingDecks.add(new PickingDeck());
-      }
+      currentPlayer = currentPlayerIt.next();
+
+      // 6. Listeners
+      pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1), 0);
+      pickingDecks.get(0).addListener(pickingDeckListenerOne);
+      pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0), 1);
+      pickingDecks.get(1).addListener(pickingDeckListenerTwo);
       cemeteryDeckListener = new CemeteryDeckListener(this);
       cemeteryDeck.addListener(cemeteryDeckListener);
 
       // 7. Heroes from server-authoritative state
       rebuildHeroesFromState(playersJson);
-
-      // 8. Setup phase flag
-      setupPhase = fullState.optBoolean("setupPhase", false);
 
     } catch (JSONException e) {
       e.printStackTrace();
@@ -417,17 +404,15 @@ public class GameState {
    * Rebuild all heroes from a server-authoritative players JSON array.
    *
    * <p>Existing hero instances are reused for heroes the same player already owns. This
-   * preserves all per-turn counters (Priest conversionAttempts, Merchant trades, Marshal
-   * mobilizations, etc.) through routine stateUpdate syncs so heroes cannot be exploited by
-   * triggering a server event to "reload" their counters.
+   * preserves all per-turn counters through routine stateUpdate syncs so heroes cannot be
+   * exploited by triggering a server event to reset their counters.
    *
-   * <p>When a hero instance is newly created (first acquisition or reconnect), the server-
-   * serialized counter is applied — e.g. {@code priestConversionAttempts} — so that a
-   * reconnecting player cannot use more attempts than the server permits.
+   * <p>Server-authoritative per-turn counters are ALWAYS applied so the client never runs
+   * ahead of what the server permits.
    */
+  @SuppressWarnings("unchecked")
   public void rebuildHeroesFromState(JSONArray playersJson) throws JSONException {
-    // Save current hero instances keyed by playerIdx → heroName.
-    @SuppressWarnings("unchecked")
+    // Save current hero instances keyed by playerIdx -> heroName.
     java.util.Map<String, Hero>[] savedHeroes = new java.util.Map[players.size()];
     for (int i = 0; i < players.size(); i++) {
       savedHeroes[i] = new java.util.HashMap<String, Hero>();
@@ -450,20 +435,17 @@ public class GameState {
       for (int h = 0; h < heroesJson.length(); h++) {
         String heroName = heroesJson.getString(h);
         Hero existing = (savedHeroes[idx] != null) ? savedHeroes[idx].get(heroName) : null;
-        Hero syncedHero;
         if (existing != null) {
-          // Reuse existing instance — preserves mid-turn state for all heroes.
-          heroesSquare.consumeHeroByName(heroName); // remove from pool to keep it consistent
+          // Reuse existing instance -- preserves mid-turn state.
+          heroesSquare.consumeHeroByName(heroName);
           players.get(idx).addHero(existing);
-          syncedHero = existing;
         } else {
           // New acquisition or reconnect: get a fresh hero from the pool.
           applyHeroAcquired(idx, heroName);
-          ArrayList<Hero> heroList = players.get(idx).getHeroes();
-          syncedHero = heroList.get(heroList.size() - 1);
         }
-
-        // Apply server-authoritative hero counters so reconnects cannot refresh turn-limited actions.
+        // Always apply server-authoritative per-turn counters.
+        ArrayList<Hero> heroList = players.get(idx).getHeroes();
+        Hero syncedHero = heroList.get(heroList.size() - 1);
         if (syncedHero instanceof com.mygdx.game.heroes.Priest) {
           int serverAttempts = pj.optInt("priestConversionAttempts", 2);
           ((com.mygdx.game.heroes.Priest) syncedHero).setConversionAttempts(serverAttempts);
@@ -507,7 +489,6 @@ public class GameState {
       players.get(playerIdx).addHero(hero);
     }
   }
-
   /**
    * Find the index of the player who currently owns a hero with the given name.
    * Returns -1 if no player owns that hero.

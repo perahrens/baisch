@@ -621,12 +621,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Manual setup phase: show card-selection UI instead of the normal game board
     if (gameState.isSetupPhase()) {
-      try {
-        showSetupPhaseScreen();
-      } catch (Exception e) {
-        Gdx.app.error("showSetupPhaseScreen", "Exception: " + e.getClass().getName() + ": " + e.getMessage());
-        e.printStackTrace();
-      }
+      showSetupPhaseScreen();
       return;
     }
 
@@ -3744,10 +3739,7 @@ public class GameScreen extends ScreenAdapter {
         merchantRevealPlayerIdx = -1;
       }
 
-    } catch (Exception e) {
-      Gdx.app.error("applyStateUpdate", "Exception in applyStateUpdate: " + e.getClass().getName() + ": " + e.getMessage());
-      e.printStackTrace();
-    }
+    } catch (JSONException e) { e.printStackTrace(); }
   }
 
   @Override

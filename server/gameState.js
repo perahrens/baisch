@@ -2,7 +2,7 @@
 
 class GameState {
   constructor(users, opts) {
-    const maxCards = (opts && opts.maxCards) ? Math.min(10, Math.max(6, parseInt(opts.maxCards, 10))) : 8;
+    const startingCards = (opts && opts.startingCards) ? Math.min(10, Math.max(6, parseInt(opts.startingCards, 10))) : 8;
     const manualSetup = !!(opts && opts.manualSetup);
     this.deck = this.generateCards();
     this.cemetery = [];
@@ -25,7 +25,7 @@ class GameState {
     this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
     this.setupPhase = manualSetup;
     this.setupSubmitted = {}; // { playerIdx: true } — tracks who confirmed during manual setup
-    this.dealCards(maxCards);
+    this.dealCards(startingCards);
     if (manualSetup) {
       this.initPlayerStats(); // init combat counters without placing king/def/cemetery
     } else {

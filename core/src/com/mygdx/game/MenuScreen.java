@@ -40,7 +40,6 @@ public class MenuScreen extends AbstractScreen {
   private Stage menuStage;
   private MenuState menuState;
 
-  private Label loggedInCount;
   private TextButton button;
   private SelectBox<String> heroSelectBox;
 
@@ -69,7 +68,7 @@ public class MenuScreen extends AbstractScreen {
   private boolean sessionAllowHeroSelection = false;
   // Pending create-screen settings
   private boolean pendingManualSetup = false;
-  private int pendingMaxCards = 8;
+  private int pendingStartingCards = 8;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -581,7 +580,7 @@ public class MenuScreen extends AbstractScreen {
     Array<String> cardOptions = new Array<String>();
     for (int n = 6; n <= 10; n++) cardOptions.add(String.valueOf(n));
     cardsBox.setItems(cardOptions);
-    cardsBox.setSelected(String.valueOf(pendingMaxCards));
+    cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
     // ── Checkboxes ───────────────────────────────────────────────────────────
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
@@ -600,21 +599,21 @@ public class MenuScreen extends AbstractScreen {
         sessionAllowHeroSelection = heroCheckbox.isChecked();
         pendingManualSetup = manualSetupCheckbox.isChecked();
         try {
-          pendingMaxCards = Integer.parseInt(cardsBox.getSelected());
-        } catch (NumberFormatException ex) { pendingMaxCards = 8; }
+          pendingStartingCards = Integer.parseInt(cardsBox.getSelected());
+        } catch (NumberFormatException ex) { pendingStartingCards = 8; }
         JSONObject data = new JSONObject();
         try {
           data.put("name", menuState.getMyName());
           data.put("sessionName", sessionName);
           data.put("allowHeroSelection", sessionAllowHeroSelection);
-          data.put("maxCards", pendingMaxCards);
+          data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
         pendingManualSetup = false;
-        pendingMaxCards = 8;
+        pendingStartingCards = 8;
         inSessionCreate = false;
       }
     });
@@ -779,10 +778,6 @@ public class MenuScreen extends AbstractScreen {
     lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
     lobbyTitle.setPosition(Math.round(cx - lobbyTitle.getPrefWidth() / 2f), Math.round(0.835f * MyGdxGame.HEIGHT));
 
-    // logged in count
-    loggedInCount = new Label("Players in lobby: " + currentUsersCount, MyGdxGame.skin);
-    loggedInCount.setPosition(0.05f * MyGdxGame.WIDTH, 0.055f * MyGdxGame.HEIGHT);
-
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
     loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
@@ -864,12 +859,18 @@ public class MenuScreen extends AbstractScreen {
         }
       });
       menuStage.addActor(watchButton);
-    } else {
-      // No game running — host can start once enough players are ready.
-      int readyCount = 0;
-      for (int i = 0; i < loggedInUsers.size(); i++) {
-        if (loggedInUsers.get(i).isReady()) readyCount++;
-      }
+    }
+
+    // Ready player count — always visible
+    int readyCount = 0;
+    for (int i = 0; i < loggedInUsers.size(); i++) {
+      if (loggedInUsers.get(i).isReady()) readyCount++;
+    }
+    Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
+    lobbyStatus.setPosition(0.05f * MyGdxGame.WIDTH, 0.055f * MyGdxGame.HEIGHT);
+    menuStage.addActor(lobbyStatus);
+
+    if (!gameRunning) {
       boolean amReady = false;
       for (int i = 0; i < loggedInUsers.size(); i++) {
         if (loggedInUsers.get(i).getUserID().equals(menuState.getMyUserID())) {
@@ -880,11 +881,6 @@ public class MenuScreen extends AbstractScreen {
       boolean isHost = !loggedInUsers.isEmpty()
           && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
-
-      Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
-      lobbyStatus.setPosition(MyGdxGame.WIDTH - lobbyStatus.getWidth() - 0.05f * MyGdxGame.WIDTH,
-          0.055f * MyGdxGame.HEIGHT);
-      menuStage.addActor(lobbyStatus);
 
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
@@ -941,7 +937,6 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(actionBar);
     menuStage.addActor(lobbyTitle);
     menuStage.addActor(loggedInUserTable);
-    menuStage.addActor(loggedInCount);
 
     // Leave session — returns to session list
     TextButton leaveBtn = new TextButton("Leave", MyGdxGame.skin);

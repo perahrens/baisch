@@ -18,21 +18,20 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
-        installAudioUnlocker();
-        return new MyGdxGame();
+        MyGdxGame app = new MyGdxGame();
+        installAudioUnlocker(app);
+        return app;
     }
 
     /**
      * Installs a one-shot DOM touchstart/click listener that on the first user gesture:
      *  1. Resumes the Web Audio AudioContext (required on iOS Safari).
-     *  2. Plays a tiny silent HTMLAudioElement to ensure HTMLAudioElement playback
-     *     is activated on Android Chrome/Firefox.
-     * After this runs, any subsequent play() calls from requestAnimationFrame
-     * succeed because the page has "sticky activation" for audio.
-     * The actual music is started by ensureMusicStarted() in the rAF-based
-     * capture listener, which fires reliably after sticky activation is granted.
+     *  2. Plays a tiny silent HTMLAudioElement to grant "sticky activation".
+     *  3. Calls resumeMusicIfEnabled() on the game to start the actual music track
+     *     synchronously from the DOM event — the ONLY way to reliably start audio
+     *     on the very first interaction on mobile browsers.
      */
-    private static native void installAudioUnlocker() /*-{
+    private static native void installAudioUnlocker(MyGdxGame app) /*-{
         var handler = function() {
             $doc.removeEventListener('touchstart', handler, true);
             $doc.removeEventListener('click',      handler, true);
@@ -41,12 +40,14 @@ public class HtmlLauncher extends GwtApplication {
             if (AudioCtx) {
                 try { var ctx = new AudioCtx(); ctx.resume().then(function() { ctx.close(); }); } catch(e) {}
             }
-            // Play a tiny silent clip to unlock HTMLAudioElement on Android
+            // Play silent clip to grant sticky activation
             try {
                 var s = new $wnd.Audio();
                 s.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-                s.play().then(null, function(){});
+                s.play();
             } catch(e) {}
+            // Start the actual music track from DOM context
+            app.@com.mygdx.game.MyGdxGame::resumeMusicIfEnabled()();
         };
         $doc.addEventListener('touchstart', handler, true);
         $doc.addEventListener('click',      handler, true);

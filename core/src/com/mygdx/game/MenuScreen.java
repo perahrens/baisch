@@ -634,7 +634,16 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
+        // If musicStarted is true BUT music is not actually playing, the DOM handler
+        // just started it; don't toggle off. Otherwise, normal toggle.
+        boolean actuallyPlaying = MyGdxGame.activeMusic != null
+            && MyGdxGame.activeMusic.isPlaying();
+        if (MyGdxGame.musicStarted && MyGdxGame.playerStorage.getMusicEnabled() && !actuallyPlaying) {
+          // DOM handler set musicStarted but play() may have failed; retry.
+          MyGdxGame.setMusicEnabled(true);
+        } else {
+          MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
+        }
         show();
       }
     });

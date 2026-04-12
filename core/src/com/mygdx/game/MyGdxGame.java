@@ -57,19 +57,14 @@ public class MyGdxGame extends Game implements InputProcessor {
     musicIntrigue = loadTrack("data/sounds/34724807-castle-of-intrigue-288660.mp3");
   }
 
-  /** Switch to a new track (pass null for silence). Silently ignores redundant calls. */
+  /** Switch to a new track (pass null for silence). */
   static void setMusicTrack(Music newTrack) {
-    if (activeMusic == newTrack) {
-      // Same track: if it should be playing but isn't (e.g. first gesture just
-      // granted sticky autoplay activation), start it now.
-      if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()
-          && !activeMusic.isPlaying()) {
-        activeMusic.play();
-      }
-      return;
+    if (activeMusic != newTrack) {
+      if (activeMusic != null) activeMusic.pause();
+      activeMusic = newTrack;
     }
-    if (activeMusic != null) activeMusic.pause();
-    activeMusic = newTrack;
+    // Always try to play. Calling play() on an already-playing track is harmless.
+    // This handles the case where a prior play() was silently rejected by the browser.
     if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()) {
       activeMusic.play();
     }
@@ -85,6 +80,18 @@ public class MyGdxGame extends Game implements InputProcessor {
       if (activeMusic != null && playerStorage.getMusicEnabled()) {
         activeMusic.play();
       }
+    }
+  }
+
+  /**
+   * Called synchronously from the DOM touchstart/click handler to start music
+   * inside the browser's user-gesture context. This is the ONLY reliable way to
+   * start audio on the very first interaction on mobile browsers.
+   */
+  public void resumeMusicIfEnabled() {
+    if (!musicStarted && playerStorage.getMusicEnabled() && activeMusic != null) {
+      musicStarted = true;
+      activeMusic.play();
     }
   }
 

@@ -128,16 +128,15 @@ public class GameState {
     updateState = false;
 
     try {
+      // 0. Setup phase flag (read first so it is available for step 6)
+      setupPhase = fullState.optBoolean("setupPhase", false);
+
       // 1. Build players (hand, defCards, topDefCards, kingCard)
       JSONArray playersJson = fullState.getJSONArray("players");
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing " + playersJson.length() + " players");
       for (int i = 0; i < playersJson.length(); i++) {
         JSONObject pj = playersJson.getJSONObject(i);
         int idx = pj.getInt("index");
         String name = pj.optString("name", "Player " + idx);
-        com.badlogic.gdx.Gdx.app.log("DBG_GS", "player[" + i + "] name=" + name
-            + " kingCard=" + pj.optInt("kingCard", -1)
-            + " hand=" + pj.getJSONArray("hand").length());
         Player p = new Player(name);
 
         JSONArray handJson = pj.getJSONArray("hand");
@@ -181,7 +180,6 @@ public class GameState {
       roundOrder = new ArrayList<Player>(players);
 
       // 2. Deck
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing deck");
       cardDeck = new CardDeck(true);
       JSONArray deckJson = fullState.getJSONArray("deck");
       for (int i = 0; i < deckJson.length(); i++) {
@@ -189,14 +187,12 @@ public class GameState {
       }
 
       // 3. Cemetery
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing cemetery");
       JSONArray cemJson = fullState.getJSONArray("cemetery");
       for (int i = 0; i < cemJson.length(); i++) {
         cemeteryDeck.getCards().add(Card.fromCardId(cemJson.getInt(i)));
       }
 
       // 4. Picking decks
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing pickingDecks");
       JSONArray pickJson = fullState.getJSONArray("pickingDecks");
       for (int i = 0; i < pickJson.length(); i++) {
         PickingDeck pd = new PickingDeck();
@@ -211,13 +207,12 @@ public class GameState {
       }
 
       // 5. Current player (sequential order, start from server's currentPlayerIndex)
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "parsing currentPlayer");
       int cpIdx = fullState.getInt("currentPlayerIndex");
       currentPlayerIt = roundOrder.iterator();
       for (int i = 0; i < cpIdx; i++) currentPlayerIt.next();
         currentPlayer = roundOrder.get(cpIdx);
-      // 6. Listeners (only if picking decks are initialised — not true during setup phase)
-      if (pickingDecks.size() >= 2) {
+      // 6. Listeners (only when picking decks have cards — skipped during manual setup phase)
+      if (!setupPhase && pickingDecks.size() >= 2) {
         pickingDeckListenerOne = new PickingDeckListener(this, pickingDecks.get(0), pickingDecks.get(1), 0);
         pickingDecks.get(0).addListener(pickingDeckListenerOne);
         pickingDeckListenerTwo = new PickingDeckListener(this, pickingDecks.get(1), pickingDecks.get(0), 1);
@@ -230,12 +225,7 @@ public class GameState {
       cemeteryDeck.addListener(cemeteryDeckListener);
 
       // 7. Heroes from server-authoritative state
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "rebuilding heroes");
       rebuildHeroesFromState(playersJson);
-
-      // 8. Setup phase flag
-      com.badlogic.gdx.Gdx.app.log("DBG_GS", "done, setupPhase=" + setupPhase);
-      setupPhase = fullState.optBoolean("setupPhase", false);
 
     } catch (JSONException e) {
       e.printStackTrace();

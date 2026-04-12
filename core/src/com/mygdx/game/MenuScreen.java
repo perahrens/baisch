@@ -634,25 +634,7 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        if (!MyGdxGame.musicStarted) {
-          // First ever gesture landed on the music button. The DOM audio unlocker
-          // already called resumeMusicIfEnabled() synchronously (play() in DOM
-          // context), so music is starting. Just confirm the started state and,
-          // if music was disabled, turn it on. Do NOT toggle — that would
-          // immediately stop the music the DOM handler just started.
-          MyGdxGame.musicStarted = true;
-          if (!MyGdxGame.playerStorage.getMusicEnabled()) {
-            MyGdxGame.setMusicEnabled(true);
-          }
-        } else {
-          boolean actuallyPlaying = MyGdxGame.activeMusic != null
-              && MyGdxGame.activeMusic.isPlaying();
-          if (MyGdxGame.playerStorage.getMusicEnabled() && !actuallyPlaying) {
-            MyGdxGame.setMusicEnabled(true);
-          } else {
-            MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
-          }
-        }
+        MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
         show();
       }
     });

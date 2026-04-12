@@ -65,13 +65,13 @@ function broadcastPlayerList() {
   io.emit('playerList', list);
 }
 
-function createSession(name, allowHeroSelection, maxCards, manualSetup) {
+function createSession(name, allowHeroSelection, startingCards, manualSetup) {
   var id = 's' + (_nextSessionId++);
   sessions[id] = {
     id: id,
     name: name,
     allowHeroSelection: allowHeroSelection !== false, // default true
-    maxCards: Math.min(10, Math.max(6, parseInt(maxCards, 10) || 8)),
+    startingCards: Math.min(10, Math.max(6, parseInt(startingCards, 10) || 8)),
     manualSetup: !!manualSetup,
     users: [],
     spectators: [],
@@ -183,7 +183,7 @@ function startGameForSession(sess, requesterSocketId) {
 
   sess.users = readyUsers;
   sess.winnerHandled = false;
-  sess.gameState = new GameState(sess.users, { maxCards: sess.maxCards, manualSetup: sess.manualSetup });
+  sess.gameState = new GameState(sess.users, { startingCards: sess.startingCards, manualSetup: sess.manualSetup });
 
   // Apply lobby starting hero selections before initial gameState broadcast.
   sess.users.forEach(function(u, idx) {
@@ -364,9 +364,9 @@ io.on('connection', function(socket) {
     if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
-    var maxCards = (data && data.maxCards) ? parseInt(data.maxCards, 10) : 8;
+    var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
-    var sess = createSession(sessionName, allowHeroSelection, maxCards, manualSetup);
+    var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
     if (cToken) {
@@ -377,8 +377,8 @@ io.on('connection', function(socket) {
     }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", maxCards: " + sess.maxCards + ", manualSetup: " + manualSetup + ")");
-    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, maxCards: sess.maxCards, manualSetup: sess.manualSetup });
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ")");
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
@@ -413,7 +413,7 @@ io.on('connection', function(socket) {
         socket.emit('heroReserved', { heroName: h });
       }
     });
-    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, maxCards: sess.maxCards, manualSetup: sess.manualSetup });
+    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();

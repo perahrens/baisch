@@ -3017,7 +3017,8 @@ public class GameScreen extends ScreenAdapter {
 
     // ----- Player HUD panel (name chip + action indicators) -----
     float hudPad = 4f;
-    float iconH = texArrowDownShield.getHeight() / 10f;
+    // iconH matches the original symbol image size (512px texture / 10 = 51.2px)
+    float iconH = 512f / 10f;
 
     // Determine shield availability (always shown on player's turn; greyed when used)
     Marshal marshalHero = null;

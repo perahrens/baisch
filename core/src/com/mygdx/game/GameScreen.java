@@ -3017,10 +3017,9 @@ public class GameScreen extends ScreenAdapter {
 
     // ----- Player HUD panel (name chip + action indicators) -----
     float hudPad = 4f;
-    // iconH matches the original symbol image size (512px texture / 10 = 51.2px)
     float iconH = 512f / 10f;
 
-    // Determine shield availability (always shown on player's turn; greyed when used)
+    // Shield availability
     Marshal marshalHero = null;
     for (int mi = 0; mi < currentPlayer.getHeroes().size(); mi++) {
       if (currentPlayer.getHeroes().get(mi).getHeroName() == "Marshal") {
@@ -3034,72 +3033,81 @@ public class GameScreen extends ScreenAdapter {
     boolean putShieldAvail  = isMyTurn && (marshalHero != null
         ? marshalHero.getMobilizations() > 0 : ptHand.getPutDefCard() > 0);
 
-    // Attacking symbols
+    // Attacking symbols — resolve source textures and native dimensions
     String attackingSymbol    = ptHand.getAttackingSymbol()[0];
     String attackingSymbolExt = ptHand.getAttackingSymbol()[1];
+    boolean hasTwoSymbols = (attackingSymbolExt != "none");
 
-    TextureRegion sym1Region;
-    boolean sym1IsRed;
+    Texture sym1Tex; int sym1W; int sym1H;
     if (attackingSymbol == "hearts") {
-      sym1Region = new TextureRegion(texHearts, 0, 0, 512, 512);    sym1IsRed = true;
+      sym1Tex = texHearts;    sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "diamonds") {
-      sym1Region = new TextureRegion(texDiamonds, 0, 0, 512, 512);  sym1IsRed = true;
+      sym1Tex = texDiamonds;  sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "clubs") {
-      sym1Region = new TextureRegion(texClubs, 0, 0, 512, 512);     sym1IsRed = false;
+      sym1Tex = texClubs;     sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "spades") {
-      sym1Region = new TextureRegion(texSpades, 0, 0, 512, 512);    sym1IsRed = false;
+      sym1Tex = texSpades;    sym1W = 512; sym1H = 512;
     } else {
-      sym1Region = new TextureRegion(texSomeSymbol, 0, 0, 342, 512); sym1IsRed = false;
+      sym1Tex = texSomeSymbol; sym1W = 342; sym1H = 512;
     }
 
-    // Icon row: [arrow-shield] [shield-check] [sym1] [sym2?]
-    Table iconsRow = new Table();
-
-    if (isMyTurn) {
-      Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
-          0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
-        @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-      };
-      arrowShieldImg.setColor(takeShieldAvail ? Color.GREEN : new Color(0.3f, 0.3f, 0.3f, 0.6f));
-      iconsRow.add(arrowShieldImg).size(iconH, iconH).padRight(2f);
-
-      Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
-          0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
-        @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-      };
-      shieldCheckImg.setColor(putShieldAvail ? Color.GREEN : new Color(0.3f, 0.3f, 0.3f, 0.6f));
-      iconsRow.add(shieldCheckImg).size(iconH, iconH).padRight(2f);
-    }
-
-    // Symbol 1 with solid white background
-    Table sym1Cell = new Table(MyGdxGame.skin);
-    sym1Cell.setBackground(MyGdxGame.skin.newDrawable("white", Color.WHITE));
-    Image sym1Img = new Image(sym1Region);
-    sym1Img.setColor(sym1IsRed ? Color.RED : Color.BLACK);
-    sym1Cell.add(sym1Img).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
-    iconsRow.add(sym1Cell).size(iconH, iconH);
-
-    // Symbol 2 (Banneret) with solid white background — only if present
-    if (attackingSymbolExt != "none") {
-      TextureRegion sym2Region;
-      boolean sym2IsRed;
+    Texture sym2Tex = texSomeSymbol; int sym2W = 342; int sym2H = 512;
+    if (hasTwoSymbols) {
       if (attackingSymbolExt == "hearts") {
-        sym2Region = new TextureRegion(texHearts, 0, 0, 512, 512);    sym2IsRed = true;
+        sym2Tex = texHearts;    sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "diamonds") {
-        sym2Region = new TextureRegion(texDiamonds, 0, 0, 512, 512);  sym2IsRed = true;
+        sym2Tex = texDiamonds;  sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "clubs") {
-        sym2Region = new TextureRegion(texClubs, 0, 0, 512, 512);     sym2IsRed = false;
+        sym2Tex = texClubs;     sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "spades") {
-        sym2Region = new TextureRegion(texSpades, 0, 0, 512, 512);    sym2IsRed = false;
-      } else {
-        sym2Region = new TextureRegion(texSomeSymbol, 0, 0, 342, 512); sym2IsRed = false;
+        sym2Tex = texSpades;    sym2W = 512; sym2H = 512;
       }
-      Table sym2Cell = new Table(MyGdxGame.skin);
-      sym2Cell.setBackground(MyGdxGame.skin.newDrawable("white", Color.WHITE));
-      Image sym2Img = new Image(sym2Region);
-      sym2Img.setColor(sym2IsRed ? Color.RED : Color.BLACK);
-      sym2Cell.add(sym2Img).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
-      iconsRow.add(sym2Cell).size(iconH, iconH).padLeft(2f);
+    }
+
+    // Icon row: always [take-shield] [put-shield] [symbol-slot] — fixed total width
+    Table iconsRow = new Table();
+    final Color shieldAvailColor = new Color(0.1f, 1f, 0.1f, 1f);
+    final Color shieldDimColor   = new Color(0.25f, 0.25f, 0.25f, 0.6f);
+
+    // Take-defense shield — always visible; green highlight + bright icon when available
+    Table arrowCell = new Table(MyGdxGame.skin);
+    if (takeShieldAvail) {
+      arrowCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
+    }
+    Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
+        0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
+      @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+    };
+    arrowShieldImg.setColor(takeShieldAvail ? shieldAvailColor : shieldDimColor);
+    arrowCell.add(arrowShieldImg).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    iconsRow.add(arrowCell).size(iconH, iconH).padRight(2f);
+
+    // Put-defense shield — always visible
+    Table checkCell = new Table(MyGdxGame.skin);
+    if (putShieldAvail) {
+      checkCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
+    }
+    Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
+        0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
+      @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+    };
+    shieldCheckImg.setColor(putShieldAvail ? shieldAvailColor : shieldDimColor);
+    checkCell.add(shieldCheckImg).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    iconsRow.add(checkCell).size(iconH, iconH).padRight(2f);
+
+    // Symbol slot: always iconH x iconH total.
+    // One symbol: full icon. Two symbols: left-half of sym1 + right-half of sym2 side by side.
+    // No tinting — textures display their natural colors.
+    if (!hasTwoSymbols) {
+      Image sym1Img = new Image(new TextureRegion(sym1Tex, 0, 0, sym1W, sym1H));
+      iconsRow.add(sym1Img).size(iconH, iconH);
+    } else {
+      Image sym1HalfImg = new Image(new TextureRegion(sym1Tex, 0, 0, sym1W / 2, sym1H));
+      Image sym2HalfImg = new Image(new TextureRegion(sym2Tex, sym2W / 2, 0, sym2W / 2, sym2H));
+      Table symPair = new Table();
+      symPair.add(sym1HalfImg).size(iconH / 2f, iconH);
+      symPair.add(sym2HalfImg).size(iconH / 2f, iconH);
+      iconsRow.add(symPair).size(iconH, iconH);
     }
 
     // Unified HUD panel: dark semi-transparent background, name above icons

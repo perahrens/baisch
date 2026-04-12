@@ -63,8 +63,6 @@ public class MyGdxGame extends Game implements InputProcessor {
       if (activeMusic != null) activeMusic.pause();
       activeMusic = newTrack;
     }
-    // Always try to play. Calling play() on an already-playing track is harmless.
-    // This handles the case where a prior play() was silently rejected by the browser.
     if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()) {
       activeMusic.play();
     }
@@ -84,13 +82,14 @@ public class MyGdxGame extends Game implements InputProcessor {
   }
 
   /**
-   * Called synchronously from the DOM touchstart/click handler to start music
-   * inside the browser's user-gesture context. This is the ONLY reliable way to
-   * start audio on the very first interaction on mobile browsers.
+   * Called from the DOM touchend/click handler to start music inside the
+   * browser's user-activation context.  We call stop() before play() because
+   * an earlier rejected play() may have left SoundManager2's playState stale.
    */
   public void resumeMusicIfEnabled() {
-    if (!musicStarted && playerStorage.getMusicEnabled() && activeMusic != null) {
+    if (playerStorage.getMusicEnabled() && activeMusic != null) {
       musicStarted = true;
+      activeMusic.stop();
       activeMusic.play();
     }
   }

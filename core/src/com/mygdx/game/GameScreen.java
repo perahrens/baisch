@@ -54,6 +54,7 @@ import com.mygdx.game.listeners.OwnDefCardListener;
 import com.mygdx.game.listeners.EnemyPlaceholderListener;
 import com.mygdx.game.listeners.OwnHandCardListener;
 import com.mygdx.game.listeners.OwnHeroListener;
+import com.mygdx.game.listeners.PickingDeckListener;
 import com.mygdx.game.listeners.OwnKingCardListener;
 import com.mygdx.game.listeners.OwnPlaceholderListener;
 import com.mygdx.game.listeners.SabotagedImageListener;
@@ -139,6 +140,15 @@ public class GameScreen extends ScreenAdapter {
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
+
+  // ── Manual setup phase ────────────────────────────────────────────────────
+  // -1 = not yet selected; >= 1 = card ID of the chosen king
+  private int setupSelectedKingId = -1;
+  // IDs of the 3 selected defense cards (-1 = not yet selected)
+  private final int[] setupSelectedDefIds = { -1, -1, -1 };
+  // True after the player has clicked Confirm (waiting for others to finish)
+  private boolean setupSubmitted = false;
+  private final ArrayList<Integer> setupDiscardIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
@@ -556,6 +566,7 @@ public class GameScreen extends ScreenAdapter {
     handBck.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
+        if (gameState.isSetupPhase()) return;
         Map<Integer, Card> defs = currentPlayer.getDefCards();
         Map<Integer, Card> topDefs = currentPlayer.getTopDefCards();
         for (int jj = 1; jj <= 3; jj++) {
@@ -594,8 +605,6 @@ public class GameScreen extends ScreenAdapter {
   @Override
   public void show() {
     MyGdxGame.setMusicTrack(null); // no music during the game
-    Gdx.app.log("Java Heap", String.valueOf(Gdx.app.getJavaHeap()));
-    Gdx.app.log("Native Heap", String.valueOf(Gdx.app.getNativeHeap()));
 
     players = gameState.getPlayers();
     // Spectators always follow the player whose turn it currently is.
@@ -603,7 +612,20 @@ public class GameScreen extends ScreenAdapter {
       currentPlayer = gameState.getCurrentPlayer();
     }
 
-    // On first render, broadcast Reservists count so enemies see the indicator immediately.
+    gameStage.clear();
+    handStage.clear();
+    overlayStage.clear();
+
+    gameStage.addActor(gameBck);
+    handStage.addActor(handBck);
+
+    // Manual setup phase: show card-selection UI instead of the normal game board
+    if (gameState.isSetupPhase()) {
+      showSetupPhaseScreen();
+      return;
+    }
+
+    // On first render after setup phase (or on first normal game render), broadcast Reservists.
     if (!initialReservistsBroadcastDone) {
       initialReservistsBroadcastDone = true;
       for (Hero h : currentPlayer.getHeroes()) {
@@ -614,13 +636,6 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
-    gameStage.clear();
-    handStage.clear();
-    overlayStage.clear();
-
-    gameStage.addActor(gameBck);
-    handStage.addActor(handBck);
-
     showGameStage(players, currentPlayer);
     showHandStage(players, currentPlayer);
     if (menuOpen) {
@@ -628,6 +643,243 @@ public class GameScreen extends ScreenAdapter {
     } else {
       addMenuButtonToOverlay();
     }
+  }
+
+  /**
+   * Shows the interactive manual setup phase UI.
+   *
+   * Phase 1: player taps a card to designate it as king (highlighted in gold).
+   * Phase 2: player taps up to 3 more cards as defense cards (highlighted in green).
+   * Phase 3: a Confirm button appears once all 4 cards are chosen.
+   * After Confirm: show "Waiting for other players…" until setup completes for everyone.
+   */
+  private void showSetupPhaseScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+    float gameH = Gdx.graphics.getWidth();   // gameStage is square
+    float handH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+
+    Card infoCard = new Card();
+    final float cardW = infoCard.getDefWidth() * 1.6f;
+    final float cardH = infoCard.getDefHeight() * 1.6f;
+
+    // ── Status label ────────────────────────────────────────────────────────
+    int _defCount = 0;
+    for (int id : setupSelectedDefIds) if (id != -1) _defCount++;
+    final int allHandSize = currentPlayer.getHandCards().size();
+    // requiredDiscards = hand - king(1) - def(3) - keep(2)  =  hand - 6
+    final int requiredDiscards = Math.max(0, allHandSize - 6);
+    final boolean inDiscardPhase = (setupSelectedKingId != -1 && _defCount == 3 && requiredDiscards > 0);
+    String statusText;
+    if (setupSubmitted) {
+      statusText = "Waiting for other players...";
+    } else if (setupSelectedKingId == -1) {
+      statusText = "Select your king card";
+    } else if (_defCount < 3) {
+      statusText = "Select defense card " + (_defCount + 1) + " of 3";
+    } else if (inDiscardPhase) {
+      int stillNeeded = requiredDiscards - setupDiscardIds.size();
+      if (stillNeeded > 0) {
+        statusText = "Discard " + stillNeeded + " more card" + (stillNeeded > 1 ? "s" : "");
+      } else {
+        statusText = "Tap Confirm to start";
+      }
+    } else {
+      statusText = "Tap Confirm to start";
+    }
+    Label statusLabel = new Label(statusText, MyGdxGame.skin);
+    statusLabel.setColor(Color.WHITE);
+    statusLabel.pack();
+    statusLabel.setPosition(cx - statusLabel.getPrefWidth() / 2f, gameH - statusLabel.getHeight() - 20);
+    gameStage.addActor(statusLabel);
+
+    // ── Hand cards layout ────────────────────────────────────────────────────
+    if (!setupSubmitted) {
+      ArrayList<Card> handCards = new ArrayList<Card>(currentPlayer.getHandCards());
+      int count = handCards.size();
+      float maxW = Gdx.graphics.getWidth() - 10f;
+      final float step = count <= 1 ? cardW : Math.min(cardW, (maxW - cardW) / (count - 1));
+      float totalW = cardW + (count > 1 ? (count - 1) * step : 0);
+      float startX = cx - totalW / 2f;
+      final float handY = (handH - cardH) / 2f;
+
+      for (int i = 0; i < count; i++) {
+        final Card c = handCards.get(i);
+        final int cardId = c.getCardId();
+
+        // Determine highlight color
+        boolean isKing = (cardId == setupSelectedKingId);
+        boolean isDef = false;
+        for (int id : setupSelectedDefIds) if (id == cardId) { isDef = true; break; }
+
+        c.setCovered(false);
+        c.setWidth(cardW);
+        c.setHeight(cardH);
+        c.setX(startX + i * step);
+        c.setY(handY);
+
+        if (isKing) {
+          c.setColor(Color.GOLD);
+        } else if (isDef) {
+          c.setColor(new Color(0.4f, 1f, 0.4f, 1f));
+        } else if (inDiscardPhase && setupDiscardIds.contains(cardId)) {
+          c.setColor(new Color(0.45f, 0.45f, 0.45f, 1f)); // grayed = marked for discard
+        } else {
+          c.setColor(Color.WHITE);
+        }
+
+        final boolean cardIsKing = (cardId == setupSelectedKingId);
+        boolean cardIsDef = false;
+        for (int id : setupSelectedDefIds) if (id == cardId) { cardIsDef = true; break; }
+        final boolean cardIsKeepSelected = cardIsKing || cardIsDef;
+        final boolean cardIsDiscard = inDiscardPhase && setupDiscardIds.contains(cardId);
+
+        c.removeAllListeners();
+        if (inDiscardPhase && !cardIsKeepSelected) {
+          // In discard phase: tap non-king/non-def cards to toggle discard
+          c.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              if (setupDiscardIds.contains(cardId)) {
+                setupDiscardIds.remove((Integer) cardId);
+              } else {
+                setupDiscardIds.add(cardId);
+              }
+              gameState.setUpdateState(true);
+            }
+          });
+        } else if (!inDiscardPhase) {
+          // In king/def selection phase
+          c.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              // Deselect king
+              if (cardId == setupSelectedKingId) {
+                setupSelectedKingId = -1;
+                setupDiscardIds.clear();
+                gameState.setUpdateState(true);
+                return;
+              }
+              // Deselect def
+              for (int slot = 0; slot < 3; slot++) {
+                if (setupSelectedDefIds[slot] == cardId) {
+                  setupSelectedDefIds[slot] = -1;
+                  for (int s = slot; s < 2; s++) setupSelectedDefIds[s] = setupSelectedDefIds[s + 1];
+                  setupSelectedDefIds[2] = -1;
+                  setupDiscardIds.clear();
+                  gameState.setUpdateState(true);
+                  return;
+                }
+              }
+              // Select as king
+              if (setupSelectedKingId == -1) {
+                setupSelectedKingId = cardId;
+                setupDiscardIds.clear();
+                gameState.setUpdateState(true);
+                return;
+              }
+              // Select as def (up to 3)
+              for (int slot = 0; slot < 3; slot++) {
+                if (setupSelectedDefIds[slot] == -1) {
+                  setupSelectedDefIds[slot] = cardId;
+                  setupDiscardIds.clear();
+                  gameState.setUpdateState(true);
+                  return;
+                }
+              }
+            }
+          });
+        }
+        handStage.addActor(c);
+      }
+
+      // ── King label ───────────────────────────────────────────────────────
+      if (setupSelectedKingId != -1) {
+        Label kingLabel = new Label("KING", MyGdxGame.skin);
+        kingLabel.setColor(Color.GOLD);
+        // Find king card x
+        for (int i = 0; i < count; i++) {
+          if (handCards.get(i).getCardId() == setupSelectedKingId) {
+            kingLabel.pack();
+            kingLabel.setPosition(handCards.get(i).getX() + cardW / 2f - kingLabel.getWidth() / 2f,
+                handY + cardH + 4f);
+            handStage.addActor(kingLabel);
+            break;
+          }
+        }
+      }
+
+      // ── Defense labels ───────────────────────────────────────────────────
+      for (int slot = 0; slot < 3; slot++) {
+        final int defId = setupSelectedDefIds[slot];
+        if (defId == -1) continue;
+        for (int i = 0; i < count; i++) {
+          if (handCards.get(i).getCardId() == defId) {
+            Label defLabel = new Label("DEF " + (slot + 1), MyGdxGame.skin);
+            defLabel.setColor(new Color(0.4f, 1f, 0.4f, 1f));
+            defLabel.pack();
+            defLabel.setPosition(handCards.get(i).getX() + cardW / 2f - defLabel.getWidth() / 2f,
+                handY - defLabel.getHeight() - 4f);
+            handStage.addActor(defLabel);
+            break;
+          }
+        }
+      }
+
+      // ── Discard labels (when in discard phase) ───────────────────────────
+      if (inDiscardPhase) {
+        for (int i = 0; i < count; i++) {
+          final Card c2 = handCards.get(i);
+          final int cid = c2.getCardId();
+          if (cid == setupSelectedKingId) continue;
+          boolean isd = false; for (int id : setupSelectedDefIds) if (id == cid) { isd = true; break; }
+          if (isd) continue;
+          // Show DISCARD / KEEP label below the card
+          boolean markedDiscard = setupDiscardIds.contains(cid);
+          Label discardLabel = new Label(markedDiscard ? "DISCARD" : "KEEP", MyGdxGame.skin);
+          discardLabel.setColor(markedDiscard ? Color.RED : new Color(0.7f, 0.7f, 0.7f, 1f));
+          discardLabel.pack();
+          discardLabel.setPosition(c2.getX() + cardW / 2f - discardLabel.getWidth() / 2f,
+              handY - discardLabel.getHeight() - 4f);
+          handStage.addActor(discardLabel);
+        }
+      }
+
+      // ── Confirm button (shown when king + 3 def chose AND discards done) ─
+      int defCount = 0;
+      for (int id : setupSelectedDefIds) if (id != -1) defCount++;
+      boolean discardsReady = (requiredDiscards == 0) || (setupDiscardIds.size() == requiredDiscards);
+      if (setupSelectedKingId != -1 && defCount == 3 && discardsReady) {
+        final ArrayList<Integer> frozenDiscards = new ArrayList<Integer>(setupDiscardIds);
+        TextButton confirmBtn = new TextButton("Confirm", MyGdxGame.skin);
+        confirmBtn.pack();
+        confirmBtn.setSize(confirmBtn.getPrefWidth() + 20, confirmBtn.getPrefHeight() + 10);
+        confirmBtn.setPosition(cx - confirmBtn.getWidth() / 2f, 0.06f * MyGdxGame.HEIGHT);
+        confirmBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            if (setupSubmitted) return;
+            setupSubmitted = true;
+            try {
+              JSONObject data = new JSONObject();
+              data.put("kingCardId", setupSelectedKingId);
+              JSONArray defIds = new JSONArray();
+              defIds.put(setupSelectedDefIds[0]);
+              defIds.put(setupSelectedDefIds[1]);
+              defIds.put(setupSelectedDefIds[2]);
+              data.put("defCardIds", defIds);
+              JSONArray discardIds = new JSONArray();
+              for (int id : frozenDiscards) discardIds.put(id);
+              data.put("discardCardIds", discardIds);
+              socket.emit("submitSetup", data);
+            } catch (JSONException ex) { ex.printStackTrace(); }
+            gameState.setUpdateState(true);
+          }
+        });
+        overlayStage.addActor(confirmBtn);
+      }
+    }
+
+    Gdx.input.setInputProcessor(menuAndGameMulti);
   }
 
   public void showGameStage(final ArrayList<Player> players, final Player currentPlayer) {
@@ -3328,9 +3580,19 @@ public class GameScreen extends ScreenAdapter {
           if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
         }
 
-        // Apply king card covered state and out flag
+        // Sync king card from server (may transition null→card after setup phase)
+        int serverKingId = pj.optInt("kingCard", 0);
+        if (serverKingId > 0) {
+          if (p.getKingCard() == null || p.getKingCard().getCardId() != serverKingId) {
+            p.setKingCard(Card.fromCardId(serverKingId));
+          }
+          p.getKingCard().setCovered(pj.optBoolean("kingCovered", true));
+        } else {
+          p.setKingCard(null);
+        }
+
+        // Apply out flag
         p.setOut(pj.optBoolean("isOut", false));
-        if (p.getKingCard() != null) p.getKingCard().setCovered(pj.optBoolean("kingCovered", true));
 
         // Sync slot sabotage state from server-authoritative state
         for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);
@@ -3451,6 +3713,18 @@ public class GameScreen extends ScreenAdapter {
       // 6. Winner index
       gameState.setWinnerIndex(state.optInt("winnerIndex", -1));
 
+      // 6b. Setup phase flag (manual setup)
+      boolean prevSetupPhase = gameState.isSetupPhase();
+      boolean newSetupPhase = state.optBoolean("setupPhase", false);
+      gameState.setSetupPhase(newSetupPhase);
+      // When setup phase just ended, attach picking deck listeners (deferred from deserialization)
+      if (prevSetupPhase && !newSetupPhase && gameState.getPickingDecks().size() >= 2) {
+        PickingDeckListener pdl0 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(0), gameState.getPickingDecks().get(1), 0);
+        gameState.getPickingDecks().get(0).addListener(pdl0);
+        PickingDeckListener pdl1 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(1), gameState.getPickingDecks().get(0), 1);
+        gameState.getPickingDecks().get(1).addListener(pdl1);
+      }
+
       // 7. Activity log
       JSONArray logJson = state.optJSONArray("log");
       if (logJson != null) activityLog = logJson;
@@ -3496,12 +3770,12 @@ public class GameScreen extends ScreenAdapter {
 
     // Highlight hand area when own defense card is selected or being dragged
     boolean anyOwnDefSelected = isDraggingDefCard;
-    if (!anyOwnDefSelected) {
+    if (!anyOwnDefSelected && !gameState.isSetupPhase()) {
       for (Card c : currentPlayer.getDefCards().values()) {
         if (c.isSelected()) { anyOwnDefSelected = true; break; }
       }
     }
-    if (!anyOwnDefSelected) {
+    if (!anyOwnDefSelected && !gameState.isSetupPhase()) {
       for (Card c : currentPlayer.getTopDefCards().values()) {
         if (c.isSelected()) { anyOwnDefSelected = true; break; }
       }

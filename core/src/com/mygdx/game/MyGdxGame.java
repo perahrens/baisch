@@ -59,7 +59,15 @@ public class MyGdxGame extends Game implements InputProcessor {
 
   /** Switch to a new track (pass null for silence). Silently ignores redundant calls. */
   static void setMusicTrack(Music newTrack) {
-    if (activeMusic == newTrack) return;
+    if (activeMusic == newTrack) {
+      // Same track: if it should be playing but isn't (e.g. first gesture just
+      // granted sticky autoplay activation), start it now.
+      if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()
+          && !activeMusic.isPlaying()) {
+        activeMusic.play();
+      }
+      return;
+    }
     if (activeMusic != null) activeMusic.pause();
     activeMusic = newTrack;
     if (activeMusic != null && musicStarted && playerStorage.getMusicEnabled()) {
@@ -80,24 +88,11 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
   }
 
-  /**
-   * Called synchronously from the DOM touchstart/click handler (not from rAF) to
-   * start the active music track inside the browser's user-gesture context.
-   * Android Chrome/Firefox reject HTMLAudioElement.play() called from rAF on the
-   * very first user interaction; calling it here bypasses that restriction.
-   */
-  void resumeMusicIfEnabled() {
-    if (playerStorage.getMusicEnabled() && activeMusic != null) {
-      activeMusic.play();
-    }
-  }
-
-  /** Toggle music on/off, persist the preference, and update playback immediately.
-   *  A button click counts as a user gesture so we always unlock autoplay when enabling. */
+  /** Toggle music on/off, persist the preference, and update playback immediately. */
   static void setMusicEnabled(boolean enabled) {
+    musicStarted = true; // any music button interaction = valid user gesture
     playerStorage.saveMusicEnabled(enabled);
     if (enabled) {
-      musicStarted = true; // button click = valid user gesture
       if (activeMusic != null) activeMusic.play();
     } else {
       if (activeMusic != null) activeMusic.pause();

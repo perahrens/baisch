@@ -527,6 +527,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(rulesBtn);
 
     addMusicToggleButton(menuStage);
+    addLogoutButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -606,6 +607,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(backBtn);
 
     addMusicToggleButton(menuStage);
+    addLogoutButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -617,6 +619,41 @@ public class MenuScreen extends AbstractScreen {
       data.put("token", MyGdxGame.playerStorage.getToken());
     } catch (JSONException e) { /* ignore */ }
     return data;
+  }
+
+  /** Logs the player out: clears saved name, leaves any session, returns to name-entry. */
+  private void logout() {
+    if (lobbyJoined) {
+      socket.emit("leaveSession", "");
+    }
+    MyGdxGame.playerStorage.clearName();
+    MyGdxGame.playerStorage.clearSessionId();
+    menuState.setMyName("");
+    nameConfirmed = false;
+    lobbyJoined = false;
+    timerStarted = false;
+    gameRunning = false;
+    inSessionCreate = false;
+    reconnecting = false;
+    pendingSessionName = "";
+    menuState.clearUsers();
+    reservedByOthers.clear();
+    show();
+  }
+
+  /** Adds a small "Log out" button to the bottom-right of the given stage. */
+  private void addLogoutButton(final Stage stage) {
+    TextButton logoutBtn = new TextButton("Log out", MyGdxGame.skin);
+    logoutBtn.pack();
+    logoutBtn.setSize(logoutBtn.getPrefWidth() + 10, logoutBtn.getPrefHeight() + 6);
+    logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth() - 10, 10);
+    logoutBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        logout();
+      }
+    });
+    stage.addActor(logoutBtn);
   }
 
   /**
@@ -885,6 +922,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(leaveBtn);
 
     addMusicToggleButton(menuStage);
+    addLogoutButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 

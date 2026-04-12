@@ -18,25 +18,30 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
-        installAudioContextUnlocker();
-        return new MyGdxGame();
+        MyGdxGame app = new MyGdxGame();
+        installAudioUnlocker(app);
+        return app;
     }
 
     /**
-     * Installs a one-shot DOM-level listener that resumes the Web Audio AudioContext
-     * on the first user gesture (click or touchstart). This activates the page for
-     * audio playback under browser autoplay policy, which is required on mobile
-     * before any HTMLAudioElement.play() call can succeed from a rAF callback.
+     * Installs a one-shot DOM touchstart/click listener that on the first user
+     * gesture:
+     *  1. Resumes the Web Audio AudioContext (required on iOS Safari).
+     *  2. Calls play() on the active music track synchronously from the DOM event
+     *     handler — the only reliable way to start HTMLAudioElement on the very
+     *     first gesture on Android Chrome/Firefox, which reject play() when called
+     *     from requestAnimationFrame on first interaction.
      */
-    private static native void installAudioContextUnlocker() /*-{
+    private static native void installAudioUnlocker(MyGdxGame app) /*-{
         var handler = function() {
+            $doc.removeEventListener('touchstart', handler, true);
+            $doc.removeEventListener('click',      handler, true);
             var AudioCtx = $wnd.AudioContext || $wnd.webkitAudioContext;
             if (AudioCtx) {
                 var ctx = new AudioCtx();
                 ctx.resume().then(function() { ctx.close(); });
             }
-            $doc.removeEventListener('touchstart', handler, true);
-            $doc.removeEventListener('click',      handler, true);
+            app.@com.mygdx.game.MyGdxGame::resumeMusicIfEnabled()();
         };
         $doc.addEventListener('touchstart', handler, true);
         $doc.addEventListener('click',      handler, true);

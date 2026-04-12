@@ -80,6 +80,18 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
   }
 
+  /**
+   * Called synchronously from the DOM touchstart/click handler (not from rAF) to
+   * start the active music track inside the browser's user-gesture context.
+   * Android Chrome/Firefox reject HTMLAudioElement.play() called from rAF on the
+   * very first user interaction; calling it here bypasses that restriction.
+   */
+  void resumeMusicIfEnabled() {
+    if (playerStorage.getMusicEnabled() && activeMusic != null) {
+      activeMusic.play();
+    }
+  }
+
   /** Toggle music on/off, persist the preference, and update playback immediately.
    *  A button click counts as a user gesture so we always unlock autoplay when enabling. */
   static void setMusicEnabled(boolean enabled) {

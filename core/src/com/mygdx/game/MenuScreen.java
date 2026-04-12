@@ -867,7 +867,7 @@ public class MenuScreen extends AbstractScreen {
       if (loggedInUsers.get(i).isReady()) readyCount++;
     }
     Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
-    lobbyStatus.setPosition(0.05f * MyGdxGame.WIDTH, 0.055f * MyGdxGame.HEIGHT);
+    lobbyStatus.setPosition(0.05f * MyGdxGame.WIDTH, 0.01f * MyGdxGame.HEIGHT);
     menuStage.addActor(lobbyStatus);
 
     if (!gameRunning) {

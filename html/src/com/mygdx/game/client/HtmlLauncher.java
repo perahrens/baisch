@@ -24,33 +24,31 @@ public class HtmlLauncher extends GwtApplication {
     }
 
     /**
-     * Installs a one-shot DOM touchstart/click listener that on the first user gesture:
-     *  1. Resumes the Web Audio AudioContext (required on iOS Safari).
-     *  2. Plays a tiny silent HTMLAudioElement to grant "sticky activation".
-     *  3. Calls resumeMusicIfEnabled() on the game to start the actual music track
-     *     synchronously from the DOM event — the ONLY way to reliably start audio
-     *     on the very first interaction on mobile browsers.
+     * Installs a one-shot DOM listener that on the first valid user activation event
+     * unlocks audio and starts the music track.
+     *
+     * IMPORTANT: We listen for 'touchend' and 'click', NOT 'touchstart'.
+     * Android Chrome only grants audio playback permission on activation events
+     * like touchend, click, or pointerup — NOT on touchstart.
+     * (touchstart fires too early; the browser hasn't committed to treating
+     * the gesture as user activation yet.)
      */
     private static native void installAudioUnlocker(MyGdxGame app) /*-{
-        var handler = function() {
-            $doc.removeEventListener('touchstart', handler, true);
-            $doc.removeEventListener('click',      handler, true);
+        var handler = function(evt) {
+            $doc.removeEventListener('touchend', handler, true);
+            $doc.removeEventListener('click',    handler, true);
+
             // Unlock Web Audio API (iOS Safari)
             var AudioCtx = $wnd.AudioContext || $wnd.webkitAudioContext;
             if (AudioCtx) {
                 try { var ctx = new AudioCtx(); ctx.resume().then(function() { ctx.close(); }); } catch(e) {}
             }
-            // Play silent clip to grant sticky activation
-            try {
-                var s = new $wnd.Audio();
-                s.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-                s.play();
-            } catch(e) {}
-            // Start the actual music track from DOM context
+
+            // Start the actual music track — now from a valid activation event
             app.@com.mygdx.game.MyGdxGame::resumeMusicIfEnabled()();
         };
-        $doc.addEventListener('touchstart', handler, true);
-        $doc.addEventListener('click',      handler, true);
+        $doc.addEventListener('touchend', handler, true);
+        $doc.addEventListener('click',    handler, true);
     }-*/;
 
     /**

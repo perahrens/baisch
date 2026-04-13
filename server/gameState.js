@@ -159,6 +159,12 @@ class GameState {
       }
     }
     this.pendingPlunder = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
+    // Persist the top card of the attacked deck as face-up so the stateUpdate
+    // broadcast does not re-cover it for all players
+    if (data.deckIndex !== undefined) {
+      const deck = this.pickingDecks[data.deckIndex];
+      if (deck && deck.length > 0) deck[deck.length - 1].covered = false;
+    }
   }
 
   setAttackPreview(data) {

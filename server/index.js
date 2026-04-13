@@ -369,35 +369,46 @@ function botChoosePlunder(gs, attackerIdx) {
   for (var d = 0; d < gs.pickingDecks.length; d++) {
     var deck = gs.pickingDecks[d];
     if (deck.length === 0) continue;
+
+    // Find any face-up card in the deck — that's what the player can see as a hint.
+    var visibleStrength = 0;
+    for (var fi = 0; fi < deck.length; fi++) {
+      if (!deck[fi].covered) { visibleStrength = gs.cardStrength(deck[fi].id); break; }
+    }
+    if (visibleStrength === 0) continue; // entire deck is covered, skip
+
+    // Bot is server-side so it can read the actual threshold (top covered card).
     var topCard = deck[deck.length - 1];
-    if (topCard.covered) continue; // can't see threshold; skip
-    var threshold = gs.cardStrength(topCard.id);
+    var actualThreshold = gs.cardStrength(topCard.id);
     var deckSize = deck.length;
 
-    // Buffer: larger decks are worth investing more margin for safety
-    var buffer = deckSize >= 4 ? 2 : (deckSize >= 3 ? 1 : 0);
-    var target = threshold + buffer;
+    // Target: aim for 12-15 total, at least meeting the real threshold.
+    // Larger decks deserve a safer margin; smaller decks keep it economical.
+    var safeTarget = Math.max(actualThreshold, deckSize >= 4 ? 14 : (deckSize >= 3 ? 13 : 12));
 
     var suits = Object.keys(groups);
     for (var si = 0; si < suits.length; si++) {
       var suit = suits[si];
-      // Try to meet target (threshold+buffer); fall back to just threshold
-      var combo = botMinimalSubset(gs, groups[suit], target)
-               || botMinimalSubset(gs, groups[suit], threshold);
+      // Try to reach safeTarget; if impossible, just try to meet the actual threshold.
+      var combo = botMinimalSubset(gs, groups[suit], safeTarget)
+               || botMinimalSubset(gs, groups[suit], actualThreshold);
       if (!combo) continue;
       var comboSum = 0;
       for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
-      var success = (comboSum >= threshold);
-      // Score: strongly prefer success; prefer bigger deck (more reward); minimise waste
-      var waste = comboSum - threshold;
-      var score = (success ? 1000 : -500) + deckSize * 10 - waste;
+      // Skip wildly over-spending
+      if (comboSum > actualThreshold + 6 && comboSum > 15) continue;
+      var success = (comboSum >= actualThreshold);
+      var waste = Math.max(0, comboSum - actualThreshold);
+      // Prefer success > bigger deck > less waste > fewer cards
+      var score = (success ? 1000 : -500) + deckSize * 10 - waste * 2 - combo.length;
       if (score > bestScore) {
         bestScore = score;
         bestChoice = { deckIndex: d, cardIds: combo, symbol: suit, success: success };
       }
     }
   }
-  return bestChoice;
+  // Don't attempt plunder if facing certain failure
+  return (bestChoice && (bestChoice.success || bestScore > -200)) ? bestChoice : null;
 }
 
 // Choose the best defense attack.

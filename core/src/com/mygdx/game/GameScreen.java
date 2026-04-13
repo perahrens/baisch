@@ -154,6 +154,8 @@ public class GameScreen extends ScreenAdapter {
   private Texture texMercenary;
   private Texture texSabotaged;
   private Texture texHearts;
+  private Texture texDiamondsRed;
+  private Texture texHeartsRed;
   private Texture texDiamonds;
   private Texture texClubs;
   private Texture texSpades;
@@ -584,7 +586,9 @@ public class GameScreen extends ScreenAdapter {
     texMercenary  = new Texture(Gdx.files.internal("data/skins/whitepawn.png"));
     texSabotaged  = new Texture(Gdx.files.internal("data/skins/sabotaged.png"));
     texHearts     = new Texture(Gdx.files.internal("data/skins/hearts.png"));
+    texHeartsRed  = new Texture(Gdx.files.internal("data/skins/hearts_red.png"));
     texDiamonds   = new Texture(Gdx.files.internal("data/skins/diamonds.png"));
+    texDiamondsRed = new Texture(Gdx.files.internal("data/skins/diamonds_red.png"));
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
     texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
@@ -3040,27 +3044,27 @@ public class GameScreen extends ScreenAdapter {
 
     Texture sym1Tex; int sym1W; int sym1H;
     if (attackingSymbol == "hearts") {
-      sym1Tex = texHearts;    sym1W = 512; sym1H = 512;
+      sym1Tex = texHeartsRed;   sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "diamonds") {
-      sym1Tex = texDiamonds;  sym1W = 512; sym1H = 512;
+      sym1Tex = texDiamondsRed; sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "clubs") {
-      sym1Tex = texClubs;     sym1W = 512; sym1H = 512;
+      sym1Tex = texClubs;       sym1W = 512; sym1H = 512;
     } else if (attackingSymbol == "spades") {
-      sym1Tex = texSpades;    sym1W = 512; sym1H = 512;
+      sym1Tex = texSpades;      sym1W = 512; sym1H = 512;
     } else {
-      sym1Tex = texSomeSymbol; sym1W = 342; sym1H = 512;
+      sym1Tex = texSomeSymbol;  sym1W = 342; sym1H = 512;
     }
 
     Texture sym2Tex = texSomeSymbol; int sym2W = 342; int sym2H = 512;
     if (hasTwoSymbols) {
       if (attackingSymbolExt == "hearts") {
-        sym2Tex = texHearts;    sym2W = 512; sym2H = 512;
+        sym2Tex = texHeartsRed;   sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "diamonds") {
-        sym2Tex = texDiamonds;  sym2W = 512; sym2H = 512;
+        sym2Tex = texDiamondsRed; sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "clubs") {
-        sym2Tex = texClubs;     sym2W = 512; sym2H = 512;
+        sym2Tex = texClubs;       sym2W = 512; sym2H = 512;
       } else if (attackingSymbolExt == "spades") {
-        sym2Tex = texSpades;    sym2W = 512; sym2H = 512;
+        sym2Tex = texSpades;      sym2W = 512; sym2H = 512;
       }
     }
 
@@ -3096,18 +3100,28 @@ public class GameScreen extends ScreenAdapter {
     iconsRow.add(checkCell).size(iconH, iconH).padRight(2f);
 
     // Symbol slot: always iconH x iconH total.
-    // One symbol: full icon. Two symbols: left-half of sym1 + right-half of sym2 side by side.
+    // One symbol: full icon.
+    // Two symbols: both drawn at full size, sym1 shifted left by iconH/2, sym2 shifted right by iconH/2.
     // No tinting — textures display their natural colors.
     if (!hasTwoSymbols) {
       Image sym1Img = new Image(new TextureRegion(sym1Tex, 0, 0, sym1W, sym1H));
       iconsRow.add(sym1Img).size(iconH, iconH);
     } else {
-      Image sym1HalfImg = new Image(new TextureRegion(sym1Tex, 0, 0, sym1W / 2, sym1H));
-      Image sym2HalfImg = new Image(new TextureRegion(sym2Tex, sym2W / 2, 0, sym2W / 2, sym2H));
-      Table symPair = new Table();
-      symPair.add(sym1HalfImg).size(iconH / 2f, iconH);
-      symPair.add(sym2HalfImg).size(iconH / 2f, iconH);
-      iconsRow.add(symPair).size(iconH, iconH);
+      final float iH = iconH;
+      final Texture fSym1Tex = sym1Tex; final int fSym1W = sym1W; final int fSym1H = sym1H;
+      final Texture fSym2Tex = sym2Tex; final int fSym2W = sym2W; final int fSym2H = sym2H;
+      com.badlogic.gdx.scenes.scene2d.Group symGroup =
+          new com.badlogic.gdx.scenes.scene2d.Group();
+      symGroup.setSize(iH, iH);
+      Image sym1Img = new Image(new TextureRegion(fSym1Tex, 0, 0, fSym1W, fSym1H));
+      sym1Img.setSize(iH, iH);
+      sym1Img.setPosition(-iH / 2f, 0f);
+      Image sym2Img = new Image(new TextureRegion(fSym2Tex, 0, 0, fSym2W, fSym2H));
+      sym2Img.setSize(iH, iH);
+      sym2Img.setPosition(iH / 2f, 0f);
+      symGroup.addActor(sym1Img);
+      symGroup.addActor(sym2Img);
+      iconsRow.add(symGroup).size(iH, iH);
     }
 
     // Unified HUD panel: dark semi-transparent background, name above icons

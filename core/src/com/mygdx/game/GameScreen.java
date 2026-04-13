@@ -137,6 +137,9 @@ public class GameScreen extends ScreenAdapter {
   private JSONArray pendingBatteryResultCards = null;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
   private boolean pendingExposeCard = false;
+  // Tutorial mode: guided overlay steps for new players
+  private boolean isTutorial = false;
+  private int tutorialStep = 0;
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
@@ -186,6 +189,7 @@ public class GameScreen extends ScreenAdapter {
     gameState.setSocket(socket);
     players = gameState.getPlayers();
     currentPlayer = players.get(this.playerIndex);
+    this.isTutorial = centralizedState.optBoolean("isTutorial", false);
 
     // Single stateUpdate listener — replaces all specific sync events
     final int notifyPlayerIdx = this.playerIndex; // capture field before parameter shadows it
@@ -646,6 +650,9 @@ public class GameScreen extends ScreenAdapter {
       buildMenuOverlay();
     } else {
       addMenuButtonToOverlay();
+      if (isTutorial && tutorialStep >= 0) {
+        buildTutorialOverlay();
+      }
     }
   }
 
@@ -3393,6 +3400,126 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.clear();
     addMenuButtonToOverlay();
     // render() will set the correct input processor next frame
+  }
+
+  // ── Tutorial overlay ────────────────────────────────────────────────────────
+  private static final String[] TUTORIAL_TITLES = {
+    "Welcome to Baisch!",
+    "Your Hand Cards",
+    "Plundering",
+    "Defense Cards",
+    "Attacking",
+    "Goal of the Game",
+    "Tutorial Complete!"
+  };
+  private static final String[] TUTORIAL_TEXTS = {
+    "This tutorial will teach you the core mechanics.\n\n"
+      + "You are playing against a bot opponent.\n"
+      + "The board shows your cards at the bottom, harvest decks in the center, "
+      + "and your king card with shield slots on the left.",
+    "The cards at the bottom of the screen are your hand cards.\n\n"
+      + "Tap a card to select it (it will highlight).\n"
+      + "You use hand cards to plunder harvest decks, attack enemies, "
+      + "or place them as defense shields.",
+    "To plunder, select one or more hand cards, then tap a harvest deck "
+      + "(the tilted card stacks in the center).\n\n"
+      + "Your attack strength must exceed the top card's defense. "
+      + "If you succeed, you take all cards from that deck!",
+    "To protect your king, place defense cards in your 3 shield slots.\n\n"
+      + "Tap a hand card to select it, then tap an empty shield slot "
+      + "(the dotted outlines near your king).\n"
+      + "Each slot holds up to 2 stacked cards.",
+    "To attack another player, select hand cards and tap one of their defense slots.\n\n"
+      + "If your attack strength exceeds the defense card, you destroy it. "
+      + "Once all 3 shields are gone, their king is exposed!",
+    "The goal is to be the last player with a covered king card.\n\n"
+      + "If your king gets exposed and attacked, you are eliminated. "
+      + "Use your turns wisely: plunder for cards, build defenses, and attack enemies!",
+    "You now know the basics!\n\n"
+      + "Feel free to keep playing this tutorial game, "
+      + "or press the button below to return to the main menu."
+  };
+
+  private void buildTutorialOverlay() {
+    if (tutorialStep < 0 || tutorialStep >= TUTORIAL_TITLES.length) return;
+
+    // Semi-transparent backdrop
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0f, 0f, 0f, 0.75f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.center();
+
+    // Step counter
+    Label stepLabel = new Label("Step " + (tutorialStep + 1) + " / " + TUTORIAL_TITLES.length,
+        MyGdxGame.skin);
+    stepLabel.setColor(1f, 1f, 1f, 0.5f);
+    outer.add(stepLabel).padBottom(6).row();
+
+    // Title
+    Label titleLabel = new Label(TUTORIAL_TITLES[tutorialStep], MyGdxGame.skin);
+    titleLabel.setColor(Color.GOLD);
+    outer.add(titleLabel).padBottom(14).row();
+
+    // Body text
+    Label bodyLabel = new Label(TUTORIAL_TEXTS[tutorialStep], MyGdxGame.skin);
+    bodyLabel.setWrap(true);
+    outer.add(bodyLabel).width(380f).padBottom(20).row();
+
+    // Buttons
+    final boolean isLastStep = (tutorialStep == TUTORIAL_TITLES.length - 1);
+    if (isLastStep) {
+      TextButton exitBtn = new TextButton("Back to Menu", MyGdxGame.skin);
+      exitBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          tutorialStep = -1;
+          emitGiveUp();
+        }
+      });
+      outer.add(exitBtn).width(300).height(50).padBottom(10).row();
+
+      TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
+      keepBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          tutorialStep = -1;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          gameState.setUpdateState(true);
+        }
+      });
+      outer.add(keepBtn).width(300).height(50).row();
+    } else {
+      TextButton nextBtn = new TextButton("Next", MyGdxGame.skin);
+      nextBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          tutorialStep++;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          buildTutorialOverlay();
+        }
+      });
+      outer.add(nextBtn).width(300).height(50).padBottom(10).row();
+
+      TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
+      skipBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          tutorialStep = -1;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          gameState.setUpdateState(true);
+        }
+      });
+      outer.add(skipBtn).width(300).height(50).row();
+    }
+
+    overlayStage.addActor(outer);
   }
 
   private void emitGiveUp() {

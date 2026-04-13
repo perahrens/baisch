@@ -457,9 +457,20 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
+      TextButton tutorialBtn = new TextButton("Tutorial", MyGdxGame.skin);
+      tutorialBtn.setSize(button.getWidth(), button.getHeight());
+      tutorialBtn.setPosition(cx - tutorialBtn.getWidth() / 2f, 0.08f * MyGdxGame.HEIGHT);
+      tutorialBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          socket.emit("createTutorial", new JSONObject());
+        }
+      });
+      menuStage.addActor(tutorialBtn);
+
       TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
-      createBtn.setSize(button.getWidth() * 1.5f, button.getHeight());
-      createBtn.setPosition(cx - createBtn.getWidth() / 2f, 0.08f * MyGdxGame.HEIGHT);
+      createBtn.setSize(button.getWidth(), button.getHeight());
+      createBtn.setPosition(MyGdxGame.WIDTH - createBtn.getWidth() - 20f, 0.08f * MyGdxGame.HEIGHT);
       createBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {

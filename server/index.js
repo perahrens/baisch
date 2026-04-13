@@ -478,7 +478,11 @@ function botChooseDefAttack(gs, attackerIdx, allowScout) {
 }
 
 // Try a king attack using minimal suit combo. Returns true if attempted.
-function botTryKingAttack(sess, gs, attackerIdx) {
+// How long overlays stay visible (ms) — matches human player experience
+var BOT_ACTION_DELAY = 1500;
+
+// Async variant: shows attack preview, waits BOT_ACTION_DELAY, resolves, then calls callback(true/false).
+function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
   var attacker = gs.players[attackerIdx];
   var groups = botGroupBySuit(attacker.hand);
 
@@ -506,10 +510,15 @@ function botTryKingAttack(sess, gs, attackerIdx) {
       gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
                              attackingSymbol: suit, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      gs.kingAttackResolved(attackerIdx, di, true, combo, false);
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
-      checkAndHandleWinner(sess);
-      return true;
+      (function(capturedDi, capturedCombo) {
+        setTimeout(function() {
+          gs.kingAttackResolved(attackerIdx, capturedDi, true, capturedCombo, false);
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          checkAndHandleWinner(sess);
+          callback(true);
+        }, BOT_ACTION_DELAY);
+      })(di, combo);
+      return;
     }
 
     // Last resort: use a joker to eliminate
@@ -518,13 +527,63 @@ function botTryKingAttack(sess, gs, attackerIdx) {
       gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
                              attackingSymbol: 'joker', attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      gs.kingAttackResolved(attackerIdx, di, true, [jokers[0]], false);
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
-      checkAndHandleWinner(sess);
-      return true;
+      (function(capturedDi, capturedJoker) {
+        setTimeout(function() {
+          gs.kingAttackResolved(attackerIdx, capturedDi, true, [capturedJoker], false);
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          checkAndHandleWinner(sess);
+          callback(true);
+        }, BOT_ACTION_DELAY);
+      })(di, jokers[0]);
+      return;
     }
   }
-  return false;
+  callback(false);
+}
+
+// After a plunder: optionally attack a face-up defense card, then finish the turn.
+function botContinueAfterPlunder(sess, gs, idx) {
+  var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
+  if (atkAfterPlunder) {
+    gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
+                           positionId: atkAfterPlunder.positionId, level: 0,
+                           attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
+    io.to(sess.id).emit('stateUpdate', gs.serialize());
+    var captured = atkAfterPlunder;
+    setTimeout(function() {
+      gs.defAttackResolved(idx, captured.defenderIdx, captured.positionId,
+                            0, captured.success, captured.cardIds, false, []);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      checkAndHandleWinner(sess);
+      botFinishTurn(sess, gs, idx, true);
+    }, BOT_ACTION_DELAY);
+  } else {
+    botFinishTurn(sess, gs, idx, false);
+  }
+}
+
+// Expose defense/king if no attack was made, then finishTurn and chain next bot.
+function botFinishTurn(sess, gs, idx, attackedPlayer) {
+  var p = gs.players[idx];
+  if (!attackedPlayer && p) {
+    var exposed = false;
+    for (var slot = 1; slot <= 3; slot++) {
+      if (p.defCards[slot] != null && p.defCardsCovered && p.defCardsCovered[slot] !== false) {
+        gs.exposeDefCard(idx, slot);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        exposed = true;
+        break;
+      }
+    }
+    if (!exposed && p.kingCard != null && p.kingCovered !== false) {
+      gs.exposeKingCard(idx);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
+  }
+  gs.finishTurn();
+  io.to(sess.id).emit('stateUpdate', gs.serialize());
+  checkAndHandleWinner(sess);
+  playBotTurnIfNeeded(sess);
 }
 
 // Replace an exposed (face-up) defense card with a face-down card from hand.
@@ -672,8 +731,6 @@ function executeBotTurn(sess) {
   var p = gs.players[idx];
   if (!p || p.isOut) return;
 
-  var attackedPlayer = false; // tracks whether an attack on another player occurred this turn
-
   // 1. Sacrifice joker for hero (unless saving it for critical use)
   botTryJokerSacrifice(sess, gs, idx);
 
@@ -685,10 +742,12 @@ function executeBotTurn(sess) {
     io.to(sess.id).emit('stateUpdate', gs.serialize());
   }
 
-  // 4. Try to eliminate a player (king attack) — highest priority
-  if (botTryKingAttack(sess, gs, idx)) {
-    attackedPlayer = true;
-  } else {
+  // 4. Try to eliminate a player (king attack) — highest priority; async with overlay delay
+  botTryKingAttackAsync(sess, gs, idx, function(didKingAttack) {
+    if (didKingAttack) {
+      botFinishTurn(sess, gs, idx, true);
+      return;
+    }
 
     // 5. Smart plunder — multi-card, economical combo
     var plunderChoice = botChoosePlunder(gs, idx);
@@ -697,79 +756,57 @@ function executeBotTurn(sess) {
                              attackCardIds: plunderChoice.cardIds,
                              attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      gs.plunderResolved(idx, plunderChoice.deckIndex, plunderChoice.success,
-                         plunderChoice.cardIds, false, []);
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
-      checkAndHandleWinner(sess);
-
-      // 6. After plunder: attack a face-up defense card (opportunistic follow-up)
-      var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
-      if (atkAfterPlunder) {
-        attackedPlayer = true;
-        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
-                               positionId: atkAfterPlunder.positionId, level: 0,
-                               attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        gs.defAttackResolved(idx, atkAfterPlunder.defenderIdx, atkAfterPlunder.positionId,
-                              0, atkAfterPlunder.success, atkAfterPlunder.cardIds, false, []);
+      var captured = plunderChoice;
+      setTimeout(function() {
+        gs.plunderResolved(idx, captured.deckIndex, captured.success,
+                           captured.cardIds, false, []);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         checkAndHandleWinner(sess);
-      }
-    } else {
-      // 7. No plunder: attack a face-up defense card
-      var atkChoice = botChooseDefAttack(gs, idx, false);
-      if (atkChoice) {
-        attackedPlayer = true;
-        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
-                               positionId: atkChoice.positionId, level: 0,
-                               attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none' });
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        gs.defAttackResolved(idx, atkChoice.defenderIdx, atkChoice.positionId,
-                              0, atkChoice.success, atkChoice.cardIds, false, []);
+        // 6. After plunder: optional follow-up defense attack, then finish
+        botContinueAfterPlunder(sess, gs, idx);
+      }, BOT_ACTION_DELAY);
+      return;
+    }
+
+    // 7. No plunder: attack a face-up defense card
+    var atkChoice = botChooseDefAttack(gs, idx, false);
+    if (atkChoice) {
+      gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
+                             positionId: atkChoice.positionId, level: 0,
+                             attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none' });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var capturedAtk = atkChoice;
+      setTimeout(function() {
+        gs.defAttackResolved(idx, capturedAtk.defenderIdx, capturedAtk.positionId,
+                              0, capturedAtk.success, capturedAtk.cardIds, false, []);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         checkAndHandleWinner(sess);
-      } else {
-        // 8. Scout: probe a covered defense card with a weak card to reveal it for future turns
-        var scoutChoice = botChooseDefAttack(gs, idx, true);
-        if (scoutChoice) {
-          attackedPlayer = true;
-          gs.setAttackPreview({ attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
-                                 positionId: scoutChoice.positionId, level: 0,
-                                 attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none' });
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          gs.defAttackResolved(idx, scoutChoice.defenderIdx, scoutChoice.positionId,
-                                0, false, scoutChoice.cardIds, false, []);
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          checkAndHandleWinner(sess);
-        }
-      }
+        botFinishTurn(sess, gs, idx, true);
+      }, BOT_ACTION_DELAY);
+      return;
     }
-  }
 
-  // 9. Rule: if no attack on another player occurred, must expose own defense card or king
-  if (!attackedPlayer) {
-    var exposed = false;
-    for (var slot = 1; slot <= 3; slot++) {
-      if (p.defCards[slot] != null && p.defCardsCovered && p.defCardsCovered[slot] !== false) {
-        gs.exposeDefCard(idx, slot);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        exposed = true;
-        break;
-      }
-    }
-    if (!exposed && p.kingCard != null && p.kingCovered !== false) {
-      gs.exposeKingCard(idx);
+    // 8. Scout: probe a covered defense card with a weak card to reveal it for future turns
+    var scoutChoice = botChooseDefAttack(gs, idx, true);
+    if (scoutChoice) {
+      gs.setAttackPreview({ attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
+                             positionId: scoutChoice.positionId, level: 0,
+                             attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var capturedScout = scoutChoice;
+      setTimeout(function() {
+        gs.defAttackResolved(idx, capturedScout.defenderIdx, capturedScout.positionId,
+                              0, false, capturedScout.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        botFinishTurn(sess, gs, idx, true);
+      }, BOT_ACTION_DELAY);
+      return;
     }
-  }
 
-  // 10. Finish turn
-  gs.finishTurn();
-  io.to(sess.id).emit('stateUpdate', gs.serialize());
-  checkAndHandleWinner(sess);
-
-  // Next player might also be a bot
-  playBotTurnIfNeeded(sess);
+    // No attack of any kind — expose defense or king, then finish
+    botFinishTurn(sess, gs, idx, false);
+  });
 }
 
 // Legacy helpers (still used in tutorial/other paths)

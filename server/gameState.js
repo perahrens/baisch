@@ -367,7 +367,7 @@ class GameState {
     this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s shield [${positionId}]`, true);
   }
 
-  spyFlip(playerIdx) {
+  spyFlip(playerIdx, targetPlayerIdx, slot) {
     const p = this.players[playerIdx];
     if (!p) return false;
     if ((p.spyAttacks || 0) <= 0) {
@@ -375,6 +375,11 @@ class GameState {
       return false;
     }
     p.spyAttacks--;
+    // Persist the flip so the subsequent stateUpdate doesn't re-cover the card
+    if (slot === -1) {
+      const target = this.players[targetPlayerIdx];
+      if (target) target.kingCovered = false;
+    }
     return true;
   }
 

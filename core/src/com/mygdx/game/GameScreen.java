@@ -3115,10 +3115,10 @@ public class GameScreen extends ScreenAdapter {
       symGroup.setSize(iH, iH);
       Image sym1Img = new Image(new TextureRegion(fSym1Tex, 0, 0, fSym1W, fSym1H));
       sym1Img.setSize(iH, iH);
-      sym1Img.setPosition(-iH / 2f, 0f);
+      sym1Img.setPosition(-iH / 4f, 0f);
       Image sym2Img = new Image(new TextureRegion(fSym2Tex, 0, 0, fSym2W, fSym2H));
       sym2Img.setSize(iH, iH);
-      sym2Img.setPosition(iH / 2f, 0f);
+      sym2Img.setPosition(iH / 4f, 0f);
       symGroup.addActor(sym1Img);
       symGroup.addActor(sym2Img);
       iconsRow.add(symGroup).size(iH, iH);

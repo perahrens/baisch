@@ -195,19 +195,37 @@ function startGameForSession(sess, requesterSocketId) {
 
   io.to(sess.id).emit('getUsers', sess.users);
   sess.users.forEach(function(u, idx) {
-    io.to(u.id).emit('gameState', {
-      playerIndex: idx,
-      gameState: sess.gameState.serialize()
-    });
-    console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
+    if (!isBot(u)) {
+      io.to(u.id).emit('gameState', {
+        playerIndex: idx,
+        gameState: sess.gameState.serialize()
+      });
+      console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
+    }
     // Persist player index in token map so they can reconnect to the right slot.
     if (u.token && tokenMap[u.token]) {
       tokenMap[u.token].playerIdx = idx;
       tokenMap[u.token].sessionId = sess.id;
     }
   });
+  // Auto-submit manual setup for bots
+  if (sess.manualSetup && sess.gameState.setupPhase) {
+    sess.users.forEach(function(u, idx) {
+      if (isBot(u)) {
+        var bp = sess.gameState.players[idx];
+        if (bp && bp.hand.length >= 4) {
+          var kingId = bp.hand[0];
+          var defIds = [bp.hand[1], bp.hand[2], bp.hand[3]];
+          var discardIds = bp.hand.length > 6 ? [bp.hand[4], bp.hand[5]] : [];
+          sess.gameState.applyManualSetup(idx, kingId, defIds, discardIds);
+        }
+      }
+    });
+  }
   broadcastSessionList();
   broadcastPlayerList();
+  // If the first player is a bot, start the bot turn chain
+  playBotTurnIfNeeded(sess);
   return true;
 }
 
@@ -269,18 +287,152 @@ server.listen(PORT, function() {
   console.log("Server is now running on port " + PORT);
 });
 
-function autoFinishBotTurnIfNeeded(sess) {
-  if (!sess || !sess.gameState || !sess.isTutorial) return;
-  var currentIdx = sess.gameState.currentPlayerIndex;
-  var currentPlayer = sess.gameState.players[currentIdx];
-  if (currentPlayer && currentPlayer.id.indexOf('bot_') === 0) {
-    setTimeout(function() {
-      if (!sess.gameState) return;
-      sess.gameState.finishTurn();
-      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
-      autoFinishBotTurnIfNeeded(sess);
-    }, 1500);
+// ── Bot AI ─────────────────────────────────────────────────────────────────
+
+function isBot(player) {
+  return player && player.id.indexOf('bot_') === 0;
+}
+
+function playBotTurnIfNeeded(sess) {
+  if (!sess || !sess.gameState) return;
+  var gs = sess.gameState;
+  var player = gs.players[gs.currentPlayerIndex];
+  if (!isBot(player) || player.isOut) return;
+  setTimeout(function() {
+    if (!sess.gameState) return;
+    executeBotTurn(sess);
+  }, 1500);
+}
+
+function executeBotTurn(sess) {
+  var gs = sess.gameState;
+  var idx = gs.currentPlayerIndex;
+  var p = gs.players[idx];
+  if (!p || p.isOut) return;
+
+  // 1. Fill empty defense slots (keep at least 1 card in hand)
+  botFillDefense(gs, idx);
+
+  // 2. Try to attack
+  if (p.hand.length > 0) {
+    if (!botTryKingAttack(gs, idx)) {
+      if (!botTryDefAttack(gs, idx)) {
+        botTryPlunder(gs, idx);
+      }
+    }
   }
+
+  // 3. Finish turn
+  gs.finishTurn();
+  io.to(sess.id).emit('stateUpdate', gs.serialize());
+  checkAndHandleWinner(sess);
+
+  // Next player might be a bot too
+  playBotTurnIfNeeded(sess);
+}
+
+function botFillDefense(gs, playerIdx) {
+  var p = gs.players[playerIdx];
+  for (var slot = 1; slot <= 3; slot++) {
+    if (p.defCards[slot] == null && p.hand.length > 1) {
+      var cardId = botWeakestCard(gs, p.hand);
+      if (cardId !== null) gs.putDefCard(playerIdx, slot, cardId);
+    }
+  }
+}
+
+function botTryKingAttack(gs, attackerIdx) {
+  var attacker = gs.players[attackerIdx];
+  for (var di = 0; di < gs.players.length; di++) {
+    if (di === attackerIdx) continue;
+    var defender = gs.players[di];
+    if (defender.isOut) continue;
+    // Check if all 3 defense slots are empty (king is exposed)
+    var allEmpty = true;
+    for (var s = 1; s <= 3; s++) {
+      if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
+    }
+    if (!allEmpty) continue;
+    // Attack with strongest card
+    var atkCard = botStrongestCard(gs, attacker.hand);
+    if (atkCard === null) continue;
+    var atkStr = gs.cardStrength(atkCard);
+    var defStr = gs.cardStrength(defender.kingCard);
+    var success = (atkStr >= defStr);
+    gs.kingAttackResolved(attackerIdx, di, success, [atkCard], false);
+    return true;
+  }
+  return false;
+}
+
+function botTryDefAttack(gs, attackerIdx) {
+  var attacker = gs.players[attackerIdx];
+  if (attacker.hand.length < 1) return false;
+  for (var di = 0; di < gs.players.length; di++) {
+    if (di === attackerIdx) continue;
+    var defender = gs.players[di];
+    if (defender.isOut) continue;
+    for (var slot = 1; slot <= 3; slot++) {
+      var defCardId = defender.defCards[slot];
+      if (defCardId == null) continue;
+      var defStr = gs.cardStrength(defCardId);
+      // Find a hand card strong enough to beat it
+      var atkCard = botStrongestCard(gs, attacker.hand);
+      if (atkCard === null) continue;
+      var atkStr = gs.cardStrength(atkCard);
+      if (atkStr >= defStr) {
+        gs.defAttackResolved(attackerIdx, di, slot, 0, true, [atkCard], false, []);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function botTryPlunder(gs, attackerIdx) {
+  var attacker = gs.players[attackerIdx];
+  if (attacker.hand.length < 1 || (attacker.pickingDeckAttacks || 0) <= 0) return false;
+  // Pick the deck with the weaker top card
+  var bestDeck = -1;
+  var bestDefStr = 9999;
+  for (var d = 0; d < gs.pickingDecks.length; d++) {
+    var deck = gs.pickingDecks[d];
+    if (deck.length === 0) continue;
+    var topCard = deck[deck.length - 1];
+    var str = gs.cardStrength(topCard.id);
+    if (str < bestDefStr) { bestDefStr = str; bestDeck = d; }
+  }
+  if (bestDeck === -1) return false;
+  var atkCard = botStrongestCard(gs, attacker.hand);
+  if (atkCard === null) return false;
+  var atkStr = gs.cardStrength(atkCard);
+  var success = (atkStr >= bestDefStr);
+  // Call preview first (locks cards), then resolve
+  gs.setPlunderPreview({ attackerIdx: attackerIdx, deckIndex: bestDeck, attackCardIds: [atkCard], attackingSymbol: 'none', attackingSymbol2: 'none' });
+  gs.plunderResolved(attackerIdx, bestDeck, success, [atkCard], false, []);
+  return true;
+}
+
+function botStrongestCard(gs, hand) {
+  if (!hand || hand.length === 0) return null;
+  var best = hand[0];
+  var bestStr = gs.cardStrength(hand[0]);
+  for (var i = 1; i < hand.length; i++) {
+    var s = gs.cardStrength(hand[i]);
+    if (s > bestStr) { bestStr = s; best = hand[i]; }
+  }
+  return best;
+}
+
+function botWeakestCard(gs, hand) {
+  if (!hand || hand.length === 0) return null;
+  var best = hand[0];
+  var bestStr = gs.cardStrength(hand[0]);
+  for (var i = 1; i < hand.length; i++) {
+    var s = gs.cardStrength(hand[i]);
+    if (s < bestStr) { bestStr = s; best = hand[i]; }
+  }
+  return best;
 }
 
 io.on('connection', function(socket) {
@@ -381,8 +533,14 @@ io.on('connection', function(socket) {
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
+    var botCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
+    for (var bi = 1; bi <= botCount; bi++) {
+      var botUser = makeUser('bot_' + sess.id + '_' + bi, 'Bot ' + bi);
+      botUser.isReady = true;
+      sess.users.push(botUser);
+    }
     if (cToken) {
       if (!tokenMap[cToken]) tokenMap[cToken] = {};
       tokenMap[cToken].name = name;
@@ -391,7 +549,7 @@ io.on('connection', function(socket) {
     }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ")");
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: " + botCount + ")");
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', sess.users);
     socket.emit('gameStatus', { running: false });
@@ -546,7 +704,7 @@ io.on('connection', function(socket) {
     }
     sess.gameState.finishTurn();
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
-    if (sess.isTutorial) autoFinishBotTurnIfNeeded(sess);
+    playBotTurnIfNeeded(sess);
   });
 
   socket.on('putDefCard', function(data) {
@@ -853,7 +1011,7 @@ io.on('connection', function(socket) {
     });
     broadcastSessionList();
     broadcastPlayerList();
-    autoFinishBotTurnIfNeeded(sess);
+    playBotTurnIfNeeded(sess);
   });
 
   socket.on('giveUp', function(data) {

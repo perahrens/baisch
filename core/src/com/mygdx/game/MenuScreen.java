@@ -593,6 +593,14 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setItems(cardOptions);
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
+    // ── Bot count selector ───────────────────────────────────────────────────
+    Label botLabel = new Label("Bots:", MyGdxGame.skin);
+    final SelectBox<String> botBox = new SelectBox<String>(MyGdxGame.skin);
+    Array<String> botOptions = new Array<String>();
+    for (int n = 0; n <= 3; n++) botOptions.add(String.valueOf(n));
+    botBox.setItems(botOptions);
+    botBox.setSelected("0");
+
     // ── Checkboxes ───────────────────────────────────────────────────────────
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
     manualSetupCheckbox.setChecked(pendingManualSetup);
@@ -619,6 +627,7 @@ public class MenuScreen extends AbstractScreen {
           data.put("allowHeroSelection", sessionAllowHeroSelection);
           data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
+          data.put("botCount", Integer.parseInt(botBox.getSelected()));
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
@@ -641,6 +650,9 @@ public class MenuScreen extends AbstractScreen {
     form.row();
     form.add(cardsLabel).left().padRight(12f).padBottom(14f);
     form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
+    form.row();
+    form.add(botLabel).left().padRight(12f).padBottom(14f);
+    form.add(botBox).width(colW * 0.38f).left().padBottom(14f);
     form.row();
     form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
     form.row();

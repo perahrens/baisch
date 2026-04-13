@@ -815,6 +815,7 @@ class GameState {
       pendingAttack: this.pendingAttack || null,
       pendingPlunder: this.pendingPlunder || null,
       pendingHeroSelection: this.pendingHeroSelection || null,
+      isTutorial: this.isTutorial || false,
     };
   }
 }

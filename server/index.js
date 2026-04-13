@@ -269,6 +269,20 @@ server.listen(PORT, function() {
   console.log("Server is now running on port " + PORT);
 });
 
+function autoFinishBotTurnIfNeeded(sess) {
+  if (!sess || !sess.gameState || !sess.isTutorial) return;
+  var currentIdx = sess.gameState.currentPlayerIndex;
+  var currentPlayer = sess.gameState.players[currentIdx];
+  if (currentPlayer && currentPlayer.id.indexOf('bot_') === 0) {
+    setTimeout(function() {
+      if (!sess.gameState) return;
+      sess.gameState.finishTurn();
+      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+      autoFinishBotTurnIfNeeded(sess);
+    }, 1500);
+  }
+}
+
 io.on('connection', function(socket) {
   console.log("User Connected: " + socket.id);
   connectedPlayers[socket.id] = { id: socket.id, name: '' };
@@ -532,6 +546,7 @@ io.on('connection', function(socket) {
     }
     sess.gameState.finishTurn();
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    if (sess.isTutorial) autoFinishBotTurnIfNeeded(sess);
   });
 
   socket.on('putDefCard', function(data) {
@@ -815,6 +830,30 @@ io.on('connection', function(socket) {
       io.to(sess.users[attackerIdx].id).emit('saboteurDestroyed', { attackerIdx: attackerIdx });
     }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
+  socket.on('createTutorial', function() {
+    leaveCurrentSession(socket);
+    var sess = createSession('Tutorial', false, 6, false);
+    sess.isTutorial = true;
+    var player = connectedPlayers[socket.id];
+    var userName = player ? player.name : 'Player';
+    var botId = 'bot_' + sess.id;
+    sess.users = [
+      makeUser(socket.id, userName),
+      makeUser(botId, 'Tutorial Bot')
+    ];
+    socket.join(sess.id);
+    socketToSession[socket.id] = sess.id;
+    sess.gameState = new GameState(sess.users, { startingCards: 8 });
+    sess.gameState.isTutorial = true;
+    io.to(socket.id).emit('gameState', {
+      playerIndex: 0,
+      gameState: sess.gameState.serialize()
+    });
+    broadcastSessionList();
+    broadcastPlayerList();
+    autoFinishBotTurnIfNeeded(sess);
   });
 
   socket.on('giveUp', function(data) {

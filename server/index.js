@@ -732,7 +732,7 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
     if (userIdx === -1) return;
-    if (!sess.gameState.spyFlip(userIdx)) return;
+    if (!sess.gameState.spyFlip(userIdx, data.targetPlayerIdx, data.slot)) return;
     socket.to(sess.id).emit('spyFlip', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });

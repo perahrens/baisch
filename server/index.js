@@ -304,119 +304,443 @@ function playBotTurnIfNeeded(sess) {
   }, 1500);
 }
 
+// Returns the card suit name for a card ID
+function botCardSuit(cardId) {
+  if (cardId > 52) return 'joker';
+  var si = Math.floor((cardId - 1) / 13);
+  return ['clubs', 'diamonds', 'hearts', 'spades'][si];
+}
+
+// Group non-joker hand cards by suit. Returns { suitName: [cardIds] }
+function botGroupBySuit(hand) {
+  var groups = {};
+  for (var i = 0; i < hand.length; i++) {
+    var id = hand[i];
+    if (id > 52) continue;
+    var suit = botCardSuit(id);
+    if (!groups[suit]) groups[suit] = [];
+    groups[suit].push(id);
+  }
+  return groups;
+}
+
+// Find the minimal subset of cards (from sorted list) with combined strength >= threshold.
+// Returns array of cardIds, or null if impossible even with all cards.
+function botMinimalSubset(gs, cards, threshold) {
+  if (!cards || cards.length === 0) return null;
+  var sorted = cards.slice().sort(function(a, b) { return gs.cardStrength(a) - gs.cardStrength(b); });
+  var total = 0;
+  for (var i = 0; i < sorted.length; i++) total += gs.cardStrength(sorted[i]);
+  if (total < threshold) return null;
+  // Greedy: take strongest cards first until we meet threshold
+  var chosen = [];
+  var sum = 0;
+  for (var j = sorted.length - 1; j >= 0 && sum < threshold; j--) {
+    chosen.push(sorted[j]);
+    sum += gs.cardStrength(sorted[j]);
+  }
+  return chosen;
+}
+
+// Find the best single-suit combination from a hand (returns {sum, cards, suit})
+function botBestSuitCombo(gs, hand) {
+  var groups = botGroupBySuit(hand);
+  var best = { sum: 0, cards: [], suit: 'none' };
+  var suits = Object.keys(groups);
+  for (var i = 0; i < suits.length; i++) {
+    var suit = suits[i];
+    var sum = 0;
+    for (var j = 0; j < groups[suit].length; j++) sum += gs.cardStrength(groups[suit][j]);
+    if (sum > best.sum) best = { sum: sum, cards: groups[suit], suit: suit };
+  }
+  return best;
+}
+
+// Choose the best plunder: smart multi-card combo, preferring bigger decks with larger margin.
+// Returns { deckIndex, cardIds, symbol, success } or null.
+function botChoosePlunder(gs, attackerIdx) {
+  var p = gs.players[attackerIdx];
+  if (!p || !p.hand || p.hand.length === 0 || (p.pickingDeckAttacks || 0) <= 0) return null;
+
+  var groups = botGroupBySuit(p.hand);
+  var bestChoice = null;
+  var bestScore = -9999;
+
+  for (var d = 0; d < gs.pickingDecks.length; d++) {
+    var deck = gs.pickingDecks[d];
+    if (deck.length === 0) continue;
+    var topCard = deck[deck.length - 1];
+    if (topCard.covered) continue; // can't see threshold; skip
+    var threshold = gs.cardStrength(topCard.id);
+    var deckSize = deck.length;
+
+    // Buffer: larger decks are worth investing more margin for safety
+    var buffer = deckSize >= 4 ? 2 : (deckSize >= 3 ? 1 : 0);
+    var target = threshold + buffer;
+
+    var suits = Object.keys(groups);
+    for (var si = 0; si < suits.length; si++) {
+      var suit = suits[si];
+      // Try to meet target (threshold+buffer); fall back to just threshold
+      var combo = botMinimalSubset(gs, groups[suit], target)
+               || botMinimalSubset(gs, groups[suit], threshold);
+      if (!combo) continue;
+      var comboSum = 0;
+      for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
+      var success = (comboSum >= threshold);
+      // Score: strongly prefer success; prefer bigger deck (more reward); minimise waste
+      var waste = comboSum - threshold;
+      var score = (success ? 1000 : -500) + deckSize * 10 - waste;
+      if (score > bestScore) {
+        bestScore = score;
+        bestChoice = { deckIndex: d, cardIds: combo, symbol: suit, success: success };
+      }
+    }
+  }
+  return bestChoice;
+}
+
+// Choose the best defense attack.
+// allowScout=false: only attack known face-up cards.
+// allowScout=true: also probe covered cards with a weak card (scout).
+// Returns { defenderIdx, positionId, cardIds, symbol, success } or null.
+function botChooseDefAttack(gs, attackerIdx, allowScout) {
+  var attacker = gs.players[attackerIdx];
+  if (!attacker || !attacker.hand || attacker.hand.length === 0) return null;
+
+  var groups = botGroupBySuit(attacker.hand);
+  var bestChoice = null;
+  var bestScore = -9999;
+
+  for (var di = 0; di < gs.players.length; di++) {
+    if (di === attackerIdx) continue;
+    var defender = gs.players[di];
+    if (defender.isOut) continue;
+
+    for (var slot = 1; slot <= 3; slot++) {
+      var defCardId = defender.defCards[slot];
+      if (defCardId == null) continue;
+
+      var isFaceUp = defender.defCardsCovered && defender.defCardsCovered[slot] === false;
+
+      if (isFaceUp) {
+        var threshold = gs.cardStrength(defCardId);
+        var suits = Object.keys(groups);
+        for (var si = 0; si < suits.length; si++) {
+          var suit = suits[si];
+          var combo = botMinimalSubset(gs, groups[suit], threshold);
+          if (!combo) continue;
+          var comboSum = 0;
+          for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
+          var success = (comboSum >= threshold);
+          // Bonus if this would open the king (only shield remaining)
+          var shieldsLeft = 0;
+          for (var s = 1; s <= 3; s++) {
+            if (defender.defCards[s] != null || defender.topDefCards[s] != null) shieldsLeft++;
+          }
+          var score = (success ? 1000 : -200) + (shieldsLeft === 1 ? 100 : 0) - combo.length;
+          if (score > bestScore) {
+            bestScore = score;
+            bestChoice = { defenderIdx: di, positionId: slot, cardIds: combo, symbol: suit, success: success };
+          }
+        }
+      } else if (allowScout && attacker.hand.length > 1) {
+        // Scout: probe with weakest non-joker card to reveal the defense card
+        var nonJokerHand = attacker.hand.filter(function(id) { return id <= 52; });
+        var weakestId = null, weakestStr = 9999;
+        for (var ci = 0; ci < nonJokerHand.length; ci++) {
+          var s = gs.cardStrength(nonJokerHand[ci]);
+          if (s < weakestStr) { weakestStr = s; weakestId = nonJokerHand[ci]; }
+        }
+        if (weakestId !== null) {
+          var scoutScore = 1; // low priority vs face-up attacks
+          if (scoutScore > bestScore) {
+            bestScore = scoutScore;
+            bestChoice = { defenderIdx: di, positionId: slot,
+                           cardIds: [weakestId], symbol: botCardSuit(weakestId), success: false };
+          }
+        }
+      }
+    }
+  }
+  return bestChoice;
+}
+
+// Try a king attack using minimal suit combo. Returns true if attempted.
+function botTryKingAttack(sess, gs, attackerIdx) {
+  var attacker = gs.players[attackerIdx];
+  var groups = botGroupBySuit(attacker.hand);
+
+  for (var di = 0; di < gs.players.length; di++) {
+    if (di === attackerIdx) continue;
+    var defender = gs.players[di];
+    if (defender.isOut) continue;
+
+    // All 3 defense slots must be empty (king exposed)
+    var allEmpty = true;
+    for (var s = 1; s <= 3; s++) {
+      if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
+    }
+    if (!allEmpty) continue;
+
+    var kingStr = gs.cardStrength(defender.kingCard);
+    var suits = Object.keys(groups);
+    for (var si = 0; si < suits.length; si++) {
+      var suit = suits[si];
+      var combo = botMinimalSubset(gs, groups[suit], kingStr);
+      if (!combo) continue;
+      var comboSum = 0;
+      for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
+      if (comboSum < kingStr) continue;
+      gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
+                             attackingSymbol: suit, attackingSymbol2: 'none' });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      gs.kingAttackResolved(attackerIdx, di, true, combo, false);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      checkAndHandleWinner(sess);
+      return true;
+    }
+
+    // Last resort: use a joker to eliminate
+    var jokers = attacker.hand.filter(function(id) { return id > 52; });
+    if (jokers.length > 0) {
+      gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
+                             attackingSymbol: 'joker', attackingSymbol2: 'none' });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      gs.kingAttackResolved(attackerIdx, di, true, [jokers[0]], false);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      checkAndHandleWinner(sess);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Replace an exposed (face-up) defense card with a face-down card from hand.
+// Returns true if performed.
+function botReplaceExposedDefense(gs, playerIdx) {
+  var p = gs.players[playerIdx];
+  if (!p || !p.defCardsCovered) return false;
+
+  for (var slot = 1; slot <= 3; slot++) {
+    if (p.defCardsCovered[slot] === false && p.defCards[slot] != null) {
+      var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
+      if (nonJokerHand.length < 1) return false;
+
+      // Find weakest non-joker card to put face-down here
+      var weakestId = null, weakestStr = 9999;
+      for (var i = 0; i < nonJokerHand.length; i++) {
+        var s = gs.cardStrength(nonJokerHand[i]);
+        if (s < weakestStr) { weakestStr = s; weakestId = nonJokerHand[i]; }
+      }
+      if (weakestId === null) return false;
+
+      // Move exposed card back to hand, place new card face-down
+      var exposedCardId = p.defCards[slot];
+      delete p.defCards[slot];
+      delete p.defCardsCovered[slot];
+      p.hand.push(exposedCardId);
+
+      var hi = p.hand.indexOf(weakestId);
+      if (hi !== -1) p.hand.splice(hi, 1);
+      p.defCards[slot] = weakestId;
+      if (!p.defCardsCovered) p.defCardsCovered = {};
+      p.defCardsCovered[slot] = true;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Determine the hero name the bot should acquire from a joker sacrifice oracle card.
+function botHeroNameFromOracleCard(gs, oracleCardId) {
+  var HERO_MAP = {
+    2: 'Mercenaries', 3: 'Spy', 4: 'Marshal', 5: 'Battery Tower',
+    6: 'Merchant',    7: 'Priest', 8: 'Reservists', 9: 'Saboteurs',
+    10: 'Banneret',   11: 'Fortified Tower', 12: 'Magician', 13: 'Warlord'
+  };
+  var ALL_HEROES = Object.values(HERO_MAP);
+  var RED_HEROES  = ['Merchant', 'Priest', 'Reservists', 'Mercenaries', 'Battery Tower', 'Marshal'];
+  var BLACK_HEROES = ['Warlord', 'Spy', 'Banneret', 'Fortified Tower', 'Magician', 'Saboteurs'];
+
+  // Collect already-owned heroes
+  var owned = {};
+  for (var i = 0; i < gs.players.length; i++) {
+    (gs.players[i].heroes || []).forEach(function(h) { owned[h] = true; });
+  }
+  function pickFirst(list) {
+    for (var j = 0; j < list.length; j++) { if (!owned[list[j]]) return list[j]; }
+    return list.length > 0 ? list[0] : null; // fallback: grab any if all owned
+  }
+
+  if (oracleCardId > 52) return pickFirst(ALL_HEROES); // another joker: free choice
+
+  var suitIdx = Math.floor((oracleCardId - 1) / 13);
+  var cardIdx = (oracleCardId - 1) % 13 + 1;
+  if (cardIdx === 1) {
+    // Ace: red suits (diamonds=1, hearts=2) → red heroes; black → black heroes
+    return pickFirst(suitIdx === 1 || suitIdx === 2 ? RED_HEROES : BLACK_HEROES);
+  }
+  return HERO_MAP[cardIdx] ? HERO_MAP[cardIdx] : pickFirst(ALL_HEROES);
+}
+
+// Sacrifice a joker for a hero, unless joker is needed for a critical action.
+// Returns true if performed.
+function botTryJokerSacrifice(sess, gs, playerIdx) {
+  var p = gs.players[playerIdx];
+  var jokers = p.hand.filter(function(id) { return id > 52; });
+  if (jokers.length === 0) return false;
+
+  // Exception 1: save joker to eliminate a player whose king is exposed
+  for (var di = 0; di < gs.players.length; di++) {
+    if (di === playerIdx || gs.players[di].isOut) continue;
+    var defender = gs.players[di];
+    var allEmpty = true;
+    for (var s = 1; s <= 3; s++) {
+      if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
+    }
+    if (allEmpty) {
+      var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
+      var bestCombo = botBestSuitCombo(gs, nonJokerHand);
+      if (bestCombo.sum < gs.cardStrength(defender.kingCard)) return false; // need joker for kill
+    }
+  }
+
+  // Exception 2: save joker if it is the only way to plunder a known deck
+  if ((p.pickingDeckAttacks || 0) > 0) {
+    var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
+    var hasUncoveredDeck = false;
+    var canPlunderWithoutJoker = false;
+    for (var d = 0; d < gs.pickingDecks.length; d++) {
+      var deck = gs.pickingDecks[d];
+      if (deck.length === 0) continue;
+      var topCard = deck[deck.length - 1];
+      if (topCard.covered) continue;
+      hasUncoveredDeck = true;
+      var threshold = gs.cardStrength(topCard.id);
+      var best = botBestSuitCombo(gs, nonJokerHand);
+      if (best.sum >= threshold) { canPlunderWithoutJoker = true; break; }
+    }
+    if (hasUncoveredDeck && !canPlunderWithoutJoker) return false; // save joker for plunder
+  }
+
+  // Perform sacrifice
+  if (gs.deck.length === 0) return false;
+  var jokerId = jokers[0];
+  var oracleCardId = gs.deck[gs.deck.length - 1];
+  var heroName = botHeroNameFromOracleCard(gs, oracleCardId);
+  if (!heroName) return false;
+
+  gs.jokerSacrifice(playerIdx, jokerId, oracleCardId);
+  gs.heroAcquired(playerIdx, heroName);
+  io.to(sess.id).emit('stateUpdate', gs.serialize());
+  return true;
+}
+
+function botFillDefense(gs, playerIdx) {
+  var p = gs.players[playerIdx];
+  var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
+  for (var slot = 1; slot <= 3; slot++) {
+    if (p.defCards[slot] == null && nonJokerHand.length > 1) {
+      var weakestId = null, weakestStr = 9999;
+      for (var i = 0; i < nonJokerHand.length; i++) {
+        var s = gs.cardStrength(nonJokerHand[i]);
+        if (s < weakestStr) { weakestStr = s; weakestId = nonJokerHand[i]; }
+      }
+      if (weakestId !== null) {
+        gs.putDefCard(playerIdx, slot, weakestId);
+        nonJokerHand.splice(nonJokerHand.indexOf(weakestId), 1);
+      }
+    }
+  }
+}
+
 function executeBotTurn(sess) {
   var gs = sess.gameState;
   var idx = gs.currentPlayerIndex;
   var p = gs.players[idx];
   if (!p || p.isOut) return;
 
-  // 1. Fill empty defense slots (keep at least 1 card in hand)
+  // 1. Sacrifice joker for hero (unless saving it for critical use)
+  botTryJokerSacrifice(sess, gs, idx);
+
+  // 2. Fill empty defense slots with weakest hand cards
   botFillDefense(gs, idx);
 
-  // 2. Try to attack
-  if (p.hand.length > 0) {
-    if (!botTryKingAttack(gs, idx)) {
-      if (!botTryDefAttack(gs, idx)) {
-        botTryPlunder(gs, idx);
+  // 3. Replace any face-up (exposed) defense card with a fresh face-down card
+  if (botReplaceExposedDefense(gs, idx)) {
+    io.to(sess.id).emit('stateUpdate', gs.serialize());
+  }
+
+  // 4. Try to eliminate a player (king attack) — highest priority
+  if (!botTryKingAttack(sess, gs, idx)) {
+
+    // 5. Smart plunder — multi-card, economical combo
+    var plunderChoice = botChoosePlunder(gs, idx);
+    if (plunderChoice) {
+      gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
+                             attackCardIds: plunderChoice.cardIds,
+                             attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none' });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      gs.plunderResolved(idx, plunderChoice.deckIndex, plunderChoice.success,
+                         plunderChoice.cardIds, false, []);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      checkAndHandleWinner(sess);
+
+      // 6. After plunder: attack a face-up defense card (opportunistic follow-up)
+      var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
+      if (atkAfterPlunder) {
+        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
+                               positionId: atkAfterPlunder.positionId, level: 0,
+                               attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        gs.defAttackResolved(idx, atkAfterPlunder.defenderIdx, atkAfterPlunder.positionId,
+                              0, atkAfterPlunder.success, atkAfterPlunder.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+      }
+    } else {
+      // 7. No plunder: attack a face-up defense card
+      var atkChoice = botChooseDefAttack(gs, idx, false);
+      if (atkChoice) {
+        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
+                               positionId: atkChoice.positionId, level: 0,
+                               attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none' });
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        gs.defAttackResolved(idx, atkChoice.defenderIdx, atkChoice.positionId,
+                              0, atkChoice.success, atkChoice.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+      } else if (p.hand.length > 1) {
+        // 8. Scout: probe a covered defense card with a weak card to reveal it for future turns
+        var scoutChoice = botChooseDefAttack(gs, idx, true);
+        if (scoutChoice) {
+          gs.setAttackPreview({ attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
+                                 positionId: scoutChoice.positionId, level: 0,
+                                 attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none' });
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          gs.defAttackResolved(idx, scoutChoice.defenderIdx, scoutChoice.positionId,
+                                0, false, scoutChoice.cardIds, false, []);
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          checkAndHandleWinner(sess);
+        }
       }
     }
   }
 
-  // 3. Finish turn
+  // 9. Finish turn
   gs.finishTurn();
   io.to(sess.id).emit('stateUpdate', gs.serialize());
   checkAndHandleWinner(sess);
 
-  // Next player might be a bot too
+  // Next player might also be a bot
   playBotTurnIfNeeded(sess);
 }
 
-function botFillDefense(gs, playerIdx) {
-  var p = gs.players[playerIdx];
-  for (var slot = 1; slot <= 3; slot++) {
-    if (p.defCards[slot] == null && p.hand.length > 1) {
-      var cardId = botWeakestCard(gs, p.hand);
-      if (cardId !== null) gs.putDefCard(playerIdx, slot, cardId);
-    }
-  }
-}
-
-function botTryKingAttack(gs, attackerIdx) {
-  var attacker = gs.players[attackerIdx];
-  for (var di = 0; di < gs.players.length; di++) {
-    if (di === attackerIdx) continue;
-    var defender = gs.players[di];
-    if (defender.isOut) continue;
-    // Check if all 3 defense slots are empty (king is exposed)
-    var allEmpty = true;
-    for (var s = 1; s <= 3; s++) {
-      if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
-    }
-    if (!allEmpty) continue;
-    // Attack with strongest card
-    var atkCard = botStrongestCard(gs, attacker.hand);
-    if (atkCard === null) continue;
-    var atkStr = gs.cardStrength(atkCard);
-    var defStr = gs.cardStrength(defender.kingCard);
-    var success = (atkStr >= defStr);
-    gs.kingAttackResolved(attackerIdx, di, success, [atkCard], false);
-    return true;
-  }
-  return false;
-}
-
-function botTryDefAttack(gs, attackerIdx) {
-  var attacker = gs.players[attackerIdx];
-  if (attacker.hand.length < 1) return false;
-  for (var di = 0; di < gs.players.length; di++) {
-    if (di === attackerIdx) continue;
-    var defender = gs.players[di];
-    if (defender.isOut) continue;
-    for (var slot = 1; slot <= 3; slot++) {
-      var defCardId = defender.defCards[slot];
-      if (defCardId == null) continue;
-      var defStr = gs.cardStrength(defCardId);
-      // Find a hand card strong enough to beat it
-      var atkCard = botStrongestCard(gs, attacker.hand);
-      if (atkCard === null) continue;
-      var atkStr = gs.cardStrength(atkCard);
-      if (atkStr >= defStr) {
-        gs.defAttackResolved(attackerIdx, di, slot, 0, true, [atkCard], false, []);
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function botTryPlunder(gs, attackerIdx) {
-  var attacker = gs.players[attackerIdx];
-  if (attacker.hand.length < 1 || (attacker.pickingDeckAttacks || 0) <= 0) return false;
-  // Pick the deck with the weaker top card
-  var bestDeck = -1;
-  var bestDefStr = 9999;
-  for (var d = 0; d < gs.pickingDecks.length; d++) {
-    var deck = gs.pickingDecks[d];
-    if (deck.length === 0) continue;
-    var topCard = deck[deck.length - 1];
-    var str = gs.cardStrength(topCard.id);
-    if (str < bestDefStr) { bestDefStr = str; bestDeck = d; }
-  }
-  if (bestDeck === -1) return false;
-  var atkCard = botStrongestCard(gs, attacker.hand);
-  if (atkCard === null) return false;
-  var atkStr = gs.cardStrength(atkCard);
-  var success = (atkStr >= bestDefStr);
-  // Call preview first (locks cards), then resolve
-  gs.setPlunderPreview({ attackerIdx: attackerIdx, deckIndex: bestDeck, attackCardIds: [atkCard], attackingSymbol: 'none', attackingSymbol2: 'none' });
-  gs.plunderResolved(attackerIdx, bestDeck, success, [atkCard], false, []);
-  return true;
-}
-
+// Legacy helpers (still used in tutorial/other paths)
 function botStrongestCard(gs, hand) {
   if (!hand || hand.length === 0) return null;
-  var best = hand[0];
-  var bestStr = gs.cardStrength(hand[0]);
+  var best = hand[0], bestStr = gs.cardStrength(hand[0]);
   for (var i = 1; i < hand.length; i++) {
     var s = gs.cardStrength(hand[i]);
     if (s > bestStr) { bestStr = s; best = hand[i]; }
@@ -426,14 +750,14 @@ function botStrongestCard(gs, hand) {
 
 function botWeakestCard(gs, hand) {
   if (!hand || hand.length === 0) return null;
-  var best = hand[0];
-  var bestStr = gs.cardStrength(hand[0]);
+  var best = hand[0], bestStr = gs.cardStrength(hand[0]);
   for (var i = 1; i < hand.length; i++) {
     var s = gs.cardStrength(hand[i]);
     if (s < bestStr) { bestStr = s; best = hand[i]; }
   }
   return best;
 }
+
 
 io.on('connection', function(socket) {
   console.log("User Connected: " + socket.id);

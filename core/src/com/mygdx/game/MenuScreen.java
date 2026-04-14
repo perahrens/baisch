@@ -89,6 +89,9 @@ public class MenuScreen extends AbstractScreen {
   // True while waiting for the server to confirm reconnect to a running game.
   // Suppresses the lobby flash that would otherwise appear before gameState arrives.
   private boolean reconnecting = false;
+  // Seconds elapsed since reconnecting started; triggers automatic fallback after the timeout.
+  private float reconnectElapsed = 0f;
+  private static final float RECONNECT_TIMEOUT_SECONDS = 10f;
   // True when the server kicked this tab because the same token opened a new tab.
   private boolean disconnectedByDuplicateTab = false;
 
@@ -143,6 +146,7 @@ public class MenuScreen extends AbstractScreen {
     // arrives (or sessionNotFound clears the flag and falls back to the lobby).
     if (nameConfirmed && !MyGdxGame.playerStorage.getSavedSessionId().isEmpty()) {
       reconnecting = true;
+      reconnectElapsed = 0f;
     }
 
     // create menu screen
@@ -289,9 +293,31 @@ public class MenuScreen extends AbstractScreen {
     msg.pack();
     msg.setPosition(
         MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
-        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
+        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f + 30f);
     menuStage.addActor(msg);
+
+    TextButton returnBtn = new TextButton("Return to Lobby", MyGdxGame.skin);
+    returnBtn.pack();
+    returnBtn.setPosition(
+        MyGdxGame.WIDTH  / 2f - returnBtn.getPrefWidth()  / 2f,
+        MyGdxGame.HEIGHT / 2f - returnBtn.getPrefHeight() / 2f - 20f);
+    returnBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        clearReconnectState();
+        show();
+      }
+    });
+    menuStage.addActor(returnBtn);
+
     Gdx.input.setInputProcessor(menuStage);
+  }
+
+  /** Clears the reconnect state and saved session so the lobby is shown cleanly. */
+  private void clearReconnectState() {
+    MyGdxGame.playerStorage.clearSessionId();
+    reconnecting = false;
+    reconnectElapsed = 0f;
   }
 
   private void showNameEntryScreen() {
@@ -997,6 +1023,15 @@ public class MenuScreen extends AbstractScreen {
     Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+    // Auto-escape from stuck reconnect state after timeout.
+    if (reconnecting) {
+      reconnectElapsed += delta;
+      if (reconnectElapsed >= RECONNECT_TIMEOUT_SECONDS) {
+        clearReconnectState();
+        show();
+      }
+    }
+
     if (currentUsersCount != menuState.getUsers().size()) {
       currentUsersCount = menuState.getUsers().size();
       show();
@@ -1287,6 +1322,7 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             MyGdxGame.playerStorage.clearSessionId();
             reconnecting = false;
+            reconnectElapsed = 0f;
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1307,6 +1343,7 @@ public class MenuScreen extends AbstractScreen {
           public void run() {
             MyGdxGame.playerStorage.clearSessionId();
             reconnecting = false;
+            reconnectElapsed = 0f;
             timerStarted = false;
             gameRunning = false;
             lobbyJoined = false;
@@ -1401,6 +1438,7 @@ public class MenuScreen extends AbstractScreen {
             // drop back to the lobby so the player can start or join a fresh game.
             MyGdxGame.playerStorage.clearSessionId();
             reconnecting = false;
+            reconnectElapsed = 0f;
             updateScreen = true;
           }
         });

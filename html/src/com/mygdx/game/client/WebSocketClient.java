@@ -93,4 +93,14 @@ public class WebSocketClient implements SocketClient {
     // Calling sock.disconnect() on the client stops auto-reconnect in socket.io v2.
     sock.disconnect();
   }-*/;
+
+  @Override
+  public String getSocketId() {
+    return nativeGetSocketId(jsSocket);
+  }
+
+  private native String nativeGetSocketId(JavaScriptObject sock) /*-{
+    var id = sock.id;
+    return (id != null && id !== undefined) ? id : "";
+  }-*/;
 }

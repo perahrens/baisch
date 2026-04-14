@@ -1425,5 +1425,36 @@ io.on('connection', function(socket) {
     }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
+    bot.playBotTurnIfNeeded(sess);
+  });
+
+  socket.on('giveUpAndLeave', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var playerIdx = data.playerIndex;
+    if (playerIdx < 0 || playerIdx >= sess.gameState.players.length) return;
+    var player = sess.gameState.players[playerIdx];
+    if (!player.isOut) {
+      console.log("Player " + playerIdx + " (" + player.name + ") gave up & left session " + sess.id);
+      player.isOut = true;
+      var wasCurrentPlayer = sess.gameState.currentPlayerIndex === playerIdx;
+      if (wasCurrentPlayer) {
+        sess.gameState.finishTurn();
+      }
+      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+      checkAndHandleWinner(sess);
+      // Only restart bot chain if we advanced the turn — if it's already a bot's turn,
+      // the existing bot chain is still running and must not be double-scheduled.
+      if (wasCurrentPlayer) {
+        bot.playBotTurnIfNeeded(sess);
+      }
+    }
+    // Clear token map so a page-refresh does not ghost-reconnect the player.
+    var token = findTokenBySocketId(socket.id);
+    if (token && tokenMap[token]) {
+      delete tokenMap[token].sessionId;
+      delete tokenMap[token].playerIdx;
+    }
+    leaveCurrentSession(socket);
   });
 });

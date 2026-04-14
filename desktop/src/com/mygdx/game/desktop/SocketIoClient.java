@@ -57,6 +57,12 @@ public class SocketIoClient implements SocketClient {
   }
 
   @Override
+  public String getSocketId() {
+    String id = socket.id();
+    return id != null ? id : "";
+  }
+
+  @Override
   public void emit(String event, Object data) {
     if (data instanceof JSONObject) {
       try {

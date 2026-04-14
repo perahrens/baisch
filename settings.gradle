@@ -1,1 +1,8 @@
-include 'desktop', 'core', 'html', 'android'
+include 'desktop', 'core', 'html'
+
+// Include the Android module only when its build.gradle is present.
+// The Fly.io Docker build doesn't copy the android/ directory, so this
+// guard prevents the GWT/web build from failing on CI/CD.
+if (new File(rootDir, 'android/build.gradle').exists()) {
+    include 'android'
+}

@@ -175,6 +175,9 @@ public class GameState {
           }
         }
 
+        // Sync out flag so the initial render correctly skips eliminated players
+        if (pj.optBoolean("isOut", false)) p.setOut(true);
+
         players.add(p);
       }
       roundOrder = new ArrayList<Player>(players);

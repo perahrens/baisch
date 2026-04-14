@@ -1425,5 +1425,25 @@ io.on('connection', function(socket) {
     }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
+    bot.playBotTurnIfNeeded(sess);
+  });
+
+  socket.on('giveUpAndLeave', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var playerIdx = data.playerIndex;
+    if (playerIdx < 0 || playerIdx >= sess.gameState.players.length) return;
+    var player = sess.gameState.players[playerIdx];
+    if (!player.isOut) {
+      console.log("Player " + playerIdx + " (" + player.name + ") gave up & left session " + sess.id);
+      player.isOut = true;
+      if (sess.gameState.currentPlayerIndex === playerIdx) {
+        sess.gameState.finishTurn();
+      }
+      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+      checkAndHandleWinner(sess);
+      bot.playBotTurnIfNeeded(sess);
+    }
+    leaveCurrentSession(socket);
   });
 });

@@ -222,7 +222,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
         if (comboSum < kingStr) continue;
         gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
-                               attackingSymbol: suit, attackingSymbol2: 'none' });
+                               attackingSymbol: suit, attackingSymbol2: 'none',
+                               success: true, attackCardIds: combo,
+                               defCardIds: [defender.kingCard] });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         (function(capturedDi, capturedCombo) {
           setTimeout(function() {
@@ -239,7 +241,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       var jokers = attacker.hand.filter(function(id) { return id > 52; });
       if (jokers.length > 0) {
         gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
-                               attackingSymbol: 'joker', attackingSymbol2: 'none' });
+                               attackingSymbol: 'joker', attackingSymbol2: 'none',
+                               success: true, attackCardIds: [jokers[0]],
+                               defCardIds: [defender.kingCard] });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         (function(capturedDi, capturedJoker) {
           setTimeout(function() {
@@ -259,9 +263,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
   function botContinueAfterPlunder(sess, gs, idx) {
     var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
     if (atkAfterPlunder) {
+      var apDefCardId = gs.players[atkAfterPlunder.defenderIdx].defCards[atkAfterPlunder.positionId];
       gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
                              positionId: atkAfterPlunder.positionId, level: 0,
-                             attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
+                             attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none',
+                             success: atkAfterPlunder.success, attackCardIds: atkAfterPlunder.cardIds,
+                             defCardIds: apDefCardId != null ? [apDefCardId] : [] });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
       var captured = atkAfterPlunder;
       setTimeout(function() {
@@ -466,9 +473,15 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       // 5. Smart plunder — multi-card, economical combo
       var plunderChoice = botChoosePlunder(gs, idx);
       if (plunderChoice) {
+        var plAtkSum = 0;
+        for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);
+        var plDeck = gs.pickingDecks[plunderChoice.deckIndex];
+        var plDefStrength = plDeck && plDeck.length > 0 ? gs.cardStrength(plDeck[plDeck.length - 1].id) : 0;
         gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
                                attackCardIds: plunderChoice.cardIds,
-                               attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none' });
+                               attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none',
+                               success: plunderChoice.success, attackSum: plAtkSum,
+                               defStrength: plDefStrength });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var captured = plunderChoice;
         setTimeout(function() {
@@ -485,9 +498,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       // 7. No plunder: attack a face-up defense card
       var atkChoice = botChooseDefAttack(gs, idx, false);
       if (atkChoice) {
+        var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
         gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
                                positionId: atkChoice.positionId, level: 0,
-                               attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none' });
+                               attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
+                               success: atkChoice.success, attackCardIds: atkChoice.cardIds,
+                               defCardIds: atkDefCardId != null ? [atkDefCardId] : [] });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var capturedAtk = atkChoice;
         setTimeout(function() {
@@ -503,9 +519,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       // 8. Scout: probe a covered defense card with a weak card to reveal it for future turns
       var scoutChoice = botChooseDefAttack(gs, idx, true);
       if (scoutChoice) {
+        var scoutDefCardId = gs.players[scoutChoice.defenderIdx].defCards[scoutChoice.positionId];
         gs.setAttackPreview({ attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
                                positionId: scoutChoice.positionId, level: 0,
-                               attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none' });
+                               attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none',
+                               success: scoutChoice.success, attackCardIds: scoutChoice.cardIds,
+                               defCardIds: scoutDefCardId != null ? [scoutDefCardId] : [] });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var capturedScout = scoutChoice;
         setTimeout(function() {

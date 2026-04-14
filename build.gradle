@@ -53,6 +53,7 @@ project(":desktop") {
     }
 }
 
+if (new File(rootDir, 'android/build.gradle').exists()) {
 project(":android") {
     apply plugin: "com.android.application"
 
@@ -72,6 +73,7 @@ project(":android") {
         natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86_64"
         implementation "io.socket:socket.io-client:0.6.2"
     }
+}
 }
 
 // project(":ios") {

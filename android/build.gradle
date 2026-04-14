@@ -1,5 +1,5 @@
 android {
-    buildToolsVersion "34.0.0"
+    buildToolsVersion "30.0.3"
     compileSdkVersion 34
     sourceSets {
         main {
@@ -24,8 +24,8 @@ android {
         versionName "1.0"
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     buildTypes {
         release {

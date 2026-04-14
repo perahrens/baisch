@@ -11,4 +11,6 @@ public interface SocketClient {
   void connect();
   /** Cleanly disconnect and prevent auto-reconnect. */
   void disconnect();
+  /** Returns the current socket ID, or an empty string if not yet connected. */
+  String getSocketId();
 }

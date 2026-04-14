@@ -120,6 +120,8 @@ public class GameScreen extends ScreenAdapter {
 
   private int playerIndex;
   private boolean isSpectator = false;
+  // Set to true when navigating away; prevents stale socket listeners from acting.
+  private boolean screenDisposed = false;
   private JSONObject centralizedState;
   private SocketClient socket;
   private Game game;
@@ -196,6 +198,7 @@ public class GameScreen extends ScreenAdapter {
     socket.on("stateUpdate", new SocketListener() {
       @Override
       public void call(Object... args) {
+        if (screenDisposed) return;
         final JSONObject data = (JSONObject) args[0];
         // Fire turn notification here, NOT inside applyStateUpdate/postRunnable.
         // postRunnable runs on the render thread which is paused when the tab is hidden
@@ -229,6 +232,7 @@ public class GameScreen extends ScreenAdapter {
     socket.on("gameState", new SocketListener() {
       @Override
       public void call(Object... args) {
+        if (screenDisposed) return;
         final JSONObject data = (JSONObject) args[0];
         Gdx.app.postRunnable(new Runnable() {
           @Override
@@ -3552,6 +3556,7 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void navigateToLobby() {
+    screenDisposed = true;
     MyGdxGame.playerStorage.clearSessionId();
     Gdx.app.postRunnable(new Runnable() {
       @Override

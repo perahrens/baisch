@@ -3296,17 +3296,7 @@ public class GameScreen extends ScreenAdapter {
     });
     table.add(musicBtn).width(300).height(60).padBottom(14).row();
 
-    if (!isSpectator) {
-      TextButton giveUpBtn = new TextButton("Give Up", MyGdxGame.skin);
-      giveUpBtn.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
-          closeMenu();
-          emitGiveUp();
-        }
-      });
-      table.add(giveUpBtn).width(300).height(60).padBottom(14).row();
-    } else {
+    if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
       leaveBtn.addListener(new ClickListener() {
         @Override
@@ -3316,6 +3306,26 @@ public class GameScreen extends ScreenAdapter {
         }
       });
       table.add(leaveBtn).width(300).height(60).row();
+    } else {
+      TextButton giveUpStayBtn = new TextButton("Give Up & Stay", MyGdxGame.skin);
+      giveUpStayBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          emitGiveUp();
+        }
+      });
+      table.add(giveUpStayBtn).width(300).height(60).padBottom(14).row();
+
+      TextButton giveUpLeaveBtn = new TextButton("Give Up & Leave", MyGdxGame.skin);
+      giveUpLeaveBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          closeMenu();
+          emitGiveUpAndLeave();
+        }
+      });
+      table.add(giveUpLeaveBtn).width(300).height(60).row();
     }
 
     overlayStage.addActor(table);
@@ -3529,6 +3539,16 @@ public class GameScreen extends ScreenAdapter {
       data.put("playerIndex", playerIndex);
       socket.emit("giveUp", data);
     } catch (JSONException e) { e.printStackTrace(); }
+  }
+
+  private void emitGiveUpAndLeave() {
+    if (socket == null) return;
+    try {
+      JSONObject data = new JSONObject();
+      data.put("playerIndex", playerIndex);
+      socket.emit("giveUpAndLeave", data);
+    } catch (JSONException e) { e.printStackTrace(); }
+    navigateToLobby();
   }
 
   private void navigateToLobby() {

@@ -3,18 +3,15 @@ var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
 
-// Serve the mobile-optimised page at /m.
+// Serve the mobile-optimised page at /m (canonical URL).
 app.get('/m', function(req, res) {
   res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 
-// Auto-redirect mobile browsers visiting / to /m.
-app.get('/', function(req, res, next) {
-  var ua = req.headers['user-agent'] || '';
-  if (/mobile|android|iphone|ipad|ipod/i.test(ua)) {
-    return res.redirect('/m');
-  }
-  next();
+// Serve the same page for all browsers at /. The mobile.html is now
+// universal: it works on all browsers and window sizes.
+app.get('/', function(req, res) {
+  res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 
 app.use(require('express').static(path.join(__dirname, 'public')));

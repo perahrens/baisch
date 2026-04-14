@@ -476,11 +476,13 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         var plAtkSum = 0;
         for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);
         var plDeck = gs.pickingDecks[plunderChoice.deckIndex];
-        var plDefStrength = plDeck && plDeck.length > 0 ? gs.cardStrength(plDeck[plDeck.length - 1].id) : 0;
+        var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
+        var plDefStrength = plTopCard ? gs.cardStrength(plTopCard.id) : 0;
         gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
                                attackCardIds: plunderChoice.cardIds,
                                attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none',
                                success: plunderChoice.success, attackSum: plAtkSum,
+                               defCardId: plTopCard ? plTopCard.id : -1,
                                defStrength: plDefStrength });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var captured = plunderChoice;

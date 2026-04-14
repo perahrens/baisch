@@ -3552,6 +3552,7 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void navigateToLobby() {
+    MyGdxGame.playerStorage.clearSessionId();
     Gdx.app.postRunnable(new Runnable() {
       @Override
       public void run() {

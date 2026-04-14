@@ -542,15 +542,15 @@ public class GameScreen extends ScreenAdapter {
 
     // Initialize stages
     gameStage = new Stage();
-    fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
+    fitVPGame = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.WIDTH);
     gameStage.setViewport(fitVPGame);
 
     handStage = new Stage();
-    fitVPHand = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
+    fitVPHand = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT - MyGdxGame.WIDTH);
     handStage.setViewport(fitVPHand);
 
     overlayStage = new Stage();
-    fitVPOverlay = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    fitVPOverlay = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT);
     overlayStage.setViewport(fitVPOverlay);
 
     inMulti = new InputMultiplexer();
@@ -907,7 +907,7 @@ public class GameScreen extends ScreenAdapter {
     // draw round number
     roundCounter = new Label("Round " + gameState.getRoundNumber(), MyGdxGame.skin);
     roundCounter.setColor(0f, 0f, 0f, 1.0f);
-    roundCounter.setPosition(0, Gdx.graphics.getWidth() - roundCounter.getHeight());
+    roundCounter.setPosition(0, MyGdxGame.WIDTH - roundCounter.getHeight());
     gameStage.addActor(roundCounter);
 
     // draw whose turn it is — directly below the round counter

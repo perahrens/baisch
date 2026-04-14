@@ -124,6 +124,13 @@ public class MenuScreen extends AbstractScreen {
     menuState = new MenuState();
     configSocketEvents(socket);
 
+    // If the socket is already connected (e.g. returning from GameScreen), grab the
+    // socket ID immediately so the lobby is functional without waiting for socketID.
+    String existingSocketId = socket.getSocketId();
+    if (existingSocketId != null && !existingSocketId.isEmpty()) {
+      menuState.setMyUserID(existingSocketId);
+    }
+
     // Pre-populate name and UI state from local storage so returning players skip the name-entry screen.
     String savedName = MyGdxGame.playerStorage.getSavedName();
     if (!savedName.isEmpty()) {

@@ -3921,7 +3921,21 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void render(float delta) {
+    Gdx.gl.glClearColor(0, 0, 0, 1);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+
+    // Compute letterboxed region: scale 450x800 to fit the screen, preserving aspect ratio.
+    float scale = Math.min(
+        (float) Gdx.graphics.getWidth()  / MyGdxGame.WIDTH,
+        (float) Gdx.graphics.getHeight() / MyGdxGame.HEIGHT);
+    int gamePixelW = Math.round(MyGdxGame.WIDTH  * scale);
+    int gamePixelH = Math.round(MyGdxGame.HEIGHT * scale);
+    int offsetX    = (Gdx.graphics.getWidth()  - gamePixelW) / 2;
+    int offsetY    = (Gdx.graphics.getHeight() - gamePixelH) / 2;
+    // Upper portion is the square play area (WIDTH x WIDTH logical)
+    int upperH     = Math.round(MyGdxGame.WIDTH * scale);
+    // Lower portion is the hand area (WIDTH x (HEIGHT-WIDTH) logical)
+    int lowerH     = gamePixelH - upperH;
 
     // Overlay stage always handles the menu button (and full menu when open).
     // Game/hand stages are added only when it is this client's active turn.
@@ -3958,29 +3972,26 @@ public class GameScreen extends ScreenAdapter {
     handBck.setColor(anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.9f : 1f,
         anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.8f : 0.5f);
 
-    /* Upper division */
-    Gdx.gl.glViewport(0, Gdx.graphics.getHeight() - Gdx.graphics.getWidth(), Gdx.graphics.getWidth(),
-        Gdx.graphics.getWidth());
-    gameStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getWidth(), true);
-    gameStage.getViewport().setScreenBounds(0, Gdx.graphics.getHeight() - Gdx.graphics.getWidth(),
-        Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
+    /* Upper division (square play area) */
+    Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);
+    gameStage.getViewport().update(gamePixelW, upperH, true);
+    gameStage.getViewport().setScreenBounds(offsetX, offsetY + lowerH, gamePixelW, upperH);
     gameStage.getViewport().apply();
     gameStage.act(delta);
     gameStage.draw();
 
-    /* Lower division */
-    Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
-    handStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth(), true);
-    handStage.getViewport().setScreenBounds(0, 0, Gdx.graphics.getWidth(),
-        Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
+    /* Lower division (hand area) */
+    Gdx.gl.glViewport(offsetX, offsetY, gamePixelW, lowerH);
+    handStage.getViewport().update(gamePixelW, lowerH, true);
+    handStage.getViewport().setScreenBounds(offsetX, offsetY, gamePixelW, lowerH);
     handStage.getViewport().apply();
     handStage.act(delta);
     handStage.draw();
 
     /* Overlay (drag layer - always on top) */
-    Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    overlayStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
-    overlayStage.getViewport().setScreenBounds(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    Gdx.gl.glViewport(offsetX, offsetY, gamePixelW, gamePixelH);
+    overlayStage.getViewport().update(gamePixelW, gamePixelH, true);
+    overlayStage.getViewport().setScreenBounds(offsetX, offsetY, gamePixelW, gamePixelH);
     overlayStage.getViewport().apply();
     overlayStage.act(delta);
     overlayStage.draw();

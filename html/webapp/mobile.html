@@ -3,10 +3,11 @@
   <head>
     <title>Baisch</title>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <!-- viewport width=450: browser scales the 450px page to fit the screen
+    <!-- viewport width=450: browser scales the 450px-wide page to fit the screen
          and maps touch coordinates into the same 450px space automatically.
-         No JavaScript scaling needed. -->
-    <meta name="viewport" content="width=450, user-scalable=no">
+         viewport-fit=cover: extend into iPhone X notch / home-indicator area.
+         shrink-to-fit=no:   prevent iOS 9 auto-shrinking. -->
+    <meta name="viewport" content="width=450, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -15,11 +16,34 @@
     <script src="soundmanager2-setup.js"></script>
     <script src="soundmanager2-jsmin.js"></script>
     <style>
-      html, body {
+      html {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
         margin: 0;
         padding: 0;
+        /* position:fixed prevents iOS Safari URL-bar show/hide from changing
+           window.scrollY, which would corrupt GWT's getAbsoluteTop() and
+           produce a Y-offset between taps and game coordinates. */
+        position: fixed;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         background-color: #222222;
+      }
+      /* Center the canvas horizontally on tablets and desktops.
+         text-align:center works because canvas is inline-block.
+         align-items:flex-start keeps the canvas anchored at y=0 so
+         getBoundingClientRect().top == 0 and touch-Y mapping is exact. */
+      #embed-html {
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        /* flex is a belt-and-suspenders fallback */
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
       }
     </style>
   </head>
@@ -27,16 +51,28 @@
     <div id="embed-html"></div>
     <script type="text/javascript" src="html/html.nocache.js"></script>
     <script>
+      // Prevent libGDX's global keydown handler from swallowing backspace
+      // when the user is typing inside a native text input (getTextInput overlay).
+      // useCapture=true ensures this runs before libGDX's bubbling-phase listener.
+      document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 8) { // Backspace
+          var el = document.activeElement;
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+            e.stopImmediatePropagation();
+          }
+        }
+      }, true);
+
       // Prevent page scroll.
       document.addEventListener('touchmove', function(e) {
         e.preventDefault();
       }, { passive: false });
 
-      // GWT canvas only receives mouse events. Forward touch events as mouse
-      // events so the game is playable on mobile.
-      function attachTouchHandlers(canvas) {
-        function relay(type, touch) {
-          canvas.dispatchEvent(new MouseEvent(type, {
+      // GWT's canvas only listens to mouse events. Forward touch events as
+      // mouse events so the game is controllable on mobile.
+      function forwardTouchAsMouseEvents(canvas) {
+        function relay(mouseType, touch) {
+          canvas.dispatchEvent(new MouseEvent(mouseType, {
             bubbles: true, cancelable: true, view: window,
             clientX: touch.clientX, clientY: touch.clientY
           }));
@@ -52,12 +88,30 @@
         }, { passive: false });
       }
 
-      // Poll until GWT creates the canvas inside #embed-html.
+      // Poll until GWT creates the canvas, then attach touch handlers.
       (function waitForCanvas() {
         var canvas = document.querySelector('#embed-html canvas');
-        if (canvas) { attachTouchHandlers(canvas); return; }
+        if (canvas) {
+          // Prevent the browser from handling touch gestures (scroll, zoom)
+          // on the canvas itself — the game handles all touch input.
+          canvas.style.touchAction = 'none';
+          forwardTouchAsMouseEvents(canvas);
+          return;
+        }
         setTimeout(waitForCanvas, 200);
       })();
+
+      // Prevent text-selection drag cursor on the canvas area (desktop).
+      var embedDiv = document.getElementById('embed-html');
+      embedDiv.addEventListener('mousedown', function(evt) {
+        evt.preventDefault();
+        evt.target.style.cursor = 'default';
+        window.focus();
+      }, false);
+      embedDiv.addEventListener('mouseup', function(evt) {
+        evt.preventDefault();
+        evt.target.style.cursor = '';
+      }, false);
     </script>
   </body>
 </html>

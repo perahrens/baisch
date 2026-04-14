@@ -1,9 +1,11 @@
 canvas {
     cursor: default;
     outline: none;
-    /* display:block prevents the browser adding a small descender gap below
-       the canvas when it is treated as an inline element. */
-    display: block;
+    /* inline-block eliminates the baseline descender gap (like display:block would)
+       but still responds to text-align:center on the container, so the canvas
+       is centered on tablets and desktops without needing flexbox. */
+    display: inline-block;
+    vertical-align: top;
 }
 
 body {

@@ -63,7 +63,7 @@ handling, or audio **must be verified not to break any of these environments**:
 | **Web — mobile phone (Chrome/Safari)** | `html/webapp/mobile.html` | Touch forwarding, `width=device-width` viewport, letterbox |
 | **Web — desktop browser** | `html/webapp/index.html` | Mouse input, wide/landscape screens, letterbox |
 | **Android app** | `android/` | `AndroidLauncher`, `AndroidPlayerStorage`, `AndroidManifest.xml` |
-| **Future: iOS app** | `ios/` (stubbed) | Will use same core; avoid platform assumptions |
+| **Future: iOS app** | `ios/` | RoboVM; `IOSLauncher`, `IOSPlayerStorage` (NSUserDefaults); build requires macOS + Xcode |
 | **Desktop (dev/testing)** | `desktop/` | Uses `PlayerStorage.NOOP` — no persistence |
 
 ### Platform-Specific Anti-Patterns to Avoid

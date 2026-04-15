@@ -7,13 +7,16 @@ ext {
 	mainClassName = "com.mygdx.game.IOSLauncher"
 }
 
-launchIPhoneSimulator.dependsOn build
-launchIPadSimulator.dependsOn build
-launchIOSDevice.dependsOn build
-createIPA.dependsOn build
+// RoboVM tasks and configuration are only available on macOS
+if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+    launchIPhoneSimulator.dependsOn build
+    launchIPadSimulator.dependsOn build
+    launchIOSDevice.dependsOn build
+    createIPA.dependsOn build
 
-robovm {
-	archs = "thumbv7:arm64"
+    robovm {
+        archs = "thumbv7:arm64"
+    }
 }
 
 eclipse.project {

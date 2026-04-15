@@ -22,6 +22,7 @@ android {
         targetSdkVersion 34
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -62,6 +63,13 @@ task copyAndroidNatives() {
             }
         }
     }
+    }
+}
+
+// Ensure native .so libs are always extracted before any assemble task
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('assemble') || task.name.startsWith('package')) {
+        task.dependsOn copyAndroidNatives
     }
 }
 

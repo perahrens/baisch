@@ -542,15 +542,15 @@ public class GameScreen extends ScreenAdapter {
 
     // Initialize stages
     gameStage = new Stage();
-    fitVPGame = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
+    fitVPGame = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.WIDTH);
     gameStage.setViewport(fitVPGame);
 
     handStage = new Stage();
-    fitVPHand = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
+    fitVPHand = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT - MyGdxGame.WIDTH);
     handStage.setViewport(fitVPHand);
 
     overlayStage = new Stage();
-    fitVPOverlay = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    fitVPOverlay = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT);
     overlayStage.setViewport(fitVPOverlay);
 
     inMulti = new InputMultiplexer();
@@ -670,8 +670,8 @@ public class GameScreen extends ScreenAdapter {
    */
   private void showSetupPhaseScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
-    float gameH = Gdx.graphics.getWidth();   // gameStage is square
-    float handH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+    float gameH = MyGdxGame.WIDTH;   // gameStage is square
+    float handH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
 
     Card infoCard = new Card();
     final float cardW = infoCard.getDefWidth() * 1.6f;
@@ -711,7 +711,7 @@ public class GameScreen extends ScreenAdapter {
     if (!setupSubmitted) {
       ArrayList<Card> handCards = new ArrayList<Card>(currentPlayer.getHandCards());
       int count = handCards.size();
-      float maxW = Gdx.graphics.getWidth() - 10f;
+      float maxW = MyGdxGame.WIDTH - 10f;
       final float step = count <= 1 ? cardW : Math.min(cardW, (maxW - cardW) / (count - 1));
       float totalW = cardW + (count > 1 ? (count - 1) * step : 0);
       float startX = cx - totalW / 2f;
@@ -907,7 +907,7 @@ public class GameScreen extends ScreenAdapter {
     // draw round number
     roundCounter = new Label("Round " + gameState.getRoundNumber(), MyGdxGame.skin);
     roundCounter.setColor(0f, 0f, 0f, 1.0f);
-    roundCounter.setPosition(0, Gdx.graphics.getWidth() - roundCounter.getHeight());
+    roundCounter.setPosition(0, MyGdxGame.WIDTH - roundCounter.getHeight());
     gameStage.addActor(roundCounter);
 
     // draw whose turn it is — directly below the round counter
@@ -1194,14 +1194,14 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragDefCard.getCardId());
                 dragOverlayCard.setWidth(dragDefCard.getWidth());
                 dragOverlayCard.setHeight(dragDefCard.getHeight());
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(dragDefCard.getX(), dragDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
@@ -1312,14 +1312,14 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragTopDefCard.getCardId());
                 dragOverlayCard.setWidth(dragTopDefCard.getWidth());
                 dragOverlayCard.setHeight(dragTopDefCard.getHeight());
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(dragTopDefCard.getX(), dragTopDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
@@ -2681,7 +2681,7 @@ public class GameScreen extends ScreenAdapter {
                 isDraggingHandCard = false;
                 if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
                 handCard.setVisible(true);
-                float handAreaHeight = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float handAreaHeight = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 if (event.getStageY() > handAreaHeight) {
                   float gameStageY = event.getStageY() - handAreaHeight;
                   Actor hit = gameStage.hit(event.getStageX(), gameStageY, false);
@@ -2954,7 +2954,7 @@ public class GameScreen extends ScreenAdapter {
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
     finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
-    finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
+    finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
 
     // Turn indicator (spectators are never "my turn")
@@ -2987,7 +2987,7 @@ public class GameScreen extends ScreenAdapter {
       finishTurnButton.setVisible(false);
       Label spectatorLabel = new Label("Spectator Mode", MyGdxGame.skin);
       spectatorLabel.setColor(Color.CYAN);
-      spectatorLabel.setPosition(Gdx.graphics.getWidth() - spectatorLabel.getPrefWidth(), 0);
+      spectatorLabel.setPosition(MyGdxGame.WIDTH - spectatorLabel.getPrefWidth(), 0);
       handStage.addActor(spectatorLabel);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
@@ -3051,16 +3051,16 @@ public class GameScreen extends ScreenAdapter {
     // Attacking symbols — resolve source textures and native dimensions
     String attackingSymbol    = ptHand.getAttackingSymbol()[0];
     String attackingSymbolExt = ptHand.getAttackingSymbol()[1];
-    boolean hasTwoSymbols = (attackingSymbolExt != "none");
+    boolean hasTwoSymbols = !"none".equals(attackingSymbolExt);
 
     Texture sym1Tex; int sym1W; int sym1H;
-    if (attackingSymbol == "hearts") {
+    if ("hearts".equals(attackingSymbol)) {
       sym1Tex = texHeartsRed;   sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "diamonds") {
+    } else if ("diamonds".equals(attackingSymbol)) {
       sym1Tex = texDiamondsRed; sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "clubs") {
+    } else if ("clubs".equals(attackingSymbol)) {
       sym1Tex = texClubs;       sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "spades") {
+    } else if ("spades".equals(attackingSymbol)) {
       sym1Tex = texSpades;      sym1W = 512; sym1H = 512;
     } else {
       sym1Tex = texSomeSymbol;  sym1W = 342; sym1H = 512;
@@ -3068,13 +3068,13 @@ public class GameScreen extends ScreenAdapter {
 
     Texture sym2Tex = texSomeSymbol; int sym2W = 342; int sym2H = 512;
     if (hasTwoSymbols) {
-      if (attackingSymbolExt == "hearts") {
+      if ("hearts".equals(attackingSymbolExt)) {
         sym2Tex = texHeartsRed;   sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "diamonds") {
+      } else if ("diamonds".equals(attackingSymbolExt)) {
         sym2Tex = texDiamondsRed; sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "clubs") {
+      } else if ("clubs".equals(attackingSymbolExt)) {
         sym2Tex = texClubs;       sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "spades") {
+      } else if ("spades".equals(attackingSymbolExt)) {
         sym2Tex = texSpades;      sym2W = 512; sym2H = 512;
       }
     }
@@ -3143,7 +3143,7 @@ public class GameScreen extends ScreenAdapter {
     hudPanel.add(iconsRow);
     hudPanel.pack();
     hudPanel.setPosition(
-        Gdx.graphics.getWidth() - hudPanel.getWidth() - 2f,
+        MyGdxGame.WIDTH - hudPanel.getWidth() - 2f,
         finishTurnButton.getHeight() + 2f);
     handStage.addActor(hudPanel);
 
@@ -3151,8 +3151,8 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void addExposeCardOverlay() {
-    float stageW = Gdx.graphics.getWidth();
-    float stageH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+    float stageW = MyGdxGame.WIDTH;
+    float stageH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
 
     Image bg = new Image(MyGdxGame.skin, "white");
     bg.setSize(stageW, stageH);
@@ -3398,8 +3398,8 @@ public class GameScreen extends ScreenAdapter {
   private void addMenuButtonToOverlay() {
     TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
     menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
-    menuBtn.setPosition(Gdx.graphics.getWidth() - menuBtn.getWidth(),
-        Gdx.graphics.getHeight() - menuBtn.getHeight());
+    menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
+        MyGdxGame.HEIGHT - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -3921,7 +3921,21 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void render(float delta) {
+    Gdx.gl.glClearColor(0, 0, 0, 1);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+
+    // Compute letterboxed region: scale 450x800 to fit the screen, preserving aspect ratio.
+    float scale = Math.min(
+        (float) Gdx.graphics.getWidth()  / MyGdxGame.WIDTH,
+        (float) Gdx.graphics.getHeight() / MyGdxGame.HEIGHT);
+    int gamePixelW = Math.round(MyGdxGame.WIDTH  * scale);
+    int gamePixelH = Math.round(MyGdxGame.HEIGHT * scale);
+    int offsetX    = (Gdx.graphics.getWidth()  - gamePixelW) / 2;
+    int offsetY    = (Gdx.graphics.getHeight() - gamePixelH) / 2;
+    // Upper portion is the square play area (WIDTH x WIDTH logical)
+    int upperH     = Math.round(MyGdxGame.WIDTH * scale);
+    // Lower portion is the hand area (WIDTH x (HEIGHT-WIDTH) logical)
+    int lowerH     = gamePixelH - upperH;
 
     // Overlay stage always handles the menu button (and full menu when open).
     // Game/hand stages are added only when it is this client's active turn.
@@ -3955,32 +3969,30 @@ public class GameScreen extends ScreenAdapter {
         if (c.isSelected()) { anyOwnDefSelected = true; break; }
       }
     }
-    handBck.setColor(anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.9f : 1f,
-        anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.8f : 0.5f);
+    // Normal: soft teal; defense-selected: bright green highlight (both fully opaque)
+    handBck.setColor(anyOwnDefSelected ? 0.3f : 0.78f, anyOwnDefSelected ? 0.9f : 0.93f,
+        anyOwnDefSelected ? 0.3f : 0.87f, 1.0f);
 
-    /* Upper division */
-    Gdx.gl.glViewport(0, Gdx.graphics.getHeight() - Gdx.graphics.getWidth(), Gdx.graphics.getWidth(),
-        Gdx.graphics.getWidth());
-    gameStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getWidth(), true);
-    gameStage.getViewport().setScreenBounds(0, Gdx.graphics.getHeight() - Gdx.graphics.getWidth(),
-        Gdx.graphics.getWidth(), Gdx.graphics.getWidth());
+    /* Upper division (square play area) */
+    Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);
+    gameStage.getViewport().update(gamePixelW, upperH, true);
+    gameStage.getViewport().setScreenBounds(offsetX, offsetY + lowerH, gamePixelW, upperH);
     gameStage.getViewport().apply();
     gameStage.act(delta);
     gameStage.draw();
 
-    /* Lower division */
-    Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
-    handStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight() - Gdx.graphics.getWidth(), true);
-    handStage.getViewport().setScreenBounds(0, 0, Gdx.graphics.getWidth(),
-        Gdx.graphics.getHeight() - Gdx.graphics.getWidth());
+    /* Lower division (hand area) */
+    Gdx.gl.glViewport(offsetX, offsetY, gamePixelW, lowerH);
+    handStage.getViewport().update(gamePixelW, lowerH, true);
+    handStage.getViewport().setScreenBounds(offsetX, offsetY, gamePixelW, lowerH);
     handStage.getViewport().apply();
     handStage.act(delta);
     handStage.draw();
 
     /* Overlay (drag layer - always on top) */
-    Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    overlayStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
-    overlayStage.getViewport().setScreenBounds(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    Gdx.gl.glViewport(offsetX, offsetY, gamePixelW, gamePixelH);
+    overlayStage.getViewport().update(gamePixelW, gamePixelH, true);
+    overlayStage.getViewport().setScreenBounds(offsetX, offsetY, gamePixelW, gamePixelH);
     overlayStage.getViewport().apply();
     overlayStage.act(delta);
     overlayStage.draw();

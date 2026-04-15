@@ -15,6 +15,7 @@ public class AndroidLauncher extends AndroidApplication {
 	@Override
 	protected void onCreate (Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		MyGdxGame.playerStorage = new AndroidPlayerStorage(this);
 		try {
 			SocketIoClient socketClient = new SocketIoClient(SERVER_URL);
 			MyGdxGame.socketInstance = socketClient;

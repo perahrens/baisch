@@ -26,8 +26,12 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n' > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '\n84831b9409646a918e30573bab4c9c91346d8abd\n' >> "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '\nd975f751698a77b662f1254ddbeed3901e976f5a\n' > "$ANDROID_HOME/licenses/android-sdk-build-tools-license"
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -42,7 +46,12 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build release APK
-        run: ./gradlew android:assembleRelease
+        run: |
+          ./gradlew android:assembleRelease --stacktrace 2>&1 | tee /tmp/build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          echo '## Gradle build output (last 100 lines)' >> $GITHUB_STEP_SUMMARY
+          tail -100 /tmp/build.log >> $GITHUB_STEP_SUMMARY
+          exit $BUILD_EXIT
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

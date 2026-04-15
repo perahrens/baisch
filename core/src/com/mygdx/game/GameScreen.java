@@ -135,6 +135,14 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingPlunderBroadcast = null;
   // Pending hero selection after a successful king defeat (attacker must choose one hero)
   private java.util.ArrayList<String> pendingKingDefeatHeroOptions = null;
+  // Hero auction: server-authoritative state (non-null when auction is in progress)
+  private JSONObject pendingHeroAuction = null;
+  // Auction bid card selections (bidder's local toggle state)
+  private java.util.Set<Integer> auctionBidHandCardIds = new java.util.HashSet<>();
+  private java.util.Set<Integer> auctionBidDefCardIds = new java.util.HashSet<>();
+  // Sell-hero setup: hero name player wants to sell (__SELECT__ = hero choice pending), null = inactive
+  private String auctionSellHeroName = null;
+  private int auctionSellMinBid = 1;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
@@ -2393,6 +2401,305 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
+    // ── Sell Hero setup overlay ─────────────────────────────────────────────
+    // Shown when the player is setting up a hero sale (before sending to server).
+    if (auctionSellHeroName != null && pendingHeroAuction == null) {
+      Image selOv = new Image(MyGdxGame.skin, "white");
+      selOv.setFillParent(true);
+      selOv.setColor(0f, 0f, 0f, 0.78f);
+      gameStage.addActor(selOv);
+
+      if ("__SELECT__".equals(auctionSellHeroName)) {
+        // Hero-choice phase — player owns multiple heroes, must pick one to sell
+        Label selTitle = new Label("Which hero do you want to sell?", MyGdxGame.skin);
+        selTitle.setColor(Color.GOLD);
+        selTitle.setPosition(MyGdxGame.WIDTH / 2f - selTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.72f);
+        gameStage.addActor(selTitle);
+
+        final ArrayList<Hero> phList = playerHeroes;
+        float btnW    = MyGdxGame.WIDTH / 5f;
+        float btnGapX = MyGdxGame.WIDTH * 0.05f;
+        float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+        float startY  = MyGdxGame.WIDTH * 0.58f;
+        float rowH    = 0f;
+        for (int ci = 0; ci < phList.size(); ci++) {
+          final String hName = phList.get(ci).getHeroName();
+          TextButton hBtn = new TextButton(hName, MyGdxGame.skin);
+          if (rowH == 0f) rowH = hBtn.getHeight() + 8f;
+          int col = ci % 4;
+          int row = ci / 4;
+          hBtn.setWidth(btnW);
+          hBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
+          hBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              auctionSellHeroName = hName;
+              auctionSellMinBid = 1;
+              gameState.setUpdateState(true);
+            }
+          });
+          gameStage.addActor(hBtn);
+        }
+        TextButton selCancel = new TextButton("Cancel", MyGdxGame.skin);
+        selCancel.setPosition(MyGdxGame.WIDTH / 2f - selCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.35f);
+        selCancel.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            auctionSellHeroName = null;
+            gameState.setUpdateState(true);
+          }
+        });
+        gameStage.addActor(selCancel);
+      } else {
+        // Min-bid phase — player has chosen a hero and is setting the minimum bid strength
+        final String sHeroName = auctionSellHeroName;
+        Label mbTitle = new Label("Sell " + sHeroName + " — Minimum bid strength:", MyGdxGame.skin);
+        mbTitle.setColor(Color.GOLD);
+        mbTitle.setPosition(MyGdxGame.WIDTH / 2f - mbTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.62f);
+        gameStage.addActor(mbTitle);
+
+        Label mbValue = new Label(String.valueOf(auctionSellMinBid), MyGdxGame.skin);
+        mbValue.setFontScale(2f);
+        mbValue.setColor(Color.WHITE);
+        mbValue.setPosition(MyGdxGame.WIDTH / 2f - mbValue.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.47f);
+        gameStage.addActor(mbValue);
+
+        TextButton minusBtn = new TextButton("-", MyGdxGame.skin);
+        minusBtn.setSize(90f, 70f);
+        minusBtn.setPosition(MyGdxGame.WIDTH / 2f - 140f, MyGdxGame.WIDTH * 0.46f);
+        minusBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            if (auctionSellMinBid > 1) { auctionSellMinBid--; gameState.setUpdateState(true); }
+          }
+        });
+        gameStage.addActor(minusBtn);
+
+        TextButton plusBtn = new TextButton("+", MyGdxGame.skin);
+        plusBtn.setSize(90f, 70f);
+        plusBtn.setPosition(MyGdxGame.WIDTH / 2f + 60f, MyGdxGame.WIDTH * 0.46f);
+        plusBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            auctionSellMinBid++;
+            gameState.setUpdateState(true);
+          }
+        });
+        gameStage.addActor(plusBtn);
+
+        TextButton confirmBtn = new TextButton("Start Auction", MyGdxGame.skin);
+        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - confirmBtn.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.33f);
+        confirmBtn.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            try {
+              JSONObject data = new JSONObject();
+              data.put("heroName", sHeroName);
+              data.put("minBid", auctionSellMinBid);
+              socket.emit("initiateHeroSale", data);
+            } catch (JSONException e) { e.printStackTrace(); }
+            auctionSellHeroName = null;
+            gameState.setUpdateState(true);
+          }
+        });
+        gameStage.addActor(confirmBtn);
+
+        TextButton mbCancel = new TextButton("Cancel", MyGdxGame.skin);
+        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.24f);
+        mbCancel.addListener(new ClickListener() {
+          @Override
+          public void clicked(InputEvent event, float x, float y) {
+            auctionSellHeroName = null;
+            gameState.setUpdateState(true);
+          }
+        });
+        gameStage.addActor(mbCancel);
+      }
+    }
+
+    // ── Auction bidding overlay ─────────────────────────────────────────────
+    // Shown to all players while a hero auction is in progress on the server.
+    if (pendingHeroAuction != null) {
+      try {
+        final int sellerIdx    = pendingHeroAuction.getInt("sellerIdx");
+        final String aHeroName = pendingHeroAuction.getString("heroName");
+        final int minBidVal    = pendingHeroAuction.getInt("minBid");
+        final int curBidderIdx = pendingHeroAuction.getInt("currentBidderIdx");
+        final JSONObject curBid = pendingHeroAuction.optJSONObject("currentBid");
+
+        Image aOv = new Image(MyGdxGame.skin, "white");
+        aOv.setFillParent(true);
+        aOv.setColor(0f, 0f, 0f, 0.82f);
+        gameStage.addActor(aOv);
+
+        String sellerName = (sellerIdx >= 0 && sellerIdx < players.size())
+            ? players.get(sellerIdx).getPlayerName() : "Player " + sellerIdx;
+        Label aTitle = new Label(sellerName + " is selling " + aHeroName
+            + "  (min bid: " + minBidVal + ")", MyGdxGame.skin);
+        aTitle.setColor(Color.GOLD);
+        aTitle.setPosition(MyGdxGame.WIDTH / 2f - aTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.86f);
+        gameStage.addActor(aTitle);
+
+        if (curBid != null) {
+          int cBidder = curBid.getInt("bidderIdx");
+          int cTotal  = curBid.getInt("totalStrength");
+          String cName = (cBidder >= 0 && cBidder < players.size())
+              ? players.get(cBidder).getPlayerName() : "Player " + cBidder;
+          Label bidLabel = new Label("Current bid: " + cTotal + "  by " + cName, MyGdxGame.skin);
+          bidLabel.setColor(Color.CYAN);
+          bidLabel.setPosition(MyGdxGame.WIDTH / 2f - bidLabel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.79f);
+          gameStage.addActor(bidLabel);
+        } else {
+          Label noBid = new Label("No bids yet", MyGdxGame.skin);
+          noBid.setColor(Color.LIGHT_GRAY);
+          noBid.setPosition(MyGdxGame.WIDTH / 2f - noBid.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.79f);
+          gameStage.addActor(noBid);
+        }
+
+        if (!isSpectator && curBidderIdx == playerIndex) {
+          // ── This player's bid turn ──────────────────────────────────────
+          Label yourTurnLbl = new Label("Your turn — select cards to bid:", MyGdxGame.skin);
+          yourTurnLbl.setColor(Color.GREEN);
+          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.71f);
+          gameStage.addActor(yourTurnLbl);
+
+          // Hand cards as toggle buttons
+          final ArrayList<Card> myHand = currentPlayer.getHandCards();
+          float cBtnW = MyGdxGame.WIDTH / 6.5f;
+          float cBtnH = cBtnW * 1.2f;
+          float cGapX = MyGdxGame.WIDTH * 0.008f;
+          int maxPerRow = 6;
+          float handRowsY = MyGdxGame.WIDTH * 0.63f;
+          for (int ci = 0; ci < myHand.size(); ci++) {
+            final Card hc = myHand.get(ci);
+            final int hcId = hc.getCardId();
+            boolean sel = auctionBidHandCardIds.contains(hcId);
+            int row = ci / maxPerRow;
+            int col = ci % maxPerRow;
+            int rowCards = Math.min(myHand.size() - row * maxPerRow, maxPerRow);
+            float rx = (MyGdxGame.WIDTH - rowCards * (cBtnW + cGapX)) / 2f;
+            String cLbl = hc.getSymbol().substring(0, 1).toUpperCase()
+                + (hc.getIndex() == 1 ? "A"
+                    : (hc.getCardId() > 52 ? "J" : String.valueOf(hc.getIndex())));
+            TextButton cb = new TextButton(cLbl + (sel ? "*" : ""), MyGdxGame.skin);
+            if (sel) cb.setColor(0.4f, 1f, 0.4f, 1f);
+            cb.setSize(cBtnW, cBtnH);
+            cb.setPosition(rx + col * (cBtnW + cGapX), handRowsY - row * (cBtnH + 4f));
+            cb.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                if (auctionBidHandCardIds.contains(hcId)) auctionBidHandCardIds.remove(hcId);
+                else auctionBidHandCardIds.add(hcId);
+                gameState.setUpdateState(true);
+              }
+            });
+            gameStage.addActor(cb);
+          }
+
+          // Defense cards as toggle buttons
+          Map<Integer, Card> myDefs = currentPlayer.getDefCards();
+          Map<Integer, Card> myTopDefs = currentPlayer.getTopDefCards();
+          java.util.List<Integer> defIds = new java.util.ArrayList<>();
+          for (Card dc : myDefs.values()) defIds.add(dc.getCardId());
+          for (Card dc : myTopDefs.values()) defIds.add(dc.getCardId());
+          if (!defIds.isEmpty()) {
+            Label defHdr = new Label("Defense:", MyGdxGame.skin);
+            defHdr.setColor(Color.YELLOW);
+            float defRowY = MyGdxGame.WIDTH * 0.43f;
+            defHdr.setPosition(MyGdxGame.WIDTH / 2f - defHdr.getPrefWidth() / 2f, defRowY + cBtnH + 2f);
+            gameStage.addActor(defHdr);
+            float defStartX = (MyGdxGame.WIDTH - defIds.size() * (cBtnW + cGapX)) / 2f;
+            for (int di = 0; di < defIds.size(); di++) {
+              final int dcId = defIds.get(di);
+              boolean dSel = auctionBidDefCardIds.contains(dcId);
+              Card dc = Card.fromCardId(dcId);
+              String dcLbl = dc.getSymbol().substring(0, 1).toUpperCase()
+                  + (dc.getIndex() == 1 ? "A"
+                      : (dcId > 52 ? "J" : String.valueOf(dc.getIndex())));
+              TextButton dcBtn = new TextButton(dcLbl + (dSel ? "*" : ""), MyGdxGame.skin);
+              if (dSel) dcBtn.setColor(1f, 1f, 0.4f, 1f);
+              dcBtn.setSize(cBtnW, cBtnH);
+              dcBtn.setPosition(defStartX + di * (cBtnW + cGapX), defRowY);
+              dcBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                  if (auctionBidDefCardIds.contains(dcId)) auctionBidDefCardIds.remove(dcId);
+                  else auctionBidDefCardIds.add(dcId);
+                  gameState.setUpdateState(true);
+                }
+              });
+              gameStage.addActor(dcBtn);
+            }
+          }
+
+          // Total strength and bid / pass buttons
+          int totalBidStr = 0;
+          for (int id : auctionBidHandCardIds) totalBidStr += Card.fromCardId(id).getStrength();
+          for (int id : auctionBidDefCardIds)  totalBidStr += Card.fromCardId(id).getStrength();
+          int requiredStr = (curBid != null ? curBid.optInt("totalStrength", 0) + 1 : minBidVal);
+          boolean hasCards = (!auctionBidHandCardIds.isEmpty() || !auctionBidDefCardIds.isEmpty());
+          boolean canBid   = hasCards && totalBidStr >= requiredStr;
+
+          Label strLbl = new Label("Bid: " + totalBidStr + "  (need >= " + requiredStr + ")", MyGdxGame.skin);
+          strLbl.setColor(canBid ? Color.GREEN : Color.RED);
+          strLbl.setPosition(MyGdxGame.WIDTH / 2f - strLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.29f);
+          gameStage.addActor(strLbl);
+
+          final int finalTotal = totalBidStr;
+          TextButton bidBtn = new TextButton("Bid", MyGdxGame.skin);
+          bidBtn.setColor(canBid ? Color.WHITE : Color.DARK_GRAY);
+          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.WIDTH * 0.21f);
+          if (canBid) {
+            final java.util.Set<Integer> snapHand = new java.util.HashSet<>(auctionBidHandCardIds);
+            final java.util.Set<Integer> snapDef  = new java.util.HashSet<>(auctionBidDefCardIds);
+            bidBtn.addListener(new ClickListener() {
+              @Override
+              public void clicked(InputEvent event, float x, float y) {
+                try {
+                  JSONObject data = new JSONObject();
+                  JSONArray handArr = new JSONArray();
+                  for (int id : snapHand) handArr.put(id);
+                  JSONArray defArr = new JSONArray();
+                  for (int id : snapDef) defArr.put(id);
+                  data.put("handCardIds", handArr);
+                  data.put("defCardIds", defArr);
+                  socket.emit("heroAuctionBid", data);
+                } catch (JSONException e) { e.printStackTrace(); }
+                auctionBidHandCardIds.clear();
+                auctionBidDefCardIds.clear();
+                gameState.setUpdateState(true);
+              }
+            });
+          }
+          gameStage.addActor(bidBtn);
+
+          TextButton passBtn = new TextButton("Pass", MyGdxGame.skin);
+          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 16f, MyGdxGame.WIDTH * 0.21f);
+          passBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+              try {
+                socket.emit("heroAuctionPass", new JSONObject());
+              } catch (JSONException e) { e.printStackTrace(); }
+              auctionBidHandCardIds.clear();
+              auctionBidDefCardIds.clear();
+              gameState.setUpdateState(true);
+            }
+          });
+          gameStage.addActor(passBtn);
+
+        } else {
+          // ── Waiting for another player (or seller watching) ─────────────
+          String waitName = (curBidderIdx >= 0 && curBidderIdx < players.size())
+              ? players.get(curBidderIdx).getPlayerName() : "Player " + curBidderIdx;
+          Label waitLbl = new Label("Waiting for " + waitName + " to bid or pass...", MyGdxGame.skin);
+          waitLbl.setColor(Color.LIGHT_GRAY);
+          waitLbl.setPosition(MyGdxGame.WIDTH / 2f - waitLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.5f);
+          gameStage.addActor(waitLbl);
+        }
+      } catch (JSONException e) { e.printStackTrace(); }
+    }
+
     // Sword overlay on both harvest decks when plunder is available — added late so it sits above all cards.
     // Crone overlay on own king card when king attack is possible.
     if (gameState.getCurrentPlayer() == currentPlayer) {
@@ -2979,6 +3286,29 @@ public class GameScreen extends ScreenAdapter {
         });
         handStage.addActor(heroBtn);
       }
+    }
+
+    // "Sell Hero" button — only on your turn, no ongoing auction, at least one hero owned
+    if (isMyTurn && pendingHeroAuction == null && auctionSellHeroName == null
+        && !playerHeroes.isEmpty()) {
+      final ArrayList<Hero> phForSell = playerHeroes;
+      float heroW = phForSell.get(0).getWidth();
+      TextButton sellHeroBtn = new TextButton("Sell Hero", MyGdxGame.skin);
+      sellHeroBtn.setSize(heroW * 1.2f, sellHeroBtn.getPrefHeight());
+      sellHeroBtn.setPosition(phForSell.size() * heroW + 8f, 0f);
+      sellHeroBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          if (phForSell.size() == 1) {
+            auctionSellHeroName = phForSell.get(0).getHeroName();
+          } else {
+            auctionSellHeroName = "__SELECT__";
+          }
+          auctionSellMinBid = 1;
+          gameState.setUpdateState(true);
+        }
+      });
+      handStage.addActor(sellHeroBtn);
     }
 
     // Spectators: hide finish-turn button and show a spectator indicator instead.
@@ -3873,6 +4203,15 @@ public class GameScreen extends ScreenAdapter {
       } else {
         pendingKingDefeatHeroOptions = null;
       }
+
+      // Sync hero auction state from server
+      JSONObject newAuction = state.optJSONObject("pendingHeroAuction");
+      if (newAuction == null) {
+        auctionBidHandCardIds.clear();
+        auctionBidDefCardIds.clear();
+        auctionSellHeroName = null;
+      }
+      pendingHeroAuction = newAuction;
 
       // 5. Rebuild picking decks in-place (keep PickingDeck objects to preserve listeners)
       JSONArray pickJson = state.getJSONArray("pickingDecks");

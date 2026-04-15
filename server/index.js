@@ -1226,6 +1226,32 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
+  socket.on('initiateHeroSale', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    var ok = sess.gameState.initiateHeroSale(playerIdx, String(data.heroName || ''), parseInt(data.minBid) || 0);
+    if (ok) io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
+  socket.on('heroAuctionBid', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    var handIds = (data.handCardIds || []).map(Number);
+    var defIds = (data.defCardIds || []).map(Number);
+    var ok = sess.gameState.heroAuctionBid(playerIdx, handIds, defIds);
+    if (ok) io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
+  socket.on('heroAuctionPass', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    sess.gameState.heroAuctionPass(playerIdx);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('heroSelected', function(heroName) {
     var sess = getSession(socket.id);
     if (!sess) return;

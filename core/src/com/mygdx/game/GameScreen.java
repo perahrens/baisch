@@ -3051,16 +3051,16 @@ public class GameScreen extends ScreenAdapter {
     // Attacking symbols — resolve source textures and native dimensions
     String attackingSymbol    = ptHand.getAttackingSymbol()[0];
     String attackingSymbolExt = ptHand.getAttackingSymbol()[1];
-    boolean hasTwoSymbols = (attackingSymbolExt != "none");
+    boolean hasTwoSymbols = !"none".equals(attackingSymbolExt);
 
     Texture sym1Tex; int sym1W; int sym1H;
-    if (attackingSymbol == "hearts") {
+    if ("hearts".equals(attackingSymbol)) {
       sym1Tex = texHeartsRed;   sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "diamonds") {
+    } else if ("diamonds".equals(attackingSymbol)) {
       sym1Tex = texDiamondsRed; sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "clubs") {
+    } else if ("clubs".equals(attackingSymbol)) {
       sym1Tex = texClubs;       sym1W = 512; sym1H = 512;
-    } else if (attackingSymbol == "spades") {
+    } else if ("spades".equals(attackingSymbol)) {
       sym1Tex = texSpades;      sym1W = 512; sym1H = 512;
     } else {
       sym1Tex = texSomeSymbol;  sym1W = 342; sym1H = 512;
@@ -3068,13 +3068,13 @@ public class GameScreen extends ScreenAdapter {
 
     Texture sym2Tex = texSomeSymbol; int sym2W = 342; int sym2H = 512;
     if (hasTwoSymbols) {
-      if (attackingSymbolExt == "hearts") {
+      if ("hearts".equals(attackingSymbolExt)) {
         sym2Tex = texHeartsRed;   sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "diamonds") {
+      } else if ("diamonds".equals(attackingSymbolExt)) {
         sym2Tex = texDiamondsRed; sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "clubs") {
+      } else if ("clubs".equals(attackingSymbolExt)) {
         sym2Tex = texClubs;       sym2W = 512; sym2H = 512;
-      } else if (attackingSymbolExt == "spades") {
+      } else if ("spades".equals(attackingSymbolExt)) {
         sym2Tex = texSpades;      sym2W = 512; sym2H = 512;
       }
     }

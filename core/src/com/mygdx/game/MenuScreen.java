@@ -16,6 +16,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
@@ -121,7 +122,7 @@ public class MenuScreen extends AbstractScreen {
 
     this.socket = socket;
 
-    menuStage = new Stage();
+    menuStage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
 
     // init game
     menuState = new MenuState();
@@ -211,7 +212,6 @@ public class MenuScreen extends AbstractScreen {
     // button is NOT in the group so it only appears on the lobby screen
 
     menuStage.addActor(group);
-    menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
 
     currentUsersCount = menuState.getUsers().size();
 
@@ -766,16 +766,7 @@ public class MenuScreen extends AbstractScreen {
     musicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        // If musicStarted is true BUT music is not actually playing, the DOM handler
-        // just started it; don't toggle off. Otherwise, normal toggle.
-        boolean actuallyPlaying = MyGdxGame.activeMusic != null
-            && MyGdxGame.activeMusic.isPlaying();
-        if (MyGdxGame.musicStarted && MyGdxGame.playerStorage.getMusicEnabled() && !actuallyPlaying) {
-          // DOM handler set musicStarted but play() may have failed; retry.
-          MyGdxGame.setMusicEnabled(true);
-        } else {
-          MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
-        }
+        MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
         show();
       }
     });
@@ -1042,6 +1033,7 @@ public class MenuScreen extends AbstractScreen {
       show();
     }
 
+    menuStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
     menuStage.act(delta);
     menuStage.draw();
   }

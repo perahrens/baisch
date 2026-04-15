@@ -126,9 +126,9 @@ public class EnemyKingCardListener extends ClickListener {
     String symbol = attackCard.getSymbol();
     // Symbol constraint — joker bypasses; other cards must match the set symbol
     if (!"joker".equals(symbol)) {
-      if (pt.getAttackingSymbol()[0] != "none"
-          && pt.getAttackingSymbol()[0] != symbol
-          && pt.getAttackingSymbol()[1] != symbol) return;
+      if (!"none".equals(pt.getAttackingSymbol()[0])
+          && !pt.getAttackingSymbol()[0].equals(symbol)
+          && !pt.getAttackingSymbol()[1].equals(symbol)) return;
     }
 
     // Lock attack symbol (same treatment as hand card attacks)

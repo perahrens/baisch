@@ -230,9 +230,9 @@ public class EnemyDefCardListener extends ClickListener {
       attackSymbol = player.getSelectedDefCards().get(0).getSymbol();
     }
     if (!"joker".equals(attackSymbol)) {
-      if (pt.getAttackingSymbol()[0] != "none"
-          && pt.getAttackingSymbol()[0] != attackSymbol
-          && pt.getAttackingSymbol()[1] != attackSymbol) return;
+      if (!"none".equals(pt.getAttackingSymbol()[0])
+          && !pt.getAttackingSymbol()[0].equals(attackSymbol)
+          && !pt.getAttackingSymbol()[1].equals(attackSymbol)) return;
     }
 
     // Snapshot attacking hand cards (empty for king attacks — king is not a hand card)

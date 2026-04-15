@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -47,11 +48,19 @@ jobs:
 
       - name: Build debug APK
         run: |
-          ./gradlew android:assembleDebug --stacktrace 2>&1 | tee /tmp/build.log
+          ./gradlew android:assembleDebug --info 2>&1 | tee /tmp/build.log
           BUILD_EXIT=${PIPESTATUS[0]}
-          echo '## Gradle build output (last 100 lines)' >> $GITHUB_STEP_SUMMARY
-          tail -100 /tmp/build.log >> $GITHUB_STEP_SUMMARY
+          echo '## Gradle build output (last 150 lines)' >> $GITHUB_STEP_SUMMARY
+          tail -150 /tmp/build.log >> $GITHUB_STEP_SUMMARY
           exit $BUILD_EXIT
+
+      - name: Post build log to PR
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          BODY=$(head -200 /tmp/build.log | sed 's/`/\`/g')
+          gh pr comment ${{ github.event.pull_request.number }} --body "### Android Build Log (first 200 lines)\n\n\`\`\`\n${BODY}\n\`\`\`"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload build log
         if: always()

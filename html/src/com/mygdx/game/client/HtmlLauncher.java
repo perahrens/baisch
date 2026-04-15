@@ -3,13 +3,19 @@ package com.mygdx.game.client;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.backends.gwt.GwtApplication;
 import com.badlogic.gdx.backends.gwt.GwtApplicationConfiguration;
+import com.google.gwt.user.client.Window;
 import com.mygdx.game.MyGdxGame;
 
 public class HtmlLauncher extends GwtApplication {
 
     @Override
     public GwtApplicationConfiguration getConfig() {
-        return new GwtApplicationConfiguration(450, 800);
+        // Use the actual viewport dimensions so the canvas fills the screen on all
+        // devices (phones, tablets, desktops). The Java FitViewport / letterbox in
+        // GameScreen handles aspect-ratio centering with black bars.
+        return new GwtApplicationConfiguration(
+                Window.getClientWidth(),
+                Window.getClientHeight());
     }
 
     @Override

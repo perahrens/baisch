@@ -2416,7 +2416,7 @@ public class GameScreen extends ScreenAdapter {
         selTitle.setPosition(MyGdxGame.WIDTH / 2f - selTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.72f);
         gameStage.addActor(selTitle);
 
-        final ArrayList<Hero> phList = playerHeroes;
+        final ArrayList<Hero> phList = currentPlayer.getHeroes();
         float btnW    = MyGdxGame.WIDTH / 5f;
         float btnGapX = MyGdxGame.WIDTH * 0.05f;
         float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
@@ -2678,9 +2678,7 @@ public class GameScreen extends ScreenAdapter {
           passBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-              try {
-                socket.emit("heroAuctionPass", new JSONObject());
-              } catch (JSONException e) { e.printStackTrace(); }
+              socket.emit("heroAuctionPass", new JSONObject());
               auctionBidHandCardIds.clear();
               auctionBidDefCardIds.clear();
               gameState.setUpdateState(true);

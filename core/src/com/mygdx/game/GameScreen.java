@@ -670,8 +670,8 @@ public class GameScreen extends ScreenAdapter {
    */
   private void showSetupPhaseScreen() {
     float cx = MyGdxGame.WIDTH / 2f;
-    float gameH = Gdx.graphics.getWidth();   // gameStage is square
-    float handH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+    float gameH = MyGdxGame.WIDTH;   // gameStage is square
+    float handH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
 
     Card infoCard = new Card();
     final float cardW = infoCard.getDefWidth() * 1.6f;
@@ -711,7 +711,7 @@ public class GameScreen extends ScreenAdapter {
     if (!setupSubmitted) {
       ArrayList<Card> handCards = new ArrayList<Card>(currentPlayer.getHandCards());
       int count = handCards.size();
-      float maxW = Gdx.graphics.getWidth() - 10f;
+      float maxW = MyGdxGame.WIDTH - 10f;
       final float step = count <= 1 ? cardW : Math.min(cardW, (maxW - cardW) / (count - 1));
       float totalW = cardW + (count > 1 ? (count - 1) * step : 0);
       float startX = cx - totalW / 2f;
@@ -1194,14 +1194,14 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragDefCard.getCardId());
                 dragOverlayCard.setWidth(dragDefCard.getWidth());
                 dragOverlayCard.setHeight(dragDefCard.getHeight());
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(dragDefCard.getX(), dragDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
@@ -1312,14 +1312,14 @@ public class GameScreen extends ScreenAdapter {
                 dragOverlayCard = Card.fromCardId(dragTopDefCard.getCardId());
                 dragOverlayCard.setWidth(dragTopDefCard.getWidth());
                 dragOverlayCard.setHeight(dragTopDefCard.getHeight());
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(dragTopDefCard.getX(), dragTopDefCard.getY() + oy);
                 overlayStage.addActor(dragOverlayCard);
               }
               @Override
               public void drag(InputEvent event, float x, float y, int pointer) {
                 if (dragOverlayCard == null) return;
-                float oy = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 dragOverlayCard.setPosition(event.getStageX() - touchOffX, (event.getStageY() - touchOffY) + oy);
               }
               @Override
@@ -2681,7 +2681,7 @@ public class GameScreen extends ScreenAdapter {
                 isDraggingHandCard = false;
                 if (dragOverlayCard != null) { dragOverlayCard.remove(); dragOverlayCard = null; }
                 handCard.setVisible(true);
-                float handAreaHeight = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+                float handAreaHeight = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
                 if (event.getStageY() > handAreaHeight) {
                   float gameStageY = event.getStageY() - handAreaHeight;
                   Actor hit = gameStage.hit(event.getStageX(), gameStageY, false);
@@ -2954,7 +2954,7 @@ public class GameScreen extends ScreenAdapter {
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
     finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
-    finishTurnButton.setPosition(Gdx.graphics.getWidth() - finishTurnButton.getWidth(), 0);
+    finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
 
     // Turn indicator (spectators are never "my turn")
@@ -2987,7 +2987,7 @@ public class GameScreen extends ScreenAdapter {
       finishTurnButton.setVisible(false);
       Label spectatorLabel = new Label("Spectator Mode", MyGdxGame.skin);
       spectatorLabel.setColor(Color.CYAN);
-      spectatorLabel.setPosition(Gdx.graphics.getWidth() - spectatorLabel.getPrefWidth(), 0);
+      spectatorLabel.setPosition(MyGdxGame.WIDTH - spectatorLabel.getPrefWidth(), 0);
       handStage.addActor(spectatorLabel);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
@@ -3143,7 +3143,7 @@ public class GameScreen extends ScreenAdapter {
     hudPanel.add(iconsRow);
     hudPanel.pack();
     hudPanel.setPosition(
-        Gdx.graphics.getWidth() - hudPanel.getWidth() - 2f,
+        MyGdxGame.WIDTH - hudPanel.getWidth() - 2f,
         finishTurnButton.getHeight() + 2f);
     handStage.addActor(hudPanel);
 
@@ -3151,8 +3151,8 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void addExposeCardOverlay() {
-    float stageW = Gdx.graphics.getWidth();
-    float stageH = Gdx.graphics.getHeight() - Gdx.graphics.getWidth();
+    float stageW = MyGdxGame.WIDTH;
+    float stageH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
 
     Image bg = new Image(MyGdxGame.skin, "white");
     bg.setSize(stageW, stageH);
@@ -3398,8 +3398,8 @@ public class GameScreen extends ScreenAdapter {
   private void addMenuButtonToOverlay() {
     TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
     menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
-    menuBtn.setPosition(Gdx.graphics.getWidth() - menuBtn.getWidth(),
-        Gdx.graphics.getHeight() - menuBtn.getHeight());
+    menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
+        MyGdxGame.HEIGHT - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -3969,8 +3969,9 @@ public class GameScreen extends ScreenAdapter {
         if (c.isSelected()) { anyOwnDefSelected = true; break; }
       }
     }
-    handBck.setColor(anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.9f : 1f,
-        anyOwnDefSelected ? 0.3f : 1f, anyOwnDefSelected ? 0.8f : 0.5f);
+    // Normal: soft teal; defense-selected: bright green highlight (both fully opaque)
+    handBck.setColor(anyOwnDefSelected ? 0.3f : 0.78f, anyOwnDefSelected ? 0.9f : 0.93f,
+        anyOwnDefSelected ? 0.3f : 0.87f, 1.0f);
 
     /* Upper division (square play area) */
     Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);

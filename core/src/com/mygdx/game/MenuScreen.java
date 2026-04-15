@@ -16,6 +16,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
@@ -121,7 +122,7 @@ public class MenuScreen extends AbstractScreen {
 
     this.socket = socket;
 
-    menuStage = new Stage();
+    menuStage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
 
     // init game
     menuState = new MenuState();
@@ -211,7 +212,6 @@ public class MenuScreen extends AbstractScreen {
     // button is NOT in the group so it only appears on the lobby screen
 
     menuStage.addActor(group);
-    menuStage.getCamera().position.set(MyGdxGame.WIDTH / 2, MyGdxGame.HEIGHT / 2, 0);
 
     currentUsersCount = menuState.getUsers().size();
 
@@ -1042,6 +1042,7 @@ public class MenuScreen extends AbstractScreen {
       show();
     }
 
+    menuStage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
     menuStage.act(delta);
     menuStage.draw();
   }

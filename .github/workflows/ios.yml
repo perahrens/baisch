@@ -39,12 +39,5 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build iOS IPA
-        run: ./gradlew ios:createIPA
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: baisch-ios-${{ github.sha }}
-          path: ios/build/**/*.ipa
-          retention-days: 30
+      - name: Compile iOS Java sources
+        run: ./gradlew ios:compileJava

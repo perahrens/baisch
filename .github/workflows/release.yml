@@ -1,0 +1,136 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n' > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '\n84831b9409646a918e30573bab4c9c91346d8abd\n' >> "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '\nd975f751698a77b662f1254ddbeed3901e976f5a\n' > "$ANDROID_HOME/licenses/android-sdk-build-tools-license"
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v \
+            -keystore ~/.android/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle', 'gradle.properties') }}
+          restore-keys: gradle-
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew android:copyAndroidNatives android:assembleDebug
+
+      - name: Rename APK with version
+        run: |
+          VERSION=${{ github.ref_name }}
+          cp android/build/outputs/apk/debug/android-debug.apk baisch-${VERSION}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: baisch-${{ github.ref_name }}.apk
+          retention-days: 1
+
+  build-ios:
+    name: Build iOS (compile check)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.robovm/cache
+          key: gradle-ios-${{ hashFiles('**/*.gradle', 'gradle.properties') }}
+          restore-keys: gradle-ios-
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Compile iOS Java sources
+        run: ./gradlew ios:compileJava
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Baisch ${{ github.ref_name }}
+
+            ### Downloads
+            - **Android**: `baisch-${{ github.ref_name }}.apk` — sideload on any Android device
+            - **iOS**: IPA requires a macOS + Xcode build with Apple signing certificate (not available in CI)
+
+            ### Install Android APK
+            1. Enable "Install from unknown sources" in Android settings
+            2. Download and open the APK file
+          files: baisch-${{ github.ref_name }}.apk
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

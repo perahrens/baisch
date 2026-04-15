@@ -6,3 +6,8 @@ include 'desktop', 'core', 'html'
 if (new File(rootDir, 'android/build.gradle').exists()) {
     include 'android'
 }
+
+// Include the iOS module only when its build.gradle is present.
+if (new File(rootDir, 'ios/build.gradle').exists()) {
+    include 'ios'
+}

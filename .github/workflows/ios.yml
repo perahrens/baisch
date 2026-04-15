@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: macos-latest
+    runs-on: macos-13
     permissions:
       contents: write
 
@@ -46,5 +46,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: baisch-ios-${{ github.sha }}
-          path: ios/build/robovm/*.ipa
+          path: ios/build/**/*.ipa
           retention-days: 30

@@ -66,6 +66,13 @@ task copyAndroidNatives() {
     }
 }
 
+// Ensure native .so libs are always extracted before any assemble task
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('assemble') || task.name.startsWith('package')) {
+        task.dependsOn copyAndroidNatives
+    }
+}
+
 task run(type: Exec) {
     def path
     def localProperties = project.file("../local.properties")

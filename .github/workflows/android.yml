@@ -45,17 +45,26 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build release APK
+      - name: Build debug APK
         run: |
-          ./gradlew android:assembleRelease --stacktrace 2>&1 | tee /tmp/build.log
+          ./gradlew android:assembleDebug --stacktrace 2>&1 | tee /tmp/build.log
           BUILD_EXIT=${PIPESTATUS[0]}
           echo '## Gradle build output (last 100 lines)' >> $GITHUB_STEP_SUMMARY
           tail -100 /tmp/build.log >> $GITHUB_STEP_SUMMARY
           exit $BUILD_EXIT
 
-      - name: Upload APK artifact
+      - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: baisch-release-${{ github.sha }}
-          path: android/build/outputs/apk/release/android-release-unsigned.apk
+          name: build-log-${{ github.sha }}
+          path: /tmp/build.log
+          retention-days: 7
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baisch-debug-${{ github.sha }}
+          path: android/build/outputs/apk/debug/android-debug.apk
           retention-days: 30

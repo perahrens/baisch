@@ -3,11 +3,12 @@
   <head>
     <title>Baisch</title>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <!-- viewport width=450: browser scales the 450px-wide page to fit the screen
-         and maps touch coordinates into the same 450px space automatically.
+    <!-- width=device-width: browser uses its natural CSS viewport width so tablets
+         and desktops get their actual dimensions. The Java FitViewport letterbox
+         centres the 450×800 logical game area with black bars on any aspect ratio.
          viewport-fit=cover: extend into iPhone X notch / home-indicator area.
          shrink-to-fit=no:   prevent iOS 9 auto-shrinking. -->
-    <meta name="viewport" content="width=450, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">

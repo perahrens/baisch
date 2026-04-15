@@ -138,8 +138,8 @@ public class GameScreen extends ScreenAdapter {
   // Hero auction: server-authoritative state (non-null when auction is in progress)
   private JSONObject pendingHeroAuction = null;
   // Auction bid card selections (bidder's local toggle state)
-  private java.util.Set<Integer> auctionBidHandCardIds = new java.util.HashSet<>();
-  private java.util.Set<Integer> auctionBidDefCardIds = new java.util.HashSet<>();
+  private java.util.Set<Integer> auctionBidHandCardIds = new java.util.HashSet<Integer>();
+  private java.util.Set<Integer> auctionBidDefCardIds = new java.util.HashSet<Integer>();
   // Sell-hero setup: hero name player wants to sell (__SELECT__ = hero choice pending), null = inactive
   private String auctionSellHeroName = null;
   private int auctionSellMinBid = 1;
@@ -2599,7 +2599,7 @@ public class GameScreen extends ScreenAdapter {
           // Defense cards as toggle buttons
           Map<Integer, Card> myDefs = currentPlayer.getDefCards();
           Map<Integer, Card> myTopDefs = currentPlayer.getTopDefCards();
-          java.util.List<Integer> defIds = new java.util.ArrayList<>();
+          java.util.List<Integer> defIds = new java.util.ArrayList<Integer>();
           for (Card dc : myDefs.values()) defIds.add(dc.getCardId());
           for (Card dc : myTopDefs.values()) defIds.add(dc.getCardId());
           if (!defIds.isEmpty()) {
@@ -2650,8 +2650,8 @@ public class GameScreen extends ScreenAdapter {
           bidBtn.setColor(canBid ? Color.WHITE : Color.DARK_GRAY);
           bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.WIDTH * 0.21f);
           if (canBid) {
-            final java.util.Set<Integer> snapHand = new java.util.HashSet<>(auctionBidHandCardIds);
-            final java.util.Set<Integer> snapDef  = new java.util.HashSet<>(auctionBidDefCardIds);
+            final java.util.Set<Integer> snapHand = new java.util.HashSet<Integer>(auctionBidHandCardIds);
+            final java.util.Set<Integer> snapDef  = new java.util.HashSet<Integer>(auctionBidDefCardIds);
             bidBtn.addListener(new ClickListener() {
               @Override
               public void clicked(InputEvent event, float x, float y) {

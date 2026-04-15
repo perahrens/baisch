@@ -57,8 +57,8 @@ jobs:
       - name: Post build log to PR
         if: failure() && github.event_name == 'pull_request'
         run: |
-          BODY=$(head -200 /tmp/build.log | sed 's/`/\`/g')
-          gh pr comment ${{ github.event.pull_request.number }} --body "### Android Build Log (first 200 lines)\n\n\`\`\`\n${BODY}\n\`\`\`"
+          BODY=$(tail -200 /tmp/build.log | sed "s/\`/'/g")
+          gh pr comment ${{ github.event.pull_request.number }} --body "### Android Build Log (last 200 lines)\n\n\`\`\`\n${BODY}\n\`\`\`"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

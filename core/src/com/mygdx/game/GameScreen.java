@@ -2582,7 +2582,7 @@ public class GameScreen extends ScreenAdapter {
           // ── This player's bid turn ──────────────────────────────────────
           Label yourTurnLbl = new Label("Your turn — select cards to bid:", MyGdxGame.skin);
           yourTurnLbl.setColor(Color.GREEN);
-          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.68f);
+          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.66f);
           overlayStage.addActor(yourTurnLbl);
 
           // Hand cards as toggle buttons
@@ -2592,7 +2592,7 @@ public class GameScreen extends ScreenAdapter {
           float cBtnH = cBtnW * 1.2f;
           float cGapX = MyGdxGame.WIDTH * 0.008f;
           int maxPerRow = 6;
-          float handRowsY = MyGdxGame.HEIGHT * 0.60f;
+          float handRowsY = MyGdxGame.HEIGHT * 0.53f;
           for (int ci = 0; ci < myHand.size(); ci++) {
             final Card hc = myHand.get(ci);
             final int hcId = hc.getCardId();

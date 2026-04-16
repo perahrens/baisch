@@ -887,25 +887,8 @@ class GameState {
     if (totalStrength <= currentTotal) return false;
     if (totalStrength < auction.minBid) return false;
 
-    // Lock bid cards immediately (remove from bidder's hand + def)
-    // Restore previous bid's cards to their owner first (outbid player gets cards back)
-    if (auction.currentBid) {
-      this._restoreBidCards(auction.currentBid);
-    }
-
-    for (const id of handCardIds) {
-      const idx = bidder.hand.indexOf(id);
-      if (idx !== -1) bidder.hand.splice(idx, 1);
-    }
-    for (const id of defCardIds) {
-      for (const slot of Object.keys(bidder.defCards || {})) {
-        if (bidder.defCards[slot] === id) { delete bidder.defCards[slot]; break; }
-      }
-      for (const slot of Object.keys(bidder.topDefCards || {})) {
-        if (bidder.topDefCards[slot] === id) { delete bidder.topDefCards[slot]; break; }
-      }
-    }
-
+    // Cards are NOT removed from the bidder yet — they keep them until they win.
+    // The bid is just a pledge; cards are only taken at auction resolution.
     auction.currentBid = { bidderIdx, handCardIds: [...handCardIds], defCardIds: [...defCardIds], totalStrength };
     this.pushLog(`${this.pname(bidderIdx)} bids ${totalStrength} for ${auction.heroName}`, true, true);
 
@@ -956,15 +939,6 @@ class GameState {
     auction.currentBidderIdx = next;
   }
 
-  /** Restore bid cards to their owner (used when auction is cancelled / outbid). */
-  _restoreBidCards(bid) {
-    const bidder = this.players[bid.bidderIdx];
-    if (!bidder) return;
-    for (const id of (bid.handCardIds || [])) bidder.hand.push(id);
-    // Defense card slots are gone — put returned def cards into hand
-    for (const id of (bid.defCardIds || [])) bidder.hand.push(id);
-  }
-
   /** Finalize the auction: transfer hero and bid cards, or cancel if no valid bid. */
   _resolveHeroAuction() {
     const auction = this.pendingHeroAuction;
@@ -980,6 +954,20 @@ class GameState {
     const seller = this.players[sellerIdx];
     const winner = this.players[currentBid.bidderIdx];
 
+    // Now remove the winning bid cards from the winner's hand/def
+    for (const id of (currentBid.handCardIds || [])) {
+      const idx = winner.hand.indexOf(id);
+      if (idx !== -1) winner.hand.splice(idx, 1);
+    }
+    for (const id of (currentBid.defCardIds || [])) {
+      for (const slot of Object.keys(winner.defCards || {})) {
+        if (winner.defCards[slot] === id) { delete winner.defCards[slot]; break; }
+      }
+      for (const slot of Object.keys(winner.topDefCards || {})) {
+        if (winner.topDefCards[slot] === id) { delete winner.topDefCards[slot]; break; }
+      }
+    }
+
     // Transfer hero to winner
     this.heroAcquired(currentBid.bidderIdx, heroName);
 
@@ -987,7 +975,6 @@ class GameState {
     if (!seller.preyCards) seller.preyCards = [];
     const allBidCards = [...(currentBid.handCardIds || []), ...(currentBid.defCardIds || [])];
     for (const id of allBidCards) seller.preyCards.push(id);
-    // (cards are already removed from winner's hand/def during bid locking)
 
     this.pushLog(`${this.pname(currentBid.bidderIdx)} wins ${heroName} for ${currentBid.totalStrength}`, true);
   }

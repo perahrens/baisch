@@ -160,7 +160,7 @@ class GameState {
     }
     this.pendingPlunder = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
     // Persist the top card of the attacked deck as face-up so the stateUpdate
-    // broadcast does not re-cover it for all players
+    // broadcast doesn't re-cover it for all players
     if (data.deckIndex !== undefined) {
       const deck = this.pickingDecks[data.deckIndex];
       if (deck && deck.length > 0) deck[deck.length - 1].covered = false;
@@ -816,31 +816,30 @@ class GameState {
       pendingPlunder: this.pendingPlunder || null,
       pendingHeroSelection: this.pendingHeroSelection || null,
       pendingHeroAuction: this.pendingHeroAuction || null,
-      isTutorial: this.isTutorial || false,
     };
   }
-
 
   // ── Hero auction ───────────────────────────────────────────────────────────
 
   /**
    * Seller initiates an auction for one of their heroes.
-   * sellerIdx must equal currentPlayerIndex.
+   * Returns false if invalid (seller doesn't own the hero, not their turn, etc.)
    */
   initiateHeroSale(sellerIdx, heroName, minBid) {
     const seller = this.players[sellerIdx];
     if (!seller) return false;
     if (this.currentPlayerIndex !== sellerIdx) return false;
     if (!(seller.heroes || []).includes(heroName)) return false;
-    if (this.pendingHeroAuction) return false;
+    if (this.pendingHeroAuction) return false; // already an auction in progress
 
+    // Build clockwise bidding order: all non-eliminated players except the seller
     const n = this.players.length;
     const biddingOrder = [];
     for (let i = 1; i < n; i++) {
       const idx = (sellerIdx + i) % n;
       if (!this.players[idx].isOut) biddingOrder.push(idx);
     }
-    if (biddingOrder.length === 0) return false;
+    if (biddingOrder.length === 0) return false; // no one to bid
 
     this.pendingHeroAuction = {
       sellerIdx,
@@ -855,7 +854,10 @@ class GameState {
     return true;
   }
 
-  /** Current bidder submits a bid. Returns false if validation fails. */
+  /**
+   * Current bidder submits a bid.
+   * Returns false if validation fails.
+   */
   heroAuctionBid(bidderIdx, handCardIds, defCardIds) {
     const auction = this.pendingHeroAuction;
     if (!auction) return false;
@@ -865,6 +867,7 @@ class GameState {
     const bidder = this.players[bidderIdx];
     if (!bidder) return false;
 
+    // Validate card ownership: hand cards must be in hand, def cards must be in defCards/topDefCards
     for (const id of handCardIds) {
       if (!bidder.hand.includes(id)) return false;
     }
@@ -874,15 +877,19 @@ class GameState {
       if (!inDef && !inTop) return false;
     }
 
+    // Calculate total strength
     const allIds = [...handCardIds, ...defCardIds];
     if (allIds.length === 0) return false;
     const totalStrength = allIds.reduce((sum, id) => sum + this.cardStrength(id), 0);
 
+    // Must beat minimum bid AND current bid
     const currentTotal = auction.currentBid ? auction.currentBid.totalStrength : 0;
     if (totalStrength <= currentTotal) return false;
     if (totalStrength < auction.minBid) return false;
 
-    if (auction.currentBid && auction.currentBid.bidderIdx === bidderIdx) {
+    // Lock bid cards immediately (remove from bidder's hand + def)
+    // Restore previous bid's cards to their owner first (outbid player gets cards back)
+    if (auction.currentBid) {
       this._restoreBidCards(auction.currentBid);
     }
 
@@ -901,29 +908,44 @@ class GameState {
 
     auction.currentBid = { bidderIdx, handCardIds: [...handCardIds], defCardIds: [...defCardIds], totalStrength };
     this.pushLog(`${this.pname(bidderIdx)} bids ${totalStrength} for ${auction.heroName}`, true, true);
+
+    // Advance to next bidder
     this._advanceAuctionBidder();
     return true;
   }
 
-  /** Current bidder passes. */
+  /**
+   * Current bidder passes.
+   */
   heroAuctionPass(bidderIdx) {
     const auction = this.pendingHeroAuction;
     if (!auction) return false;
     if (auction.currentBidderIdx !== bidderIdx) return false;
+
     auction.passedPlayers.push(bidderIdx);
     this.pushLog(`${this.pname(bidderIdx)} passes the auction`, false, true);
     this._advanceAuctionBidder();
     return true;
   }
 
-  /** Advance to next eligible bidder; resolve when all have had their turn. */
+  /** Advance to the next eligible bidder; resolve if everyone has had their say. */
   _advanceAuctionBidder() {
     const auction = this.pendingHeroAuction;
     const remaining = auction.biddingOrder.filter(idx => !auction.passedPlayers.includes(idx));
-    if (remaining.length === 0) { this._resolveHeroAuction(); return; }
-    if (remaining.length === 1 && auction.currentBid && auction.currentBid.bidderIdx === remaining[0]) {
-      this._resolveHeroAuction(); return;
+
+    if (remaining.length === 0) {
+      // Everyone passed — auction ends
+      this._resolveHeroAuction();
+      return;
     }
+
+    if (remaining.length === 1 && auction.currentBid && auction.currentBid.bidderIdx === remaining[0]) {
+      // Only winner left and they already hold the top bid — resolve immediately
+      this._resolveHeroAuction();
+      return;
+    }
+
+    // Find next bidder after current
     const order = auction.biddingOrder;
     const curPos = order.indexOf(auction.currentBidderIdx);
     let next = null;
@@ -934,30 +956,41 @@ class GameState {
     auction.currentBidderIdx = next;
   }
 
-  /** Restore bid cards to their owner (on cancel or outbid). */
+  /** Restore bid cards to their owner (used when auction is cancelled / outbid). */
   _restoreBidCards(bid) {
     const bidder = this.players[bid.bidderIdx];
     if (!bidder) return;
     for (const id of (bid.handCardIds || [])) bidder.hand.push(id);
+    // Defense card slots are gone — put returned def cards into hand
     for (const id of (bid.defCardIds || [])) bidder.hand.push(id);
   }
 
-  /** Finalize the auction: transfer hero and bid cards to seller as prey. */
+  /** Finalize the auction: transfer hero and bid cards, or cancel if no valid bid. */
   _resolveHeroAuction() {
     const auction = this.pendingHeroAuction;
     this.pendingHeroAuction = null;
+
     if (!auction.currentBid) {
+      // No qualifying bid — hero stays with seller
       this.pushLog(`${auction.heroName} auction: no qualifying bid`, false, true);
       return;
     }
+
     const { sellerIdx, heroName, currentBid } = auction;
-    this.heroAcquired(currentBid.bidderIdx, heroName);
     const seller = this.players[sellerIdx];
+    const winner = this.players[currentBid.bidderIdx];
+
+    // Transfer hero to winner
+    this.heroAcquired(currentBid.bidderIdx, heroName);
+
+    // Bid cards become seller's prey
     if (!seller.preyCards) seller.preyCards = [];
     const allBidCards = [...(currentBid.handCardIds || []), ...(currentBid.defCardIds || [])];
     for (const id of allBidCards) seller.preyCards.push(id);
+    // (cards are already removed from winner's hand/def during bid locking)
+
     this.pushLog(`${this.pname(currentBid.bidderIdx)} wins ${heroName} for ${currentBid.totalStrength}`, true);
   }
 }
 
-module.exports = GameState;
+module.exports = GameState; // export

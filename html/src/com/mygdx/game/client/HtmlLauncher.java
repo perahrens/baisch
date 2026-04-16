@@ -10,13 +10,23 @@ public class HtmlLauncher extends GwtApplication {
 
     @Override
     public GwtApplicationConfiguration getConfig() {
-        // Use the actual viewport dimensions so the canvas fills the screen on all
-        // devices (phones, tablets, desktops). The Java FitViewport / letterbox in
-        // GameScreen handles aspect-ratio centering with black bars.
-        return new GwtApplicationConfiguration(
-                Window.getClientWidth(),
-                Window.getClientHeight());
+        // Render at physical pixels so the canvas matches the device's native
+        // resolution. Without this, the browser upscales the CSS-pixel-sized
+        // canvas to fill the physical display, blurring everything (especially
+        // text) on HiDPI / Retina phones and tablets (devicePixelRatio > 1).
+        // The JS in index.html / mobile.html pins the canvas CSS display size
+        // back to CSS pixels and scales all input coordinates by DPR so game
+        // logic and touch/click positions remain correct.
+        double dpr = getDevicePixelRatio();
+        int physW = (int) Math.round(Window.getClientWidth()  * dpr);
+        int physH = (int) Math.round(Window.getClientHeight() * dpr);
+        return new GwtApplicationConfiguration(physW, physH);
     }
+
+    /** Returns window.devicePixelRatio, or 1.0 if not available. */
+    private static native double getDevicePixelRatio() /*-{
+        return $wnd.devicePixelRatio || 1.0;
+    }-*/;
 
     @Override
     public ApplicationListener createApplicationListener() {

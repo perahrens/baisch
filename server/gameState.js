@@ -971,10 +971,13 @@ class GameState {
     // Transfer hero to winner
     this.heroAcquired(currentBid.bidderIdx, heroName);
 
-    // Bid cards become seller's prey
+    // Bid cards become seller's prey (added to hand so they are usable, and preyCards so they are highlighted)
     if (!seller.preyCards) seller.preyCards = [];
     const allBidCards = [...(currentBid.handCardIds || []), ...(currentBid.defCardIds || [])];
-    for (const id of allBidCards) seller.preyCards.push(id);
+    for (const id of allBidCards) {
+      seller.hand.push(id);
+      seller.preyCards.push(id);
+    }
 
     this.pushLog(`${this.pname(currentBid.bidderIdx)} wins ${heroName} for ${currentBid.totalStrength}`, true);
   }

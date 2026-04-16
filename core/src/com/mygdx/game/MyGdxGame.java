@@ -116,11 +116,11 @@ public class MyGdxGame extends Game implements InputProcessor {
     Gdx.input.setInputProcessor(stage);
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
-    // Use bilinear filtering on all skin textures so widgets and text look
-    // smooth when FitViewport scales them up on large or high-DPI screens.
-    for (Texture t : skin.getAtlas().getTextures()) {
-      t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-    }
+    // Apply bilinear filtering to the bitmap font texture so glyphs look smooth
+    // when FitViewport scales them up. The skin atlas (uiskin.png) keeps its
+    // default Nearest filter — applying Linear to the atlas caused the 1×1 "white"
+    // sprite to bilinearly blend with neighbouring atlas texels, producing an
+    // unintentional radial gradient across the game/hand backgrounds.
     skin.getFont("default-font").getRegion().getTexture()
         .setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 

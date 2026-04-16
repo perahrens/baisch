@@ -2540,6 +2540,27 @@ public class GameScreen extends ScreenAdapter {
         aTitle.setPosition(MyGdxGame.WIDTH / 2f - aTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.88f);
         gameStage.addActor(aTitle);
 
+        // Show the hero image (visible to all players)
+        if (sellerIdx >= 0 && sellerIdx < players.size()) {
+          for (Hero heroActor : players.get(sellerIdx).getHeroes()) {
+            if (aHeroName.equals(heroActor.getHeroName())) {
+              com.badlogic.gdx.graphics.g2d.Sprite hs = heroActor.getSprite();
+              if (hs != null) {
+                float heroW = hs.getWidth() * 0.55f;
+                float heroH = hs.getHeight() * 0.55f;
+                Image heroImg = new Image(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(
+                    new com.badlogic.gdx.graphics.g2d.TextureRegion(hs))) {
+                  @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+                };
+                heroImg.setSize(heroW, heroH);
+                heroImg.setPosition(MyGdxGame.WIDTH / 2f - heroW / 2f, MyGdxGame.HEIGHT * 0.82f - heroH / 2f);
+                gameStage.addActor(heroImg);
+              }
+              break;
+            }
+          }
+        }
+
         if (curBid != null) {
           int cBidder = curBid.getInt("bidderIdx");
           int cTotal  = curBid.getInt("totalStrength");
@@ -2547,12 +2568,12 @@ public class GameScreen extends ScreenAdapter {
               ? players.get(cBidder).getPlayerName() : "Player " + cBidder;
           Label bidLabel = new Label("Current bid: " + cTotal + "  by " + cName, MyGdxGame.skin);
           bidLabel.setColor(Color.CYAN);
-          bidLabel.setPosition(MyGdxGame.WIDTH / 2f - bidLabel.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.80f);
+          bidLabel.setPosition(MyGdxGame.WIDTH / 2f - bidLabel.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.70f);
           gameStage.addActor(bidLabel);
         } else {
           Label noBid = new Label("No bids yet", MyGdxGame.skin);
           noBid.setColor(Color.LIGHT_GRAY);
-          noBid.setPosition(MyGdxGame.WIDTH / 2f - noBid.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.80f);
+          noBid.setPosition(MyGdxGame.WIDTH / 2f - noBid.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.70f);
           gameStage.addActor(noBid);
         }
 
@@ -2560,7 +2581,7 @@ public class GameScreen extends ScreenAdapter {
           // ── This player's bid turn ──────────────────────────────────────
           Label yourTurnLbl = new Label("Your turn — select cards to bid:", MyGdxGame.skin);
           yourTurnLbl.setColor(Color.GREEN);
-          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.72f);
+          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.62f);
           gameStage.addActor(yourTurnLbl);
 
           // Hand cards as toggle buttons
@@ -2569,7 +2590,7 @@ public class GameScreen extends ScreenAdapter {
           float cBtnH = cBtnW * 1.2f;
           float cGapX = MyGdxGame.WIDTH * 0.008f;
           int maxPerRow = 6;
-          float handRowsY = MyGdxGame.HEIGHT * 0.60f;
+          float handRowsY = MyGdxGame.HEIGHT * 0.54f;
           for (int ci = 0; ci < myHand.size(); ci++) {
             final Card hc = myHand.get(ci);
             final int hcId = hc.getCardId();

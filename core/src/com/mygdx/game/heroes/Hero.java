@@ -64,6 +64,10 @@ public class Hero extends Actor {
     return isSelectable;
   }
 
+  public Sprite getSprite() {
+    return sprite;
+  }
+
   public void removeAllListeners() {
     Array<EventListener> listeners = getListeners();
     for (EventListener listener : listeners) {

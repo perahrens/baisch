@@ -80,43 +80,7 @@
               }
               document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
               document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
-
-              // HiDPI: capture CSS viewport size before GWT runs.
-              var dpr  = window.devicePixelRatio || 1;
-              var cssW = window.innerWidth;
-              var cssH = window.innerHeight;
-
-              // Pin canvas CSS display size to CSS viewport pixels once GWT creates it.
-              // The canvas buffer will be cssW*dpr × cssH*dpr (physical pixels);
-              // overriding the CSS size keeps it at the correct visual dimensions.
-              if (dpr > 1) {
-                (function waitForCanvas() {
-                  var canvas = document.querySelector('#embed-html canvas');
-                  if (canvas) {
-                    canvas.style.width  = cssW + 'px';
-                    canvas.style.height = cssH + 'px';
-                    return;
-                  }
-                  setTimeout(waitForCanvas, 100);
-                })();
-
-                // Scale all canvas-targeted mouse events by dpr so that libGDX's
-                // FitViewport maps clicks/drags to the correct game coordinates
-                // when the physical-pixel canvas is displayed at CSS-pixel size.
-                ['mousedown','mouseup','mousemove','click'].forEach(function(type) {
-                  document.addEventListener(type, function(e) {
-                    if (e.target && e.target.tagName === 'CANVAS' && !e._dprScaled) {
-                      e.stopImmediatePropagation();
-                      var s = new MouseEvent(e.type, {
-                        bubbles: e.bubbles, cancelable: e.cancelable, view: window,
-                        clientX: e.clientX * dpr, clientY: e.clientY * dpr,
-                        button: e.button, buttons: e.buttons
-                      });
-                      s._dprScaled = true;
-                      e.target.dispatchEvent(s);
-                    }
-                  }, true); // capture phase, before libGDX listener
-                });
-              }
+       </script>
+</html>
        </script>
 </html>

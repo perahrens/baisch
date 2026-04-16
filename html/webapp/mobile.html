@@ -69,13 +69,6 @@
         e.preventDefault();
       }, { passive: false });
 
-      // HiDPI: capture CSS viewport size before GWT runs.  The canvas will be
-      // created at physical pixels (cssW*dpr × cssH*dpr); we pin its CSS display
-      // size back to CSS pixels so it fills the screen at the right visual size.
-      var dpr  = window.devicePixelRatio || 1;
-      var cssW = window.innerWidth;
-      var cssH = window.innerHeight;
-
       // GWT's canvas only listens to mouse events. Forward touch events as
       // mouse events so the game is controllable on mobile.
       function forwardTouchAsMouseEvents(canvas) {
@@ -103,38 +96,11 @@
           // Prevent the browser from handling touch gestures (scroll, zoom)
           // on the canvas itself — the game handles all touch input.
           canvas.style.touchAction = 'none';
-          // Pin CSS display size to CSS viewport so the physical-pixel canvas
-          // displays at the correct on-screen size on HiDPI devices.
-          if (dpr > 1) {
-            canvas.style.width  = cssW + 'px';
-            canvas.style.height = cssH + 'px';
-          }
           forwardTouchAsMouseEvents(canvas);
           return;
         }
         setTimeout(waitForCanvas, 200);
       })();
-
-      // DPR input scaling: libGDX receives event coordinates and maps them
-      // through FitViewport against a canvas that is dpr× larger than the CSS
-      // display size.  Scale all canvas-targeted mouse events (including those
-      // forwarded from touch above) by dpr so game coordinates stay correct.
-      if (dpr > 1) {
-        ['mousedown','mouseup','mousemove','click'].forEach(function(type) {
-          document.addEventListener(type, function(e) {
-            if (e.target && e.target.tagName === 'CANVAS' && !e._dprScaled) {
-              e.stopImmediatePropagation();
-              var s = new MouseEvent(e.type, {
-                bubbles: e.bubbles, cancelable: e.cancelable, view: window,
-                clientX: e.clientX * dpr, clientY: e.clientY * dpr,
-                button: e.button, buttons: e.buttons
-              });
-              s._dprScaled = true;
-              e.target.dispatchEvent(s);
-            }
-          }, true); // capture phase, before libGDX listener
-        });
-      }
 
       // Prevent text-selection drag cursor on the canvas area (desktop).
       var embedDiv = document.getElementById('embed-html');

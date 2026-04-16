@@ -1064,8 +1064,8 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void dispose() {
-    // TODO Auto-generated method stub
-
+    menuStage.dispose();
+    logoTexture.dispose();
   }
 
   public void configSocketEvents(final SocketClient socket) {

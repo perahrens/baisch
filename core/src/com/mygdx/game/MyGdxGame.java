@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -115,6 +116,13 @@ public class MyGdxGame extends Game implements InputProcessor {
     Gdx.input.setInputProcessor(stage);
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
+    // Use bilinear filtering on all skin textures so widgets and text look
+    // smooth when FitViewport scales them up on large or high-DPI screens.
+    for (Texture t : skin.getAtlas().getTextures()) {
+      t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+    }
+    skin.getFont("default-font").getRegion().getTexture()
+        .setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 
     loadMusic();
 

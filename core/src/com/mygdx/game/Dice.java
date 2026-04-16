@@ -7,7 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 
 public class Dice extends Actor {
   Sprite sprite;
-  TextureAtlas atlas = new TextureAtlas("data/skins/dice.atlas");
+  private static final TextureAtlas atlas = new TextureAtlas("data/skins/dice.atlas");
 
   private int number;
 

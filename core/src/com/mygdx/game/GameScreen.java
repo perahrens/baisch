@@ -2537,7 +2537,7 @@ public class GameScreen extends ScreenAdapter {
         Label aTitle = new Label(sellerName + " is selling " + aHeroName
             + "  (min bid: " + minBidVal + ")", MyGdxGame.skin);
         aTitle.setColor(Color.GOLD);
-        aTitle.setPosition(MyGdxGame.WIDTH / 2f - aTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.86f);
+        aTitle.setPosition(MyGdxGame.WIDTH / 2f - aTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.88f);
         gameStage.addActor(aTitle);
 
         if (curBid != null) {
@@ -2547,12 +2547,12 @@ public class GameScreen extends ScreenAdapter {
               ? players.get(cBidder).getPlayerName() : "Player " + cBidder;
           Label bidLabel = new Label("Current bid: " + cTotal + "  by " + cName, MyGdxGame.skin);
           bidLabel.setColor(Color.CYAN);
-          bidLabel.setPosition(MyGdxGame.WIDTH / 2f - bidLabel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.79f);
+          bidLabel.setPosition(MyGdxGame.WIDTH / 2f - bidLabel.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.80f);
           gameStage.addActor(bidLabel);
         } else {
           Label noBid = new Label("No bids yet", MyGdxGame.skin);
           noBid.setColor(Color.LIGHT_GRAY);
-          noBid.setPosition(MyGdxGame.WIDTH / 2f - noBid.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.79f);
+          noBid.setPosition(MyGdxGame.WIDTH / 2f - noBid.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.80f);
           gameStage.addActor(noBid);
         }
 
@@ -2560,7 +2560,7 @@ public class GameScreen extends ScreenAdapter {
           // ── This player's bid turn ──────────────────────────────────────
           Label yourTurnLbl = new Label("Your turn — select cards to bid:", MyGdxGame.skin);
           yourTurnLbl.setColor(Color.GREEN);
-          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.71f);
+          yourTurnLbl.setPosition(MyGdxGame.WIDTH / 2f - yourTurnLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.72f);
           gameStage.addActor(yourTurnLbl);
 
           // Hand cards as toggle buttons
@@ -2569,7 +2569,7 @@ public class GameScreen extends ScreenAdapter {
           float cBtnH = cBtnW * 1.2f;
           float cGapX = MyGdxGame.WIDTH * 0.008f;
           int maxPerRow = 6;
-          float handRowsY = MyGdxGame.WIDTH * 0.63f;
+          float handRowsY = MyGdxGame.HEIGHT * 0.60f;
           for (int ci = 0; ci < myHand.size(); ci++) {
             final Card hc = myHand.get(ci);
             final int hcId = hc.getCardId();
@@ -2605,7 +2605,7 @@ public class GameScreen extends ScreenAdapter {
           if (!defIds.isEmpty()) {
             Label defHdr = new Label("Defense:", MyGdxGame.skin);
             defHdr.setColor(Color.YELLOW);
-            float defRowY = MyGdxGame.WIDTH * 0.43f;
+            float defRowY = MyGdxGame.HEIGHT * 0.32f;
             defHdr.setPosition(MyGdxGame.WIDTH / 2f - defHdr.getPrefWidth() / 2f, defRowY + cBtnH + 2f);
             gameStage.addActor(defHdr);
             float defStartX = (MyGdxGame.WIDTH - defIds.size() * (cBtnW + cGapX)) / 2f;
@@ -2642,13 +2642,13 @@ public class GameScreen extends ScreenAdapter {
 
           Label strLbl = new Label("Bid: " + totalBidStr + "  (need >= " + requiredStr + ")", MyGdxGame.skin);
           strLbl.setColor(canBid ? Color.GREEN : Color.RED);
-          strLbl.setPosition(MyGdxGame.WIDTH / 2f - strLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.29f);
+          strLbl.setPosition(MyGdxGame.WIDTH / 2f - strLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.20f);
           gameStage.addActor(strLbl);
 
           final int finalTotal = totalBidStr;
           TextButton bidBtn = new TextButton("Bid", MyGdxGame.skin);
           bidBtn.setColor(canBid ? Color.WHITE : Color.DARK_GRAY);
-          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.WIDTH * 0.21f);
+          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.HEIGHT * 0.12f);
           if (canBid) {
             final java.util.Set<Integer> snapHand = new java.util.HashSet<Integer>(auctionBidHandCardIds);
             final java.util.Set<Integer> snapDef  = new java.util.HashSet<Integer>(auctionBidDefCardIds);
@@ -2674,7 +2674,7 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(bidBtn);
 
           TextButton passBtn = new TextButton("Pass", MyGdxGame.skin);
-          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 16f, MyGdxGame.WIDTH * 0.21f);
+          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 16f, MyGdxGame.HEIGHT * 0.12f);
           passBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -2692,7 +2692,7 @@ public class GameScreen extends ScreenAdapter {
               ? players.get(curBidderIdx).getPlayerName() : "Player " + curBidderIdx;
           Label waitLbl = new Label("Waiting for " + waitName + " to bid or pass...", MyGdxGame.skin);
           waitLbl.setColor(Color.LIGHT_GRAY);
-          waitLbl.setPosition(MyGdxGame.WIDTH / 2f - waitLbl.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.5f);
+          waitLbl.setPosition(MyGdxGame.WIDTH / 2f - waitLbl.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.5f);
           gameStage.addActor(waitLbl);
         }
       } catch (JSONException e) { e.printStackTrace(); }

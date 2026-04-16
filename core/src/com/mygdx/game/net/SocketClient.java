@@ -7,6 +7,8 @@ package com.mygdx.game.net;
  */
 public interface SocketClient {
   void on(String event, SocketListener listener);
+  /** Remove all listeners for the given event. Safe to call from dispose(). */
+  void off(String event);
   void emit(String event, Object data);
   void connect();
   /** Cleanly disconnect and prevent auto-reconnect. */

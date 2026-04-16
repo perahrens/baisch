@@ -59,6 +59,11 @@ public class IOSSocketClient implements SocketClient {
     }
 
     @Override
+    public void off(String event) {
+        socket.off(event);
+    }
+
+    @Override
     public String getSocketId() {
         String id = socket.id();
         return id != null ? id : "";

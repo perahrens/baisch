@@ -191,6 +191,7 @@ class GameState {
 
   pushLog(text, success, neutral = false) {
     this.log.push({ text, success, neutral });
+    if (this.log.length > 5) this.log.shift();
   }
 
   cardStrength(cardId) {

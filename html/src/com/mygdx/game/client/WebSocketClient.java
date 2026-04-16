@@ -59,6 +59,15 @@ public class WebSocketClient implements SocketClient {
   }
 
   @Override
+  public void off(String event) {
+    nativeOff(jsSocket, event);
+  }
+
+  private native void nativeOff(JavaScriptObject sock, String event) /*-{
+    sock.off(event);
+  }-*/;
+
+  @Override
   public void emit(String event, Object data) {
     String jsonStr = (data != null) ? data.toString() : "null";
     nativeEmit(jsSocket, event, jsonStr);

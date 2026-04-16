@@ -11,7 +11,7 @@ public class Hero extends Actor {
   protected String heroName = "Hero";
   protected String heroID = "H.";
   protected Sprite sprite;
-  protected TextureAtlas atlas = new TextureAtlas("data/skins/pieces.atlas");
+  protected static final TextureAtlas atlas = new TextureAtlas("data/skins/pieces.atlas");
 
   protected boolean isSelectable = false;
   protected boolean isSelected;

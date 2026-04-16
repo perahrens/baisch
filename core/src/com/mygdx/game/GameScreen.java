@@ -4539,9 +4539,36 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void dispose() {
+    screenDisposed = true;
+    // Remove all GameScreen-exclusive socket listeners so this instance can be GC'd.
+    // (Events also used by MenuScreen — "gameState", "returnToLobby" — are guarded
+    //  by the screenDisposed flag in their call() bodies instead.)
+    socket.off("stateUpdate");
+    socket.off("heroAcquired");
+    socket.off("heroLost");
+    socket.off("saboteurDestroyed");
+    socket.off("spyFlip");
+    socket.off("batteryDefenseCheck");
+    socket.off("batteryAllowAttack");
+    socket.off("batteryDenyAttack");
+    socket.off("mercDefBoost");
+    socket.off("reservistsKingBoost");
     gameStage.dispose();
     handStage.dispose();
-
+    overlayStage.dispose();
+    texMercenary.dispose();
+    texSabotaged.dispose();
+    texHearts.dispose();
+    texHeartsRed.dispose();
+    texDiamonds.dispose();
+    texDiamondsRed.dispose();
+    texClubs.dispose();
+    texSpades.dispose();
+    texSomeSymbol.dispose();
+    texSword.dispose();
+    texCrone.dispose();
+    texShieldCheck.dispose();
+    texArrowDownShield.dispose();
   }
 
 }

@@ -5,7 +5,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -116,13 +115,6 @@ public class MyGdxGame extends Game implements InputProcessor {
     Gdx.input.setInputProcessor(stage);
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
-    // Apply bilinear filtering to the bitmap font texture so glyphs look smooth
-    // when FitViewport scales them up. The skin atlas (uiskin.png) keeps its
-    // default Nearest filter — applying Linear to the atlas caused the 1×1 "white"
-    // sprite to bilinearly blend with neighbouring atlas texels, producing an
-    // unintentional radial gradient across the game/hand backgrounds.
-    skin.getFont("default-font").getRegion().getTexture()
-        .setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 
     loadMusic();
 

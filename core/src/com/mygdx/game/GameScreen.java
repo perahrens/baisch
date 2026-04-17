@@ -148,6 +148,10 @@ public class GameScreen extends ScreenAdapter {
   private int auctionSellMinBid = 1;
   // Battery Tower: card IDs revealed to the defender after they allow or deny
   private JSONArray pendingBatteryResultCards = null;
+  // Battery Tower: shown briefly to the ATTACKER when the bot defender auto-responds
+  // Null = no notification; non-null = message to display (auto-dismisses after 2 s)
+  private String batteryBotNotification = null;
+  private float batteryBotNotificationTimer = 0f;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
   private boolean pendingExposeCard = false;
   // Tutorial mode: guided overlay steps for new players
@@ -406,6 +410,11 @@ public class GameScreen extends ScreenAdapter {
             try {
               int attackerIdx = data.getInt("attackerIdx");
               if (attackerIdx == myPlayerIndex) {
+                int defIdx2 = data.optInt("targetPlayerIdx", -1);
+                String defName = (defIdx2 >= 0 && defIdx2 < gameState.getPlayers().size())
+                    ? gameState.getPlayers().get(defIdx2).getPlayerName() : "Defender";
+                batteryBotNotification = defName + " (Battery Tower): attack allowed";
+                batteryBotNotificationTimer = 2f;
                 PlayerTurn pt = gameState.getCurrentPlayer().getPlayerTurn();
                 // Reveal the cards now that the attack is allowed
                 if (pt.isAttackTargetIsKing()) {
@@ -463,6 +472,11 @@ public class GameScreen extends ScreenAdapter {
             try {
               int attackerIdx = data.getInt("attackerIdx");
               if (attackerIdx == myPlayerIndex) {
+                int defIdx3 = data.optInt("targetPlayerIdx", -1);
+                String defName3 = (defIdx3 >= 0 && defIdx3 < gameState.getPlayers().size())
+                    ? gameState.getPlayers().get(defIdx3).getPlayerName() : "Defender";
+                batteryBotNotification = defName3 + " (Battery Tower): attack BLOCKED!";
+                batteryBotNotificationTimer = 2.5f;
                 PlayerTurn pt = gameState.getCurrentPlayer().getPlayerTurn();
                 // Cancel the attack, lock only the cards used in the attack
                 pt.setAttackPending(false);
@@ -2178,6 +2192,20 @@ public class GameScreen extends ScreenAdapter {
         wFooter.setPosition(MyGdxGame.WIDTH / 2f - wFooter.getPrefWidth() / 2f, wBotY - 66f);
         gameStage.addActor(wFooter);
       } catch (JSONException e) { e.printStackTrace(); }
+    }
+
+    // Battery Tower bot notification — shown briefly to the attacker
+    if (batteryBotNotification != null) {
+      Image btNotifOverlay = new Image(MyGdxGame.skin, "white");
+      btNotifOverlay.setFillParent(true);
+      btNotifOverlay.setColor(0f, 0f, 0.3f, 0.75f);
+      gameStage.addActor(btNotifOverlay);
+      Label btNotifLabel = new Label(batteryBotNotification, MyGdxGame.skin);
+      btNotifLabel.setColor(Color.YELLOW);
+      btNotifLabel.setFontScale(1.15f);
+      btNotifLabel.pack();
+      btNotifLabel.setPosition(MyGdxGame.WIDTH / 2f - btNotifLabel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.5f);
+      gameStage.addActor(btNotifLabel);
     }
 
     // Battery Tower defender overlay — shown when this player must allow or deny an attack
@@ -4335,6 +4363,16 @@ public class GameScreen extends ScreenAdapter {
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
       show();
+    }
+
+    // Battery Tower bot notification timer — auto-dismiss after it expires
+    if (batteryBotNotificationTimer > 0f) {
+      batteryBotNotificationTimer -= delta;
+      if (batteryBotNotificationTimer <= 0f) {
+        batteryBotNotification = null;
+        batteryBotNotificationTimer = 0f;
+        gameState.setUpdateState(true);
+      }
     }
 
     // Highlight hand area when own defense card is selected or being dragged

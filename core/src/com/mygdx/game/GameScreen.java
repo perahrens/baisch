@@ -14,8 +14,10 @@ import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
@@ -82,6 +84,7 @@ public class GameScreen extends ScreenAdapter {
   private Stage overlayStage;
   private Image gameBck;
   private Image handBck;
+  private Texture plainWhiteTexture;
   private Label myPlayerLabel;
   private Label roundCounter;
   private TextButton finishTurnButton;
@@ -570,12 +573,21 @@ public class GameScreen extends ScreenAdapter {
     menuAndGameMulti.addProcessor(handStage);
     // Initial input processor is set by render() each frame.
 
-    gameBck = new Image(MyGdxGame.skin, "white");
+    // Use a standalone 1×1 white texture (not the atlas "white" region) so that
+    // the atlas Linear filter cannot bleed into these full-stage backgrounds.
+    Pixmap pix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+    pix.setColor(Color.WHITE);
+    pix.fill();
+    plainWhiteTexture = new Texture(pix);
+    pix.dispose();
+    TextureRegionDrawable whiteDrw = new TextureRegionDrawable(new TextureRegion(plainWhiteTexture));
+
+    gameBck = new Image(whiteDrw);
     gameBck.setFillParent(true);
     gameBck.setColor(0.85f, 0.73f, 0.55f, 1);
     gameStage.addActor(gameBck);
 
-    handBck = new Image(MyGdxGame.skin, "white");
+    handBck = new Image(whiteDrw);
     handBck.setFillParent(true);
     handBck.setColor(1f, 1f, 1f, 0.5f);
     handStage.addActor(handBck);
@@ -4556,6 +4568,7 @@ public class GameScreen extends ScreenAdapter {
     gameStage.dispose();
     handStage.dispose();
     overlayStage.dispose();
+    if (plainWhiteTexture != null) plainWhiteTexture.dispose();
     texMercenary.dispose();
     texSabotaged.dispose();
     texHearts.dispose();

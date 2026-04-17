@@ -6,7 +6,6 @@ import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -118,15 +117,12 @@ public class MyGdxGame extends Game implements InputProcessor {
 
     skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
-    // Load font separately from its own PNG (not the atlas) so we can apply
-    // Linear filter for sharper text without affecting atlas backgrounds.
-    BitmapFont sharpFont = new BitmapFont(
-      Gdx.files.internal("data/skins/default.fnt"),
-      Gdx.files.internal("data/skins/default.png"),
-      false);
-    sharpFont.getRegion().getTexture()
-      .setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-    skin.add("default-font", sharpFont);
+    // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
+    // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the
+    // atlas "white" region) so they are unaffected by this filter.
+    for (Texture t : skin.getAtlas().getTextures()) {
+      t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+    }
 
     loadMusic();
 

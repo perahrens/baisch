@@ -122,6 +122,11 @@ gradle-app.setting
 ## OS Specific
 .DS_Store
 Thumbs.db
+# Windows NTFS alternate data streams created when files are downloaded
+*:Zone.Identifier
+
+## Node.js generated files (not committed — lock file lives in server/)
+/package-lock.json
 
 ## iOS
 /ios/xcode/*.xcodeproj/*

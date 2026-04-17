@@ -206,16 +206,13 @@ function startGameForSession(sess, requesterSocketId) {
       tokenMap[u.token].sessionId = sess.id;
     }
   });
-  // Auto-submit manual setup for bots
+  // Auto-submit manual setup for bots using the smart card-selection strategy
   if (sess.manualSetup && sess.gameState.setupPhase) {
     sess.users.forEach(function(u, idx) {
       if (bot.isBot(u)) {
-        var bp = sess.gameState.players[idx];
-        if (bp && bp.hand.length >= 4) {
-          var kingId = bp.hand[0];
-          var defIds = [bp.hand[1], bp.hand[2], bp.hand[3]];
-          var discardIds = bp.hand.length > 6 ? [bp.hand[4], bp.hand[5]] : [];
-          sess.gameState.applyManualSetup(idx, kingId, defIds, discardIds);
+        var setup = bot.autoSetupBot(sess.gameState, idx);
+        if (setup) {
+          sess.gameState.applyManualSetup(idx, setup.kingId, setup.defIds, setup.discardIds);
         }
       }
     });

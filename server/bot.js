@@ -565,8 +565,49 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return best;
   }
 
+  /**
+   * Compute the smart manual-setup card selection for a bot player.
+   * Strategy:
+   *   - King card  : highest-strength non-joker (jokers used only as fallback)
+   *   - Def cards  : next 3 highest-strength non-jokers
+   *   - Joker      : always kept in hand when possible
+   *   - Discard    : 2 lowest-strength remaining cards (non-jokers preferred)
+   *
+   * Returns { kingId, defIds, discardIds } or null if the hand is too small.
+   */
+  function botComputeSetup(gs, playerIdx) {
+    var bp = gs.players[playerIdx];
+    if (!bp || bp.hand.length < 4) return null;
+
+    var jokers = bp.hand.filter(function(id) { return id > 52; });
+    var nonJokers = bp.hand.filter(function(id) { return id <= 52; });
+
+    // Sort non-jokers descending by strength (highest = best king/def candidate)
+    nonJokers.sort(function(a, b) { return gs.cardStrength(b) - gs.cardStrength(a); });
+
+    // Build king + def from non-jokers first; use jokers only if non-jokers run out
+    var pool = nonJokers.concat(jokers);
+    var kingId = pool[0];
+    var defIds = [pool[1], pool[2], pool[3]];
+
+    // Remaining cards (not king or def), jokers pushed to end so they are discarded last
+    var assigned = new Set([kingId, pool[1], pool[2], pool[3]]);
+    var remaining = bp.hand.filter(function(id) { return !assigned.has(id); });
+    remaining.sort(function(a, b) {
+      var aJoker = a > 52, bJoker = b > 52;
+      if (aJoker !== bJoker) return aJoker ? 1 : -1; // jokers survive, go last
+      return gs.cardStrength(a) - gs.cardStrength(b); // lowest-strength first
+    });
+
+    // Discard 2 lowest (mirrors the 2 cemetery cards from auto-setup)
+    var discardIds = remaining.slice(0, 2);
+
+    return { kingId: kingId, defIds: defIds, discardIds: discardIds };
+  }
+
   return {
     isBot: isBot,
-    playBotTurnIfNeeded: playBotTurnIfNeeded
+    playBotTurnIfNeeded: playBotTurnIfNeeded,
+    autoSetupBot: botComputeSetup
   };
 };

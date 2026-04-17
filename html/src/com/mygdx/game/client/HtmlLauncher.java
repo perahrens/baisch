@@ -10,9 +10,9 @@ public class HtmlLauncher extends GwtApplication {
 
     @Override
     public GwtApplicationConfiguration getConfig() {
-        // Use the actual viewport dimensions so the canvas fills the screen on all
-        // devices (phones, tablets, desktops). The Java FitViewport / letterbox in
-        // GameScreen handles aspect-ratio centering with black bars.
+        // Use the actual CSS viewport dimensions so the canvas fills the screen
+        // on all devices. The Java FitViewport / letterbox in GameScreen handles
+        // aspect-ratio centering with black bars.
         return new GwtApplicationConfiguration(
                 Window.getClientWidth(),
                 Window.getClientHeight());

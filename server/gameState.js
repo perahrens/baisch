@@ -51,6 +51,7 @@ class GameState {
       p.spyMaxAttacks = 1;
       p.spyExtends = 1;
       p.pickingDeckAttacks = 1;
+      p.batteryTowerCharges = 0;
       p.attackingSymbol = 'none';
       p.attackingSymbol2 = 'none';
     }
@@ -567,6 +568,10 @@ class GameState {
       this.players[currentPlayerIndex].spyMaxAttacks = 1;
       this.players[currentPlayerIndex].spyExtends = 1;
       this.players[currentPlayerIndex].pickingDeckAttacks = 1;
+      // Recharge Battery Tower at the start of the owner's next turn
+      if ((this.players[currentPlayerIndex].heroes || []).includes('Battery Tower')) {
+        this.players[currentPlayerIndex].batteryTowerCharges = 1;
+      }
       this.players[currentPlayerIndex].attackingSymbol = 'none';
       this.players[currentPlayerIndex].attackingSymbol2 = 'none';
     }
@@ -759,6 +764,8 @@ class GameState {
     const target = this.players[playerIdx];
     if (!target.heroes) target.heroes = [];
     target.heroes.push(heroName);
+    // Give an immediate charge when Battery Tower is acquired
+    if (heroName === 'Battery Tower') target.batteryTowerCharges = 1;
   }
 
   heroLost(playerIdx, heroName) {
@@ -806,6 +813,7 @@ class GameState {
         spyMaxAttacks: p.spyMaxAttacks !== undefined ? p.spyMaxAttacks : 1,
         spyExtends: p.spyExtends !== undefined ? p.spyExtends : 1,
         pickingDeckAttacks: p.pickingDeckAttacks !== undefined ? p.pickingDeckAttacks : 1,
+        batteryTowerCharges: p.batteryTowerCharges !== undefined ? p.batteryTowerCharges : 0,
         attackingSymbol: p.attackingSymbol || 'none',
         attackingSymbol2: p.attackingSymbol2 || 'none',
       })),

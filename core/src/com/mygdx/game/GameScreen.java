@@ -164,7 +164,7 @@ public class GameScreen extends ScreenAdapter {
   private final int[] setupSelectedDefIds = { -1, -1, -1 };
   // True after the player has clicked Confirm (waiting for others to finish)
   private boolean setupSubmitted = false;
-  private final ArrayList<Integer> setupDiscardIds = new ArrayList<Integer>();
+  private final ArrayList<Integer> setupKeepIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
   private Texture texMercenary;
@@ -701,9 +701,10 @@ public class GameScreen extends ScreenAdapter {
     int _defCount = 0;
     for (int id : setupSelectedDefIds) if (id != -1) _defCount++;
     final int allHandSize = currentPlayer.getHandCards().size();
-    // requiredDiscards = hand - king(1) - def(3) - keep(2)  =  hand - 6
-    final int requiredDiscards = Math.max(0, allHandSize - 6);
-    final boolean inDiscardPhase = (setupSelectedKingId != -1 && _defCount == 3 && requiredDiscards > 0);
+    // keepPhase: after king+3def chosen, player must pick exactly 2 hand cards to keep (if any extra)
+    final int extraCards = allHandSize - 4; // cards remaining in hand that aren't king/def
+    final boolean needKeepPhase = (extraCards > 2);
+    final boolean inKeepPhase = (setupSelectedKingId != -1 && _defCount == 3 && needKeepPhase);
     String statusText;
     if (setupSubmitted) {
       statusText = "Waiting for other players...";
@@ -711,10 +712,10 @@ public class GameScreen extends ScreenAdapter {
       statusText = "Select your king card";
     } else if (_defCount < 3) {
       statusText = "Select defense card " + (_defCount + 1) + " of 3";
-    } else if (inDiscardPhase) {
-      int stillNeeded = requiredDiscards - setupDiscardIds.size();
+    } else if (inKeepPhase) {
+      int stillNeeded = 2 - setupKeepIds.size();
       if (stillNeeded > 0) {
-        statusText = "Discard " + stillNeeded + " more card" + (stillNeeded > 1 ? "s" : "");
+        statusText = "Select " + stillNeeded + " hand card" + (stillNeeded > 1 ? "s" : "") + " to keep";
       } else {
         statusText = "Tap Confirm to start";
       }
@@ -756,8 +757,10 @@ public class GameScreen extends ScreenAdapter {
           c.setColor(Color.GOLD);
         } else if (isDef) {
           c.setColor(new Color(0.4f, 1f, 0.4f, 1f));
-        } else if (inDiscardPhase && setupDiscardIds.contains(cardId)) {
-          c.setColor(new Color(0.45f, 0.45f, 0.45f, 1f)); // grayed = marked for discard
+        } else if (inKeepPhase && setupKeepIds.contains(cardId)) {
+          c.setColor(new Color(0.4f, 1f, 1f, 1f)); // cyan = marked to keep
+        } else if (inKeepPhase) {
+          c.setColor(new Color(0.45f, 0.45f, 0.45f, 1f)); // grayed = will be discarded
         } else {
           c.setColor(Color.WHITE);
         }
@@ -766,23 +769,22 @@ public class GameScreen extends ScreenAdapter {
         boolean cardIsDef = false;
         for (int id : setupSelectedDefIds) if (id == cardId) { cardIsDef = true; break; }
         final boolean cardIsKeepSelected = cardIsKing || cardIsDef;
-        final boolean cardIsDiscard = inDiscardPhase && setupDiscardIds.contains(cardId);
 
         c.removeAllListeners();
-        if (inDiscardPhase && !cardIsKeepSelected) {
-          // In discard phase: tap non-king/non-def cards to toggle discard
+        if (inKeepPhase && !cardIsKeepSelected) {
+          // In keep phase: tap non-king/non-def cards to toggle keep
           c.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-              if (setupDiscardIds.contains(cardId)) {
-                setupDiscardIds.remove((Integer) cardId);
-              } else {
-                setupDiscardIds.add(cardId);
+              if (setupKeepIds.contains(cardId)) {
+                setupKeepIds.remove((Integer) cardId);
+              } else if (setupKeepIds.size() < 2) {
+                setupKeepIds.add(cardId);
               }
               gameState.setUpdateState(true);
             }
           });
-        } else if (!inDiscardPhase) {
+        } else if (!inKeepPhase) {
           // In king/def selection phase
           c.addListener(new ClickListener() {
             @Override
@@ -790,7 +792,7 @@ public class GameScreen extends ScreenAdapter {
               // Deselect king
               if (cardId == setupSelectedKingId) {
                 setupSelectedKingId = -1;
-                setupDiscardIds.clear();
+                setupKeepIds.clear();
                 gameState.setUpdateState(true);
                 return;
               }
@@ -800,7 +802,7 @@ public class GameScreen extends ScreenAdapter {
                   setupSelectedDefIds[slot] = -1;
                   for (int s = slot; s < 2; s++) setupSelectedDefIds[s] = setupSelectedDefIds[s + 1];
                   setupSelectedDefIds[2] = -1;
-                  setupDiscardIds.clear();
+                  setupKeepIds.clear();
                   gameState.setUpdateState(true);
                   return;
                 }
@@ -808,7 +810,7 @@ public class GameScreen extends ScreenAdapter {
               // Select as king
               if (setupSelectedKingId == -1) {
                 setupSelectedKingId = cardId;
-                setupDiscardIds.clear();
+                setupKeepIds.clear();
                 gameState.setUpdateState(true);
                 return;
               }
@@ -816,7 +818,7 @@ public class GameScreen extends ScreenAdapter {
               for (int slot = 0; slot < 3; slot++) {
                 if (setupSelectedDefIds[slot] == -1) {
                   setupSelectedDefIds[slot] = cardId;
-                  setupDiscardIds.clear();
+                  setupKeepIds.clear();
                   gameState.setUpdateState(true);
                   return;
                 }
@@ -860,31 +862,31 @@ public class GameScreen extends ScreenAdapter {
         }
       }
 
-      // ── Discard labels (when in discard phase) ───────────────────────────
-      if (inDiscardPhase) {
+      // ── Keep/Discard labels (when in keep phase) ────────────────────────────
+      if (inKeepPhase) {
         for (int i = 0; i < count; i++) {
           final Card c2 = handCards.get(i);
           final int cid = c2.getCardId();
           if (cid == setupSelectedKingId) continue;
           boolean isd = false; for (int id : setupSelectedDefIds) if (id == cid) { isd = true; break; }
           if (isd) continue;
-          // Show DISCARD / KEEP label below the card
-          boolean markedDiscard = setupDiscardIds.contains(cid);
-          Label discardLabel = new Label(markedDiscard ? "DISCARD" : "KEEP", MyGdxGame.skin);
-          discardLabel.setColor(markedDiscard ? Color.RED : new Color(0.7f, 0.7f, 0.7f, 1f));
-          discardLabel.pack();
-          discardLabel.setPosition(c2.getX() + cardW / 2f - discardLabel.getWidth() / 2f,
-              handY - discardLabel.getHeight() - 4f);
-          handStage.addActor(discardLabel);
+          // Show KEEP / DISCARD label below the card
+          boolean markedKeep = setupKeepIds.contains(cid);
+          Label keepLabel = new Label(markedKeep ? "KEEP" : "DISCARD", MyGdxGame.skin);
+          keepLabel.setColor(markedKeep ? new Color(0.4f, 1f, 1f, 1f) : Color.RED);
+          keepLabel.pack();
+          keepLabel.setPosition(c2.getX() + cardW / 2f - keepLabel.getWidth() / 2f,
+              handY - keepLabel.getHeight() - 4f);
+          handStage.addActor(keepLabel);
         }
       }
 
-      // ── Confirm button (shown when king + 3 def chose AND discards done) ─
+      // ── Confirm button (shown when king + 3 def chosen AND keeps done) ─
       int defCount = 0;
       for (int id : setupSelectedDefIds) if (id != -1) defCount++;
-      boolean discardsReady = (requiredDiscards == 0) || (setupDiscardIds.size() == requiredDiscards);
-      if (setupSelectedKingId != -1 && defCount == 3 && discardsReady) {
-        final ArrayList<Integer> frozenDiscards = new ArrayList<Integer>(setupDiscardIds);
+      boolean keepsReady = !needKeepPhase || (setupKeepIds.size() == 2);
+      if (setupSelectedKingId != -1 && defCount == 3 && keepsReady) {
+        final ArrayList<Integer> frozenKeeps = new ArrayList<Integer>(setupKeepIds);
         TextButton confirmBtn = new TextButton("Confirm", MyGdxGame.skin);
         confirmBtn.pack();
         confirmBtn.setSize(confirmBtn.getPrefWidth() + 20, confirmBtn.getPrefHeight() + 10);
@@ -902,8 +904,14 @@ public class GameScreen extends ScreenAdapter {
               defIds.put(setupSelectedDefIds[1]);
               defIds.put(setupSelectedDefIds[2]);
               data.put("defCardIds", defIds);
+              // Compute which cards to discard: all hand cards not in king/def/keep
               JSONArray discardIds = new JSONArray();
-              for (int id : frozenDiscards) discardIds.put(id);
+              java.util.Set<Integer> keepSet = new java.util.HashSet<Integer>(frozenKeeps);
+              keepSet.add(setupSelectedKingId);
+              for (int id : setupSelectedDefIds) keepSet.add(id);
+              for (Card hc : currentPlayer.getHandCards()) {
+                if (!keepSet.contains(hc.getCardId())) discardIds.put(hc.getCardId());
+              }
               data.put("discardCardIds", discardIds);
               socket.emit("submitSetup", data);
             } catch (JSONException ex) { ex.printStackTrace(); }

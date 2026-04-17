@@ -1423,7 +1423,12 @@ io.on('connection', function(socket) {
       if (defPlayer && (defPlayer.batteryTowerCharges || 0) > 0) {
         // Bot always uses Battery Tower to deny the attack
         defPlayer.batteryTowerCharges--;
-        io.to(sess.id).emit('batteryDenyAttack', { attackerIdx: data.attackerIdx });
+        io.to(sess.id).emit('batteryDenyAttack', {
+          attackerIdx:    data.attackerIdx,
+          targetPlayerIdx: targetIdx,
+          positionId:     data.positionId,
+          isKing:         data.isKing || false
+        });
       } else {
         // No charges — auto-allow
         io.to(sess.id).emit('batteryAllowAttack', { attackerIdx: data.attackerIdx });

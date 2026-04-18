@@ -224,6 +224,22 @@ public class MenuScreen extends AbstractScreen {
   }
 
   /**
+   * Build a dropdown item list containing "None" plus all heroes not reserved by others,
+   * always including {@code currentSelection} so the current value stays visible.
+   */
+  private Array<String> buildHeroDropdownItems(String currentSelection) {
+    Array<String> items = new Array<String>();
+    items.add("None");
+    for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
+      String h = ALL_HERO_NAMES[i];
+      if (!reservedByOthers.contains(h) || h.equals(currentSelection)) {
+        items.add(h);
+      }
+    }
+    return items;
+  }
+
+  /**
    * Rebuild the hero dropdown items, excluding heroes that have been reserved by other lobby
    * players. The current player's own selection is preserved when possible; if their hero was
    * taken by someone else it is reset to "None".
@@ -831,12 +847,21 @@ public class MenuScreen extends AbstractScreen {
     loggedInUserTable.pad(14f, 18f, 14f, 18f);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
+    boolean isHost = !loggedInUsers.isEmpty()
+        && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
+    int tableColumns = sessionAllowHeroSelection ? 3 : 2;
+
     Label headLine1 = new Label("Name", MyGdxGame.skin);
     Label headLine2 = new Label("Status", MyGdxGame.skin);
     headLine1.setColor(1f, 1f, 1f, 0.9f);
     headLine2.setColor(1f, 1f, 1f, 0.9f);
 
-    loggedInUserTable.add(headLine1).padRight(60).padBottom(8f);
+    loggedInUserTable.add(headLine1).padRight(20).padBottom(8f);
+    if (sessionAllowHeroSelection) {
+      Label headHero = new Label("Hero", MyGdxGame.skin);
+      headHero.setColor(1f, 1f, 1f, 0.9f);
+      loggedInUserTable.add(headHero).padRight(20).padBottom(8f);
+    }
     loggedInUserTable.add(headLine2).padBottom(8f);
     loggedInUserTable.row();
 
@@ -855,12 +880,48 @@ public class MenuScreen extends AbstractScreen {
         statusBadge = createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
       }
 
-      loggedInUserTable.add(nameLabel).padRight(60).padBottom(6f);
+      loggedInUserTable.add(nameLabel).padRight(20).padBottom(6f);
+
+      if (sessionAllowHeroSelection) {
+        boolean isOwnRow = user.getUserID().equals(menuState.getMyUserID());
+        boolean isBotRow = user.getUserID().startsWith("bot_");
+        if (isOwnRow) {
+          refreshHeroDropdown();
+          loggedInUserTable.add(heroSelectBox).padRight(20).padBottom(6f)
+              .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
+        } else if (isBotRow && isHost) {
+          final String botUserId = user.getUserID();
+          final String botCurrentHero = user.getSelectedHero();
+          final SelectBox<String> botHeroBox = new SelectBox<String>(MyGdxGame.skin);
+          botHeroBox.setItems(buildHeroDropdownItems(botCurrentHero));
+          botHeroBox.setSelected(botCurrentHero);
+          botHeroBox.setSize(heroSelectBox.getWidth(), heroSelectBox.getHeight());
+          botHeroBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+              String selected = botHeroBox.getSelected();
+              try {
+                JSONObject data = new JSONObject();
+                data.put("botUserId", botUserId);
+                data.put("heroName", selected);
+                socket.emit("setBotHeroSelection", data);
+              } catch (JSONException e) { /* ignore */ }
+            }
+          });
+          loggedInUserTable.add(botHeroBox).padRight(20).padBottom(6f)
+              .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
+        } else {
+          String heroName = user.getSelectedHero();
+          Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
+          loggedInUserTable.add(heroLbl).padRight(20).padBottom(6f);
+        }
+      }
+
       loggedInUserTable.add(statusBadge).left().padBottom(6f);
       loggedInUserTable.row();
       if (i < loggedInUsers.size() - 1) {
         Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
-        loggedInUserTable.add(sep).colspan(2).growX().height(1f).padTop(2f).padBottom(5f);
+        loggedInUserTable.add(sep).colspan(tableColumns).growX().height(1f).padTop(2f).padBottom(5f);
         loggedInUserTable.row();
       }
     }
@@ -925,8 +986,6 @@ public class MenuScreen extends AbstractScreen {
           break;
         }
       }
-      boolean isHost = !loggedInUsers.isEmpty()
-          && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
       boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
 
       if (isHost) {
@@ -965,16 +1024,7 @@ public class MenuScreen extends AbstractScreen {
         menuStage.addActor(countdownLabel);
       }
 
-      // Rebuild hero dropdown excluding heroes reserved by other lobby players.
-      if (sessionAllowHeroSelection) {
-        refreshHeroDropdown();
-
-        // Add hero selector directly to stage so popup coordinates work correctly
-        Label heroLabel = new Label("Starting hero:", MyGdxGame.skin);
-        heroLabel.setPosition(heroSelectBox.getX(), heroSelectBox.getY() + heroSelectBox.getHeight() + 4);
-        menuStage.addActor(heroLabel);
-        menuStage.addActor(heroSelectBox);
-      } else {
+      if (!sessionAllowHeroSelection) {
         // No hero selection in this session — clear any stale hero from a previous session.
         menuState.setStartingHero("None");
       }
@@ -1141,12 +1191,23 @@ public class MenuScreen extends AbstractScreen {
             String userID = objects.getJSONObject(i).getString("id");
             String name   = objects.getJSONObject(i).getString("name");
             boolean isReady = objects.getJSONObject(i).getBoolean("isReady");
+            String heroSel = objects.getJSONObject(i).optString("heroSelection", "None");
             User user = new User(userID, name);
             user.setReady(isReady);
+            user.setSelectedHero(heroSel);
             menuState.addUser(user);
-            updateScreen = true;
-            Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady);
+            Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady + " hero=" + heroSel);
           }
+          // Rebuild reservedByOthers from received hero selections
+          reservedByOthers.clear();
+          for (int j = 0; j < menuState.getUsers().size(); j++) {
+            User u = menuState.getUsers().get(j);
+            if (!u.getUserID().equals(menuState.getMyUserID())) {
+              String h = u.getSelectedHero();
+              if (!h.equals("None")) reservedByOthers.add(h);
+            }
+          }
+          updateScreen = true;
         } catch (JSONException e) {
           Gdx.app.log("SocketIO", "Error parsing getUsers");
         }

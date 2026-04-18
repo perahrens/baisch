@@ -229,6 +229,10 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         (function(capturedDi, capturedCombo) {
           setTimeout(function() {
             gs.kingAttackResolved(attackerIdx, capturedDi, true, capturedCombo, false);
+            // Auto-pick hero if bot defeated a player with multiple heroes
+            if (gs.pendingHeroSelection && gs.pendingHeroSelection.attackerIdx === attackerIdx) {
+              gs.resolveHeroSelection(gs.pendingHeroSelection.options[0]);
+            }
             io.to(sess.id).emit('stateUpdate', gs.serialize());
             checkAndHandleWinner(sess);
             callback(true);
@@ -248,6 +252,10 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         (function(capturedDi, capturedJoker) {
           setTimeout(function() {
             gs.kingAttackResolved(attackerIdx, capturedDi, true, [capturedJoker], false);
+            // Auto-pick hero if bot defeated a player with multiple heroes
+            if (gs.pendingHeroSelection && gs.pendingHeroSelection.attackerIdx === attackerIdx) {
+              gs.resolveHeroSelection(gs.pendingHeroSelection.options[0]);
+            }
             io.to(sess.id).emit('stateUpdate', gs.serialize());
             checkAndHandleWinner(sess);
             callback(true);
@@ -446,6 +454,111 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     }
   }
 
+  // Use any available active hero abilities before the main attack sequence.
+  // Modifies gs in-place; returns true if any hero action was taken.
+  function botUseActiveHeroes(gs, playerIdx) {
+    var p = gs.players[playerIdx];
+    if (!p) return false;
+    var heroes = p.heroes || [];
+    var acted = false;
+
+    // Warlord king swap: upgrade king if a hand card is stronger
+    if (heroes.indexOf('Warlord') !== -1 && (p.warlordAttacks || 0) > 0 && p.kingCard !== null) {
+      var kingStr = gs.cardStrength(p.kingCard);
+      var bestHandId = null, bestHandStr = kingStr;
+      var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
+      for (var i = 0; i < nonJokerHand.length; i++) {
+        var s = gs.cardStrength(nonJokerHand[i]);
+        if (s > bestHandStr) { bestHandStr = s; bestHandId = nonJokerHand[i]; }
+      }
+      if (bestHandId !== null) {
+        gs.warlordKingSwap(playerIdx, p.kingCard, bestHandId);
+        acted = true;
+      }
+    }
+
+    // Merchant trade: discard weakest hand card and draw top deck card if it's an improvement
+    if (heroes.indexOf('Merchant') !== -1 && (p.merchantTrades || 0) > 0 && gs.deck.length > 0) {
+      var nonJokerHand2 = p.hand.filter(function(id) { return id <= 52; });
+      if (nonJokerHand2.length > 0) {
+        var weakestId = null, weakestStr2 = 9999;
+        for (var i = 0; i < nonJokerHand2.length; i++) {
+          var s = gs.cardStrength(nonJokerHand2[i]);
+          if (s < weakestStr2) { weakestStr2 = s; weakestId = nonJokerHand2[i]; }
+        }
+        var topDeckId = gs.deck[gs.deck.length - 1];
+        var topDeckStr = gs.cardStrength(topDeckId);
+        if (weakestId !== null && topDeckStr > weakestStr2) {
+          gs.merchantTrade(playerIdx, weakestId, topDeckId);
+          // If the drawn card is a joker, do a second try with the next deck card
+          var justDrawnIdx = p.hand.indexOf(topDeckId);
+          var justDrawn = justDrawnIdx !== -1 ? topDeckId : null;
+          if (justDrawn !== null && justDrawn > 52 && (p.merchantTrades === 0) && gs.deck.length > 0) {
+            // merchantTrades was decremented — use merchantSecondTry to replace the joker
+            var secondDeckId = gs.deck[gs.deck.length - 1];
+            gs.merchantSecondTry(playerIdx, justDrawn, secondDeckId, false);
+          }
+          acted = true;
+        }
+      }
+    }
+
+    // Magician: replace an opponent's strongest defense slot with fresh deck cards
+    if (heroes.indexOf('Magician') !== -1 && (p.magicianSpells || 0) > 0 && gs.deck.length >= 1) {
+      var bestTargetInfo = null, bestTargetStr = 0;
+      for (var di = 0; di < gs.players.length; di++) {
+        if (di === playerIdx || gs.players[di].isOut) continue;
+        var def = gs.players[di];
+        for (var slot = 1; slot <= 3; slot++) {
+          var defCardId = def.defCards[slot];
+          if (defCardId == null) continue;
+          var defStr = gs.cardStrength(defCardId);
+          // Only cast on face-up (known) cards — avoids wasting spell on a weak hidden card
+          var isFaceUp = def.defCardsCovered && def.defCardsCovered[slot] === false;
+          if (isFaceUp && defStr > bestTargetStr) {
+            bestTargetStr = defStr;
+            var hasTop = def.topDefCards && def.topDefCards[slot] != null;
+            bestTargetInfo = { di: di, slot: slot, hasTop: hasTop };
+          }
+        }
+      }
+      if (bestTargetInfo !== null && bestTargetStr > 7) { // only bother with medium+ cards
+        var newBottom = gs.deck[gs.deck.length - 1];
+        var newTop = -1;
+        if (bestTargetInfo.hasTop && gs.deck.length >= 2) {
+          newTop = gs.deck[gs.deck.length - 2];
+        }
+        gs.magicianSwap(playerIdx, bestTargetInfo.di, bestTargetInfo.slot,
+                        newBottom, true, newTop, true);
+        acted = true;
+      }
+    }
+
+    // Fortified Tower: stack weakest hand card on a defense slot (1 fortify per turn)
+    if (heroes.indexOf('Fortified Tower') !== -1 && p.hand.length > 0) {
+      var fortified = false;
+      for (var slot = 1; slot <= 3 && !fortified; slot++) {
+        if (p.defCards[slot] != null && (p.topDefCards[slot] == null)) {
+          var nonJokersForTower = p.hand.filter(function(id) { return id <= 52; });
+          if (nonJokersForTower.length > 0) {
+            var weakest = null, weakestS = 9999;
+            for (var i = 0; i < nonJokersForTower.length; i++) {
+              var s = gs.cardStrength(nonJokersForTower[i]);
+              if (s < weakestS) { weakestS = s; weakest = nonJokersForTower[i]; }
+            }
+            if (weakest !== null) {
+              gs.putTopDefCard(playerIdx, slot, weakest);
+              fortified = true;
+              acted = true;
+            }
+          }
+        }
+      }
+    }
+
+    return acted;
+  }
+
   function executeBotTurn(sess) {
     var gs = sess.gameState;
     var idx = gs.currentPlayerIndex;
@@ -460,6 +573,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
     // 3. Replace any face-up (exposed) defense card with a fresh face-down card
     if (botReplaceExposedDefense(gs, idx)) {
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
+
+    // 3.5. Use active hero abilities (Warlord king swap, Merchant trade, Magician, Fortified Tower)
+    if (botUseActiveHeroes(gs, idx)) {
       io.to(sess.id).emit('stateUpdate', gs.serialize());
     }
 

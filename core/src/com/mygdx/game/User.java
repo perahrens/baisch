@@ -27,6 +27,16 @@ public class User {
   public void setReady(boolean isReady) {
     this.isReady = isReady;
   }
-  
-  
+
+  String selectedHero;
+
+  public String getSelectedHero() {
+    return selectedHero != null ? selectedHero : "None";
+  }
+
+  public void setSelectedHero(String selectedHero) {
+    this.selectedHero = selectedHero;
+  }
+
+
 }

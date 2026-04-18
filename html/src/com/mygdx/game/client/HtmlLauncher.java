@@ -3,7 +3,12 @@ package com.mygdx.game.client;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.backends.gwt.GwtApplication;
 import com.badlogic.gdx.backends.gwt.GwtApplicationConfiguration;
+import com.badlogic.gdx.backends.gwt.preloader.Preloader;
+import com.google.gwt.core.client.GWT;
+import com.google.gwt.dom.client.Style;
 import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.ui.InlineHTML;
+import com.google.gwt.user.client.ui.Panel;
 import com.mygdx.game.MyGdxGame;
 
 public class HtmlLauncher extends GwtApplication {
@@ -16,6 +21,22 @@ public class HtmlLauncher extends GwtApplication {
         return new GwtApplicationConfiguration(
                 Window.getClientWidth(),
                 Window.getClientHeight());
+    }
+
+    @Override
+    public Preloader.PreloaderCallback getPreloaderCallback() {
+        // Return a no-op callback so the default libGDX logo/progress bar
+        // is never rendered. Our custom HTML loading overlay handles this instead.
+        return new Preloader.PreloaderCallback() {
+            @Override
+            public void update(Preloader.PreloaderState state) {
+                // intentionally empty
+            }
+            @Override
+            public void error(String file) {
+                // silently ignore individual asset load errors
+            }
+        };
     }
 
     @Override

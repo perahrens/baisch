@@ -191,7 +191,7 @@ function startGameForSession(sess, requesterSocketId) {
     }
   });
 
-  io.to(sess.id).emit('getUsers', sess.users);
+  io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
   sess.users.forEach(function(u, idx) {
     if (!bot.isBot(u)) {
       io.to(u.id).emit('gameState', {
@@ -266,7 +266,7 @@ function leaveCurrentSession(socket) {
   var specIdx = sess.spectators.indexOf(socket.id);
   if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
   socket.leave(sess.id);
-  io.to(sess.id).emit('getUsers', sess.users);
+  io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
   if (sess.users.length === 0 && sess.spectators.length === 0) {
     if (sess.timer) clearInterval(sess.timer);
     delete sessions[sess.id];
@@ -826,6 +826,55 @@ function botWeakestCard(gs, hand) {
 }
 
 
+// Build getUsers payload augmented with each player's current hero selection.
+function getUsersWithHeroes(sess) {
+  return sess.users.map(function(u) {
+    return { id: u.id, name: u.name, isReady: u.isReady, heroSelection: sess.heroSelections[u.id] || 'None' };
+  });
+}
+
+// Auto-advance hero auction for any bot that is next to bid.
+// Bots with no heroes bid if they can meet the minimum; otherwise they pass.
+function botAdvanceAuction(sess) {
+  if (!sess || !sess.gameState || !sess.gameState.pendingHeroAuction) return;
+  var auction = sess.gameState.pendingHeroAuction;
+  var bidderIdx = auction.currentBidderIdx;
+  if (bidderIdx !== null && bidderIdx !== undefined &&
+      sess.users[bidderIdx] && bot.isBot(sess.users[bidderIdx])) {
+    var bBot = sess.gameState.players[bidderIdx];
+    var botHeroCount = (bBot.heroes || []).length;
+    var minBid = Math.max(auction.minBid,
+      auction.currentBid ? auction.currentBid.totalStrength + 1 : auction.minBid);
+
+    // Bot bids if it has no heroes and can cover the minimum bid with hand cards.
+    if (botHeroCount === 0) {
+      var nonJokers = (bBot.hand || []).filter(function(id) { return id <= 52; });
+      // Sort descending by strength so we pick fewest (strongest) cards first.
+      var sorted = nonJokers.slice().sort(function(a, b) {
+        return sess.gameState.cardStrength(b) - sess.gameState.cardStrength(a);
+      });
+      var chosen = [], sum = 0;
+      for (var j = 0; j < sorted.length && sum < minBid; j++) {
+        chosen.push(sorted[j]);
+        sum += sess.gameState.cardStrength(sorted[j]);
+      }
+      if (chosen.length > 0 && sum >= minBid) {
+        var ok = sess.gameState.heroAuctionBid(bidderIdx, chosen, []);
+        if (ok) {
+          io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+          botAdvanceAuction(sess);
+          return;
+        }
+      }
+    }
+
+    // Bot passes.
+    sess.gameState.heroAuctionPass(bidderIdx);
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    botAdvanceAuction(sess);
+  }
+}
+
 io.on('connection', function(socket) {
   console.log("User Connected: " + socket.id);
   connectedPlayers[socket.id] = { id: socket.id, name: '' };
@@ -942,7 +991,7 @@ io.on('connection', function(socket) {
     socket.join(sess.id);
     console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: " + botCount + ")");
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
     broadcastPlayerList();
@@ -977,7 +1026,7 @@ io.on('connection', function(socket) {
       }
     });
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
     socket.emit('gameStatus', { running: false });
     broadcastSessionList();
     broadcastPlayerList();
@@ -1013,7 +1062,7 @@ io.on('connection', function(socket) {
     if (sess.timer && !canSessionStart(sess, sess.users[0] && sess.users[0].id)) {
       cancelStartCountdown(sess, true);
     }
-    io.to(sess.id).emit('getUsers', sess.users);
+    io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
   });
   
   socket.on('startTimer', function(seconds) {
@@ -1228,7 +1277,10 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
     var ok = sess.gameState.initiateHeroSale(playerIdx, String(data.heroName || ''), parseInt(data.minBid) || 0);
-    if (ok) io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    if (ok) {
+      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+      botAdvanceAuction(sess);
+    }
   });
 
   socket.on('heroAuctionBid', function(data) {
@@ -1238,7 +1290,10 @@ io.on('connection', function(socket) {
     var handIds = (data.handCardIds || []).map(Number);
     var defIds = (data.defCardIds || []).map(Number);
     var ok = sess.gameState.heroAuctionBid(playerIdx, handIds, defIds);
-    if (ok) io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    if (ok) {
+      io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+      botAdvanceAuction(sess);
+    }
   });
 
   socket.on('heroAuctionPass', function(data) {
@@ -1247,6 +1302,7 @@ io.on('connection', function(socket) {
     var playerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
     sess.gameState.heroAuctionPass(playerIdx);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    botAdvanceAuction(sess);
   });
 
   socket.on('heroSelected', function(heroName) {
@@ -1260,6 +1316,27 @@ io.on('connection', function(socket) {
     if (heroName !== 'None') {
       socket.to(sess.id).emit('heroReserved', { heroName: heroName });
     }
+  });
+
+  // Host sets starting hero for a bot slot.
+  socket.on('setBotHeroSelection', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    // Only the host (first user) may set bot heroes.
+    if (!sess.users.length || sess.users[0].id !== socket.id) return;
+    var botUserId = String((data && data.botUserId) || '');
+    var heroName  = String((data && data.heroName)  || 'None');
+    var botUser = sess.users.find(function(u) { return u.id === botUserId && bot.isBot(u); });
+    if (!botUser) return;
+    var oldHero = sess.heroSelections[botUserId] || 'None';
+    if (oldHero !== 'None') {
+      socket.to(sess.id).emit('heroReleased', { heroName: oldHero });
+    }
+    sess.heroSelections[botUserId] = heroName;
+    if (heroName !== 'None') {
+      socket.to(sess.id).emit('heroReserved', { heroName: heroName });
+    }
+    io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
   });
 
   socket.on('mercDefBoost', function(data) {
@@ -1339,6 +1416,25 @@ io.on('connection', function(socket) {
   socket.on('batteryDefenseCheck', function(data) {
     var sess = getSession(socket.id);
     if (!sess) return;
+    var targetIdx = data && data.targetPlayerIdx;
+    // Auto-respond on behalf of a bot defender
+    if (targetIdx !== undefined && sess.gameState && sess.users[targetIdx] && bot.isBot(sess.users[targetIdx])) {
+      var defPlayer = sess.gameState.players[targetIdx];
+      if (defPlayer && (defPlayer.batteryTowerCharges || 0) > 0) {
+        // Bot always uses Battery Tower to deny the attack
+        defPlayer.batteryTowerCharges--;
+        io.to(sess.id).emit('batteryDenyAttack', {
+          attackerIdx:    data.attackerIdx,
+          targetPlayerIdx: targetIdx,
+          positionId:     data.positionId,
+          isKing:         data.isKing || false
+        });
+      } else {
+        // No charges — auto-allow
+        io.to(sess.id).emit('batteryAllowAttack', { attackerIdx: data.attackerIdx });
+      }
+      return;
+    }
     socket.to(sess.id).emit('batteryDefenseCheck', data);
   });
 

@@ -178,19 +178,17 @@
       }, false);
 
       // Remove the loading overlay once GWT creates the canvas
-      (function() {
+      (function waitAndRemoveOverlay() {
         var overlay = document.getElementById('loading-overlay');
         if (!overlay) return;
-        var observer = new MutationObserver(function() {
-          if (document.querySelector('#embed-html canvas')) {
-            observer.disconnect();
-            overlay.classList.add('fade-out');
-            setTimeout(function() {
-              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-            }, 450);
-          }
-        });
-        observer.observe(document.getElementById('embed-html'), { childList: true, subtree: true });
+        if (document.querySelector('#embed-html canvas')) {
+          overlay.classList.add('fade-out');
+          setTimeout(function() {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          }, 450);
+          return;
+        }
+        setTimeout(waitAndRemoveOverlay, 200);
       })();
     </script>
   </body>

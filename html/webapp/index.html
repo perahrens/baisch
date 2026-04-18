@@ -45,9 +45,10 @@
                   z-index: 9999;
                 }
                 /* ── Hide the default libGDX preloader logo/progress bar ─── */
-                /* The GWT backend injects .gdx-preloader into the DOM during  */
-                /* asset download. Our custom overlay handles this phase.       */
+                /* The GWT backend injects a wrapper <table> then .gdx-preloader */
+                /* inside #embed-html. Our custom overlay handles this phase.   */
                 .gdx-preloader { display: none !important; }
+                #embed-html > table { display: none !important; }
                 /* ── Game-branded loading overlay ─────────────────────────── */
                 #loading-overlay {
                   position: fixed;

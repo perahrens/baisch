@@ -293,30 +293,29 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showDuplicateTabScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+    Table panel = new Table(MyGdxGame.skin);
+    panel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.38f)));
+    panel.pad(28f, 36f, 28f, 36f);
     Label msg = new Label(
         "This game was opened in another browser tab.\nThis tab is no longer active.",
         MyGdxGame.skin);
-    msg.pack();
-    msg.setPosition(
-        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
-        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f);
-    menuStage.addActor(msg);
+    panel.add(msg);
+    panel.pack();
+    panel.setPosition(
+        Math.round(cx - panel.getWidth() / 2f),
+        Math.round(MyGdxGame.HEIGHT / 2f - panel.getHeight() / 2f));
+    menuStage.addActor(panel);
     Gdx.input.setInputProcessor(menuStage);
   }
 
   private void showReconnectingScreen() {
+    float cx = MyGdxGame.WIDTH / 2f;
+    Table panel = new Table(MyGdxGame.skin);
+    panel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.38f)));
+    panel.pad(28f, 36f, 28f, 36f);
     Label msg = new Label("Reconnecting...", MyGdxGame.skin);
-    msg.pack();
-    msg.setPosition(
-        MyGdxGame.WIDTH  / 2f - msg.getPrefWidth()  / 2f,
-        MyGdxGame.HEIGHT / 2f - msg.getPrefHeight() / 2f + 30f);
-    menuStage.addActor(msg);
-
     TextButton returnBtn = new TextButton("Return to Lobby", MyGdxGame.skin);
-    returnBtn.pack();
-    returnBtn.setPosition(
-        MyGdxGame.WIDTH  / 2f - returnBtn.getPrefWidth()  / 2f,
-        MyGdxGame.HEIGHT / 2f - returnBtn.getPrefHeight() / 2f - 20f);
     returnBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -324,8 +323,14 @@ public class MenuScreen extends AbstractScreen {
         show();
       }
     });
-    menuStage.addActor(returnBtn);
-
+    panel.add(msg).padBottom(20f);
+    panel.row();
+    panel.add(returnBtn);
+    panel.pack();
+    panel.setPosition(
+        Math.round(cx - panel.getWidth() / 2f),
+        Math.round(MyGdxGame.HEIGHT / 2f - panel.getHeight() / 2f));
+    menuStage.addActor(panel);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -375,6 +380,25 @@ public class MenuScreen extends AbstractScreen {
     });
 
     menuStage.addActor(enterNameButton);
+
+    // Subtitle below logo
+    Label subtitle = new Label("A card game for 2\u20134 players", MyGdxGame.skin);
+    subtitle.setColor(1f, 1f, 1f, 0.65f);
+    subtitle.pack();
+    subtitle.setPosition(
+        Math.round(cx - subtitle.getWidth() / 2f),
+        Math.round(logoImage.getY() - subtitle.getHeight() - 10f));
+    menuStage.addActor(subtitle);
+
+    // Instruction hint above name button
+    Label nameHint = new Label("Tap to enter your name", MyGdxGame.skin);
+    nameHint.setColor(1f, 1f, 1f, 0.55f);
+    nameHint.pack();
+    nameHint.setPosition(
+        Math.round(cx - nameHint.getWidth() / 2f),
+        Math.round(0.3f * MyGdxGame.HEIGHT + enterNameButton.getHeight() + 8f));
+    menuStage.addActor(nameHint);
+
     addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
@@ -440,10 +464,20 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(gamesTab);
     menuStage.addActor(playersTab);
 
+    // Small logo at top of session-list screen
+    Image smallLogo = new Image(logoRegion);
+    float smallLogoW = Math.round(logoImage.getWidth() * 0.22f);
+    float smallLogoH = Math.round(logoImage.getHeight() * 0.22f);
+    smallLogo.setSize(smallLogoW, smallLogoH);
+    smallLogo.setPosition(
+        Math.round(cx - smallLogoW / 2f),
+        Math.round(MyGdxGame.HEIGHT - smallLogoH - 5f));
+    menuStage.addActor(smallLogo);
+
     if (!showPlayersTab) {
       // ── Games tab ───────────────────────────────────────────────────────────
       Table sessTable = new Table(MyGdxGame.skin);
-      sessTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      sessTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
       sessTable.pad(14f, 18f, 14f, 18f);
 
       Label h1 = new Label("Name", MyGdxGame.skin);
@@ -506,20 +540,35 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
+      // Evenly-spaced button row: Rules | Tutorial | Create game
+      float btnH = button.getHeight();
+      float gap = 8f;
+      float margin = 16f;
+      float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
+      float btnY = Math.round(0.06f * MyGdxGame.HEIGHT);
+
+      TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
+      rulesBtn.setSize(btnW, btnH);
+      rulesBtn.setPosition(margin, btnY);
+      rulesBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          Gdx.net.openURI(RULES_URL);
+        }
+      });
+
       TextButton tutorialBtn = new TextButton("Tutorial", MyGdxGame.skin);
-      tutorialBtn.setSize(button.getWidth(), button.getHeight());
-      tutorialBtn.setPosition(cx - tutorialBtn.getWidth() / 2f, 0.08f * MyGdxGame.HEIGHT);
+      tutorialBtn.setSize(btnW, btnH);
+      tutorialBtn.setPosition(margin + btnW + gap, btnY);
       tutorialBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
           socket.emit("createTutorial", new JSONObject());
         }
       });
-      menuStage.addActor(tutorialBtn);
 
       TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
-      createBtn.setSize(button.getWidth(), button.getHeight());
-      createBtn.setPosition(MyGdxGame.WIDTH - createBtn.getWidth() - 20f, 0.08f * MyGdxGame.HEIGHT);
+      createBtn.setSize(btnW, btnH);
+      createBtn.setPosition(margin + 2 * (btnW + gap), btnY);
       createBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -527,11 +576,14 @@ public class MenuScreen extends AbstractScreen {
           show();
         }
       });
+
+      menuStage.addActor(rulesBtn);
+      menuStage.addActor(tutorialBtn);
       menuStage.addActor(createBtn);
     } else {
       // ── Players tab ─────────────────────────────────────────────────────────
       Table playersTable = new Table(MyGdxGame.skin);
-      playersTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+      playersTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
       playersTable.pad(14f, 18f, 14f, 18f);
 
       Label ph1 = new Label("Name", MyGdxGame.skin);
@@ -575,18 +627,20 @@ public class MenuScreen extends AbstractScreen {
       playersTable.pack();
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
-    }
 
-    TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
-    rulesBtn.setSize(button.getWidth(), button.getHeight());
-    rulesBtn.setPosition(20f, 0.08f * MyGdxGame.HEIGHT);
-    rulesBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        Gdx.net.openURI(RULES_URL);
-      }
-    });
-    menuStage.addActor(rulesBtn);
+      // Rules button centred at bottom on the Players tab
+      TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
+      rulesBtn.pack();
+      rulesBtn.setPosition(
+          Math.round(cx - rulesBtn.getPrefWidth() / 2f),
+          Math.round(0.06f * MyGdxGame.HEIGHT));
+      rulesBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          Gdx.net.openURI(RULES_URL);
+        }
+      });
+      menuStage.addActor(rulesBtn);
+    }
 
     addMusicToggleButton(menuStage);
     addLogoutButton(menuStage);
@@ -689,7 +743,7 @@ public class MenuScreen extends AbstractScreen {
 
     // ── Table layout (no overlap guaranteed) ────────────────────────────────
     Table form = new Table(MyGdxGame.skin);
-    form.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.18f)));
+    form.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
     form.pad(20f, 24f, 20f, 24f);
     float colW = MyGdxGame.WIDTH * 0.72f;
 
@@ -830,6 +884,16 @@ public class MenuScreen extends AbstractScreen {
     float cx = MyGdxGame.WIDTH / 2f;
     float buttonY = 0.08f * MyGdxGame.HEIGHT;
 
+    // Small logo at top of lobby screen
+    Image lobbyLogo = new Image(logoRegion);
+    float lobbyLogoW = Math.round(logoImage.getWidth() * 0.22f);
+    float lobbyLogoH = Math.round(logoImage.getHeight() * 0.22f);
+    lobbyLogo.setSize(lobbyLogoW, lobbyLogoH);
+    lobbyLogo.setPosition(
+        Math.round(cx - lobbyLogoW / 2f),
+        Math.round(MyGdxGame.HEIGHT - lobbyLogoH - 5f));
+    menuStage.addActor(lobbyLogo);
+
     Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
     actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
     actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
@@ -843,7 +907,7 @@ public class MenuScreen extends AbstractScreen {
 
     // table with all logged in users
     Table loggedInUserTable = new Table(MyGdxGame.skin);
-    loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.14f)));
+    loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
     loggedInUserTable.pad(14f, 18f, 14f, 18f);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 

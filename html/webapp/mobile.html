@@ -46,9 +46,73 @@
         justify-content: center;
         align-items: flex-start;
       }
+      /* ── Hide the default libGDX preloader logo/progress bar ─── */
+      .gdx-preloader { display: none !important; }
+      #embed-html > table { display: none !important; }
+      /* ── Game-branded loading overlay ─────────────────────────── */
+      #loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: #1a1a2e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 8000;
+        transition: opacity 0.4s ease;
+      }
+      #loading-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loading-title {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(48px, 12vw, 96px);
+        font-weight: bold;
+        letter-spacing: 0.15em;
+        color: #f5c842;
+        text-shadow: 0 0 30px rgba(245,200,66,0.6), 0 2px 8px rgba(0,0,0,0.8);
+        margin-bottom: 20px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      #loading-suits {
+        font-size: clamp(24px, 6vw, 42px);
+        letter-spacing: 0.3em;
+        color: #cccccc;
+        margin-bottom: 40px;
+      }
+      #loading-suits .red { color: #e05555; }
+      #loading-bar-wrap {
+        width: clamp(160px, 40vw, 260px);
+        height: 6px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      #loading-bar {
+        height: 100%;
+        width: 30%;
+        background: linear-gradient(90deg, #f5c842, #e0a020);
+        border-radius: 3px;
+        animation: slide 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.75; }
+      }
+      @keyframes slide {
+        0%   { transform: translateX(-120%); }
+        100% { transform: translateX(500%); }
+      }
     </style>
   </head>
   <body>
+    <!-- Game-branded loading screen, removed once the canvas appears -->
+    <div id="loading-overlay">
+      <div id="loading-title">BAISCH</div>
+      <div id="loading-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
+      <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    </div>
     <div id="embed-html"></div>
     <script type="text/javascript" src="html/html.nocache.js"></script>
     <script>
@@ -113,6 +177,22 @@
         evt.preventDefault();
         evt.target.style.cursor = '';
       }, false);
+
+      // Remove the loading overlay once GWT creates the canvas
+      (function() {
+        var overlay = document.getElementById('loading-overlay');
+        if (!overlay) return;
+        var observer = new MutationObserver(function() {
+          if (document.querySelector('#embed-html canvas')) {
+            observer.disconnect();
+            overlay.classList.add('fade-out');
+            setTimeout(function() {
+              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 450);
+          }
+        });
+        observer.observe(document.getElementById('embed-html'), { childList: true, subtree: true });
+      })();
     </script>
   </body>
 </html>

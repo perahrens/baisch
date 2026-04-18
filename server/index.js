@@ -3,6 +3,11 @@ var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
 
+// Version endpoint — used by Android/iOS clients to check for updates.
+app.get('/version', function(req, res) {
+  res.json({ version: process.env.APP_VERSION || 'unknown' });
+});
+
 // Serve the mobile-optimised page at /m (canonical URL).
 app.get('/m', function(req, res) {
   res.sendFile(path.join(__dirname, 'public', 'mobile.html'));

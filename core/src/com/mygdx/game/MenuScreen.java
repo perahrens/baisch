@@ -382,7 +382,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(enterNameButton);
 
     // Subtitle below logo
-    Label subtitle = new Label("A card game for 2\u20134 players", MyGdxGame.skin);
+    Label subtitle = new Label("A card game for 2-4 players", MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
@@ -628,18 +628,7 @@ public class MenuScreen extends AbstractScreen {
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
 
-      // Rules button centred at bottom on the Players tab
-      TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
-      rulesBtn.pack();
-      rulesBtn.setPosition(
-          Math.round(cx - rulesBtn.getPrefWidth() / 2f),
-          Math.round(0.06f * MyGdxGame.HEIGHT));
-      rulesBtn.addListener(new ClickListener() {
-        @Override public void clicked(InputEvent event, float x, float y) {
-          Gdx.net.openURI(RULES_URL);
-        }
-      });
-      menuStage.addActor(rulesBtn);
+
     }
 
     addMusicToggleButton(menuStage);

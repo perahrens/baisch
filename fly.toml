@@ -11,6 +11,7 @@ primary_region = 'fra'
 
 [env]
   PORT = '8080'
+  APP_VERSION = '1.0'
 
 [http_service]
   internal_port = 8080

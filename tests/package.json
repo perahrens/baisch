@@ -1,0 +1,11 @@
+{
+  "name": "baisch-tests",
+  "version": "1.0.0",
+  "description": "Playwright smoke tests for Baisch",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

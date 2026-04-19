@@ -157,6 +157,7 @@ public class GameScreen extends ScreenAdapter {
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;
+  private int tutorialDefenseBaseline = -1; // defense card count when DEFENSE step started; -1 = unset
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
@@ -621,6 +622,9 @@ public class GameScreen extends ScreenAdapter {
             currentPlayer.takeDefCard(jj);
           }
         }
+        // After taking, deselect all hand cards so the SELECT tutorial step doesn't
+        // immediately auto-advance (the moved Card object retains its selected state).
+        for (Card c : currentPlayer.getHandCards()) { c.setSelected(false); }
         gameState.setUpdateState(true);
       }
     });
@@ -684,6 +688,15 @@ public class GameScreen extends ScreenAdapter {
 
     showGameStage(players, currentPlayer);
     showHandStage(players, currentPlayer);
+
+    // Auto-advance tutorial steps that are gated on game-state conditions rather than actions
+    if (isTutorial && tutorialStep >= 0) {
+      // Step 6: advance once it's the player's turn again (bot finished)
+      if (tutorialStep == TUTORIAL_STEP_WAITING && gameState.getCurrentPlayerIndex() == playerIndex) {
+        tutorialStep = TUTORIAL_STEP_INFO_EXPOSE;
+      }
+    }
+
     if (menuOpen) {
       buildMenuOverlay();
     } else {
@@ -1546,6 +1559,7 @@ public class GameScreen extends ScreenAdapter {
           } catch (JSONException e) {
             e.printStackTrace();
           }
+          tutorialAdvance(TUTORIAL_STEP_PLUNDER);
           pt.getPendingAttackCards().clear();
           pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
@@ -1824,6 +1838,7 @@ public class GameScreen extends ScreenAdapter {
               for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
               emitData.put("attackCardIds", atkIds);
               socket.emit("kingAttackResolved", emitData);
+              tutorialAdvance(TUTORIAL_STEP_KING_ATTACK);
             } catch (JSONException e) {
               e.printStackTrace();
             }
@@ -1856,6 +1871,7 @@ public class GameScreen extends ScreenAdapter {
               for (Card c : apt.getPendingAttackOwnDefCards()) { ownDefIds.put(c.getCardId()); }
               emitData.put("attackerOwnDefCardIds", ownDefIds);
               socket.emit("defAttackResolved", emitData);
+              tutorialAdvance(TUTORIAL_STEP_KING_ATTACK);
             } catch (JSONException e) {
               e.printStackTrace();
             }
@@ -3424,6 +3440,7 @@ public class GameScreen extends ScreenAdapter {
             }
           }
           super.clicked(event, x, y);
+          tutorialAdvance(TUTORIAL_STEP_ENDTURN);
         }
       };
       finishTurnButton.addListener(finishTurnButtonListener);
@@ -3566,6 +3583,7 @@ public class GameScreen extends ScreenAdapter {
 
     float btnW = stageW / 4f;
     float btnX = 4;
+    int buttonsAdded = 0;
     Map<Integer, Card> defCards    = currentPlayer.getDefCards();
     Map<Integer, Card> topDefCards = currentPlayer.getTopDefCards();
     for (int slot = 1; slot <= 3; slot++) {
@@ -3585,6 +3603,7 @@ public class GameScreen extends ScreenAdapter {
         @Override
         public void clicked(InputEvent event, float x, float y) {
           pendingExposeCard = false;
+          gameState.setUpdateState(true); // immediately remove the overlay
           try {
             JSONObject exposeData = new JSONObject();
             exposeData.put("playerIdx", playerIndex);
@@ -3593,10 +3612,26 @@ public class GameScreen extends ScreenAdapter {
             JSONObject ftData = new JSONObject();
             ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
             socket.emit("finishTurn", ftData);
+            tutorialAdvance(TUTORIAL_STEP_ENDTURN);
           } catch (JSONException ex) { ex.printStackTrace(); }
         }
       });
       handStage.addActor(slotBtn);
+      buttonsAdded++;
+    }
+    // Fallback: if no covered slots exist, automatically cancel expose and end turn.
+    // This guards against an edge case where the state was already updated server-side.
+    if (buttonsAdded == 0) {
+      pendingExposeCard = false;
+      Label noSlots = new Label("(no covered card to expose — ending turn)", MyGdxGame.skin);
+      noSlots.setColor(Color.LIGHT_GRAY);
+      noSlots.setPosition(stageW / 2f - noSlots.getPrefWidth() / 2f, stageH / 2f);
+      handStage.addActor(noSlots);
+      try {
+        JSONObject ftData = new JSONObject();
+        ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+        socket.emit("finishTurn", ftData);
+      } catch (JSONException ex) { ex.printStackTrace(); }
     }
   }
 
@@ -3816,123 +3851,291 @@ public class GameScreen extends ScreenAdapter {
   }
 
   // ── Tutorial overlay ────────────────────────────────────────────────────────
-  private static final String[] TUTORIAL_TITLES = {
-    "Welcome to Baisch!",
-    "Your Hand Cards",
-    "Plundering",
-    "Defense Cards",
-    "Attacking",
-    "Goal of the Game",
-    "Tutorial Complete!"
-  };
-  private static final String[] TUTORIAL_TEXTS = {
-    "This tutorial will teach you the core mechanics.\n\n"
-      + "You are playing against a bot opponent.\n"
-      + "The board shows your cards at the bottom, harvest decks in the center, "
-      + "and your king card with shield slots on the left.",
-    "The cards at the bottom of the screen are your hand cards.\n\n"
-      + "Tap a card to select it (it will highlight).\n"
-      + "You use hand cards to plunder harvest decks, attack enemies, "
-      + "or place them as defense shields.",
-    "To plunder, select one or more hand cards, then tap a harvest deck "
-      + "(the tilted card stacks in the center).\n\n"
-      + "Your attack strength must exceed the top card's defense. "
-      + "If you succeed, you take all cards from that deck!",
-    "To protect your king, place defense cards in your 3 shield slots.\n\n"
-      + "Tap a hand card to select it, then tap an empty shield slot "
-      + "(the dotted outlines near your king).\n"
-      + "Each slot holds up to 2 stacked cards.",
-    "To attack another player, select hand cards and tap one of their defense slots.\n\n"
-      + "If your attack strength exceeds the defense card, you destroy it. "
-      + "Once all 3 shields are gone, their king is exposed!",
-    "The goal is to be the last player with a covered king card.\n\n"
-      + "If your king gets exposed and attacked, you are eliminated. "
-      + "Use your turns wisely: plunder for cards, build defenses, and attack enemies!",
-    "You now know the basics!\n\n"
-      + "Feel free to keep playing this tutorial game, "
-      + "or press the button below to return to the main menu."
-  };
+  //
+  // Steps:
+  //   0  – Blocking intro
+  //   1  – ACTION: take a defense card to hand    (auto-advances after takeDefCard)
+  //   2  – ACTION: select a hand card             (auto-advances in render() poll)
+  //   3  – Blocking info: attack symbols
+  //   4  – ACTION: plunder a harvest deck         (auto-advances after plunderResolved)
+  //   5  – Blocking info: plunder mechanics
+  //   6  – Blocking info: joker card
+  //   7  – ACTION: place a defense card           (auto-advances in render() poll)
+  //   8  – ACTION: end your turn                  (auto-advances after finishTurn)
+  //   9  – Waiting for bot                        (auto-advances in show() when player's turn)
+  //  10  – Blocking info: expose defense rule
+  //  11  – Blocking info: king card usage
+  //  12  – ACTION: discard all defense cards      (auto-advances in render() poll, cemetery)
+  //  13  – ACTION: swap king with a hand card     (auto-advances in render() poll, coupSwap)
+  //  14  – ACTION: attack with the king           (auto-advances after kingAttackResolved)
+  //  15  – Blocking complete
+
+  private static final int TUTORIAL_STEP_INTRO          = 0;
+  private static final int TUTORIAL_STEP_TAKE_DEF_FIRST  = 1;  // pick up one defense card
+  private static final int TUTORIAL_STEP_SELECT          = 2;
+  private static final int TUTORIAL_STEP_INFO_SYMBOLS    = 3;
+  private static final int TUTORIAL_STEP_PLUNDER         = 4;
+  private static final int TUTORIAL_STEP_INFO_PLUNDER    = 5;
+  private static final int TUTORIAL_STEP_INFO_JOKER      = 6;
+  private static final int TUTORIAL_STEP_DEFENSE         = 7;
+  private static final int TUTORIAL_STEP_ENDTURN         = 8;
+  private static final int TUTORIAL_STEP_WAITING         = 9;
+  private static final int TUTORIAL_STEP_INFO_EXPOSE     = 10;
+  private static final int TUTORIAL_STEP_INFO_KING       = 11;
+  private static final int TUTORIAL_STEP_DISCARD_DEF     = 12;  // discard all defense cards to cemetery
+  private static final int TUTORIAL_STEP_SWITCH_KING     = 13;  // swap king with a hand card (coup)
+  private static final int TUTORIAL_STEP_KING_ATTACK     = 14;  // attack with the king
+  private static final int TUTORIAL_STEP_COMPLETE        = 15;
+  private static final int TUTORIAL_TOTAL_STEPS          = 16;
+
+  /** Called at action points to advance the tutorial if the player just completed the expected step. */
+  private void tutorialAdvance(int fromStep) {
+    if (!isTutorial || tutorialStep != fromStep) return;
+    tutorialStep++;
+    gameState.setUpdateState(true);
+  }
 
   private void buildTutorialOverlay() {
-    if (tutorialStep < 0 || tutorialStep >= TUTORIAL_TITLES.length) return;
+    if (tutorialStep < 0 || tutorialStep >= TUTORIAL_TOTAL_STEPS) return;
 
-    // Semi-transparent backdrop
+    boolean isBlocking = (tutorialStep == TUTORIAL_STEP_INTRO
+        || tutorialStep == TUTORIAL_STEP_INFO_SYMBOLS
+        || tutorialStep == TUTORIAL_STEP_INFO_PLUNDER
+        || tutorialStep == TUTORIAL_STEP_INFO_JOKER
+        || tutorialStep == TUTORIAL_STEP_INFO_EXPOSE
+        || tutorialStep == TUTORIAL_STEP_INFO_KING
+        || tutorialStep == TUTORIAL_STEP_COMPLETE);
+
+    if (isBlocking) {
+      buildBlockingTutorialOverlay();
+    } else {
+      buildGuidanceBanner();
+    }
+  }
+
+  /** Full-screen blocking overlay for all info/intro/complete steps. */
+  private void buildBlockingTutorialOverlay() {
     Image bg = new Image(MyGdxGame.skin, "white");
     bg.setFillParent(true);
-    bg.setColor(0f, 0f, 0f, 0.75f);
+    bg.setColor(0f, 0f, 0f, 0.88f);
     overlayStage.addActor(bg);
 
     Table outer = new Table();
     outer.setFillParent(true);
-    outer.center();
+    outer.center().pad(20f);
 
-    // Step counter
-    Label stepLabel = new Label("Step " + (tutorialStep + 1) + " / " + TUTORIAL_TITLES.length,
-        MyGdxGame.skin);
+    Label stepLabel = new Label("Step " + (tutorialStep + 1) + " / " + TUTORIAL_TOTAL_STEPS, MyGdxGame.skin);
     stepLabel.setColor(1f, 1f, 1f, 0.5f);
     outer.add(stepLabel).padBottom(6).row();
 
-    // Title
-    Label titleLabel = new Label(TUTORIAL_TITLES[tutorialStep], MyGdxGame.skin);
-    titleLabel.setColor(Color.GOLD);
-    outer.add(titleLabel).padBottom(14).row();
+    String title;
+    String body;
+    String btnLabel = "Got it!";
 
-    // Body text
-    Label bodyLabel = new Label(TUTORIAL_TEXTS[tutorialStep], MyGdxGame.skin);
-    bodyLabel.setWrap(true);
-    outer.add(bodyLabel).width(380f).padBottom(20).row();
+    if (tutorialStep == TUTORIAL_STEP_INTRO) {
+      title = "Welcome to Baisch!";
+      body  = "This interactive tutorial guides you through a real game against a bot.\n\n"
+            + "Follow the instructions shown at the top of the screen. "
+            + "The tutorial advances automatically each time you complete an action.";
+      btnLabel = "Let's go!";
 
-    // Buttons
-    final boolean isLastStep = (tutorialStep == TUTORIAL_TITLES.length - 1);
-    if (isLastStep) {
+    } else if (tutorialStep == TUTORIAL_STEP_INFO_SYMBOLS) {
+      title = "Attack Symbols";
+      body  = "Every card has an attack symbol: ♥ Hearts, ♦ Diamonds, ♣ Clubs, or ♠ Spades.\n\n"
+            + "You can combine multiple cards with the SAME symbol in a single attack — "
+            + "their strengths add up.\n\n"
+            + "Cards with DIFFERENT symbols cannot be combined. "
+            + "Select a card first: all other hand cards of the same symbol will be combinable.\n\n"
+            + "Your active symbol is locked-in on your first attack of the turn "
+            + "and stays set until you click 'End Turn' — even after a plunder resolves. "
+            + "This means you can attack again with the same symbol before ending your turn.";
+
+    } else if (tutorialStep == TUTORIAL_STEP_INFO_PLUNDER) {
+      title = "How Plundering Works";
+      body  = "When you attack a harvest deck, your total attack value is compared to the hidden top card of that deck.\n\n"
+            + "• If your value is HIGHER (or equal): you win and take cards from the deck.\n"
+            + "• If your value is LOWER: the attack fails — your card(s) go to the discard pile and you gain nothing.\n\n"
+            + "The top card is face-down and unknown — it can be anything from 2 up to a Joker (which beats everything).\n\n"
+            + "Safe strategy: the higher your attack value, the better your odds. "
+            + "Combine same-symbol cards to add their values together and aim as close to 15 as possible.";
+
+    } else if (tutorialStep == TUTORIAL_STEP_INFO_JOKER) {
+      title = "The Joker Card";
+      body  = "The Joker is a special wild card.\n\n"
+            + "• Offense: its attack value is extremely high — it beats almost any defense.\n"
+            + "• Defense: placing it in a shield slot gives only 1 strength — very weak.\n"
+            + "• Hero trade: drag a Joker to the cemetery to sacrifice it. You draw a card\n"
+            + "  and gain that card's matching hero. If you already own a hero, you can\n"
+            + "  exchange it — giving up the old hero for the new hero's ability.\n\n"
+            + "The Joker has no fixed symbol, so it fits any attack group.";
+
+    } else if (tutorialStep == TUTORIAL_STEP_INFO_EXPOSE) {
+      title = "Expose a Defense Card";
+      body  = "Each turn, if you did NOT perform any attack, you must expose one of your "
+            + "face-down defense cards before ending your turn.\n\n"
+            + "Tap 'Finish turn' — the game will ask you to choose which defense slot to expose. "
+            + "The card stays in the slot but becomes visible to all players.\n\n"
+            + "If you DO attack (plunder or player attack), no card needs to be exposed.";
+
+    } else if (tutorialStep == TUTORIAL_STEP_INFO_KING) {
+      title = "The King Card";
+      body  = "Your king is the single card placed below your defense slots. It is your most powerful card.\n\n"
+            + "To attack with it, you must first have NO defense cards in your slots. "
+            + "Then:\n"
+            + "1. Discard all your defense cards (drag each to the cemetery pile).\n"
+            + "2. Swap your king: tap your king to select it, then tap a hand card — that card becomes your new king, "
+            + "and your old king moves to hand ready to attack.\n"
+            + "3. Attack: tap the old king (now in hand, auto-selected) then tap an enemy defense slot.\n\n"
+            + "Warning: if a king attack FAILS, the king becomes exposed — "
+            + "and if an exposed king is successfully attacked, that player is eliminated!";
+
+    } else { // TUTORIAL_STEP_COMPLETE
+      title = "Tutorial Complete!";
+      body  = "Well done! You've completed the interactive tutorial.\n\n"
+            + "You now know how to select and combine cards, plunder decks, "
+            + "place defenses, expose cards, use your king, "
+            + "end your turn, and attack enemies.\n\n"
+            + "Feel free to keep playing or return to the menu.";
+    }
+
+    Label titleLbl = new Label(title, MyGdxGame.skin);
+    titleLbl.setColor(Color.GOLD);
+    outer.add(titleLbl).padBottom(14).row();
+
+    Label bodyLbl = new Label(body, MyGdxGame.skin);
+    bodyLbl.setWrap(true);
+    outer.add(bodyLbl).width(390f).padBottom(24).row();
+
+    if (tutorialStep == TUTORIAL_STEP_COMPLETE) {
       TextButton exitBtn = new TextButton("Back to Menu", MyGdxGame.skin);
       exitBtn.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
+        @Override public void clicked(InputEvent event, float x, float y) {
           tutorialStep = -1;
           emitGiveUp();
         }
       });
-      outer.add(exitBtn).width(300).height(50).padBottom(10).row();
+      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
 
       TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
       keepBtn.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
+        @Override public void clicked(InputEvent event, float x, float y) {
           tutorialStep = -1;
           overlayStage.clear();
           addMenuButtonToOverlay();
           gameState.setUpdateState(true);
         }
       });
-      outer.add(keepBtn).width(300).height(50).row();
+      outer.add(keepBtn).width(280).height(50).row();
     } else {
-      TextButton nextBtn = new TextButton("Next", MyGdxGame.skin);
-      nextBtn.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
-          tutorialStep++;
+      final int nextStep = tutorialStep + 1;
+      TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
+      gotItBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          tutorialStep = nextStep;
           overlayStage.clear();
           addMenuButtonToOverlay();
           buildTutorialOverlay();
         }
       });
-      outer.add(nextBtn).width(300).height(50).padBottom(10).row();
+      outer.add(gotItBtn).width(280).height(52).row();
 
+      // Skip tutorial link
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
+        @Override public void clicked(InputEvent event, float x, float y) {
           tutorialStep = -1;
           overlayStage.clear();
           addMenuButtonToOverlay();
           gameState.setUpdateState(true);
         }
       });
-      outer.add(skipBtn).width(300).height(50).row();
+      outer.add(skipBtn).width(200).height(40).padTop(8).row();
     }
 
     overlayStage.addActor(outer);
+  }
+
+  /** Non-blocking guidance banner at the top of the screen for interactive steps. */
+  private void buildGuidanceBanner() {
+    final String[] guidanceTitles = {
+      "",                              //  0 – unused (blocking)
+      "Pick up a defense card",        //  1
+      "Select a hand card",            //  2
+      "",                              //  3 – unused (blocking)
+      "Plunder a harvest deck",        //  4
+      "",                              //  5 – unused (blocking)
+      "",                              //  6 – unused (blocking)
+      "Place a defense card",          //  7
+      "Finish your turn",              //  8
+      "Bot is playing...",             //  9
+      "",                              // 10 – unused (blocking)
+      "",                              // 11 – unused (blocking)
+      "Discard all defense cards",      // 12
+      "Switch your king",              // 13
+      "Attack with your king!",        // 14
+      "",                              // 15 – unused (blocking)
+    };
+    final String[] guidanceTexts = {
+      "",  //  0
+      "Tap one of your occupied defense slots to take that card back to your hand.",  //  1
+      "Tap any card at the bottom of the screen to select it (it will highlight).",  //  2
+      "",  //  3
+      "With a card selected, tap one of the tilted card stacks in the center to plunder it.",  //  4
+      "",  //  5
+      "",  //  6
+      "Select a hand card, then tap an empty shield slot (dotted outlines below your king).",  //  7
+      "You are done for this turn — tap the 'Finish turn' button.",  //  8
+      "Wait for the bot to finish its turn — the tutorial continues automatically.",  //  9
+      "",  // 10
+      "",  // 11
+      "Select each defense slot, then drag it onto the cemetery pile to discard it. Repeat for all slots.",  // 12
+      "Tap your king to select it, then tap a hand card to swap it as your new king.",  // 13
+      "Tap the king card in hand (your old king, now auto-selected) then tap an enemy defense slot.",  // 14
+      "",  // 15
+    };
+
+    float bannerH = 88f;
+    float bannerY = MyGdxGame.HEIGHT - bannerH - 2f;
+
+    Image bannerBg = new Image(MyGdxGame.skin, "white");
+    bannerBg.setSize(MyGdxGame.WIDTH, bannerH);
+    bannerBg.setPosition(0, bannerY);
+    bannerBg.setColor(0f, 0.05f, 0.2f, 0.92f);
+    overlayStage.addActor(bannerBg);
+
+    Table banner = new Table();
+    banner.setSize(MyGdxGame.WIDTH, bannerH);
+    banner.setPosition(0, bannerY);
+    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+
+    Label stepLbl = new Label("Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  ", MyGdxGame.skin);
+    stepLbl.setColor(1f, 1f, 1f, 0.55f);
+    Label titleLbl = new Label(guidanceTitles[tutorialStep], MyGdxGame.skin);
+    titleLbl.setColor(Color.GOLD);
+
+    Table topRow = new Table();
+    topRow.add(stepLbl);
+    topRow.add(titleLbl).left();
+    banner.add(topRow).left().padBottom(4f).row();
+
+    Label bodyLbl = new Label(guidanceTexts[tutorialStep], MyGdxGame.skin);
+    bodyLbl.setWrap(true);
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+
+    overlayStage.addActor(banner);
+
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    skipBtn.setSize(70f, 30f);
+    skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
+    skipBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        tutorialStep = -1;
+        overlayStage.clear();
+        addMenuButtonToOverlay();
+        gameState.setUpdateState(true);
+      }
+    });
+    overlayStage.addActor(skipBtn);
   }
 
   private void emitGiveUp() {
@@ -4002,6 +4205,7 @@ public class GameScreen extends ScreenAdapter {
       payload.put("playerIdx", playerIndex);
       payload.put("positionId", positionId);
       socket.emit("takeDefCard", payload);
+      tutorialAdvance(TUTORIAL_STEP_TAKE_DEF_FIRST);
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
@@ -4013,6 +4217,7 @@ public class GameScreen extends ScreenAdapter {
       payload.put("positionId", positionId);
       payload.put("cardId", cardId);
       socket.emit("putDefCard", payload);
+      tutorialAdvance(TUTORIAL_STEP_DEFENSE);
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
@@ -4363,6 +4568,48 @@ public class GameScreen extends ScreenAdapter {
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
       show();
+    }
+
+    // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),
+    // so we poll it every frame here instead.
+    if (isTutorial && tutorialStep == TUTORIAL_STEP_SELECT) {
+      for (Card c : currentPlayer.getHandCards()) {
+        if (c.isSelected()) {
+          tutorialStep = TUTORIAL_STEP_INFO_SYMBOLS;
+          gameState.setUpdateState(true);
+          break;
+        }
+      }
+    }
+    // Tutorial step DEFENSE auto-advance: defense card placement may go through OwnPlaceholderListener
+    // which emits putDefCard directly without calling emitPutDefCard(). Poll here as fallback.
+    // Only advance when a NEW card is placed — not just because pre-existing cards are present.
+    if (isTutorial && tutorialStep == TUTORIAL_STEP_DEFENSE) {
+      int defTotal = currentPlayer.getDefCards().size() + currentPlayer.getTopDefCards().size();
+      if (tutorialDefenseBaseline < 0) {
+        // Record the card count at the start of the DEFENSE step so we can detect additions.
+        tutorialDefenseBaseline = defTotal;
+      } else if (defTotal > tutorialDefenseBaseline) {
+        tutorialDefenseBaseline = -1;
+        tutorialStep = TUTORIAL_STEP_ENDTURN;
+        gameState.setUpdateState(true);
+      }
+    } else if (tutorialStep != TUTORIAL_STEP_DEFENSE) {
+      // Reset baseline whenever we leave the DEFENSE step.
+      tutorialDefenseBaseline = -1;
+    }
+    // Tutorial step DISCARD_DEF: advance once all defense slots are empty (discarded to cemetery).
+    if (isTutorial && tutorialStep == TUTORIAL_STEP_DISCARD_DEF) {
+      if (currentPlayer.getDefCards().isEmpty() && currentPlayer.getTopDefCards().isEmpty()) {
+        tutorialAdvance(TUTORIAL_STEP_DISCARD_DEF);
+      }
+    }
+    // Tutorial step SWITCH_KING: advance once the coup-swap has been performed.
+    // coupSwapPendingCardId is set to the old king's card ID when the swap happens.
+    if (isTutorial && tutorialStep == TUTORIAL_STEP_SWITCH_KING) {
+      if (currentPlayer.getPlayerTurn().getCoupSwapPendingCardId() != -1) {
+        tutorialAdvance(TUTORIAL_STEP_SWITCH_KING);
+      }
     }
 
     // Battery Tower bot notification timer — auto-dismiss after it expires

@@ -562,7 +562,7 @@ public class MenuScreen extends AbstractScreen {
       tutorialBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          socket.emit("createTutorial", new JSONObject());
+          game.setScreen(new TutorialSelectScreen(game, socket));
         }
       });
 

@@ -3962,11 +3962,12 @@ public class GameScreen extends ScreenAdapter {
     } else if (tutorialStep == TUTORIAL_STEP_INFO_JOKER) {
       title = "The Joker Card";
       body  = "The Joker is a special wild card.\n\n"
-            + "• Offense: its attack value is extremely high — it beats almost any defense.\n"
+            + "• Offense: its attack value is 999 — it beats ANY defense card or harvest deck top card,\n"
+            + "  with ONE exception: a Joker sitting on top of a harvest deck is unbeatable (value 1000).\n"
             + "• Defense: placing it in a shield slot gives only 1 strength — very weak.\n"
-            + "• Hero trade: drag a Joker to the cemetery to sacrifice it. You draw a card\n"
-            + "  and gain that card's matching hero. If you already own a hero, you can\n"
-            + "  exchange it — giving up the old hero for the new hero's ability.\n\n"
+            + "• Hero trade: drag a Joker from your hand onto the cemetery pile to sacrifice it.\n"
+            + "  One card is drawn from the deck, and you gain the hero whose number matches that card.\n"
+            + "  The drawn card goes to the cemetery — you keep the hero.\n\n"
             + "The Joker has no fixed symbol, so it fits any attack group.";
 
     } else if (tutorialStep == TUTORIAL_STEP_INFO_EXPOSE) {
@@ -4090,7 +4091,7 @@ public class GameScreen extends ScreenAdapter {
       "",  // 11
       "Select each defense slot, then drag it onto the cemetery pile to discard it. Repeat for all slots.",  // 12
       "Tap your king to select it, then tap a hand card to swap it as your new king.",  // 13
-      "Tap the king card in hand (your old king, now auto-selected) then tap an enemy defense slot.",  // 14
+      "Your old king is already selected in hand — tap any enemy defense slot to attack with it.",  // 14
       "",  // 15
     };
 

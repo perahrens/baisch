@@ -70,6 +70,7 @@ public class MenuScreen extends AbstractScreen {
   // Pending create-screen settings
   private boolean pendingManualSetup = false;
   private int pendingStartingCards = 8;
+  private int pendingBotCount = 0;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -691,7 +692,13 @@ public class MenuScreen extends AbstractScreen {
     Array<String> botOptions = new Array<String>();
     for (int n = 0; n <= 3; n++) botOptions.add(String.valueOf(n));
     botBox.setItems(botOptions);
-    botBox.setSelected("0");
+    botBox.setSelected(String.valueOf(pendingBotCount));
+    botBox.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+      @Override
+      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+        try { pendingBotCount = Integer.parseInt(botBox.getSelected()); } catch (NumberFormatException ex) { pendingBotCount = 0; }
+      }
+    });
 
     // ── Checkboxes ───────────────────────────────────────────────────────────
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
@@ -719,13 +726,14 @@ public class MenuScreen extends AbstractScreen {
           data.put("allowHeroSelection", sessionAllowHeroSelection);
           data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
-          data.put("botCount", Integer.parseInt(botBox.getSelected()));
+          data.put("botCount", pendingBotCount);
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
         pendingManualSetup = false;
         pendingStartingCards = 8;
+        pendingBotCount = 0;
         inSessionCreate = false;
       }
     });

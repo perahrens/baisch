@@ -3986,7 +3986,7 @@ public class GameScreen extends ScreenAdapter {
             + "1. Discard all your defense cards (drag each to the cemetery pile).\n"
             + "2. Swap your king: tap your king to select it, then tap a hand card — that card becomes your new king, "
             + "and your old king moves to hand ready to attack.\n"
-            + "3. Attack: tap the old king (now in hand, auto-selected) then tap an enemy defense slot.\n\n"
+            + "3. Attack: select your old king from your hand, then tap an enemy defense slot.\n\n"
             + "Warning: if a king attack FAILS, the king becomes exposed — "
             + "and if an exposed king is successfully attacked, that player is eliminated!";
 
@@ -4091,7 +4091,7 @@ public class GameScreen extends ScreenAdapter {
       "",  // 11
       "Select each defense slot, then drag it onto the cemetery pile to discard it. Repeat for all slots.",  // 12
       "Tap your king to select it, then tap a hand card to swap it as your new king.",  // 13
-      "Your old king is already selected in hand — tap any enemy defense slot to attack with it.",  // 14
+      "Select your old king from your hand, then tap an enemy defense slot to attack with it.",  // 14
       "",  // 15
     };
 

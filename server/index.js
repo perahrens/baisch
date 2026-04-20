@@ -3,19 +3,16 @@ var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
 
-// Version endpoint — used by Android/iOS clients to check for updates.
-app.get('/version', function(req, res) {
-  res.json({ version: process.env.APP_VERSION || 'unknown' });
-});
-
 // Serve the mobile-optimised page at /m (canonical URL).
 app.get('/m', function(req, res) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 
 // Serve the same page for all browsers at /. The mobile.html is now
 // universal: it works on all browsers and window sizes.
 app.get('/', function(req, res) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 
@@ -93,9 +90,11 @@ function getSession(socketId) {
 }
 
 function getSessionList() {
-  return Object.values(sessions).map(function(s) {
-    return { id: s.id, name: s.name, playerCount: s.users.length, running: s.gameState !== null };
-  });
+  return Object.values(sessions)
+    .filter(function(s) { return !s.isTutorial; })
+    .map(function(s) {
+      return { id: s.id, name: s.name, playerCount: s.users.length, running: s.gameState !== null };
+    });
 }
 
 function broadcastSessionList() {

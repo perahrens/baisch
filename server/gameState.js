@@ -462,6 +462,7 @@ class GameState {
     const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
+    attacker.attackCount = (attacker.attackCount || 0) + 1;
     const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
     for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);
@@ -825,6 +826,7 @@ class GameState {
       pendingPlunder: this.pendingPlunder || null,
       pendingHeroSelection: this.pendingHeroSelection || null,
       pendingHeroAuction: this.pendingHeroAuction || null,
+      isTutorial: this.isTutorial || false,
     };
   }
 

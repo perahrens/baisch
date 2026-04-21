@@ -425,6 +425,15 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("kingUsed", kingUsed);
       data.put("kingCardId", kingUsed && player.getKingCard() != null ? player.getKingCard().getCardId() : -1);
       data.put("mercenaryBonus", player.getPlayerTurn().getPendingAttackMercenaryBonus());
+      // Issue #167: include defender's mercenary boost so watcher overlay shows the
+      // correct defense sum (Card.fromCardId rebuilds cards without boost).
+      int defMercBonus = primaryCard.getBoosted();
+      if (topDefCard != null) defMercBonus += topDefCard.getBoosted();
+      data.put("defMercBonus", defMercBonus);
+      JSONArray defBoosts = new JSONArray();
+      defBoosts.put(primaryCard.getBoosted());
+      if (topDefCard != null) defBoosts.put(topDefCard.getBoosted());
+      data.put("defCardBoosts", defBoosts);
       data.put("reservistBonus", player.getPlayerTurn().getReservistAttackBonus());
       data.put("success", success);
       data.put("attackingSymbol", player.getPlayerTurn().getAttackingSymbol()[0]);

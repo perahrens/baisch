@@ -57,6 +57,27 @@ public class HandImageListener extends ClickListener {
   private void emitTakeDefCard(int positionId) {
     if (gameState.getSocket() == null) return;
     try {
+      // Issue #167: reset boost on peers first if mercenaries were placed
+      // on this slot, so the boost label disappears once the cards return
+      // to hand on the other clients.
+      Card df = player.getDefCards().get(positionId);
+      if (df != null && df.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", gameState.getCurrentPlayerIndex());
+        reset.put("slot", positionId);
+        reset.put("level", 0);
+        reset.put("boosted", 0);
+        gameState.getSocket().emit("mercDefBoost", reset);
+      }
+      Card tdf = player.getTopDefCards().get(positionId);
+      if (tdf != null && tdf.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", gameState.getCurrentPlayerIndex());
+        reset.put("slot", positionId);
+        reset.put("level", 1);
+        reset.put("boosted", 0);
+        gameState.getSocket().emit("mercDefBoost", reset);
+      }
       JSONObject payload = new JSONObject();
       payload.put("playerIdx", gameState.getCurrentPlayerIndex());
       payload.put("positionId", positionId);

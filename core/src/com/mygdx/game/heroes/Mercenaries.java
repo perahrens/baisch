@@ -20,14 +20,20 @@ public class Mercenaries extends Hero {
 
   @Override
   public void recover() {
-    int heals = 4;
+    // Issue #167: each round, replenish up to 4 mercenaries (resurrecting dead
+    // ones if needed). The total ready + in-use is capped at 8.
+    int inUse = 0;
+    int ready = 0;
     for (int i = 0; i < mercenaryStates.length; i++) {
+      if (mercenaryStates[i] == 1) inUse++;
+      else if (mercenaryStates[i] == 0) ready++;
+    }
+    int targetReady = Math.min(8 - inUse, ready + 4);
+    int needed = targetReady - ready;
+    for (int i = 0; i < mercenaryStates.length && needed > 0; i++) {
       if (mercenaryStates[i] == 2) {
         mercenaryStates[i] = 0;
-        heals--;
-      }
-      if (heals == 0) {
-        break;
+        needed--;
       }
     }
     if (isAvailable()) {

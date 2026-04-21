@@ -56,6 +56,8 @@ public class OwnDefCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    // Defense cards must not be interacted with when it is not the player's turn.
+    if (gameState.getCurrentPlayerIndex() != playerIdx) return;
 
     if (!player.isSlotSabotaged(selectedCard.getPositionId())) {
       // if F.Tower and hand card is selected, put hand card on top
@@ -87,12 +89,23 @@ public class OwnDefCardListener extends ClickListener {
           } else if (player.getHeroes().get(i).getHeroName() == "Mercenaries"
               && player.getHeroes().get(i).isSelected()) {
             Mercenaries mercenaries = (Mercenaries) player.getHeroes().get(i);
-            if (mercenaries.isAvailable()) {
-              mercenaries.operate();
-              selectedCard.addBoosted(1);
-              // Hero stays selected — no setSelected call needed (operate() no longer clears it)
-              emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
-              gameState.setUpdateState(true);
+            // Issue #167: top half of the def card adds a mercenary, bottom half removes one.
+            // y is in the actor's local coordinate space (0 = bottom edge).
+            boolean topHalf = y >= selectedCard.getHeight() / 2f;
+            if (topHalf) {
+              if (mercenaries.isAvailable()) {
+                mercenaries.operate();
+                selectedCard.addBoosted(1);
+                emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
+                gameState.setUpdateState(true);
+              }
+            } else {
+              if (selectedCard.getBoosted() > 0) {
+                mercenaries.callback();
+                selectedCard.addBoosted(-1);
+                emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
+                gameState.setUpdateState(true);
+              }
             }
           } else if (player.getHeroes().get(i).getHeroName() == "Spy"
               && player.getHeroes().get(i).isSelected()) {

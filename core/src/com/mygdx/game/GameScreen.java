@@ -448,6 +448,12 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("kingUsed", pt.isKingUsed());
                     previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
                     previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
+                      int defMercBonusBT = 0;
+                      for (Card dc : pt.getPendingAttackDefCards()) defMercBonusBT += dc.getBoosted();
+                      previewData.put("defMercBonus", defMercBonusBT);
+                      JSONArray defBoostsBT = new JSONArray();
+                      for (Card dc : pt.getPendingAttackDefCards()) defBoostsBT.put(dc.getBoosted());
+                      previewData.put("defCardBoosts", defBoostsBT);
                     previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
                     previewData.put("attackingSymbol", pt.getAttackingSymbol()[0]);
@@ -523,8 +529,14 @@ public class GameScreen extends ScreenAdapter {
               int level = data.getInt("level");
               int boosted = data.getInt("boosted");
               Player p = gameState.getPlayers().get(pIdx);
-              Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
-              Card c = cards.get(slot);
+              Card c;
+              if (level == -1) {
+                // Issue #167: king card boost
+                c = p.getKingCard();
+              } else {
+                Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
+                c = cards.get(slot);
+              }
               if (c != null) {
                 // Set boost to the authoritative value from the emitting client
                 while (c.getBoosted() > boosted) c.addBoosted(-1);
@@ -1165,11 +1177,17 @@ public class GameScreen extends ScreenAdapter {
       } else {
         ownKingCardListener = new OwnKingCardListener(gameState, currentPlayer,
             gameState.getCurrentPlayer().getKingCard(), gameState.getCurrentPlayer().getDefCards(),
-            gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards());
+            gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards(),
+            socket, playerIndex);
         kingCard.addListener(ownKingCardListener);
       }
 
       gameStage.addActor(kingCard);
+
+      // Issue #167: Mercenaries selection highlight on own king (top=add, bottom=remove)
+      if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
+        addMercenarySelectionHighlight(kingCard);
+      }
 
       if (kingCard.getBoosted() > 0) {
         TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
@@ -1179,15 +1197,15 @@ public class GameScreen extends ScreenAdapter {
         mercenaryImage.setPosition(kingCard.getX(), kingCard.getY());
         mercenaryImage.setX(mercenaryImage.getX() + kingCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
         mercenaryImage.setY(mercenaryImage.getY() + kingCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
-        removeAllListeners(mercenaryImage);
-        mercenaryImageListener = new MercenaryImageListener(gameState, kingCard, currentPlayer);
-        mercenaryImage.addListener(mercenaryImageListener);
+        // Issue #167: don't absorb clicks — add/remove via the king card itself.
+        mercenaryImage.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
         gameStage.addActor(mercenaryImage);
 
         String boostCount = String.valueOf(kingCard.getBoosted());
         Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
         boostCountLabel.setColor(Color.GOLD);
         boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+        boostCountLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
         gameStage.addActor(boostCountLabel);
       }
 
@@ -1300,6 +1318,17 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
+        // Issue #167: when Mercenaries hero is selected, overlay translucent
+        // green (top half) / red (bottom half) tint on each own def card so the
+        // player sees where to click to add or remove a mercenary. Skip if a top
+        // def card is stacked on this slot — the highlight then goes on the top
+        // card below.
+        if (players.get(i) == currentPlayer
+            && !players.get(i).getTopDefCards().containsKey(j)
+            && isMercenariesSelectedBy(currentPlayer)) {
+          addMercenarySelectionHighlight(defCard);
+        }
+
         if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
@@ -1323,16 +1352,18 @@ public class GameScreen extends ScreenAdapter {
           mercenaryImage.setPosition(defCard.getX(), defCard.getY());
           mercenaryImage.setX(mercenaryImage.getX() + defCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
           mercenaryImage.setY(mercenaryImage.getY() + defCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
-          removeAllListeners(mercenaryImage);
-          mercenaryImageListener = new MercenaryImageListener(gameState, defCard, currentPlayer,
-              socket, playerIndex, defCard.getPositionId(), 0);
-          mercenaryImage.addListener(mercenaryImageListener);
+          // Issue #167: the mercenary symbol overlay must NOT absorb clicks — the
+          // player adds/removes mercenaries by clicking the def card itself
+          // (top half = add, bottom half = remove) when the Mercenaries hero is
+          // selected, and selects the def card normally when it isn't.
+          mercenaryImage.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mercenaryImage);
 
           String boostCount = "+" + String.valueOf(defCard.getBoosted());
           Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
           boostCountLabel.setColor(Color.GOLD);
           boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+          boostCountLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(boostCountLabel);
         }
       }
@@ -1398,6 +1429,12 @@ public class GameScreen extends ScreenAdapter {
             topDefCard.setActive(false);
           }
           gameStage.addActor(topDefCard);
+
+          // Issue #167: stacked slot — highlight the top card (the one the
+          // player actually sees and clicks) when Mercenaries is selected.
+          if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
+            addMercenarySelectionHighlight(topDefCard);
+          }
         }
       }
 
@@ -1979,12 +2016,30 @@ public class GameScreen extends ScreenAdapter {
         int nA = Math.max(1, atkSrc.size());
         float aW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nA - 1) * 4f) / nA);
         float aH = bCH * (aW / bCW);
+        float lastAX = leftX; float lastAY = cBotY + (bCH - aH) / 2f;
         for (int ai = 0; ai < atkSrc.size(); ai++) {
           Card disp = Card.fromCardId(atkSrc.get(ai).getCardId());
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(aW, aH);
-          disp.setPosition(leftX + ai * (aW + 4f), cBotY + (bCH - aH) / 2f);
+          lastAX = leftX + ai * (aW + 4f); lastAY = cBotY + (bCH - aH) / 2f;
+          disp.setPosition(lastAX, lastAY);
           gameStage.addActor(disp);
+        }
+        // Attacker mercenary bonus indicator — centered on the last attack card
+        int atkMercViz = apt.getPendingAttackMercenaryBonus();
+        if (atkMercViz > 0) {
+          float iSz = aH / 3f;
+          TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+          Image mImg = new Image(mReg);
+          mImg.setSize(iSz, iSz);
+          mImg.setPosition(lastAX + aW / 2f - iSz / 2f, lastAY + aH / 2f - iSz / 2f);
+          mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mImg);
+          Label mLbl = new Label("+" + atkMercViz, MyGdxGame.skin);
+          mLbl.setColor(Color.GOLD);
+          mLbl.setPosition(lastAX + aW / 2f - iSz / 2f + iSz + 2f, lastAY + aH / 2f - iSz / 2f);
+          mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mLbl);
         }
       }
 
@@ -2003,11 +2058,30 @@ public class GameScreen extends ScreenAdapter {
         float dW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nD - 1) * 4f) / nD);
         float dH = bCH * (dW / bCW);
         for (int di = 0; di < pendingDefViz.size(); di++) {
-          Card disp = Card.fromCardId(pendingDefViz.get(di).getCardId());
+          Card dc = pendingDefViz.get(di);
+          Card disp = Card.fromCardId(dc.getCardId());
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(dW, dH);
-          disp.setPosition(rightX + di * (dW + 4f), cBotY + (bCH - dH) / 2f);
+          float dDispX = rightX + di * (dW + 4f);
+          float dDispY = cBotY + (bCH - dH) / 2f;
+          disp.setPosition(dDispX, dDispY);
           gameStage.addActor(disp);
+          // Per-card defender mercenary boost indicator
+          int dcBoost = dc.getBoosted();
+          if (dcBoost > 0) {
+            float iSz = dH / 3f;
+            TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+            Image mImg = new Image(mReg);
+            mImg.setSize(iSz, iSz);
+            mImg.setPosition(dDispX + dW / 2f - iSz / 2f, dDispY + dH / 2f - iSz / 2f);
+            mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mImg);
+            Label mLbl = new Label("+" + dcBoost, MyGdxGame.skin);
+            mLbl.setColor(Color.GOLD);
+            mLbl.setPosition(dDispX + dW / 2f - iSz / 2f + iSz + 2f, dDispY + dH / 2f - iSz / 2f);
+            mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mLbl);
+          }
         }
       }
 
@@ -2096,6 +2170,12 @@ public class GameScreen extends ScreenAdapter {
                       resPreview.put("kingUsed", apt.isKingUsed());
                       resPreview.put("kingCardId", apt.isKingUsed() && atkPlayer.getKingCard() != null ? atkPlayer.getKingCard().getCardId() : -1);
                       resPreview.put("mercenaryBonus", apt.getPendingAttackMercenaryBonus());
+                      int defMercBonusRes = 0;
+                      for (Card dc : apt.getPendingAttackDefCards()) defMercBonusRes += dc.getBoosted();
+                      resPreview.put("defMercBonus", defMercBonusRes);
+                      JSONArray defBoostsRes = new JSONArray();
+                      for (Card dc : apt.getPendingAttackDefCards()) defBoostsRes.put(dc.getBoosted());
+                      resPreview.put("defCardBoosts", defBoostsRes);
                       resPreview.put("reservistBonus", apt.getReservistAttackBonus());
                       resPreview.put("success", newSuccess);
                       resPreview.put("attackingSymbol", apt.getAttackingSymbol()[0]);
@@ -2123,10 +2203,12 @@ public class GameScreen extends ScreenAdapter {
         final boolean bcKingUsed = pendingAttackBroadcast.optBoolean("kingUsed", false);
         final int bcKingCardId = pendingAttackBroadcast.optInt("kingCardId", -1);
         final int bcMercBonus = pendingAttackBroadcast.optInt("mercenaryBonus", 0);
+        final int bcDefMercBonus = pendingAttackBroadcast.optInt("defMercBonus", 0);
         final int bcResBonus = pendingAttackBroadcast.optInt("reservistBonus", 0);
         final JSONArray bcAtkIds = pendingAttackBroadcast.optJSONArray("attackCardIds");
         final JSONArray bcOwnDefIds = pendingAttackBroadcast.optJSONArray("ownDefCardIds");
         final JSONArray bcDefIds = pendingAttackBroadcast.optJSONArray("defCardIds");
+        final JSONArray bcDefBoosts = pendingAttackBroadcast.optJSONArray("defCardBoosts");
 
         Image watchOverlay = new Image(MyGdxGame.skin, "white");
         watchOverlay.setFillParent(true);
@@ -2175,6 +2257,24 @@ public class GameScreen extends ScreenAdapter {
         }
         wAtkSum += bcMercBonus;
         wAtkSum += bcResBonus;
+        // Attacker mercenary bonus indicator — centered on the last attack card
+        if (bcMercBonus > 0 && !wAtkCardIds.isEmpty()) {
+          int lastWAI = wAtkCardIds.size() - 1;
+          float lastWAX = wLeftX + lastWAI * (wAW + 4f);
+          float lastWAY = wBotY + (wCH - wAH) / 2f;
+          float iSz = wAH / 3f;
+          TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+          Image mImg = new Image(mReg);
+          mImg.setSize(iSz, iSz);
+          mImg.setPosition(lastWAX + wAW / 2f - iSz / 2f, lastWAY + wAH / 2f - iSz / 2f);
+          mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mImg);
+          Label mLbl = new Label("+" + bcMercBonus, MyGdxGame.skin);
+          mLbl.setColor(Color.GOLD);
+          mLbl.setPosition(lastWAX + wAW / 2f - iSz / 2f + iSz + 2f, lastWAY + wAH / 2f - iSz / 2f);
+          mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mLbl);
+        }
 
         // Defense cards (right column)
         ArrayList<Integer> wDefCardIds = new ArrayList<Integer>();
@@ -2187,10 +2287,31 @@ public class GameScreen extends ScreenAdapter {
           Card disp = Card.fromCardId(wDefCardIds.get(di));
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(wDW, wDH);
-          disp.setPosition(wRightX + di * (wDW + 4f), wBotY + (wCH - wDH) / 2f);
+          float dispX = wRightX + di * (wDW + 4f);
+          float dispY = wBotY + (wCH - wDH) / 2f;
+          disp.setPosition(dispX, dispY);
           gameStage.addActor(disp);
           wDefSum += "joker".equals(disp.getSymbol()) ? 1 : disp.getStrength();
+          // Per-card mercenary boost indicator
+          int cardBoost = (bcDefBoosts != null && di < bcDefBoosts.length()) ? bcDefBoosts.getInt(di) : 0;
+          if (cardBoost > 0) {
+            float iSz = wDH / 3f;
+            TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+            Image mImg = new Image(mReg);
+            mImg.setSize(iSz, iSz);
+            mImg.setPosition(dispX + wDW / 2f - iSz / 2f, dispY + wDH / 2f - iSz / 2f);
+            mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mImg);
+            Label mLbl = new Label("+" + cardBoost, MyGdxGame.skin);
+            mLbl.setColor(Color.GOLD);
+            mLbl.setPosition(dispX + wDW / 2f - iSz / 2f + iSz + 2f, dispY + wDH / 2f - iSz / 2f);
+            mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mLbl);
+          }
         }
+        // Issue #167: defender's mercenary boost (defense cards rendered via
+        // Card.fromCardId have no boost, so add it explicitly).
+        wDefSum += bcDefMercBonus;
 
         // Sum labels
         Label wAtkSum_lbl = new Label("Sum: " + wAtkSum, MyGdxGame.skin);
@@ -3408,9 +3529,30 @@ public class GameScreen extends ScreenAdapter {
       spectatorLabel.setColor(Color.CYAN);
       spectatorLabel.setPosition(MyGdxGame.WIDTH - spectatorLabel.getPrefWidth(), 0);
       handStage.addActor(spectatorLabel);
+    } else if (isMyTurn && (currentPlayer.getPlayerTurn().isAttackPending() || pendingAttackBroadcast != null)) {
+      finishTurnButton.setVisible(false);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
-      addExposeCardOverlay();
+      // Self-heal: if there is no covered defense card to expose (e.g. state
+      // changed before the overlay rebuild), drop the flag and fall through
+      // so the regular finish-turn button is shown instead of a dead overlay.
+      boolean stillHasCovered = false;
+      for (Card c : currentPlayer.getDefCards().values()) {
+        if (c.isCovered()) { stillHasCovered = true; break; }
+      }
+      if (!stillHasCovered) {
+        for (Card c : currentPlayer.getTopDefCards().values()) {
+          if (c.isCovered()) { stillHasCovered = true; break; }
+        }
+      }
+      if (stillHasCovered) {
+        addExposeCardOverlay();
+      } else {
+        pendingExposeCard = false;
+        finishTurnButton.setVisible(isMyTurn);
+        finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
+        finishTurnButton.addListener(finishTurnButtonListener);
+      }
     } else {
       finishTurnButton.setVisible(isMyTurn);
       finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket) {
@@ -3578,6 +3720,8 @@ public class GameScreen extends ScreenAdapter {
     bg.setSize(stageW, stageH);
     bg.setPosition(0, 0);
     bg.setColor(0f, 0f, 0f, 0.72f);
+    // Block input under the overlay but don't capture clicks meant for slot buttons.
+    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
     handStage.addActor(bg);
 
     Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
@@ -3606,8 +3750,9 @@ public class GameScreen extends ScreenAdapter {
       slotBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          pendingExposeCard = false;
-          gameState.setUpdateState(true); // immediately remove the overlay
+          // Emit BEFORE mutating local state. If a stateUpdate arrives during the
+          // click and clears handStage, the messages have already been sent and
+          // the server is the authority on turn progression.
           try {
             JSONObject exposeData = new JSONObject();
             exposeData.put("playerIdx", playerIndex);
@@ -3618,6 +3763,8 @@ public class GameScreen extends ScreenAdapter {
             socket.emit("finishTurn", ftData);
             tutorialAdvance(TUTORIAL_STEP_ENDTURN);
           } catch (JSONException ex) { ex.printStackTrace(); }
+          pendingExposeCard = false;
+          gameState.setUpdateState(true);
         }
       });
       handStage.addActor(slotBtn);
@@ -4253,9 +4400,47 @@ public class GameScreen extends ScreenAdapter {
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
+  /**
+   * Issue #167: destroy {@code count} of the given player's placed mercenaries
+   * (state==1 -> state==2). Used when a boosted defense card disappears from a
+   * player's def slots due to a successful enemy attack/plunder, so the
+   * mercenaries that fought on it don't remain stuck in the in-use state.
+   */
+  private void destroyMercenariesForPlayer(Player p, int count) {
+    if (p == null || count <= 0) return;
+    for (Hero h : p.getHeroes()) {
+      if ("Mercenaries".equals(h.getHeroName())) {
+        com.mygdx.game.heroes.Mercenaries merc = (com.mygdx.game.heroes.Mercenaries) h;
+        for (int i = 0; i < count; i++) merc.destroy();
+        break;
+      }
+    }
+  }
+
   private void emitTakeDefCard(int positionId) {
     if (socket == null) return;
     try {
+      // Issue #167: if the def cards on this slot carried mercenaries, reset
+      // their boost on peer clients first so the boost label disappears once
+      // the cards return to hand.
+      Card df = currentPlayer.getDefCards().get(positionId);
+      if (df != null && df.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", playerIndex);
+        reset.put("slot", positionId);
+        reset.put("level", 0);
+        reset.put("boosted", 0);
+        socket.emit("mercDefBoost", reset);
+      }
+      Card tdf = currentPlayer.getTopDefCards().get(positionId);
+      if (tdf != null && tdf.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", playerIndex);
+        reset.put("slot", positionId);
+        reset.put("level", 1);
+        reset.put("boosted", 0);
+        socket.emit("mercDefBoost", reset);
+      }
       JSONObject payload = new JSONObject();
       payload.put("playerIdx", playerIndex);
       payload.put("positionId", positionId);
@@ -4379,7 +4564,15 @@ public class GameScreen extends ScreenAdapter {
         }
         for (Map.Entry<Integer, int[]> e : savedDefBoosted.entrySet()) {
           Card bc = p.getDefCards().get(e.getKey());
-          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+          if (bc != null && bc.getCardId() == e.getValue()[0]) {
+            bc.addBoosted(e.getValue()[1]);
+          } else {
+            // Issue #167: the previously boosted card is no longer in this
+            // slot (plundered or attacked away). Destroy the owner's
+            // mercenaries that were placed on it so they don't stay stuck
+            // in the in-use state forever.
+            destroyMercenariesForPlayer(p, e.getValue()[1]);
+          }
         }
         // Restore spy-flipped face-up state — only if the card at that slot is the same card
         for (Map.Entry<Integer, Integer> e : savedDefCovered.entrySet()) {
@@ -4405,7 +4598,12 @@ public class GameScreen extends ScreenAdapter {
         }
         for (Map.Entry<Integer, int[]> e : savedTopBoosted.entrySet()) {
           Card bc = p.getTopDefCards().get(e.getKey());
-          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+          if (bc != null && bc.getCardId() == e.getValue()[0]) {
+            bc.addBoosted(e.getValue()[1]);
+          } else {
+            // Issue #167: see comment above.
+            destroyMercenariesForPlayer(p, e.getValue()[1]);
+          }
         }
 
         // Sync king card from server (may transition null→card after setup phase)
@@ -4862,6 +5060,33 @@ public class GameScreen extends ScreenAdapter {
     // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
     // (skips elements as the Array shrinks). Use clearListeners() instead.
     actor.clearListeners();
+  }
+
+  /** Returns true if the given player has the Mercenaries hero and it is currently selected. */
+  private boolean isMercenariesSelectedBy(Player player) {
+    if (player == null) return false;
+    for (Hero h : player.getHeroes()) {
+      if ("Mercenaries".equals(h.getHeroName()) && h.isSelected()) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Issue #167: adds two translucent half-overlays to gameStage on top of the
+   * given own defense card — green on the top half ("add mercenary") and red
+   * on the bottom half ("remove mercenary"). Overlays are non-touchable so the
+   * underlying def card listener still receives the click.
+   */
+  private void addMercenarySelectionHighlight(Card defCard) {
+    float halfH = defCard.getHeight() / 2f;
+    Image bottomHalf = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 0f, 0f, 0.28f)));
+    bottomHalf.setBounds(defCard.getX(), defCard.getY(), defCard.getWidth(), halfH);
+    bottomHalf.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    Image topHalf = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 1f, 0f, 0.28f)));
+    topHalf.setBounds(defCard.getX(), defCard.getY() + halfH, defCard.getWidth(), halfH);
+    topHalf.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    gameStage.addActor(bottomHalf);
+    gameStage.addActor(topHalf);
   }
 
   @Override

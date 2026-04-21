@@ -153,7 +153,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         var isFaceUp = defender.defCardsCovered && defender.defCardsCovered[slot] === false;
 
         if (isFaceUp) {
-          var threshold = gs.cardStrength(defCardId);
+          var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+          var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
+          var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+          var threshold = gs.cardStrength(defCardId) + defBoost
+                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -212,7 +216,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       }
       if (!allEmpty) continue;
 
-      var kingStr = gs.cardStrength(defender.kingCard);
+      var kingStr = gs.cardStrength(defender.kingCard) + (defender.kingCardBoost || 0);
       var suits = Object.keys(groups);
       for (var si = 0; si < suits.length; si++) {
         var suit = suits[si];

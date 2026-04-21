@@ -320,6 +320,8 @@ class GameState {
       delete p.topDefCards[positionId];
       if (p.topDefCardsCovered) delete p.topDefCardsCovered[positionId];
     }
+    if (p.defCardsBoost) delete p.defCardsBoost[positionId];
+    if (p.topDefCardsBoost) delete p.topDefCardsBoost[positionId];
     this.pushLog(`${this.pname(playerIdx)} took shield [${positionId}] to hand`, true, true);
   }
 
@@ -330,6 +332,7 @@ class GameState {
     p.defCards[positionId] = cardId;
     if (!p.defCardsCovered) p.defCardsCovered = {};
     p.defCardsCovered[positionId] = true; // newly placed card is always face-down
+    if (p.defCardsBoost) delete p.defCardsBoost[positionId];
     this.pushLog(`${this.pname(playerIdx)} placed shield at [${positionId}]`, true, true);
   }
 
@@ -340,6 +343,7 @@ class GameState {
     p.topDefCards[positionId] = cardId;
     if (!p.topDefCardsCovered) p.topDefCardsCovered = {};
     p.topDefCardsCovered[positionId] = true; // newly stacked card is face-down
+    if (p.topDefCardsBoost) delete p.topDefCardsBoost[positionId];
     this.pushLog(`${this.pname(playerIdx)} fortified shield at [${positionId}]`, true, true);
   }
 
@@ -535,9 +539,12 @@ class GameState {
         if (defCardId !== undefined) { attacker.hand.push(defCardId); attacker.preyCards.push(defCardId); delete defender.defCards[positionId]; }
         const topCardId = defender.topDefCards[positionId];
         if (topCardId !== undefined) { attacker.hand.push(topCardId); attacker.preyCards.push(topCardId); delete defender.topDefCards[positionId]; }
+        if (defender.defCardsBoost) delete defender.defCardsBoost[positionId];
+        if (defender.topDefCardsBoost) delete defender.topDefCardsBoost[positionId];
       } else {
         const topCardId = defender.topDefCards[positionId];
         if (topCardId !== undefined) { attacker.hand.push(topCardId); attacker.preyCards.push(topCardId); delete defender.topDefCards[positionId]; }
+        if (defender.topDefCardsBoost) delete defender.topDefCardsBoost[positionId];
       }
     } else {
       this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}]`, false);

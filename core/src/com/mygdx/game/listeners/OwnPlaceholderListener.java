@@ -44,7 +44,7 @@ public class OwnPlaceholderListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
     if (player.getSelectedHandCards().size() == 1) {
-      if (player.canMobilize()) {
+      if (player.canPutDefCard()) {
         Card cardToPlace = player.getSelectedHandCards().get(0);
         int cardId = cardToPlace.getCardId();
         int positionId = placeholderCard.getPositionId();

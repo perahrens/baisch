@@ -215,8 +215,8 @@ public class EnemyDefCardListener extends ClickListener {
       if (kingSelected && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
     }
 
-    // King can only be used once per turn
-    if (kingSelected && pt.isKingUsedThisTurn()) return;
+    // King can only be used once per turn (Warlord grants an extra attack and bypasses this)
+    if (kingSelected && !warlordAttack && pt.isKingUsedThisTurn()) return;
 
     // Symbol constraint — joker bypasses; other cards must match the set symbol
     // For Banneret using only own def cards (no hand cards), use the first def card's symbol

@@ -3085,7 +3085,7 @@ public class GameScreen extends ScreenAdapter {
                     Card target = (Card) hit;
                     int posId = target.getPositionId();
                     if (target.isPlaceholder() && posId >= 1 && posId <= 3
-                        && currentPlayer.canMobilize() && !currentPlayer.isSlotSabotaged(posId)) {
+                        && currentPlayer.canPutDefCard() && !currentPlayer.isSlotSabotaged(posId)) {
                       currentPlayer.putDefCard(posId, 0);
                       emitPutDefCard(posId, handCard.getCardId());
                       gameState.setUpdateState(true);

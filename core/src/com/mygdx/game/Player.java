@@ -101,6 +101,16 @@ public class Player {
     return playerTurn.getTakeDefCard() > 0 || playerTurn.getPutDefCard() > 0;
   }
 
+  /** Returns true only if a put-defense-card action is still available this turn. */
+  public boolean canPutDefCard() {
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        return ((Marshal) heroes.get(i)).getMobilizations() > 0;
+      }
+    }
+    return playerTurn.getPutDefCard() > 0;
+  }
+
   /** Returns true only if a take-defense-card action is still available this turn. */
   public boolean canTakeDefCard() {
     for (int i = 0; i < heroes.size(); i++) {

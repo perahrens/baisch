@@ -116,8 +116,8 @@ public class EnemyKingCardListener extends ClickListener {
       if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
     }
 
-    // Attacker's king: one-use-per-turn
-    if (kingSelected && pt.isKingUsedThisTurn()) return;
+    // Attacker's king: one-use-per-turn (Warlord grants an extra attack and bypasses this)
+    if (kingSelected && !warlordAttack && pt.isKingUsedThisTurn()) return;
     // Without Warlord, king can only be used when attacker has no defense cards
     if (kingSelected && !warlordAttack && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
 

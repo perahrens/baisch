@@ -1300,6 +1300,17 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
+        // Issue #167: when Mercenaries hero is selected, overlay translucent
+        // green (top half) / red (bottom half) tint on each own def card so the
+        // player sees where to click to add or remove a mercenary. Skip if a top
+        // def card is stacked on this slot — the highlight then goes on the top
+        // card below.
+        if (players.get(i) == currentPlayer
+            && !players.get(i).getTopDefCards().containsKey(j)
+            && isMercenariesSelectedBy(currentPlayer)) {
+          addMercenarySelectionHighlight(defCard);
+        }
+
         if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
@@ -1323,16 +1334,18 @@ public class GameScreen extends ScreenAdapter {
           mercenaryImage.setPosition(defCard.getX(), defCard.getY());
           mercenaryImage.setX(mercenaryImage.getX() + defCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
           mercenaryImage.setY(mercenaryImage.getY() + defCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
-          removeAllListeners(mercenaryImage);
-          mercenaryImageListener = new MercenaryImageListener(gameState, defCard, currentPlayer,
-              socket, playerIndex, defCard.getPositionId(), 0);
-          mercenaryImage.addListener(mercenaryImageListener);
+          // Issue #167: the mercenary symbol overlay must NOT absorb clicks — the
+          // player adds/removes mercenaries by clicking the def card itself
+          // (top half = add, bottom half = remove) when the Mercenaries hero is
+          // selected, and selects the def card normally when it isn't.
+          mercenaryImage.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mercenaryImage);
 
           String boostCount = "+" + String.valueOf(defCard.getBoosted());
           Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
           boostCountLabel.setColor(Color.GOLD);
           boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+          boostCountLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(boostCountLabel);
         }
       }
@@ -1398,6 +1411,12 @@ public class GameScreen extends ScreenAdapter {
             topDefCard.setActive(false);
           }
           gameStage.addActor(topDefCard);
+
+          // Issue #167: stacked slot — highlight the top card (the one the
+          // player actually sees and clicks) when Mercenaries is selected.
+          if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
+            addMercenarySelectionHighlight(topDefCard);
+          }
         }
       }
 
@@ -4862,6 +4881,33 @@ public class GameScreen extends ScreenAdapter {
     // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
     // (skips elements as the Array shrinks). Use clearListeners() instead.
     actor.clearListeners();
+  }
+
+  /** Returns true if the given player has the Mercenaries hero and it is currently selected. */
+  private boolean isMercenariesSelectedBy(Player player) {
+    if (player == null) return false;
+    for (Hero h : player.getHeroes()) {
+      if ("Mercenaries".equals(h.getHeroName()) && h.isSelected()) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Issue #167: adds two translucent half-overlays to gameStage on top of the
+   * given own defense card — green on the top half ("add mercenary") and red
+   * on the bottom half ("remove mercenary"). Overlays are non-touchable so the
+   * underlying def card listener still receives the click.
+   */
+  private void addMercenarySelectionHighlight(Card defCard) {
+    float halfH = defCard.getHeight() / 2f;
+    Image bottomHalf = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 0f, 0f, 0.28f)));
+    bottomHalf.setBounds(defCard.getX(), defCard.getY(), defCard.getWidth(), halfH);
+    bottomHalf.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    Image topHalf = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 1f, 0f, 0.28f)));
+    topHalf.setBounds(defCard.getX(), defCard.getY() + halfH, defCard.getWidth(), halfH);
+    topHalf.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    gameStage.addActor(bottomHalf);
+    gameStage.addActor(topHalf);
   }
 
   @Override

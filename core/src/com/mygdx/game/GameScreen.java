@@ -4284,6 +4284,23 @@ public class GameScreen extends ScreenAdapter {
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
+  /**
+   * Issue #167: destroy {@code count} of the given player's placed mercenaries
+   * (state==1 -> state==2). Used when a boosted defense card disappears from a
+   * player's def slots due to a successful enemy attack/plunder, so the
+   * mercenaries that fought on it don't remain stuck in the in-use state.
+   */
+  private void destroyMercenariesForPlayer(Player p, int count) {
+    if (p == null || count <= 0) return;
+    for (Hero h : p.getHeroes()) {
+      if ("Mercenaries".equals(h.getHeroName())) {
+        com.mygdx.game.heroes.Mercenaries merc = (com.mygdx.game.heroes.Mercenaries) h;
+        for (int i = 0; i < count; i++) merc.destroy();
+        break;
+      }
+    }
+  }
+
   private void emitTakeDefCard(int positionId) {
     if (socket == null) return;
     try {
@@ -4431,7 +4448,15 @@ public class GameScreen extends ScreenAdapter {
         }
         for (Map.Entry<Integer, int[]> e : savedDefBoosted.entrySet()) {
           Card bc = p.getDefCards().get(e.getKey());
-          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+          if (bc != null && bc.getCardId() == e.getValue()[0]) {
+            bc.addBoosted(e.getValue()[1]);
+          } else {
+            // Issue #167: the previously boosted card is no longer in this
+            // slot (plundered or attacked away). Destroy the owner's
+            // mercenaries that were placed on it so they don't stay stuck
+            // in the in-use state forever.
+            destroyMercenariesForPlayer(p, e.getValue()[1]);
+          }
         }
         // Restore spy-flipped face-up state — only if the card at that slot is the same card
         for (Map.Entry<Integer, Integer> e : savedDefCovered.entrySet()) {
@@ -4457,7 +4482,12 @@ public class GameScreen extends ScreenAdapter {
         }
         for (Map.Entry<Integer, int[]> e : savedTopBoosted.entrySet()) {
           Card bc = p.getTopDefCards().get(e.getKey());
-          if (bc != null && bc.getCardId() == e.getValue()[0]) bc.addBoosted(e.getValue()[1]);
+          if (bc != null && bc.getCardId() == e.getValue()[0]) {
+            bc.addBoosted(e.getValue()[1]);
+          } else {
+            // Issue #167: see comment above.
+            destroyMercenariesForPlayer(p, e.getValue()[1]);
+          }
         }
 
         // Sync king card from server (may transition null→card after setup phase)

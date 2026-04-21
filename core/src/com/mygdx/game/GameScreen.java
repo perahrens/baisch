@@ -2016,26 +2016,29 @@ public class GameScreen extends ScreenAdapter {
         int nA = Math.max(1, atkSrc.size());
         float aW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nA - 1) * 4f) / nA);
         float aH = bCH * (aW / bCW);
+        float lastAX = leftX; float lastAY = cBotY + (bCH - aH) / 2f;
         for (int ai = 0; ai < atkSrc.size(); ai++) {
           Card disp = Card.fromCardId(atkSrc.get(ai).getCardId());
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(aW, aH);
-          disp.setPosition(leftX + ai * (aW + 4f), cBotY + (bCH - aH) / 2f);
+          lastAX = leftX + ai * (aW + 4f); lastAY = cBotY + (bCH - aH) / 2f;
+          disp.setPosition(lastAX, lastAY);
           gameStage.addActor(disp);
         }
-        // Attacker mercenary bonus indicator
+        // Attacker mercenary bonus indicator — centered on the last attack card
         int atkMercViz = apt.getPendingAttackMercenaryBonus();
         if (atkMercViz > 0) {
           float iSz = aH / 3f;
           TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
           Image mImg = new Image(mReg);
           mImg.setSize(iSz, iSz);
-          mImg.setPosition(leftX, cBotY - 22f - iSz - 2f);
+          mImg.setPosition(lastAX + aW / 2f - iSz / 2f, lastAY + aH / 2f - iSz / 2f);
           mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mImg);
           Label mLbl = new Label("+" + atkMercViz, MyGdxGame.skin);
           mLbl.setColor(Color.GOLD);
-          mLbl.setPosition(leftX + iSz + 3f, cBotY - 22f - iSz - 2f);
+          mLbl.setPosition(lastAX + aW / 2f - iSz / 2f + iSz + 2f, lastAY + aH / 2f - iSz / 2f);
+          mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mLbl);
         }
       }
@@ -2254,18 +2257,22 @@ public class GameScreen extends ScreenAdapter {
         }
         wAtkSum += bcMercBonus;
         wAtkSum += bcResBonus;
-        // Attacker mercenary bonus indicator
-        if (bcMercBonus > 0) {
+        // Attacker mercenary bonus indicator — centered on the last attack card
+        if (bcMercBonus > 0 && !wAtkCardIds.isEmpty()) {
+          int lastWAI = wAtkCardIds.size() - 1;
+          float lastWAX = wLeftX + lastWAI * (wAW + 4f);
+          float lastWAY = wBotY + (wCH - wAH) / 2f;
           float iSz = wAH / 3f;
           TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
           Image mImg = new Image(mReg);
           mImg.setSize(iSz, iSz);
-          mImg.setPosition(wLeftX, wBotY - 22f - iSz - 2f);
+          mImg.setPosition(lastWAX + wAW / 2f - iSz / 2f, lastWAY + wAH / 2f - iSz / 2f);
           mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mImg);
           Label mLbl = new Label("+" + bcMercBonus, MyGdxGame.skin);
           mLbl.setColor(Color.GOLD);
-          mLbl.setPosition(wLeftX + iSz + 3f, wBotY - 22f - iSz - 2f);
+          mLbl.setPosition(lastWAX + wAW / 2f - iSz / 2f + iSz + 2f, lastWAY + wAH / 2f - iSz / 2f);
+          mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           gameStage.addActor(mLbl);
         }
 
@@ -3522,6 +3529,8 @@ public class GameScreen extends ScreenAdapter {
       spectatorLabel.setColor(Color.CYAN);
       spectatorLabel.setPosition(MyGdxGame.WIDTH - spectatorLabel.getPrefWidth(), 0);
       handStage.addActor(spectatorLabel);
+    } else if (isMyTurn && (currentPlayer.getPlayerTurn().isAttackPending() || pendingAttackBroadcast != null)) {
+      finishTurnButton.setVisible(false);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
       // Self-heal: if there is no covered defense card to expose (e.g. state

@@ -164,6 +164,9 @@ public class GameScreen extends ScreenAdapter {
   private String heroTutorialName = null;
   private int heroTutorialStep = 0;
   private TutorialStepDef[] heroTutorialSteps = null;
+  // Tracks the previous frame's currentPlayerIndex so we can detect a turn flip
+  // from bot back to player and fire the MY_TURN_START hook exactly once.
+  private int heroTutorialPrevPlayerIdx = -1;
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
@@ -723,6 +726,17 @@ public class GameScreen extends ScreenAdapter {
       if (tutorialStep == TUTORIAL_STEP_WAITING && gameState.getCurrentPlayerIndex() == playerIndex) {
         tutorialStep = TUTORIAL_STEP_INFO_EXPOSE;
       }
+    }
+    // Issue #171: hero-tutorial — fire MY_TURN_START hook when control flips
+    // back from the bot to the player.
+    if (isHeroTutorial && heroTutorialStep >= 0) {
+      int curIdx = gameState.getCurrentPlayerIndex();
+      if (heroTutorialPrevPlayerIdx != -1
+          && heroTutorialPrevPlayerIdx != playerIndex
+          && curIdx == playerIndex) {
+        tutorialAdvanceHook("MY_TURN_START");
+      }
+      heroTutorialPrevPlayerIdx = curIdx;
     }
 
     if (menuOpen) {
@@ -4456,7 +4470,8 @@ public class GameScreen extends ScreenAdapter {
       exitBtn.addListener(new ClickListener() {
         @Override public void clicked(InputEvent event, float x, float y) {
           heroTutorialStep = -1;
-          emitGiveUp();
+          // Tear down the tutorial session and navigate away so the bot stops.
+          emitGiveUpAndLeave();
         }
       });
       outer.add(exitBtn).width(280).height(50).padBottom(10).row();
@@ -4488,9 +4503,7 @@ public class GameScreen extends ScreenAdapter {
       skipBtn.addListener(new ClickListener() {
         @Override public void clicked(InputEvent event, float x, float y) {
           heroTutorialStep = -1;
-          overlayStage.clear();
-          addMenuButtonToOverlay();
-          gameState.setUpdateState(true);
+          emitGiveUpAndLeave();
         }
       });
       outer.add(skipBtn).width(200).height(40).padTop(8).row();
@@ -4537,9 +4550,7 @@ public class GameScreen extends ScreenAdapter {
     skipBtn.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         heroTutorialStep = -1;
-        overlayStage.clear();
-        addMenuButtonToOverlay();
-        gameState.setUpdateState(true);
+        emitGiveUpAndLeave();
       }
     });
     overlayStage.addActor(skipBtn);

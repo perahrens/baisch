@@ -271,8 +271,17 @@ function leaveCurrentSession(socket) {
   if (specIdx !== -1) sess.spectators.splice(specIdx, 1);
   socket.leave(sess.id);
   io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
-  if (sess.users.length === 0 && sess.spectators.length === 0) {
+  // Destroy tutorial sessions when the human leaves: only the bot would remain
+  // and it would keep playing in a session no real user will ever rejoin.
+  var humansLeft = sess.users.filter(function(u) { return u.id.indexOf('bot_') !== 0; }).length;
+  if (sess.isTutorial && humansLeft === 0 && sess.spectators.length === 0) {
     if (sess.timer) clearInterval(sess.timer);
+    sess.gameState = null; // pending bot turns will see this and bail
+    delete sessions[sess.id];
+    console.log('Tutorial session ' + sess.id + ' deleted (human left)');
+  } else if (sess.users.length === 0 && sess.spectators.length === 0) {
+    if (sess.timer) clearInterval(sess.timer);
+    sess.gameState = null;
     delete sessions[sess.id];
     console.log('Session ' + sess.id + ' deleted (empty)');
   }

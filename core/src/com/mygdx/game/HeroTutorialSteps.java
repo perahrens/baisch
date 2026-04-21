@@ -3,15 +3,18 @@ package com.mygdx.game;
 /**
  * Issue #171: per-hero interactive tutorial step sequences.
  *
- * Each sequence is a list of {@link GameScreen.TutorialStepDef} entries.
- * Steps are either:
- *   - blocking info overlays the player dismisses with "Got it!"
- *   - non-blocking banner steps that auto-advance when an action hook fires
- *     (e.g. "FINISH_TURN", "PLUNDER", "PUT_DEF", "TAKE_DEF")
- *   - a final terminal blocking step (Back to Menu / Keep Playing)
+ * Design pattern: each instructional blocking overlay is followed by a
+ * non-blocking banner that pauses the flow (advancing on a relevant action
+ * hook where available, otherwise via the manual Next button on the banner).
+ * This prevents subsequent explanations from popping up before the player
+ * has had a chance to actually try the previous instruction.
  *
- * Banner steps also have a "Next" button so the player can skip past
- * action gates they cannot or do not want to satisfy.
+ * Hooks fired by GameScreen:
+ *   FINISH_TURN     - player clicked Finish Turn
+ *   PLUNDER         - player resolved a plunder
+ *   PUT_DEF         - player placed a defense card
+ *   TAKE_DEF        - player took a defense card back
+ *   MY_TURN_START   - player turn started (after bot turn ended)
  */
 final class HeroTutorialSteps {
   private HeroTutorialSteps() {}
@@ -46,26 +49,18 @@ final class HeroTutorialSteps {
     new GameScreen.TutorialStepDef(
       "Mercenaries",
       "You start with the Mercenaries hero. Mercenaries add +1 to attack or defense.\n\n"
-      + "You have up to 8 units. 4 units recover at the start of each new turn.\n\n"
-      + "This tutorial walks you through both uses.",
+      + "You have up to 8 units. 4 units recover at the start of each new turn.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Defense Boost",
       "To boost a defense card:\n"
       + "  1. Tap the Mercenaries hero icon to select it.\n"
       + "  2. Tap one of your own defense cards (top half adds, bottom half removes).\n\n"
-      + "A pawn icon and +N label appears on the boosted card.\n\n"
-      + "Try it now: place mercenaries on a defense card.",
+      + "A pawn icon and +N label appears on the boosted card.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Defense Boost",
-      "Tap Mercenaries, then tap one of your own defense cards to add a unit.",
-      "MERC_DEF_BOOST"),
-    new GameScreen.TutorialStepDef(
-      "Remove Mercenaries",
-      "Tap Mercenaries again, then tap the bottom half of the boosted defense card. "
-      + "The unit returns to your pool.\n\n"
-      + "Mercenaries on a defense card are also lost if that card is taken away by a successful attack.",
+      "Tap Mercenaries, then tap one of your own defense cards. Click Next when done.",
       null),
     new GameScreen.TutorialStepDef(
       "Attack Boost",
@@ -88,6 +83,10 @@ final class HeroTutorialSteps {
       "Finish Your Turn",
       "Click 'Finish turn' to let the bot play and see your mercenaries recover.",
       "FINISH_TURN"),
+    GameScreen.TutorialStepDef.banner(
+      "Bot is Playing...",
+      "Wait for the bot to finish its turn.",
+      "MY_TURN_START"),
     DONE,
   };
 
@@ -97,23 +96,20 @@ final class HeroTutorialSteps {
       "Marshal",
       "Normally you have 1 take + 1 put action for defense cards per turn.\n\n"
       + "With the Marshal, both limits are replaced by a shared pool of 3 actions "
-      + "you can mix and match in any combination.\n\n"
-      + "It's passive - no activation needed.",
+      + "you can mix and match in any combination. It's passive - no activation needed.",
       "Begin"),
     GameScreen.TutorialStepDef.banner(
       "Take a Defense Card",
-      "Tap one of your defense cards to take it back to your hand. With the Marshal you can "
-      + "take more than one this turn.",
+      "Tap one of your defense cards to take it back to your hand.",
       "TAKE_DEF"),
     GameScreen.TutorialStepDef.banner(
       "Place a Defense Card",
-      "Select a hand card, then tap an empty shield slot to place it. "
-      + "You can do this multiple times this turn.",
+      "Select a hand card, then tap an empty shield slot to place it.",
       "PUT_DEF"),
     new GameScreen.TutorialStepDef(
       "Use the Pool Freely",
       "You have actions left! Try discarding all 3 defense cards, then placing 3 fresh ones - "
-      + "all in a single Marshal turn. When done, finish your turn.",
+      + "all in a single Marshal turn. Click Got it when ready to finish your turn.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -134,10 +130,18 @@ final class HeroTutorialSteps {
       "Tap the Spy hero icon to select it, then tap one of the bot's face-down defense cards. "
       + "The card flips face-up for you only.",
       null),
+    GameScreen.TutorialStepDef.banner(
+      "Try Flipping",
+      "Tap Spy, then tap an enemy face-down defense card. Click Next when done.",
+      null),
     new GameScreen.TutorialStepDef(
       "Extend Mode",
       "If you sacrifice one of your own defense cards to the Spy, you gain +2 extra flips this turn (max 3 total).\n\n"
       + "To extend: with Spy selected, tap one of your own defense cards.",
+      null),
+    GameScreen.TutorialStepDef.banner(
+      "Try Extending (Optional)",
+      "Tap Spy, then tap one of your own defense cards to gain +2 flips. Or click Next to skip.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -158,14 +162,16 @@ final class HeroTutorialSteps {
       "Finish Your Turn",
       "Click 'Finish turn' to let the bot play. You can place defense cards first if you wish.",
       "FINISH_TURN"),
-    new GameScreen.TutorialStepDef(
+    GameScreen.TutorialStepDef.banner(
       "Defend with Battery Tower",
-      "If the bot attacks one of your defense cards or your king this turn, an Allow / Deny prompt appears.\n\n"
-      + "Tap 'Battery Tower' (Deny) to block the attack. The attacker's hand cards are then locked for the rest of their turn and their attack cards are revealed to you.",
-      null),
+      "If the bot attacks one of your defense cards or your king, an Allow / Deny prompt appears. "
+      + "Tap 'Battery Tower' (Deny) to block the attack.",
+      "MY_TURN_START"),
     new GameScreen.TutorialStepDef(
-      "Recovery",
-      "Battery Tower automatically refills 1 charge at the start of each new turn - "
+      "After the Bot's Turn",
+      "If you denied an attack, the attacker's hand cards are locked for the rest of their turn "
+      + "and their attack cards are revealed to you.\n\n"
+      + "Battery Tower automatically refills 1 charge at the start of each new turn - "
       + "so you always have one ready when defending.",
       null),
     DONE,
@@ -180,13 +186,14 @@ final class HeroTutorialSteps {
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Trade a Card",
-      "Tap the Merchant hero icon, then tap the hand card you want to replace.",
-      null),
-    new GameScreen.TutorialStepDef(
-      "Keep or Re-roll",
-      "After the new card is shown:\n"
+      "Tap the Merchant hero icon, then tap the hand card you want to replace.\n\n"
+      + "After the new card is shown:\n"
       + "  - Keep it: old card is discarded, new card stays.\n"
-      + "  - 2nd chance: discard the new card and draw again (uses your trade action again).",
+      + "  - 2nd chance: discard the new card and draw again.",
+      null),
+    GameScreen.TutorialStepDef.banner(
+      "Try the Merchant",
+      "Tap Merchant, then tap a hand card to trade it. Click Next when done.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -204,17 +211,19 @@ final class HeroTutorialSteps {
       + "You have up to 2 conversion attempts per turn.",
       "Begin"),
     new GameScreen.TutorialStepDef(
-      "Set Your Attack Symbol",
+      "Step 1: Set Your Attack Symbol",
       "Select a hand card. The symbol on that card becomes your attack symbol for this turn. "
       + "The Priest needs an attack symbol locked in.",
       null),
     new GameScreen.TutorialStepDef(
-      "Initiate an Attack",
-      "Tap an enemy defense card to start an attack. After the attack overlay appears, the Priest can act.",
+      "Step 2: Initiate an Attack & Convert",
+      "Tap an enemy defense card to start an attack. After the attack overlay appears, tap the "
+      + "Priest hero icon and follow the conversion dialog. The bot's hand is revealed and you pick a card.",
       null),
-    new GameScreen.TutorialStepDef(
-      "Convert a Card",
-      "Tap the Priest hero icon and follow the conversion dialog. The bot's hand is revealed and you pick a card.",
+    GameScreen.TutorialStepDef.banner(
+      "Try the Priest",
+      "Select a hand card, tap an enemy defense card, then tap Priest in the overlay. "
+      + "Click Next when done.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -297,10 +306,14 @@ final class HeroTutorialSteps {
       "Tap the Saboteurs hero icon, then tap an empty defense slot of the bot.\n\n"
       + "(If the bot has no empty slots, attack one of their defense cards first to clear a slot.)",
       null),
+    GameScreen.TutorialStepDef.banner(
+      "Try Sabotaging",
+      "Tap Saboteurs, then tap an empty enemy defense slot. Click Next when done.",
+      null),
     new GameScreen.TutorialStepDef(
       "Removal & Recovery",
       "The enemy can remove a saboteur on their turn. If they attack through it and win, "
-      + "the saboteur dies - recover takes 2 turns.",
+      + "the saboteur dies - recovery takes 2 turns.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -322,6 +335,11 @@ final class HeroTutorialSteps {
       + "  2. Tap the Fortified Tower hero icon to select it.\n"
       + "  3. Tap one of your own defense slots - the hand card stacks on top.",
       null),
+    GameScreen.TutorialStepDef.banner(
+      "Try Stacking",
+      "Select a hand card, tap Fortified Tower, then tap one of your own defense slots. "
+      + "Click Next when done.",
+      null),
     new GameScreen.TutorialStepDef(
       "Take the Stack Back",
       "You can take both cards back in one defense-take action by tapping the stacked slot. "
@@ -340,16 +358,17 @@ final class HeroTutorialSteps {
       "Magician",
       "Once per turn, the Magician replaces all cards in an enemy defense slot with random "
       + "cards drawn from the deck. The replaced cards go to the cemetery.\n\n"
-      + "The new cards' face state is inverted: face-down becomes face-up and vice versa.",
+      + "The new cards' face state is inverted: face-down becomes face-up and vice versa. "
+      + "Stacked slots (two cards) are replaced layer by layer - both cards swap.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Cast Card Replacement",
       "Tap the Magician hero icon, then tap any enemy defense card. "
       + "The slot is rebuilt with new cards from the deck.",
       null),
-    new GameScreen.TutorialStepDef(
-      "Stacked Slots",
-      "Stacked slots (two cards) are replaced layer by layer - both cards swap.",
+    GameScreen.TutorialStepDef.banner(
+      "Try the Magician",
+      "Tap Magician, then tap any enemy defense card. Click Next when done.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
@@ -372,12 +391,20 @@ final class HeroTutorialSteps {
       + "  2. Tap an enemy defense card.\n\n"
       + "Cannot be combined with hand cards in the same attack.",
       null),
+    GameScreen.TutorialStepDef.banner(
+      "Try a Direct King Attack",
+      "Tap Warlord, then tap an enemy defense card. Click Next when done (or to skip).",
+      null),
     new GameScreen.TutorialStepDef(
       "King Swap",
       "Swap your king with a hand card any time:\n"
       + "  1. Tap your own king card to select it.\n"
       + "  2. Tap the hand card you want as the new king.\n\n"
       + "The old king moves to your hand. This does NOT consume your normal once-per-turn king attack.",
+      null),
+    GameScreen.TutorialStepDef.banner(
+      "Try a King Swap (Optional)",
+      "Tap your own king, then tap a hand card to swap. Or click Next to skip.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",

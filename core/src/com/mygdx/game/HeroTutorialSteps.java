@@ -122,13 +122,13 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] SPY = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Spy",
-      "The Spy lets you flip a face-down enemy defense card so you (and only you) can see its value.\n\n"
+      "The Spy lets you flip a face-down enemy defense card so everyone can see its value.\n\n"
       + "You start with 1 flip per turn.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Flip an Enemy Card",
       "Tap the Spy hero icon to select it, then tap one of the bot's face-down defense cards. "
-      + "The card flips face-up for you only.",
+      + "The card flips face-up and its value becomes visible to all players.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try Flipping",
@@ -206,25 +206,23 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] PRIEST = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Priest",
-      "After initiating an attack on an enemy defense card, the Priest can attempt to convert "
+      "After completing an attack or plunder, the Priest can attempt to convert "
       + "one of the defender's hand cards to your attack symbol - adding it to your hand.\n\n"
+      + "Your attack symbol is set automatically when you make your first attack or plunder. "
       + "You have up to 2 conversion attempts per turn.",
       "Begin"),
     new GameScreen.TutorialStepDef(
-      "Step 1: Set Your Attack Symbol",
-      "Select a hand card. The symbol on that card becomes your attack symbol for this turn. "
-      + "The Priest needs an attack symbol locked in.",
-      null),
-    new GameScreen.TutorialStepDef(
-      "Step 2: Initiate an Attack & Convert",
-      "Tap an enemy defense card to start an attack. After the attack overlay appears, tap the "
-      + "Priest hero icon and follow the conversion dialog. The bot's hand is revealed and you pick a card.",
+      "Perform an Attack or Plunder",
+      "Select hand cards and attack an enemy defense card or plunder a harvest deck. "
+      + "This sets your attack symbol for this turn.\n\n"
+      + "After the action resolves, you can tap the Priest hero icon to open the conversion dialog. "
+      + "The bot's hand is revealed and you pick a card to convert.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Priest",
-      "Select a hand card, tap an enemy defense card, then tap Priest in the overlay. "
+      "Plunder a deck or attack an enemy, then tap Priest to convert a card. "
       + "Click Next when done.",
-      null),
+      "PLUNDER"),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
       "Click 'Finish turn' when done. Conversion attempts reset each new turn.",
@@ -326,18 +324,20 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] FORTIFIED_TOWER = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Fortified Tower",
-      "The Fortified Tower lets you place a second card face-down on top of an existing defense slot - "
-      + "an attacker must break through the top card before reaching the card below.",
+      "The Fortified Tower lets you stack a second card on top of a defense slot. "
+      + "When the slot is attacked, the values of both cards are added together - "
+      + "making it much harder to break through.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Stack a Defense Card",
-      "  1. Select a hand card with the same symbol as a defense card.\n"
-      + "  2. Tap the Fortified Tower hero icon to select it.\n"
+      "To stack a card:\n"
+      + "  1. Tap the Fortified Tower hero icon to select it.\n"
+      + "  2. Tap a hand card to select it.\n"
       + "  3. Tap one of your own defense slots - the hand card stacks on top.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try Stacking",
-      "Select a hand card, tap Fortified Tower, then tap one of your own defense slots. "
+      "Tap Fortified Tower, select a hand card, then tap one of your own defense slots. "
       + "Click Next when done.",
       null),
     new GameScreen.TutorialStepDef(

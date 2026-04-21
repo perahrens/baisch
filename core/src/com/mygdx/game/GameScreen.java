@@ -4287,6 +4287,27 @@ public class GameScreen extends ScreenAdapter {
   private void emitTakeDefCard(int positionId) {
     if (socket == null) return;
     try {
+      // Issue #167: if the def cards on this slot carried mercenaries, reset
+      // their boost on peer clients first so the boost label disappears once
+      // the cards return to hand.
+      Card df = currentPlayer.getDefCards().get(positionId);
+      if (df != null && df.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", playerIndex);
+        reset.put("slot", positionId);
+        reset.put("level", 0);
+        reset.put("boosted", 0);
+        socket.emit("mercDefBoost", reset);
+      }
+      Card tdf = currentPlayer.getTopDefCards().get(positionId);
+      if (tdf != null && tdf.getBoosted() > 0) {
+        JSONObject reset = new JSONObject();
+        reset.put("playerIdx", playerIndex);
+        reset.put("slot", positionId);
+        reset.put("level", 1);
+        reset.put("boosted", 0);
+        socket.emit("mercDefBoost", reset);
+      }
       JSONObject payload = new JSONObject();
       payload.put("playerIdx", playerIndex);
       payload.put("positionId", positionId);

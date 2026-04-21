@@ -12,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.heroes.Hero;
 import com.mygdx.game.heroes.Marshal;
+import com.mygdx.game.heroes.Mercenaries;
 
 public class Player {
 
@@ -154,14 +155,39 @@ public class Player {
     }
 
     if (allowed) {
+      // Issue #167: return any placed mercenaries to the player's pool
+      // (callback) and clear the boost count before moving the card to hand.
+      returnMercenariesFromCard(defCards.get(position));
       addHandCard(defCards.get(position));
       defCards.remove(position);
       if (topDefCards.containsKey(position)) {
+        returnMercenariesFromCard(topDefCards.get(position));
         addHandCard(topDefCards.get(position));
         topDefCards.remove(position);
       }
     } else {
       System.out.println("No more take actions allowed");
+    }
+  }
+
+  /**
+   * Issue #167: when a defense / king card carrying mercenaries leaves the
+   * board (e.g. taken back to hand), the placed mercenaries return to the
+   * player's ready pool and the card's boost count is reset to 0.
+   */
+  private void returnMercenariesFromCard(Card card) {
+    if (card == null || card.getBoosted() <= 0) return;
+    Mercenaries mercenaries = null;
+    for (int i = 0; i < heroes.size(); i++) {
+      if ("Mercenaries".equals(heroes.get(i).getHeroName())) {
+        mercenaries = (Mercenaries) heroes.get(i);
+        break;
+      }
+    }
+    int n = card.getBoosted();
+    for (int i = 0; i < n; i++) {
+      if (mercenaries != null) mercenaries.callback();
+      card.addBoosted(-1);
     }
   }
 

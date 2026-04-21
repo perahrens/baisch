@@ -206,22 +206,16 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] PRIEST = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Priest",
-      "After completing an attack or plunder, the Priest can attempt to convert "
-      + "one of the defender's hand cards to your attack symbol - adding it to your hand.\n\n"
-      + "Your attack symbol is set automatically when you make your first attack or plunder. "
-      + "You have up to 2 conversion attempts per turn.",
+      "The Priest lets you steal a card from the enemy's hand - but only cards matching your attack symbol.",
       "Begin"),
     new GameScreen.TutorialStepDef(
-      "Perform an Attack or Plunder",
-      "Select hand cards and attack an enemy defense card or plunder a harvest deck. "
-      + "This sets your attack symbol for this turn.\n\n"
-      + "After the action resolves, you can tap the Priest hero icon to open the conversion dialog. "
-      + "The bot's hand is revealed and you pick a card to convert.",
+      "How to Use the Priest",
+      "To steal an enemy hand card:\n  1. Tap the Priest hero icon to select it.\n  2. Tap the enemy's hand card deck.\n  3. Pick a card matching your attack symbol to take it.\n\n"
+      + "Note: you must make at least one attack or plunder first this turn to set your attack symbol.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Priest",
-      "Plunder a deck or attack an enemy, then tap Priest to convert a card. "
-      + "Click Next when done.",
+      "First plunder or attack to set your symbol, then tap Priest and tap the bot's hand deck. Click Next when done.",
       "PLUNDER"),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",

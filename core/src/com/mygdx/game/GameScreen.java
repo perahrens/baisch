@@ -3451,7 +3451,26 @@ public class GameScreen extends ScreenAdapter {
       handStage.addActor(spectatorLabel);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
-      addExposeCardOverlay();
+      // Self-heal: if there is no covered defense card to expose (e.g. state
+      // changed before the overlay rebuild), drop the flag and fall through
+      // so the regular finish-turn button is shown instead of a dead overlay.
+      boolean stillHasCovered = false;
+      for (Card c : currentPlayer.getDefCards().values()) {
+        if (c.isCovered()) { stillHasCovered = true; break; }
+      }
+      if (!stillHasCovered) {
+        for (Card c : currentPlayer.getTopDefCards().values()) {
+          if (c.isCovered()) { stillHasCovered = true; break; }
+        }
+      }
+      if (stillHasCovered) {
+        addExposeCardOverlay();
+      } else {
+        pendingExposeCard = false;
+        finishTurnButton.setVisible(isMyTurn);
+        finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
+        finishTurnButton.addListener(finishTurnButtonListener);
+      }
     } else {
       finishTurnButton.setVisible(isMyTurn);
       finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket) {
@@ -3619,6 +3638,8 @@ public class GameScreen extends ScreenAdapter {
     bg.setSize(stageW, stageH);
     bg.setPosition(0, 0);
     bg.setColor(0f, 0f, 0f, 0.72f);
+    // Block input under the overlay but don't capture clicks meant for slot buttons.
+    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
     handStage.addActor(bg);
 
     Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
@@ -3647,8 +3668,9 @@ public class GameScreen extends ScreenAdapter {
       slotBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          pendingExposeCard = false;
-          gameState.setUpdateState(true); // immediately remove the overlay
+          // Emit BEFORE mutating local state. If a stateUpdate arrives during the
+          // click and clears handStage, the messages have already been sent and
+          // the server is the authority on turn progression.
           try {
             JSONObject exposeData = new JSONObject();
             exposeData.put("playerIdx", playerIndex);
@@ -3659,6 +3681,8 @@ public class GameScreen extends ScreenAdapter {
             socket.emit("finishTurn", ftData);
             tutorialAdvance(TUTORIAL_STEP_ENDTURN);
           } catch (JSONException ex) { ex.printStackTrace(); }
+          pendingExposeCard = false;
+          gameState.setUpdateState(true);
         }
       });
       handStage.addActor(slotBtn);

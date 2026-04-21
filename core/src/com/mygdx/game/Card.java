@@ -297,10 +297,15 @@ public class Card extends Actor {
   }
 
   public void removeAllListeners() {
-    Array<EventListener> listeners = getListeners();
-    for (EventListener listener : listeners) {
-      removeListener(listener);
-    }
+    // The naive `for (EventListener l : getListeners()) removeListener(l)` pattern is
+    // broken: libGDX's Array iterator advances by index, so when removeListener shrinks
+    // the underlying array each iteration skips one element and roughly half of the
+    // listeners survive. Real-world impact: after a coup/Warlord king swap, the new
+    // king ended up with two click listeners (the anonymous one from Player.setKingCard
+    // plus OwnKingCardListener) that toggled each other — clicks did nothing visible
+    // until the next turn (#169). Use Actor.clearListeners() which clears via the
+    // underlying DelayedRemovalArray.clear().
+    clearListeners();
   }
 
   public void setDeckPosition() {

@@ -59,10 +59,9 @@ public class Player {
 
     handCards.add(card);
 
-    Array<EventListener> listeners = card.getListeners();
-    for (EventListener listener : listeners) {
-      card.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    card.clearListeners();
 
     card.addListener(new ClickListener() {
       @Override
@@ -481,10 +480,9 @@ public class Player {
 
     kingCard.setSelected(false);
 
-    Array<EventListener> listeners = kingCard.getListeners();
-    for (EventListener listener : listeners) {
-      kingCard.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    kingCard.clearListeners();
 
     final Card refCard = kingCard;
 

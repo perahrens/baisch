@@ -4855,10 +4855,9 @@ public class GameScreen extends ScreenAdapter {
   }
 
   public void removeAllListeners(Actor actor) {
-    Array<EventListener> listeners = actor.getListeners();
-    for (EventListener listener : listeners) {
-      actor.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    actor.clearListeners();
   }
 
   @Override

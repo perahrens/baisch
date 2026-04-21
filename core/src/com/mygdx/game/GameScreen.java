@@ -448,9 +448,12 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("kingUsed", pt.isKingUsed());
                     previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
                     previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
-                    int defMercBonusBT = 0;
-                    for (Card dc : pt.getPendingAttackDefCards()) defMercBonusBT += dc.getBoosted();
-                    previewData.put("defMercBonus", defMercBonusBT);
+                      int defMercBonusBT = 0;
+                      for (Card dc : pt.getPendingAttackDefCards()) defMercBonusBT += dc.getBoosted();
+                      previewData.put("defMercBonus", defMercBonusBT);
+                      JSONArray defBoostsBT = new JSONArray();
+                      for (Card dc : pt.getPendingAttackDefCards()) defBoostsBT.put(dc.getBoosted());
+                      previewData.put("defCardBoosts", defBoostsBT);
                     previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
                     previewData.put("attackingSymbol", pt.getAttackingSymbol()[0]);
@@ -2133,6 +2136,9 @@ public class GameScreen extends ScreenAdapter {
                       int defMercBonusRes = 0;
                       for (Card dc : apt.getPendingAttackDefCards()) defMercBonusRes += dc.getBoosted();
                       resPreview.put("defMercBonus", defMercBonusRes);
+                      JSONArray defBoostsRes = new JSONArray();
+                      for (Card dc : apt.getPendingAttackDefCards()) defBoostsRes.put(dc.getBoosted());
+                      resPreview.put("defCardBoosts", defBoostsRes);
                       resPreview.put("reservistBonus", apt.getReservistAttackBonus());
                       resPreview.put("success", newSuccess);
                       resPreview.put("attackingSymbol", apt.getAttackingSymbol()[0]);
@@ -2165,6 +2171,7 @@ public class GameScreen extends ScreenAdapter {
         final JSONArray bcAtkIds = pendingAttackBroadcast.optJSONArray("attackCardIds");
         final JSONArray bcOwnDefIds = pendingAttackBroadcast.optJSONArray("ownDefCardIds");
         final JSONArray bcDefIds = pendingAttackBroadcast.optJSONArray("defCardIds");
+        final JSONArray bcDefBoosts = pendingAttackBroadcast.optJSONArray("defCardBoosts");
 
         Image watchOverlay = new Image(MyGdxGame.skin, "white");
         watchOverlay.setFillParent(true);
@@ -2213,6 +2220,20 @@ public class GameScreen extends ScreenAdapter {
         }
         wAtkSum += bcMercBonus;
         wAtkSum += bcResBonus;
+        // Attacker mercenary bonus indicator
+        if (bcMercBonus > 0) {
+          float iSz = wAH / 3f;
+          TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+          Image mImg = new Image(mReg);
+          mImg.setSize(iSz, iSz);
+          mImg.setPosition(wLeftX, wBotY - 22f - iSz - 2f);
+          mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mImg);
+          Label mLbl = new Label("+" + bcMercBonus, MyGdxGame.skin);
+          mLbl.setColor(Color.GOLD);
+          mLbl.setPosition(wLeftX + iSz + 3f, wBotY - 22f - iSz - 2f);
+          gameStage.addActor(mLbl);
+        }
 
         // Defense cards (right column)
         ArrayList<Integer> wDefCardIds = new ArrayList<Integer>();
@@ -2225,9 +2246,27 @@ public class GameScreen extends ScreenAdapter {
           Card disp = Card.fromCardId(wDefCardIds.get(di));
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(wDW, wDH);
-          disp.setPosition(wRightX + di * (wDW + 4f), wBotY + (wCH - wDH) / 2f);
+          float dispX = wRightX + di * (wDW + 4f);
+          float dispY = wBotY + (wCH - wDH) / 2f;
+          disp.setPosition(dispX, dispY);
           gameStage.addActor(disp);
           wDefSum += "joker".equals(disp.getSymbol()) ? 1 : disp.getStrength();
+          // Per-card mercenary boost indicator
+          int cardBoost = (bcDefBoosts != null && di < bcDefBoosts.length()) ? bcDefBoosts.getInt(di) : 0;
+          if (cardBoost > 0) {
+            float iSz = wDH / 3f;
+            TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+            Image mImg = new Image(mReg);
+            mImg.setSize(iSz, iSz);
+            mImg.setPosition(dispX + wDW / 2f - iSz / 2f, dispY + wDH / 2f - iSz / 2f);
+            mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mImg);
+            Label mLbl = new Label("+" + cardBoost, MyGdxGame.skin);
+            mLbl.setColor(Color.GOLD);
+            mLbl.setPosition(dispX + wDW / 2f - iSz / 2f + iSz + 2f, dispY + wDH / 2f - iSz / 2f);
+            mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mLbl);
+          }
         }
         // Issue #167: defender's mercenary boost (defense cards rendered via
         // Card.fromCardId have no boost, so add it explicitly).

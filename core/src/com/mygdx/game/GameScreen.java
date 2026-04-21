@@ -158,6 +158,12 @@ public class GameScreen extends ScreenAdapter {
   private boolean isTutorial = false;
   private int tutorialStep = 0;
   private int tutorialDefenseBaseline = -1; // defense card count when DEFENSE step started; -1 = unset
+  // Issue #171: hero-specific interactive tutorial. Independent state machine
+  // running alongside (but mutually exclusive with) the basic tutorial.
+  private boolean isHeroTutorial = false;
+  private String heroTutorialName = null;
+  private int heroTutorialStep = 0;
+  private TutorialStepDef[] heroTutorialSteps = null;
   private JSONArray activityLog = new JSONArray();
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
@@ -208,6 +214,16 @@ public class GameScreen extends ScreenAdapter {
     players = gameState.getPlayers();
     currentPlayer = players.get(this.playerIndex);
     this.isTutorial = centralizedState.optBoolean("isTutorial", false);
+    // Issue #171: hero tutorial detection — overrides the basic tutorial flow.
+    String htn = centralizedState.optString("heroTutorialName", null);
+    if (htn != null && !htn.isEmpty() && !"null".equals(htn)) {
+      this.heroTutorialName = htn;
+      this.heroTutorialSteps = HeroTutorialSteps.forHero(htn);
+      if (this.heroTutorialSteps != null) {
+        this.isHeroTutorial = true;
+        this.isTutorial = false; // hero tutorial owns the overlay; basic flow disabled
+      }
+    }
 
     // Single stateUpdate listener — replaces all specific sync events
     final int notifyPlayerIdx = this.playerIndex; // capture field before parameter shadows it
@@ -715,6 +731,8 @@ public class GameScreen extends ScreenAdapter {
       addMenuButtonToOverlay();
       if (isTutorial && tutorialStep >= 0) {
         buildTutorialOverlay();
+      } else if (isHeroTutorial && heroTutorialStep >= 0) {
+        buildHeroTutorialOverlay();
       }
     }
   }
@@ -1597,6 +1615,7 @@ public class GameScreen extends ScreenAdapter {
             e.printStackTrace();
           }
           tutorialAdvance(TUTORIAL_STEP_PLUNDER);
+          tutorialAdvanceHook("PLUNDER");
           pt.getPendingAttackCards().clear();
           pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
@@ -3587,6 +3606,7 @@ public class GameScreen extends ScreenAdapter {
           }
           super.clicked(event, x, y);
           tutorialAdvance(TUTORIAL_STEP_ENDTURN);
+          tutorialAdvanceHook("FINISH_TURN");
         }
       };
       finishTurnButton.addListener(finishTurnButtonListener);
@@ -3762,6 +3782,7 @@ public class GameScreen extends ScreenAdapter {
             ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
             socket.emit("finishTurn", ftData);
             tutorialAdvance(TUTORIAL_STEP_ENDTURN);
+            tutorialAdvanceHook("FINISH_TURN");
           } catch (JSONException ex) { ex.printStackTrace(); }
           pendingExposeCard = false;
           gameState.setUpdateState(true);
@@ -4044,7 +4065,7 @@ public class GameScreen extends ScreenAdapter {
    * Blocking steps show a full-screen overlay with title/body/button.
    * Non-blocking steps show a guidance banner with bannerTitle/bannerText.
    */
-  private static final class TutorialStepDef {
+  static final class TutorialStepDef {
     final boolean blocking;
     // Blocking overlay fields (used when blocking == true)
     final String title;
@@ -4053,6 +4074,11 @@ public class GameScreen extends ScreenAdapter {
     // Guidance banner fields (used when blocking == false)
     final String bannerTitle;
     final String bannerText;
+    // Hero-tutorial: action hook string. When set on a banner step, the hero
+    // tutorial advances when tutorialAdvanceHook(hook) is called. Null = no hook.
+    final String hook;
+    // Hero-tutorial: marks the final "complete" step (shows Back to Menu / Keep Playing).
+    final boolean terminal;
 
     /** Blocking overlay step. */
     TutorialStepDef(String title, String body, String buttonLabel) {
@@ -4062,6 +4088,8 @@ public class GameScreen extends ScreenAdapter {
       this.buttonLabel = buttonLabel;
       this.bannerTitle = "";
       this.bannerText = "";
+      this.hook = null;
+      this.terminal = false;
     }
 
     /** Non-blocking banner step. */
@@ -4072,6 +4100,37 @@ public class GameScreen extends ScreenAdapter {
       this.buttonLabel = null;
       this.bannerTitle = bannerTitle;
       this.bannerText = bannerText;
+      this.hook = null;
+      this.terminal = false;
+    }
+
+    /** Hero-tutorial blocking step (with terminal flag). */
+    TutorialStepDef(String title, String body, String buttonLabel, boolean terminal) {
+      this.blocking = true;
+      this.title = title;
+      this.body = body;
+      this.buttonLabel = buttonLabel;
+      this.bannerTitle = "";
+      this.bannerText = "";
+      this.hook = null;
+      this.terminal = terminal;
+    }
+
+    /** Hero-tutorial banner step with auto-advance hook (private; use {@link #banner}). */
+    private TutorialStepDef(boolean bannerMarker, String bannerTitle, String bannerText, String hook) {
+      this.blocking = false;
+      this.title = "";
+      this.body = "";
+      this.buttonLabel = null;
+      this.bannerTitle = bannerTitle;
+      this.bannerText = bannerText;
+      this.hook = hook;
+      this.terminal = false;
+    }
+
+    /** Factory: hero-tutorial banner with auto-advance hook. */
+    static TutorialStepDef banner(String bannerTitle, String bannerText, String hook) {
+      return new TutorialStepDef(true, bannerTitle, bannerText, hook);
     }
   }
 
@@ -4340,6 +4399,167 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.addActor(skipBtn);
   }
 
+  // ── Hero tutorial overlay (Issue #171) ──────────────────────────────────────
+
+  /** Advances the hero tutorial when the current step's hook matches. */
+  private void tutorialAdvanceHook(String hook) {
+    if (!isHeroTutorial || heroTutorialStep < 0 || hook == null) return;
+    if (heroTutorialSteps == null || heroTutorialStep >= heroTutorialSteps.length) return;
+    String stepHook = heroTutorialSteps[heroTutorialStep].hook;
+    if (hook.equals(stepHook)) {
+      heroTutorialStep++;
+      gameState.setUpdateState(true);
+    }
+  }
+
+  /** Builds the hero-tutorial overlay (blocking info or non-blocking banner). */
+  private void buildHeroTutorialOverlay() {
+    if (heroTutorialSteps == null || heroTutorialStep < 0
+        || heroTutorialStep >= heroTutorialSteps.length) return;
+    TutorialStepDef step = heroTutorialSteps[heroTutorialStep];
+    if (step.blocking) {
+      buildHeroBlockingOverlay(step);
+    } else {
+      buildHeroBanner(step);
+    }
+  }
+
+  private void buildHeroBlockingOverlay(final TutorialStepDef step) {
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0f, 0f, 0f, 0.88f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.center().pad(20f);
+
+    Label heroLbl = new Label(heroTutorialName + " Tutorial", MyGdxGame.skin);
+    heroLbl.setColor(1f, 1f, 1f, 0.5f);
+    outer.add(heroLbl).padBottom(2).row();
+
+    int total = heroTutorialSteps.length;
+    Label stepLabel = new Label("Step " + (heroTutorialStep + 1) + " / " + total, MyGdxGame.skin);
+    stepLabel.setColor(1f, 1f, 1f, 0.5f);
+    outer.add(stepLabel).padBottom(6).row();
+
+    Label titleLbl = new Label(step.title, MyGdxGame.skin);
+    titleLbl.setColor(Color.GOLD);
+    outer.add(titleLbl).padBottom(14).row();
+
+    Label bodyLbl = new Label(step.body, MyGdxGame.skin);
+    bodyLbl.setWrap(true);
+    outer.add(bodyLbl).width(390f).padBottom(24).row();
+
+    if (step.terminal) {
+      TextButton exitBtn = new TextButton("Back to Menu", MyGdxGame.skin);
+      exitBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          heroTutorialStep = -1;
+          emitGiveUp();
+        }
+      });
+      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
+
+      TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
+      keepBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          heroTutorialStep = -1;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          gameState.setUpdateState(true);
+        }
+      });
+      outer.add(keepBtn).width(280).height(50).row();
+    } else {
+      String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
+      TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
+      gotItBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          heroTutorialStep++;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          buildHeroTutorialOverlay();
+        }
+      });
+      outer.add(gotItBtn).width(280).height(52).row();
+
+      TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
+      skipBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          heroTutorialStep = -1;
+          overlayStage.clear();
+          addMenuButtonToOverlay();
+          gameState.setUpdateState(true);
+        }
+      });
+      outer.add(skipBtn).width(200).height(40).padTop(8).row();
+    }
+
+    overlayStage.addActor(outer);
+  }
+
+  private void buildHeroBanner(TutorialStepDef step) {
+    float bannerH = 88f;
+    float bannerY = MyGdxGame.HEIGHT - bannerH - 2f;
+
+    Image bannerBg = new Image(MyGdxGame.skin, "white");
+    bannerBg.setSize(MyGdxGame.WIDTH, bannerH);
+    bannerBg.setPosition(0, bannerY);
+    bannerBg.setColor(0f, 0.05f, 0.2f, 0.92f);
+    overlayStage.addActor(bannerBg);
+
+    Table banner = new Table();
+    banner.setSize(MyGdxGame.WIDTH, bannerH);
+    banner.setPosition(0, bannerY);
+    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+
+    int total = heroTutorialSteps.length;
+    Label stepLbl = new Label("Step " + (heroTutorialStep + 1) + "/" + total + "  ", MyGdxGame.skin);
+    stepLbl.setColor(1f, 1f, 1f, 0.55f);
+    Label titleLbl = new Label(step.bannerTitle, MyGdxGame.skin);
+    titleLbl.setColor(Color.GOLD);
+
+    Table topRow = new Table();
+    topRow.add(stepLbl);
+    topRow.add(titleLbl).left();
+    banner.add(topRow).left().padBottom(4f).row();
+
+    Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
+    bodyLbl.setWrap(true);
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+
+    overlayStage.addActor(banner);
+
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    skipBtn.setSize(70f, 30f);
+    skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
+    skipBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        heroTutorialStep = -1;
+        overlayStage.clear();
+        addMenuButtonToOverlay();
+        gameState.setUpdateState(true);
+      }
+    });
+    overlayStage.addActor(skipBtn);
+
+    // Manual "Next" button so the player can advance past steps whose hook
+    // they may not be able to satisfy in the current state.
+    TextButton nextBtn = new TextButton("Next ►", MyGdxGame.skin);
+    nextBtn.setSize(90f, 30f);
+    nextBtn.setPosition(MyGdxGame.WIDTH - 170f, bannerY + bannerH - 34f);
+    nextBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        heroTutorialStep++;
+        overlayStage.clear();
+        addMenuButtonToOverlay();
+        buildHeroTutorialOverlay();
+      }
+    });
+    overlayStage.addActor(nextBtn);
+  }
+
   private void emitGiveUp() {
     if (socket == null) return;
     try {
@@ -4446,6 +4666,7 @@ public class GameScreen extends ScreenAdapter {
       payload.put("positionId", positionId);
       socket.emit("takeDefCard", payload);
       tutorialAdvance(TUTORIAL_STEP_TAKE_DEF_FIRST);
+      tutorialAdvanceHook("TAKE_DEF");
     } catch (JSONException e) { e.printStackTrace(); }
   }
 
@@ -4458,6 +4679,7 @@ public class GameScreen extends ScreenAdapter {
       payload.put("cardId", cardId);
       socket.emit("putDefCard", payload);
       tutorialAdvance(TUTORIAL_STEP_DEFENSE);
+      tutorialAdvanceHook("PUT_DEF");
     } catch (JSONException e) { e.printStackTrace(); }
   }
 

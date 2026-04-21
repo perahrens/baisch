@@ -1553,6 +1553,38 @@ io.on('connection', function(socket) {
     bot.playBotTurnIfNeeded(sess);
   });
 
+  // Issue #171: hero-specific interactive tutorial. Same setup as the basic
+  // tutorial (player vs bot, isTutorial=true) but the player starts with the
+  // chosen hero already in their inventory.
+  socket.on('createHeroTutorial', function(data) {
+    leaveCurrentSession(socket);
+    var heroName = (data && data.heroName) ? String(data.heroName) : null;
+    if (!heroName) return;
+    var sess = createSession('Hero Tutorial: ' + heroName, false, 6, false);
+    sess.isTutorial = true;
+    var player = connectedPlayers[socket.id];
+    var userName = player ? player.name : 'Player';
+    var botId = 'bot_' + sess.id;
+    sess.users = [
+      makeUser(socket.id, userName),
+      makeUser(botId, 'Tutorial Bot')
+    ];
+    socket.join(sess.id);
+    socketToSession[socket.id] = sess.id;
+    sess.gameState = new GameState(sess.users, { startingCards: 8 });
+    sess.gameState.isTutorial = true;
+    sess.gameState.heroTutorialName = heroName;
+    // Grant the chosen hero to the player (player index 0).
+    sess.gameState.heroAcquired(0, heroName);
+    io.to(socket.id).emit('gameState', {
+      playerIndex: 0,
+      gameState: sess.gameState.serialize()
+    });
+    broadcastSessionList();
+    broadcastPlayerList();
+    bot.playBotTurnIfNeeded(sess);
+  });
+
   socket.on('giveUp', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

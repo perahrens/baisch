@@ -434,7 +434,11 @@ function botChooseDefAttack(gs, attackerIdx, allowScout) {
       var isFaceUp = defender.defCardsCovered && defender.defCardsCovered[slot] === false;
 
       if (isFaceUp) {
-        var threshold = gs.cardStrength(defCardId);
+        var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+        var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
+        var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+        var threshold = gs.cardStrength(defCardId) + defBoost
+                      + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
         var suits = Object.keys(groups);
         for (var si = 0; si < suits.length; si++) {
           var suit = suits[si];
@@ -497,7 +501,7 @@ function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
     }
     if (!allEmpty) continue;
 
-    var kingStr = gs.cardStrength(defender.kingCard);
+    var kingStr = gs.cardStrength(defender.kingCard) + (defender.kingCardBoost || 0);
     var suits = Object.keys(groups);
     for (var si = 0; si < suits.length; si++) {
       var suit = suits[si];
@@ -1346,6 +1350,24 @@ io.on('connection', function(socket) {
   socket.on('mercDefBoost', function(data) {
     var sess = getSession(socket.id);
     if (!sess) return;
+    // Persist boost on the server so bot AI sees mercenary-boosted defenses
+    try {
+      if (sess.gameState && data && typeof data.playerIdx === 'number') {
+        var p = sess.gameState.players[data.playerIdx];
+        if (p) {
+          var boosted = data.boosted || 0;
+          if (data.level === -1) {
+            p.kingCardBoost = boosted;
+          } else if (data.level === 1) {
+            if (!p.topDefCardsBoost) p.topDefCardsBoost = {};
+            p.topDefCardsBoost[data.slot] = boosted;
+          } else {
+            if (!p.defCardsBoost) p.defCardsBoost = {};
+            p.defCardsBoost[data.slot] = boosted;
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
     socket.to(sess.id).emit('mercDefBoost', data);
   });
 

@@ -3564,7 +3564,7 @@ public class GameScreen extends ScreenAdapter {
       handStage.addActor(spectatorLabel);
     } else if (isMyTurn && (currentPlayer.getPlayerTurn().isAttackPending() || pendingAttackBroadcast != null)) {
       finishTurnButton.setVisible(false);
-    } else if (isMyTurn && pendingExposeCard && !isTutorial && !isHeroTutorial) {
+    } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
       // Self-heal: if there is no covered defense card to expose (e.g. state
       // changed before the overlay rebuild), drop the flag and fall through
@@ -3594,9 +3594,7 @@ public class GameScreen extends ScreenAdapter {
         public void clicked(InputEvent event, float x, float y) {
           if (checkedPenalty) { super.clicked(event, x, y); return; }
           checkedPenalty = true;
-          // Skip the covered-card expose penalty in any tutorial: players start
-          // with covered defense cards and are not expected to have flipped them.
-          if (!isTutorial && !isHeroTutorial && currentPlayer.getPlayerTurn().getAttackCounter() == 0) {
+          if (currentPlayer.getPlayerTurn().getAttackCounter() == 0) {
             boolean hasCoveredCard = false;
             for (Card c : currentPlayer.getDefCards().values()) {
               if (c.isCovered()) { hasCoveredCard = true; break; }

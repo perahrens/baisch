@@ -32,7 +32,13 @@ public class OwnHeroListener extends ClickListener {
     boolean spyExtendMode = hero.getHeroName() == "Spy" && !hero.isReady()
         && ((Spy) hero).getSpyExtends() > 0 && hero.isSelectable();
 
-    if ((hero.isReady() && hero.isSelectable()) || spyExtendMode) {
+    // Mercenaries can be clicked even when isReady==false (i.e. all 8 are placed/dead),
+    // so the player can still toggle the hero in order to remove already-placed
+    // mercenaries from defense / king cards via the bottom-half click (issue #167).
+    boolean mercenariesToggleMode = hero.getHeroName() == "Mercenaries" && !hero.isReady()
+        && hero.isSelectable();
+
+    if ((hero.isReady() && hero.isSelectable()) || spyExtendMode || mercenariesToggleMode) {
 
       // ---- Mercenaries attack mode: hand cards selected + click hero = +1 bonus ----
       if (hero.getHeroName() == "Mercenaries" && player.getSelectedHandCards().size() > 0) {

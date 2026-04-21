@@ -2023,6 +2023,21 @@ public class GameScreen extends ScreenAdapter {
           disp.setPosition(leftX + ai * (aW + 4f), cBotY + (bCH - aH) / 2f);
           gameStage.addActor(disp);
         }
+        // Attacker mercenary bonus indicator
+        int atkMercViz = apt.getPendingAttackMercenaryBonus();
+        if (atkMercViz > 0) {
+          float iSz = aH / 3f;
+          TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+          Image mImg = new Image(mReg);
+          mImg.setSize(iSz, iSz);
+          mImg.setPosition(leftX, cBotY - 22f - iSz - 2f);
+          mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mImg);
+          Label mLbl = new Label("+" + atkMercViz, MyGdxGame.skin);
+          mLbl.setColor(Color.GOLD);
+          mLbl.setPosition(leftX + iSz + 3f, cBotY - 22f - iSz - 2f);
+          gameStage.addActor(mLbl);
+        }
       }
 
       // Defense cards (right column)
@@ -2040,11 +2055,30 @@ public class GameScreen extends ScreenAdapter {
         float dW = Math.min(bCW, (MyGdxGame.WIDTH / 2f - 20f - (nD - 1) * 4f) / nD);
         float dH = bCH * (dW / bCW);
         for (int di = 0; di < pendingDefViz.size(); di++) {
-          Card disp = Card.fromCardId(pendingDefViz.get(di).getCardId());
+          Card dc = pendingDefViz.get(di);
+          Card disp = Card.fromCardId(dc.getCardId());
           disp.setCovered(false); disp.setActive(true);
           disp.setSize(dW, dH);
-          disp.setPosition(rightX + di * (dW + 4f), cBotY + (bCH - dH) / 2f);
+          float dDispX = rightX + di * (dW + 4f);
+          float dDispY = cBotY + (bCH - dH) / 2f;
+          disp.setPosition(dDispX, dDispY);
           gameStage.addActor(disp);
+          // Per-card defender mercenary boost indicator
+          int dcBoost = dc.getBoosted();
+          if (dcBoost > 0) {
+            float iSz = dH / 3f;
+            TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+            Image mImg = new Image(mReg);
+            mImg.setSize(iSz, iSz);
+            mImg.setPosition(dDispX + dW / 2f - iSz / 2f, dDispY + dH / 2f - iSz / 2f);
+            mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mImg);
+            Label mLbl = new Label("+" + dcBoost, MyGdxGame.skin);
+            mLbl.setColor(Color.GOLD);
+            mLbl.setPosition(dDispX + dW / 2f - iSz / 2f + iSz + 2f, dDispY + dH / 2f - iSz / 2f);
+            mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(mLbl);
+          }
         }
       }
 

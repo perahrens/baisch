@@ -1895,7 +1895,11 @@ public class GameScreen extends ScreenAdapter {
           apt.resetPendingAttackMercenaryBonus();
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
-          if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
+          // Mark king as spent only for normal king attacks. Warlord direct attacks
+          // are an additional action granted by the hero and must NOT consume the
+          // regular once-per-turn king attack/plunder.
+          if (apt.isKingUsed() && !apt.isPendingAttackIsWarlord()) apt.setKingUsedThisTurn(true);
+          apt.setPendingAttackIsWarlord(false);
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
             c.setSelected(false);

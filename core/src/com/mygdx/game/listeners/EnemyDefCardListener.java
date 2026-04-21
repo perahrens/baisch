@@ -301,6 +301,11 @@ public class EnemyDefCardListener extends ClickListener {
 
     // Consume Warlord charge after attack is committed
     if (warlordAttack && warlord != null) {
+      // Mark this pending attack as a Warlord extra-attack so the resolved
+      // callback does NOT mark the king as spent for the turn (Warlord grants
+      // an additional attack action; the regular king attack/plunder must
+      // remain available).
+      pt.setPendingAttackIsWarlord(true);
       warlord.useAttack();
       if (socket != null) {
         try {

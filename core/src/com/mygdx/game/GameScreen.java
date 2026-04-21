@@ -3619,6 +3619,8 @@ public class GameScreen extends ScreenAdapter {
     Table hudPanel = new Table(MyGdxGame.skin);
     hudPanel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.4f)));
     hudPanel.pad(hudPad);
+    // Block input under the overlay but don't capture clicks meant for slot buttons.
+    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
     hudPanel.add(myPlayerLabel).padBottom(2f).row();
     hudPanel.add(iconsRow);
     hudPanel.pack();
@@ -3647,18 +3649,21 @@ public class GameScreen extends ScreenAdapter {
     prompt.setPosition(stageW / 2f - prompt.getPrefWidth() / 2f, stageH - prompt.getPrefHeight() - 6);
     handStage.addActor(prompt);
 
-    float btnW = stageW / 4f;
-    float btnX = 4;
-    int buttonsAdded = 0;
-    Map<Integer, Card> defCards    = currentPlayer.getDefCards();
-    Map<Integer, Card> topDefCards = currentPlayer.getTopDefCards();
-    for (int slot = 1; slot <= 3; slot++) {
-      Card covered = null;
-      if (topDefCards.containsKey(slot) && topDefCards.get(slot).isCovered()) {
-        covered = topDefCards.get(slot);
-      } else if (defCards.containsKey(slot) && defCards.get(slot).isCovered()) {
-        covered = defCards.get(slot);
-      }
+    float // Emit BEFORE mutating local state. If a stateUpdate arrives during the
+          // click and clears handStage, the messages have already been sent and
+          // the server is the authority on turn progression.
+          try {
+            JSONObject exposeData = new JSONObject();
+            exposeData.put("playerIdx", playerIndex);
+            exposeData.put("slot", finalSlot);
+            socket.emit("exposeDefCard", exposeData);
+            JSONObject ftData = new JSONObject();
+            ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+            socket.emit("finishTurn", ftData);
+            tutorialAdvance(TUTORIAL_STEP_ENDTURN);
+          } catch (JSONException ex) { ex.printStackTrace(); }
+          pendingExposeCard = false;
+          gameState.setUpdateState(true);
       if (covered == null) continue;
       final int finalSlot = slot;
       TextButton slotBtn = new TextButton("Slot " + slot, MyGdxGame.skin);

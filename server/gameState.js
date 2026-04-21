@@ -692,8 +692,18 @@ class GameState {
 
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
     const p = this.players[playerIdx];
-    if ((p.warlordAttacks || 0) <= 0) {
-      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no attacks remaining`);
+    // Accept either a Warlord swap (consumes warlordAttacks) or a coup swap
+    // (player has zero defense cards on the board — costs only the per-turn
+    // take/put-defense actions, tracked client-side). Without this, a coup
+    // swap is rejected by the server and the next stateUpdate reverts the
+    // king on the client, leaving the visible "new king" detached from the
+    // actual kingCard reference and unresponsive to clicks until the next turn.
+    const hasWarlord = (p.warlordAttacks || 0) > 0;
+    const defCount = Object.keys(p.defCards || {}).length
+        + Object.keys(p.topDefCards || {}).length;
+    const isCoup = defCount === 0;
+    if (!hasWarlord && !isCoup) {
+      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no Warlord attacks and still has defense cards`);
       return;
     }
     const handIdx = p.hand.indexOf(newKingCardId);
@@ -702,8 +712,12 @@ class GameState {
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
     p.kingCovered = true; // new king is always placed face-down
-    p.warlordAttacks--;
-    this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
+    if (hasWarlord) {
+      p.warlordAttacks--;
+      this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
+    } else {
+      this.pushLog(`${this.pname(playerIdx)} swapped king (coup)`, true, true);
+    }
   }
 
   merchantTrade(playerIdx, discardedCardId, drawnCardId) {

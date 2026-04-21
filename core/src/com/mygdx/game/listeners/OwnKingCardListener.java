@@ -56,13 +56,9 @@ public class OwnKingCardListener extends ClickListener {
     }
 
     {
-      // Unselect all hand cards via player.getHandCards() so we always use the
-      // current list — sortHandCards() and the post-swap re-add can replace the
-      // underlying ArrayList, so the stored handCards field becomes stale and
-      // would miss cards added after the last show() call (e.g. the old king
-      // pushed back into hand by a coup swap).
-      for (Card c : player.getHandCards()) {
-        c.setSelected(false);
+      // unselect all handcards
+      for (int i = 0; i < handCards.size(); i++) {
+        handCards.get(i).setSelected(false);
       }
       // Selecting own king cancels any pending coup-swap auto-select
       player.getPlayerTurn().setCoupSwapPendingCardId(-1);
@@ -83,12 +79,8 @@ public class OwnKingCardListener extends ClickListener {
         kingCard.setSelected(true);
       }
     }
-    // Trigger a screen rebuild so a fresh OwnKingCardListener is attached to
-    // the current board king — after a coup/Warlord swap the old listener
-    // still references the previous king Card object, so without a rebuild the
-    // first click on the new king goes to a stale listener and has no visible
-    // effect.
-    gameState.setUpdateState(true);
+    ;
+
   }
 
 }

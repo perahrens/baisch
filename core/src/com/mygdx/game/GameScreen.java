@@ -4711,6 +4711,13 @@ public class GameScreen extends ScreenAdapter {
         // Note: turn notification is fired in the socket listener callback (not here)
         // so it works even when the tab is hidden and the render loop is paused.
       }
+      // Issue #171: track the previous player index here (not only in show()) so that
+      // MY_TURN_START fires correctly even when multiple stateUpdates arrive in the same
+      // render frame (e.g. the bot plays and finishes its turn synchronously, sending both
+      // "bot's turn" and "player's turn again" before the next requestAnimationFrame tick).
+      if (isHeroTutorial && heroTutorialStep >= 0) {
+        heroTutorialPrevPlayerIdx = prevCurrentIdx;
+      }
       gameState.setCurrentPlayer(serverCurrentIdx);
 
       // Broadcast own Reservists count on every stateUpdate so all clients always see the

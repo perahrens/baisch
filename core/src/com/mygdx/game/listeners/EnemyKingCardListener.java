@@ -116,8 +116,8 @@ public class EnemyKingCardListener extends ClickListener {
       if (!kingSelected && player.getSelectedHandCards().size() == 0) return;
     }
 
-    // Attacker's king: one-use-per-turn
-    if (kingSelected && pt.isKingUsedThisTurn()) return;
+    // Attacker's king: one-use-per-turn (Warlord grants an extra attack and bypasses this)
+    if (kingSelected && !warlordAttack && pt.isKingUsedThisTurn()) return;
     // Without Warlord, king can only be used when attacker has no defense cards
     if (kingSelected && !warlordAttack && (!player.getDefCards().isEmpty() || !player.getTopDefCards().isEmpty())) return;
 
@@ -190,6 +190,11 @@ public class EnemyKingCardListener extends ClickListener {
 
     // Consume Warlord charge after attack is committed
     if (warlordAttack && warlord != null) {
+      // Mark this pending attack as a Warlord extra-attack so the resolved
+      // callback does NOT mark the king as spent for the turn (Warlord grants
+      // an additional attack action; the regular king attack/plunder must
+      // remain available).
+      pt.setPendingAttackIsWarlord(true);
       warlord.useAttack();
       if (socket != null) {
         try {

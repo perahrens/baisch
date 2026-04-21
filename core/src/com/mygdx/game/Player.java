@@ -59,10 +59,9 @@ public class Player {
 
     handCards.add(card);
 
-    Array<EventListener> listeners = card.getListeners();
-    for (EventListener listener : listeners) {
-      card.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    card.clearListeners();
 
     card.addListener(new ClickListener() {
       @Override
@@ -100,6 +99,16 @@ public class Player {
       }
     }
     return playerTurn.getTakeDefCard() > 0 || playerTurn.getPutDefCard() > 0;
+  }
+
+  /** Returns true only if a put-defense-card action is still available this turn. */
+  public boolean canPutDefCard() {
+    for (int i = 0; i < heroes.size(); i++) {
+      if (heroes.get(i).getHeroName() == "Marshal") {
+        return ((Marshal) heroes.get(i)).getMobilizations() > 0;
+      }
+    }
+    return playerTurn.getPutDefCard() > 0;
   }
 
   /** Returns true only if a take-defense-card action is still available this turn. */
@@ -481,10 +490,9 @@ public class Player {
 
     kingCard.setSelected(false);
 
-    Array<EventListener> listeners = kingCard.getListeners();
-    for (EventListener listener : listeners) {
-      kingCard.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    kingCard.clearListeners();
 
     final Card refCard = kingCard;
 

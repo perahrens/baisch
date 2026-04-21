@@ -89,11 +89,9 @@ public class CardDeck extends Actor {
   }
 
   public void addCard(Card card) {
-    // remove all listeners
-    Array<EventListener> listeners = card.getListeners();
-    for (EventListener listener : listeners) {
-      card.removeListener(listener);
-    }
+    // remove all listeners (clearListeners avoids the buggy for-each + removeListener
+    // pattern that skips elements as the Array shrinks during iteration)
+    card.clearListeners();
 
     card.setCovered(false);
     cards.add(card);

@@ -1895,7 +1895,11 @@ public class GameScreen extends ScreenAdapter {
           apt.resetPendingAttackMercenaryBonus();
           apt.setAttackPending(false);
           apt.setAttackTargetIsKing(false);
-          if (apt.isKingUsed()) apt.setKingUsedThisTurn(true);
+          // Mark king as spent only for normal king attacks. Warlord direct attacks
+          // are an additional action granted by the hero and must NOT consume the
+          // regular once-per-turn king attack/plunder.
+          if (apt.isKingUsed() && !apt.isPendingAttackIsWarlord()) apt.setKingUsedThisTurn(true);
+          apt.setPendingAttackIsWarlord(false);
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
             c.setSelected(false);
@@ -3081,7 +3085,7 @@ public class GameScreen extends ScreenAdapter {
                     Card target = (Card) hit;
                     int posId = target.getPositionId();
                     if (target.isPlaceholder() && posId >= 1 && posId <= 3
-                        && currentPlayer.canMobilize() && !currentPlayer.isSlotSabotaged(posId)) {
+                        && currentPlayer.canPutDefCard() && !currentPlayer.isSlotSabotaged(posId)) {
                       currentPlayer.putDefCard(posId, 0);
                       emitPutDefCard(posId, handCard.getCardId());
                       gameState.setUpdateState(true);
@@ -4855,10 +4859,9 @@ public class GameScreen extends ScreenAdapter {
   }
 
   public void removeAllListeners(Actor actor) {
-    Array<EventListener> listeners = actor.getListeners();
-    for (EventListener listener : listeners) {
-      actor.removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    actor.clearListeners();
   }
 
   @Override

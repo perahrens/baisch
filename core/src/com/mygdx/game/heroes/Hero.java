@@ -69,10 +69,9 @@ public class Hero extends Actor {
   }
 
   public void removeAllListeners() {
-    Array<EventListener> listeners = getListeners();
-    for (EventListener listener : listeners) {
-      removeListener(listener);
-    }
+    // See Card.removeAllListeners — the for-each + removeListener pattern is buggy
+    // (skips elements as the Array shrinks). Use clearListeners() instead.
+    clearListeners();
   }
 
   public void recover() {

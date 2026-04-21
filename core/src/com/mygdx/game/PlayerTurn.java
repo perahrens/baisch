@@ -157,6 +157,14 @@ public class PlayerTurn {
   public boolean isAttackTargetIsKing() { return attackTargetIsKing; }
   public void setAttackTargetIsKing(boolean v) { this.attackTargetIsKing = v; }
 
+  // True when the pending attack was initiated via the Warlord hero's extra attack.
+  // Warlord grants an additional attack action, so resolving such an attack must NOT
+  // mark the king as spent for the turn — otherwise the regular once-per-turn king
+  // attack/plunder is permanently blocked even after the player clears all defenses.
+  private boolean pendingAttackIsWarlord = false;
+  public boolean isPendingAttackIsWarlord() { return pendingAttackIsWarlord; }
+  public void setPendingAttackIsWarlord(boolean v) { this.pendingAttackIsWarlord = v; }
+
   // --- Mercenary attack bonus ---
   // Incremented each time the player clicks the Mercenaries hero to add +1 attack.
   // Reset to 0 after the attack resolves.

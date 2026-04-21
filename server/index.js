@@ -1476,12 +1476,60 @@ io.on('connection', function(socket) {
   socket.on('batteryAllowAttack', function(data) {
     var sess = getSession(socket.id);
     if (!sess) return;
+    // If this allow is a response to a bot attack that was paused for Battery Tower check:
+    if (sess.pendingBotBatteryAttack) {
+      var pending = sess.pendingBotBatteryAttack;
+      sess.pendingBotBatteryAttack = null;
+      var gs = pending.gs;
+      // Relay to attacker side too (shows the "attack allowed" banner on client)
+      socket.to(sess.id).emit('batteryAllowAttack', data);
+      setTimeout(function() {
+        gs.defAttackResolved(pending.attackerIdx, pending.defenderIdx, pending.positionId,
+                             0, pending.success, pending.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        pending.callback();
+      }, 1500);
+      return;
+    }
     socket.to(sess.id).emit('batteryAllowAttack', data);
   });
 
   socket.on('batteryDenyAttack', function(data) {
     var sess = getSession(socket.id);
     if (!sess) return;
+    // If this deny is a response to a bot attack that was paused for Battery Tower check:
+    if (sess.pendingBotBatteryAttack) {
+      var pending = sess.pendingBotBatteryAttack;
+      sess.pendingBotBatteryAttack = null;
+      var gs = pending.gs;
+      // Spend the Battery Tower charge on the server
+      var defPlayer = gs.players[pending.defenderIdx];
+      if (defPlayer && (defPlayer.batteryTowerCharges || 0) > 0) {
+        defPlayer.batteryTowerCharges--;
+      }
+      // Re-cover the defense card that was revealed by setAttackPreview
+      if (defPlayer && pending.positionId >= 1) {
+        if (!defPlayer.defCardsCovered) defPlayer.defCardsCovered = {};
+        if (defPlayer.defCards[pending.positionId] !== undefined) defPlayer.defCardsCovered[pending.positionId] = true;
+        if (!defPlayer.topDefCardsCovered) defPlayer.topDefCardsCovered = {};
+        if (defPlayer.topDefCards && defPlayer.topDefCards[pending.positionId] !== undefined)
+          defPlayer.topDefCardsCovered[pending.positionId] = true;
+      }
+      // Clear the attack preview
+      gs.pendingAttack = null;
+      // Relay deny to attacker side (shows "attack BLOCKED" banner on client)
+      socket.to(sess.id).emit('batteryDenyAttack', {
+        attackerIdx: pending.attackerIdx,
+        targetPlayerIdx: pending.defenderIdx,
+        positionId: pending.positionId,
+        isKing: false
+      });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      // Bot's turn continues (attack was blocked; bot doesn't need to expose since it attacked)
+      pending.callback();
+      return;
+    }
     socket.to(sess.id).emit('batteryDenyAttack', data);
   });
 

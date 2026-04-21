@@ -276,20 +276,16 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
     if (atkAfterPlunder) {
       var apDefCardId = gs.players[atkAfterPlunder.defenderIdx].defCards[atkAfterPlunder.positionId];
-      gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
-                             positionId: atkAfterPlunder.positionId, level: 0,
-                             attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none',
-                             success: atkAfterPlunder.success, attackCardIds: atkAfterPlunder.cardIds,
-                             defCardIds: apDefCardId != null ? [apDefCardId] : [] });
+      var apPreview = { attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
+                        positionId: atkAfterPlunder.positionId, level: 0,
+                        attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none',
+                        success: atkAfterPlunder.success, attackCardIds: atkAfterPlunder.cardIds,
+                        defCardIds: apDefCardId != null ? [apDefCardId] : [] };
+      gs.setAttackPreview(apPreview);
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      var captured = atkAfterPlunder;
-      setTimeout(function() {
-        gs.defAttackResolved(idx, captured.defenderIdx, captured.positionId,
-                              0, captured.success, captured.cardIds, false, []);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        checkAndHandleWinner(sess);
+      botDoDefAttackWithBatteryCheck(sess, gs, atkAfterPlunder, apPreview, function() {
         botFinishTurn(sess, gs, idx, true);
-      }, BOT_ACTION_DELAY);
+      });
     } else {
       botFinishTurn(sess, gs, idx, false);
     }
@@ -353,6 +349,51 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       }
     }
     return false;
+  }
+
+  // Returns true if the given player has Battery Tower with at least one charge.
+  function defenderHasBatteryWithCharges(gs, defenderIdx) {
+    var d = gs.players[defenderIdx];
+    return d && (d.heroes || []).indexOf('Battery Tower') !== -1 && (d.batteryTowerCharges || 0) > 0;
+  }
+
+  // Perform a defense-card attack as the bot, respecting Battery Tower on the defender side.
+  // atkPreviewData: the object already passed to gs.setAttackPreview()
+  // resolveCallback: called after the attack is resolved (or denied) — no args.
+  // If defender has Battery Tower, emits batteryDefenseCheck and stores pending state on sess.
+  // Otherwise resolves immediately after BOT_ACTION_DELAY.
+  function botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreviewData, resolveCallback) {
+    var defenderIdx = atkChoice.defenderIdx;
+    if (defenderHasBatteryWithCharges(gs, defenderIdx)) {
+      // Pause: store the pending attack on the session, then emit batteryDefenseCheck.
+      // Resolution happens in the batteryAllowAttack / batteryDenyAttack socket handlers.
+      sess.pendingBotBatteryAttack = {
+        gs: gs,
+        attackerIdx: atkPreviewData.attackerIdx,
+        defenderIdx: defenderIdx,
+        positionId: atkChoice.positionId,
+        success: atkChoice.success,
+        cardIds: atkChoice.cardIds,
+        callback: resolveCallback
+      };
+      io.to(sess.id).emit('batteryDefenseCheck', {
+        attackerIdx: atkPreviewData.attackerIdx,
+        targetPlayerIdx: defenderIdx,
+        positionId: atkChoice.positionId,
+        level: 0,
+        isKing: false,
+        success: atkChoice.success,
+        attackCardIds: atkChoice.cardIds
+      });
+    } else {
+      setTimeout(function() {
+        gs.defAttackResolved(atkPreviewData.attackerIdx, defenderIdx, atkChoice.positionId,
+                             0, atkChoice.success, atkChoice.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        resolveCallback();
+      }, BOT_ACTION_DELAY);
+    }
   }
 
   // Determine the hero name the bot should acquire from a joker sacrifice oracle card.
@@ -623,20 +664,16 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       var atkChoice = botChooseDefAttack(gs, idx, false);
       if (atkChoice) {
         var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
-        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
-                               positionId: atkChoice.positionId, level: 0,
-                               attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
-                               success: atkChoice.success, attackCardIds: atkChoice.cardIds,
-                               defCardIds: atkDefCardId != null ? [atkDefCardId] : [] });
+        var atkPreview = { attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
+                           positionId: atkChoice.positionId, level: 0,
+                           attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
+                           success: atkChoice.success, attackCardIds: atkChoice.cardIds,
+                           defCardIds: atkDefCardId != null ? [atkDefCardId] : [] };
+        gs.setAttackPreview(atkPreview);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
-        var capturedAtk = atkChoice;
-        setTimeout(function() {
-          gs.defAttackResolved(idx, capturedAtk.defenderIdx, capturedAtk.positionId,
-                                0, capturedAtk.success, capturedAtk.cardIds, false, []);
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          checkAndHandleWinner(sess);
+        botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
           botFinishTurn(sess, gs, idx, true);
-        }, BOT_ACTION_DELAY);
+        });
         return;
       }
 
@@ -644,20 +681,16 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       var scoutChoice = botChooseDefAttack(gs, idx, true);
       if (scoutChoice) {
         var scoutDefCardId = gs.players[scoutChoice.defenderIdx].defCards[scoutChoice.positionId];
-        gs.setAttackPreview({ attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
-                               positionId: scoutChoice.positionId, level: 0,
-                               attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none',
-                               success: scoutChoice.success, attackCardIds: scoutChoice.cardIds,
-                               defCardIds: scoutDefCardId != null ? [scoutDefCardId] : [] });
+        var scoutPreview = { attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
+                             positionId: scoutChoice.positionId, level: 0,
+                             attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none',
+                             success: scoutChoice.success, attackCardIds: scoutChoice.cardIds,
+                             defCardIds: scoutDefCardId != null ? [scoutDefCardId] : [] };
+        gs.setAttackPreview(scoutPreview);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
-        var capturedScout = scoutChoice;
-        setTimeout(function() {
-          gs.defAttackResolved(idx, capturedScout.defenderIdx, capturedScout.positionId,
-                                0, false, capturedScout.cardIds, false, []);
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          checkAndHandleWinner(sess);
+        botDoDefAttackWithBatteryCheck(sess, gs, scoutChoice, scoutPreview, function() {
           botFinishTurn(sess, gs, idx, true);
-        }, BOT_ACTION_DELAY);
+        });
         return;
       }
 

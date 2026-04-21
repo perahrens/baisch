@@ -448,6 +448,9 @@ public class GameScreen extends ScreenAdapter {
                     previewData.put("kingUsed", pt.isKingUsed());
                     previewData.put("kingCardId", pt.isKingUsed() && currentPlayer.getKingCard() != null ? currentPlayer.getKingCard().getCardId() : -1);
                     previewData.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
+                    int defMercBonusBT = 0;
+                    for (Card dc : pt.getPendingAttackDefCards()) defMercBonusBT += dc.getBoosted();
+                    previewData.put("defMercBonus", defMercBonusBT);
                     previewData.put("reservistBonus", pt.getReservistAttackBonus());
                     previewData.put("success", pt.isAttackSuccess());
                     previewData.put("attackingSymbol", pt.getAttackingSymbol()[0]);
@@ -2127,6 +2130,9 @@ public class GameScreen extends ScreenAdapter {
                       resPreview.put("kingUsed", apt.isKingUsed());
                       resPreview.put("kingCardId", apt.isKingUsed() && atkPlayer.getKingCard() != null ? atkPlayer.getKingCard().getCardId() : -1);
                       resPreview.put("mercenaryBonus", apt.getPendingAttackMercenaryBonus());
+                      int defMercBonusRes = 0;
+                      for (Card dc : apt.getPendingAttackDefCards()) defMercBonusRes += dc.getBoosted();
+                      resPreview.put("defMercBonus", defMercBonusRes);
                       resPreview.put("reservistBonus", apt.getReservistAttackBonus());
                       resPreview.put("success", newSuccess);
                       resPreview.put("attackingSymbol", apt.getAttackingSymbol()[0]);
@@ -2154,6 +2160,7 @@ public class GameScreen extends ScreenAdapter {
         final boolean bcKingUsed = pendingAttackBroadcast.optBoolean("kingUsed", false);
         final int bcKingCardId = pendingAttackBroadcast.optInt("kingCardId", -1);
         final int bcMercBonus = pendingAttackBroadcast.optInt("mercenaryBonus", 0);
+        final int bcDefMercBonus = pendingAttackBroadcast.optInt("defMercBonus", 0);
         final int bcResBonus = pendingAttackBroadcast.optInt("reservistBonus", 0);
         final JSONArray bcAtkIds = pendingAttackBroadcast.optJSONArray("attackCardIds");
         final JSONArray bcOwnDefIds = pendingAttackBroadcast.optJSONArray("ownDefCardIds");
@@ -2222,6 +2229,9 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(disp);
           wDefSum += "joker".equals(disp.getSymbol()) ? 1 : disp.getStrength();
         }
+        // Issue #167: defender's mercenary boost (defense cards rendered via
+        // Card.fromCardId have no boost, so add it explicitly).
+        wDefSum += bcDefMercBonus;
 
         // Sum labels
         Label wAtkSum_lbl = new Label("Sum: " + wAtkSum, MyGdxGame.skin);

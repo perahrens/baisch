@@ -53,7 +53,8 @@ public class OwnHeroListener extends ClickListener {
       if (hero.isSelected()) {
         // Deselect: if Mercenaries was in defense mode, just deselect
         hero.setSelected(false);
-        // Deselect hero also resets any accumulated hand-card boost (defense mode cancel)
+        // Refresh the UI immediately so the Mercenaries selection highlights
+        // (issue #167: green/red halves on def + king cards) disappear.
         if (hero.getHeroName() == "Mercenaries") {
           if (gameState != null) gameState.setUpdateState(true);
         }
@@ -75,6 +76,11 @@ public class OwnHeroListener extends ClickListener {
           player.getHeroes().get(i).setSelected(false);
         }
         hero.setSelected(true);
+        // Refresh the UI immediately so the Mercenaries selection highlights
+        // (issue #167: green/red halves on def + king cards) appear right away.
+        if (hero.getHeroName() == "Mercenaries") {
+          if (gameState != null) gameState.setUpdateState(true);
+        }
       }
     }
   }

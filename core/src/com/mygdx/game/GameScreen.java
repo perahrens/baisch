@@ -523,8 +523,14 @@ public class GameScreen extends ScreenAdapter {
               int level = data.getInt("level");
               int boosted = data.getInt("boosted");
               Player p = gameState.getPlayers().get(pIdx);
-              Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
-              Card c = cards.get(slot);
+              Card c;
+              if (level == -1) {
+                // Issue #167: king card boost
+                c = p.getKingCard();
+              } else {
+                Map<Integer, Card> cards = (level == 0) ? p.getDefCards() : p.getTopDefCards();
+                c = cards.get(slot);
+              }
               if (c != null) {
                 // Set boost to the authoritative value from the emitting client
                 while (c.getBoosted() > boosted) c.addBoosted(-1);
@@ -1165,11 +1171,17 @@ public class GameScreen extends ScreenAdapter {
       } else {
         ownKingCardListener = new OwnKingCardListener(gameState, currentPlayer,
             gameState.getCurrentPlayer().getKingCard(), gameState.getCurrentPlayer().getDefCards(),
-            gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards());
+            gameState.getCurrentPlayer().getTopDefCards(), gameState.getCurrentPlayer().getHandCards(),
+            socket, playerIndex);
         kingCard.addListener(ownKingCardListener);
       }
 
       gameStage.addActor(kingCard);
+
+      // Issue #167: Mercenaries selection highlight on own king (top=add, bottom=remove)
+      if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
+        addMercenarySelectionHighlight(kingCard);
+      }
 
       if (kingCard.getBoosted() > 0) {
         TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
@@ -1179,15 +1191,15 @@ public class GameScreen extends ScreenAdapter {
         mercenaryImage.setPosition(kingCard.getX(), kingCard.getY());
         mercenaryImage.setX(mercenaryImage.getX() + kingCard.getWidth() / 2f - mercenaryImage.getWidth() / 2f);
         mercenaryImage.setY(mercenaryImage.getY() + kingCard.getHeight() / 2f - mercenaryImage.getHeight() / 2f);
-        removeAllListeners(mercenaryImage);
-        mercenaryImageListener = new MercenaryImageListener(gameState, kingCard, currentPlayer);
-        mercenaryImage.addListener(mercenaryImageListener);
+        // Issue #167: don't absorb clicks — add/remove via the king card itself.
+        mercenaryImage.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
         gameStage.addActor(mercenaryImage);
 
         String boostCount = String.valueOf(kingCard.getBoosted());
         Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
         boostCountLabel.setColor(Color.GOLD);
         boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
+        boostCountLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
         gameStage.addActor(boostCountLabel);
       }
 

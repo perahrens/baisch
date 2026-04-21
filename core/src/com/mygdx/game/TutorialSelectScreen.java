@@ -13,6 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.util.JSONException;
 import com.mygdx.game.util.JSONObject;
 
 /**
@@ -69,7 +70,15 @@ public class TutorialSelectScreen extends AbstractScreen {
       btn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          game.setScreen(new HeroTutorialScreen(game, socket, heroName));
+          // Issue #171: launch an interactive bot game scenario for this hero
+          // (replaces the prior text-only HeroTutorialScreen).
+          try {
+            JSONObject payload = new JSONObject();
+            payload.put("heroName", heroName);
+            socket.emit("createHeroTutorial", payload);
+          } catch (JSONException ex) {
+            ex.printStackTrace();
+          }
         }
       });
       heroTable.add(btn).width(320f).height(48f).padBottom(6f).row();

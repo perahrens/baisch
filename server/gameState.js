@@ -848,6 +848,7 @@ class GameState {
       pendingHeroSelection: this.pendingHeroSelection || null,
       pendingHeroAuction: this.pendingHeroAuction || null,
       isTutorial: this.isTutorial || false,
+      heroTutorialName: this.heroTutorialName || null,
     };
   }
 

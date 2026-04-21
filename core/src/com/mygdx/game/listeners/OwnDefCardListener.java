@@ -56,6 +56,8 @@ public class OwnDefCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    // Defense cards must not be interacted with when it is not the player's turn.
+    if (gameState.getCurrentPlayerIndex() != playerIdx) return;
 
     if (!player.isSlotSabotaged(selectedCard.getPositionId())) {
       // if F.Tower and hand card is selected, put hand card on top

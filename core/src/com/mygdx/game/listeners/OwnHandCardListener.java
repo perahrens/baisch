@@ -176,7 +176,13 @@ public class OwnHandCardListener extends ClickListener {
       if (handCard.isSelected()) {
         handCard.setSelected(false);
       } else {
-        if (handCard.getSymbol() == player.getSelectedSymbol()) {
+        // Issue #182: Banneret — allow selecting same-color partner (hearts↔diamonds,
+        // clubs↔spades) without resetting the existing selection. This enables combining
+        // two same-color cards on the first attack of a turn (before any symbol is locked).
+        boolean hasBanneret = player.hasHero("Banneret");
+        boolean isSameColorPair = hasBanneret
+            && isSameColorPartner(handCard.getSymbol(), player.getSelectedSymbol());
+        if (handCard.getSymbol() == player.getSelectedSymbol() || isSameColorPair) {
           handCard.setSelected(true);
         } else {
           for (int i = 0; i < player.getHandCards().size(); i++) {
@@ -207,5 +213,17 @@ public class OwnHandCardListener extends ClickListener {
       if (gameState != null) gameState.setUpdateState(true);
     }
   };
+
+  /**
+   * Returns true when s1 and s2 are the same-color symbol pair used by the Banneret's
+   * Dual Symbol ability: hearts↔diamonds (red) and clubs↔spades (black).
+   */
+  private static boolean isSameColorPartner(String s1, String s2) {
+    if (s1 == null || s2 == null) return false;
+    return ("hearts".equals(s1) && "diamonds".equals(s2))
+        || ("diamonds".equals(s1) && "hearts".equals(s2))
+        || ("clubs".equals(s1) && "spades".equals(s2))
+        || ("spades".equals(s1) && "clubs".equals(s2));
+  }
 
 }

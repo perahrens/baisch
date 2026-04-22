@@ -1153,6 +1153,18 @@ io.on('connection', function(socket) {
       return;
     }
     console.log('submitSetup accepted for player ' + playerIdx + ' in session ' + sess.id + (sess.gameState.setupPhase ? ' (waiting for others)' : ' (setup complete)'));
+    // Defensive: auto-submit any bots that haven't submitted yet (handles the case where
+    // the game-start auto-submit silently failed or was skipped for any reason).
+    if (sess.manualSetup && sess.gameState.setupPhase) {
+      sess.users.forEach(function(u, idx) {
+        if (bot.isBot(u) && !sess.gameState.setupSubmitted[idx]) {
+          var setup = bot.autoSetupBot(sess.gameState, idx);
+          if (setup) {
+            sess.gameState.applyManualSetup(idx, setup.kingId, setup.defIds, setup.discardIds);
+          }
+        }
+      });
+    }
     // Broadcast updated state to all players
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     // Persist player indices once setup is complete
@@ -1163,6 +1175,8 @@ io.on('connection', function(socket) {
           tokenMap[u.token].sessionId = sess.id;
         }
       });
+      // Start bot turn chain if the first player is a bot
+      bot.playBotTurnIfNeeded(sess);
     }
   });
 

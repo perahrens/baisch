@@ -738,6 +738,7 @@ class GameState {
   }
 
   kingAttackResolved(attackerIdx, defenderIdx, success, attackCardIds, kingUsed) {
+    this.pendingAttack = null;
     const attacker = this.players[attackerIdx];
     attacker.attackCount = (attacker.attackCount || 0) + 1;
     const defender = this.players[defenderIdx];

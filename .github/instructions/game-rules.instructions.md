@@ -67,7 +67,7 @@ The turn ends when the player clicks **Finish Turn**.
 - A king assault is only possible when all 3 of the defender's defence slots are empty.
 - The attacker selects hand cards or their king whose combined strength beats the defending king's strength (plus any Reservists boost the defender has).
 - On **success**: the defender is eliminated; the attacker gains all of the defender's cards.
-- On **failure** (attacker used their king): the attacker is eliminated.
+- On **failure**: the defending king is exposed (flipped face-up) as a result of the attack. If the attacker used their king, the attacker is also eliminated.
 
 ### Plunder
 - The attacker selects hand cards of the same suit whose combined strength exceeds the **top card** of the target picking deck.

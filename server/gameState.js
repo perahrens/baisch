@@ -772,6 +772,8 @@ class GameState {
     } else {
       attacker.statAttacksFailed = (attacker.statAttacksFailed || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed`, false);
+      // Expose the defending king so it remains visible after a failed assault
+      defender.kingCovered = false;
       if (kingUsed) {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;

@@ -265,7 +265,7 @@ public class StatsScreen extends AbstractScreen {
 
     scroll.setSize(scrollW, scrollH);
     scroll.setPosition(Math.round(cx - scrollW / 2f),
-        Math.round(0.14f * MyGdxGame.HEIGHT + (scrollH - scrollH) / 2f));
+        Math.round(0.4875f * MyGdxGame.HEIGHT - scrollH / 2f));
     stage.addActor(scroll);
   }
 

@@ -500,7 +500,7 @@ class GameState {
     const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
-    attacker.attackCount = (attacker.attackCount || 0) + 1;
+    // NOTE: plundering does NOT increment attackCount — only real attacks (defAttack/kingAttack/warlord) do.
     const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
     for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);
@@ -629,6 +629,7 @@ class GameState {
       }
       this.players[currentPlayerIndex].attackingSymbol = 'none';
       this.players[currentPlayerIndex].attackingSymbol2 = 'none';
+      this.players[currentPlayerIndex].didExposeThisTurn = false; // reset expose flag for next turn
     }
     // Advance to the next non-eliminated player (server is authoritative)
     const n = this.players.length;
@@ -655,6 +656,7 @@ class GameState {
     } else if (p.defCards[slot] !== undefined) {
       p.defCardsCovered[slot] = false;
     }
+    p.didExposeThisTurn = true;
     this.pushLog(`${this.pname(playerIdx)} exposed slot ${slot} (no attack)`, false, true);
   }
 
@@ -662,6 +664,7 @@ class GameState {
     const p = this.players[playerIdx];
     if (!p) return;
     p.kingCovered = false;
+    p.didExposeThisTurn = true;
     this.pushLog(`${this.pname(playerIdx)} exposed their king (no attack)`, false, true);
   }
 

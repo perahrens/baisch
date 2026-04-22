@@ -1156,10 +1156,36 @@ io.on('connection', function(socket) {
   socket.on('finishTurn', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
-    console.log("Turn finished by player index: " + data.currentPlayerIndex);
-    if (data.currentPlayerIndex !== sess.gameState.currentPlayerIndex) {
-      console.log("finishTurn rejected: server currentPlayerIndex=" + sess.gameState.currentPlayerIndex + ", client sent=" + data.currentPlayerIndex);
+    // Verify by socket identity rather than trusting the client-sent currentPlayerIndex.
+    // This is more robust and prevents rejection when the client sends a stale or wrong index
+    // (recurring bug: "nothing happens" after selecting the card to expose on a plunder-only turn).
+    var socketPlayerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (socketPlayerIdx !== sess.gameState.currentPlayerIndex) {
+      console.log("finishTurn rejected: server currentPlayerIndex=" + sess.gameState.currentPlayerIndex + ", socket player=" + socketPlayerIdx + " (client sent " + data.currentPlayerIndex + ")");
       return;
+    }
+    console.log("Turn finished by player index: " + socketPlayerIdx);
+    // Safety net: if no attack was made this turn and the expose-defence-card penalty
+    // was not fulfilled (client did not emit exposeDefCard / exposeKingCard), auto-expose
+    // the first covered card here.  Handles the edge case where the client emits finishTurn
+    // without a preceding exposeDefCard (recurring bug after the #187 plunder-only-turn fix).
+    var p = sess.gameState.players[socketPlayerIdx];
+    if (p && (p.attackCount || 0) === 0 && !p.didExposeThisTurn) {
+      var exposedDef = false;
+      for (var s = 1; s <= 3; s++) {
+        var hasTop = p.topDefCards && p.topDefCards[s] !== undefined;
+        var hasDef = p.defCards && p.defCards[s] !== undefined;
+        var topCovered = hasTop && (!p.topDefCardsCovered || p.topDefCardsCovered[s] !== false);
+        var defCovered = !hasTop && hasDef && (!p.defCardsCovered || p.defCardsCovered[s] !== false);
+        if (topCovered || defCovered) {
+          sess.gameState.exposeDefCard(socketPlayerIdx, s);
+          exposedDef = true;
+          break;
+        }
+      }
+      if (!exposedDef && p.kingCard !== undefined && p.kingCovered !== false) {
+        sess.gameState.exposeKingCard(socketPlayerIdx);
+      }
     }
     sess.gameState.finishTurn();
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());

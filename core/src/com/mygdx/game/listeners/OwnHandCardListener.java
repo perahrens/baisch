@@ -205,6 +205,9 @@ public class OwnHandCardListener extends ClickListener {
           }
         }
       }
+      // Issue #174: refresh UI so the Fortified Tower highlight on matching own def
+      // cards appears (or disappears) immediately when a hand card is (de)selected.
+      if (gameState != null) gameState.setUpdateState(true);
     }
   };
 

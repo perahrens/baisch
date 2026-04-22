@@ -593,6 +593,22 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Game ended — server sends game statistics; navigate to the stats screen
+    socket.on("gameStats", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONObject statsJson = (args.length > 0 && args[0] instanceof JSONObject)
+            ? (JSONObject) args[0] : new JSONObject();
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            screenDisposed = true;
+            theGame.setScreen(new StatsScreen(theGame, theSocket, statsJson));
+          }
+        });
+      }
+    });
+
     // Game ended — server tells all clients to return to the lobby
     socket.on("returnToLobby", new SocketListener() {
       @Override

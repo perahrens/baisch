@@ -233,6 +233,7 @@ public class EnemyKingCardListener extends ClickListener {
       // remain available).
       pt.setPendingAttackIsWarlord(true);
       warlord.useAttack();
+      pt.increaseAttackCounter(); // count Warlord attack locally so Finish Turn never triggers expose
       if (socket != null) {
         try {
           JSONObject warlordData = new JSONObject();

@@ -319,14 +319,16 @@ final class HeroTutorialSteps {
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Stack a Defense Card",
-      "To stack a card:\n"
-      + "  1. Tap the Fortified Tower hero icon to select it.\n"
-      + "  2. Tap a hand card to select it.\n"
-      + "  3. Tap one of your own defense slots - the hand card stacks on top.",
+      "Stacking is automatic - no need to select the Fortified Tower hero first:\n"
+      + "  1. Tap a hand card to select it.\n"
+      + "  2. Matching defense slots are highlighted in purple.\n"
+      + "  3. Tap one of the highlighted slots - the hand card stacks on top "
+      + "and the Fortified Tower icon blinks green to confirm a charge was used.\n\n"
+      + "Only matching symbols can be stacked, and the slot must not already be stacked.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try Stacking",
-      "Tap Fortified Tower, select a hand card, then tap one of your own defense slots. "
+      "Select a hand card, then tap one of the highlighted matching defense slots. "
       + "Click Next when done.",
       null),
     new GameScreen.TutorialStepDef(

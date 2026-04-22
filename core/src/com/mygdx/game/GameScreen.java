@@ -1361,6 +1361,8 @@ public class GameScreen extends ScreenAdapter {
         // Issues #54, #178, #179, #180: highlight enemy def cards (and empty enemy slots
         // for Saboteurs) when the relevant attacker hero is selected.
         applyEnemyDefCardHighlight(defCard, players.get(i), currentPlayer, j);
+        // Issue #174: highlight own def cards on which the selected hand card can be stacked.
+        applyOwnDefCardFortifyHighlight(defCard, players.get(i), currentPlayer, j);
 
         // Issue #167: when Mercenaries hero is selected, overlay translucent
         // green (top half) / red (bottom half) tint on each own def card so the
@@ -5503,6 +5505,28 @@ public class GameScreen extends ScreenAdapter {
       if (m.getTrades() > 0) {
         addCardActionHighlight(handCard, new Color(1f, 0.6f, 0f, 0.32f), handStage);
       }
+    }
+  }
+
+  /**
+   * Issue #174: when the player has the Fortified Tower hero with charges and exactly
+   * one hand card is selected, highlight every own defense slot whose bottom card matches
+   * the hand card's symbol (and is not already stacked) so the player sees where the
+   * auto-stack click will work.
+   */
+  private void applyOwnDefCardFortifyHighlight(Card defCard, Player owner, Player current, int slot) {
+    if (owner != current) return;
+    if (defCard.getLevel() != 0) return;
+    if (owner.getTopDefCards().containsKey(slot)) return;
+    if (current.getSelectedHandCards().size() != 1) return;
+    com.mygdx.game.heroes.FortifiedTower ft = null;
+    for (Hero h : current.getHeroes()) {
+      if ("Fortified Tower".equals(h.getHeroName())) { ft = (com.mygdx.game.heroes.FortifiedTower) h; break; }
+    }
+    if (ft == null || ft.getDefenseExpands() <= 0) return;
+    Card handCard = current.getSelectedHandCards().get(0);
+    if (handCard.getSymbol().equals(defCard.getSymbol())) {
+      addCardActionHighlight(defCard, new Color(0.6f, 0f, 1f, 0.32f), gameStage);
     }
   }
 

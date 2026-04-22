@@ -63,6 +63,10 @@ class GameState {
       p.statAttacksSuccess = 0;
       p.statAttacksFailed = 0;
       p.statRoundEliminatedAt = 0;
+      p.statDefeated = 0;
+      p.statKingUsed = 0;
+      p.statTakeActions = 0;
+      p.statPutActions = 0;
     }
   }
 
@@ -331,6 +335,7 @@ class GameState {
     }
     if (p.defCardsBoost) delete p.defCardsBoost[positionId];
     if (p.topDefCardsBoost) delete p.topDefCardsBoost[positionId];
+    p.statTakeActions = (p.statTakeActions || 0) + 1;
     this.pushLog(`${this.pname(playerIdx)} took shield [${positionId}] to hand`, true, true);
   }
 
@@ -342,6 +347,7 @@ class GameState {
     if (!p.defCardsCovered) p.defCardsCovered = {};
     p.defCardsCovered[positionId] = true; // newly placed card is always face-down
     if (p.defCardsBoost) delete p.defCardsBoost[positionId];
+    p.statPutActions = (p.statPutActions || 0) + 1;
     this.pushLog(`${this.pname(playerIdx)} placed shield at [${positionId}]`, true, true);
   }
 
@@ -511,7 +517,7 @@ class GameState {
       }
       this.cemetery.push(cardId);
     }
-    if (kingUsed) attacker.kingCovered = false;
+    if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     if (success) {
       attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}!`, true);
@@ -560,7 +566,7 @@ class GameState {
       }
       this.cemetery.push(cardId);
     }
-    if (kingUsed) attacker.kingCovered = false;
+    if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     if (success) {
       attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}]`, true);
@@ -680,6 +686,10 @@ class GameState {
         plundersFailed: winner.statPlundersFailed || 0,
         attacksSuccess: winner.statAttacksSuccess || 0,
         attacksFailed: winner.statAttacksFailed || 0,
+        defeated: winner.statDefeated || 0,
+        kingUsed: winner.statKingUsed || 0,
+        takeActions: winner.statTakeActions || 0,
+        putActions: winner.statPutActions || 0,
       });
     }
     // Eliminated players: last out = 2nd place (reverse eliminationOrder)
@@ -696,6 +706,10 @@ class GameState {
         plundersFailed: p.statPlundersFailed || 0,
         attacksSuccess: p.statAttacksSuccess || 0,
         attacksFailed: p.statAttacksFailed || 0,
+        defeated: p.statDefeated || 0,
+        kingUsed: p.statKingUsed || 0,
+        takeActions: p.statTakeActions || 0,
+        putActions: p.statPutActions || 0,
       });
     }
     return { rounds: this.roundNumber, players: playerResults };
@@ -728,9 +742,10 @@ class GameState {
       if (i !== -1) attacker.hand.splice(i, 1);
       this.cemetery.push(cardId);
     }
-    if (kingUsed) attacker.kingCovered = false;
+    if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     if (success) {
       attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
+      attacker.statDefeated = (attacker.statDefeated || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}!`, true);
       // Defender loses their king and is eliminated; attacker gains their cards as prey
       defender.isOut = true;

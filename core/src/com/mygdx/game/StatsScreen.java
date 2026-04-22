@@ -166,35 +166,44 @@ public class StatsScreen extends AbstractScreen {
     table.pad(14f, 12f, 14f, 12f);
 
     // Column widths
-    float colPlace  = 28f;
-    float colName   = 90f;
-    float colRounds = 44f;
-    float colPlund  = 52f;
-    float colAtk    = 52f;
-    float colHero   = 46f;
+    float colPlace    = 28f;
+    float colName     = 90f;
+    float colRounds   = 44f;
+    float colPlund    = 52f;
+    float colAtk      = 52f;
+    float colDefeated = 52f;
+    float colKing     = 44f;
+    float colMobilise = 52f;
+    float colHero     = 46f;
 
     // Header row
     Color hc = HEADER_COLOR;
-    addCell(table, "#",        colPlace,  hc, false);
-    addCell(table, "Name",     colName,   hc, true);
-    addCell(table, "Rounds",   colRounds, hc, false);
-    addCell(table, "Plunders", colPlund,  hc, false);
-    addCell(table, "Attacks",  colAtk,    hc, false);
-    addCell(table, "Heroes",   colHero,   hc, false);
+    addCell(table, "#",        colPlace,    hc, false);
+    addCell(table, "Name",     colName,     hc, true);
+    addCell(table, "Rounds",   colRounds,   hc, false);
+    addCell(table, "Plunders", colPlund,    hc, false);
+    addCell(table, "Attacks",  colAtk,      hc, false);
+    addCell(table, "Defeated", colDefeated, hc, false);
+    addCell(table, "King",     colKing,     hc, false);
+    addCell(table, "T/P",      colMobilise, hc, false);
+    addCell(table, "Heroes",   colHero,     hc, false);
     table.row();
 
     // Header separator
     Image hSep = new Image(MyGdxGame.skin.newDrawable("white", SEP_COLOR));
-    table.add(hSep).colspan(6).growX().height(1f).padBottom(5f).padTop(3f);
+    table.add(hSep).colspan(9).growX().height(1f).padBottom(5f).padTop(3f);
     table.row();
 
-    // Sub-header "(S/F)" hint row
-    addCell(table, "",      colPlace,  INACTIVE_COLOR, false);
-    addCell(table, "",      colName,   INACTIVE_COLOR, true);
-    addCell(table, "",      colRounds, INACTIVE_COLOR, false);
-    addCell(table, "(S/F)", colPlund,  INACTIVE_COLOR, false);
-    addCell(table, "(S/F)", colAtk,    INACTIVE_COLOR, false);
-    addCell(table, "",      colHero,   INACTIVE_COLOR, false);
+    // Sub-header hint row
+    addCell(table, "",      colPlace,    INACTIVE_COLOR, false);
+    addCell(table, "",      colName,     INACTIVE_COLOR, true);
+    addCell(table, "",      colRounds,   INACTIVE_COLOR, false);
+    addCell(table, "(S/F)", colPlund,    INACTIVE_COLOR, false);
+    addCell(table, "(S/F)", colAtk,      INACTIVE_COLOR, false);
+    addCell(table, "",      colDefeated, INACTIVE_COLOR, false);
+    addCell(table, "",      colKing,     INACTIVE_COLOR, false);
+    addCell(table, "(T/P)", colMobilise, INACTIVE_COLOR, false);
+    addCell(table, "",      colHero,     INACTIVE_COLOR, false);
     table.row();
 
     if (players == null || players.length() == 0) {
@@ -213,23 +222,30 @@ public class StatsScreen extends AbstractScreen {
           int plundFail   = p.optInt("plundersFailed", 0);
           int atkOk       = p.optInt("attacksSuccess", 0);
           int atkFail     = p.optInt("attacksFailed", 0);
+          int defeated    = p.optInt("defeated", 0);
+          int kingUsed    = p.optInt("kingUsed", 0);
+          int takeActs    = p.optInt("takeActions", 0);
+          int putActs     = p.optInt("putActions", 0);
           int heroes      = p.optInt("heroesReceived", 0);
 
           Color rowColor = (placement == 1)
               ? new Color(1f, 0.90f, 0.30f, 1f)  // gold for winner
               : Color.WHITE;
 
-          addCell(table, ordinal(placement), colPlace,  rowColor, false);
-          addCell(table, truncate(name, 10), colName,   rowColor, true);
-          addCell(table, String.valueOf(roundsOut),     colRounds, rowColor, false);
-          addCell(table, plundOk + "/" + plundFail,     colPlund,  rowColor, false);
-          addCell(table, atkOk   + "/" + atkFail,       colAtk,    rowColor, false);
-          addCell(table, String.valueOf(heroes),         colHero,   rowColor, false);
+          addCell(table, ordinal(placement),        colPlace,    rowColor, false);
+          addCell(table, truncate(name, 10),         colName,     rowColor, true);
+          addCell(table, String.valueOf(roundsOut),  colRounds,   rowColor, false);
+          addCell(table, plundOk + "/" + plundFail,  colPlund,    rowColor, false);
+          addCell(table, atkOk   + "/" + atkFail,    colAtk,      rowColor, false);
+          addCell(table, String.valueOf(defeated),   colDefeated, rowColor, false);
+          addCell(table, String.valueOf(kingUsed),   colKing,     rowColor, false);
+          addCell(table, takeActs + "/" + putActs,   colMobilise, rowColor, false);
+          addCell(table, String.valueOf(heroes),     colHero,     rowColor, false);
           table.row();
 
           if (i < players.length() - 1) {
             Image rowSep = new Image(MyGdxGame.skin.newDrawable("white", DIM_SEP_COLOR));
-            table.add(rowSep).colspan(6).growX().height(1f).padTop(2f).padBottom(4f);
+            table.add(rowSep).colspan(9).growX().height(1f).padTop(2f).padBottom(4f);
             table.row();
           }
         } catch (JSONException e) { /* skip malformed row */ }
@@ -238,14 +254,15 @@ public class StatsScreen extends AbstractScreen {
 
     table.pack();
 
-    // Wrap in a ScrollPane in case many players don't fit
+    // Wrap in a ScrollPane — vertical for many players, horizontal for wide tables
     ScrollPane scroll = new ScrollPane(table, MyGdxGame.skin);
     scroll.setFadeScrollBars(false);
-    scroll.setScrollingDisabled(true, false);
+    scroll.setScrollingDisabled(false, false);
 
-    float maxH = 0.70f * MyGdxGame.HEIGHT;
+    float maxH    = 0.70f * MyGdxGame.HEIGHT;
+    float maxW    = 0.96f * MyGdxGame.WIDTH;
     float scrollH = Math.min(table.getPrefHeight(), maxH);
-    float scrollW = table.getPrefWidth();
+    float scrollW = Math.min(table.getPrefWidth(),  maxW);
 
     scroll.setSize(scrollW, scrollH);
     scroll.setPosition(Math.round(cx - scrollW / 2f),

@@ -500,7 +500,7 @@ class GameState {
     const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
-    attacker.attackCount = (attacker.attackCount || 0) + 1;
+    // NOTE: plundering does NOT increment attackCount — only real attacks (defAttack/kingAttack/warlord) do.
     const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
     for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);

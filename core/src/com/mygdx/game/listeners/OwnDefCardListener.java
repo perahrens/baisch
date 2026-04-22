@@ -60,6 +60,50 @@ public class OwnDefCardListener extends ClickListener {
     if (gameState.getCurrentPlayerIndex() != playerIdx) return;
 
     if (!player.isSlotSabotaged(selectedCard.getPositionId())) {
+      // Issue #174: Fortified Tower auto-stack — if the player has the Fortified Tower
+      // hero with charges and exactly one hand card of the matching symbol is selected,
+      // stack it on this defense slot without requiring the hero to be pre-selected.
+      // The hero blinks (like the Marshal blink in HandImageListener) to confirm.
+      if (selectedCard.getLevel() == 0
+          && !player.getTopDefCards().containsKey(selectedCard.getPositionId())
+          && player.getSelectedHandCards().size() == 1) {
+        FortifiedTower ft = null;
+        for (int i = 0; i < player.getHeroes().size(); i++) {
+          if ("Fortified Tower".equals(player.getHeroes().get(i).getHeroName())) {
+            ft = (FortifiedTower) player.getHeroes().get(i);
+            break;
+          }
+        }
+        if (ft != null && ft.getDefenseExpands() > 0) {
+          Card handCard = player.getSelectedHandCards().get(0);
+          if (handCard.getSymbol().equals(selectedCard.getSymbol())) {
+            int handCardId = handCard.getCardId();
+            int slot = selectedCard.getPositionId();
+            ft.defenseExpand();
+            handCard.setLevel(1);
+            player.putDefCard(slot, 1);
+            ft.setSelected(false);
+            // Blink the Fortified Tower hero icon green (issue #174)
+            ft.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.color(com.badlogic.gdx.graphics.Color.GREEN, 0f),
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.delay(0.3f),
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.color(com.badlogic.gdx.graphics.Color.WHITE, 0.2f)
+            ));
+            if (socket != null) {
+              try {
+                JSONObject data = new JSONObject();
+                data.put("playerIdx", playerIdx);
+                data.put("slot", slot);
+                data.put("cardId", handCardId);
+                socket.emit("fortifiedTowerStack", data);
+              } catch (JSONException e) { e.printStackTrace(); }
+            }
+            gameState.setUpdateState(true);
+            return;
+          }
+        }
+      }
+
       // if F.Tower and hand card is selected, put hand card on top
       if (player.getSelectedHeroes().size() > 0) {
         for (int i = 0; i < player.getHeroes().size(); i++) {
@@ -169,39 +213,28 @@ public class OwnDefCardListener extends ClickListener {
           pairedCard = topDefCards.get(slot);
         }
 
-        if (player.hasHero("Banneret")) {
-          // Banneret: def cards can be used as attackers alongside hand cards.
-          // Allow multi-select — just toggle this def card without disturbing hand cards.
-          if (selectedCard.isSelected()) {
-            selectedCard.setSelected(false);
-            if (pairedCard != null) pairedCard.setSelected(false);
-          } else {
-            selectedCard.setSelected(true);
-            if (pairedCard != null) pairedCard.setSelected(true);
-          }
-        } else {
-          // Default: exclusive selection — deselect hand cards and all other def cards.
-          for (int i = 0; i < handCards.size(); i++) {
-            handCards.get(i).setSelected(false);
-          }
+        // Issue #177: Banneret no longer enables defense-as-attack — exclusive
+        // selection always applies. Deselect hand cards and all other def cards.
+        for (int i = 0; i < handCards.size(); i++) {
+          handCards.get(i).setSelected(false);
+        }
 
-          // select defense card
-          if (selectedCard.isSelected()) {
-            selectedCard.setSelected(false);
-            if (pairedCard != null) pairedCard.setSelected(false);
-          } else {
-            kingCard.setSelected(false);
-            for (int i = 1; i <= 3; i++) {
-              if (defCards.containsKey(i)) {
-                defCards.get(i).setSelected(false);
-              }
-              if (topDefCards.containsKey(i)) {
-                topDefCards.get(i).setSelected(false);
-              }
+        // select defense card
+        if (selectedCard.isSelected()) {
+          selectedCard.setSelected(false);
+          if (pairedCard != null) pairedCard.setSelected(false);
+        } else {
+          kingCard.setSelected(false);
+          for (int i = 1; i <= 3; i++) {
+            if (defCards.containsKey(i)) {
+              defCards.get(i).setSelected(false);
             }
-            selectedCard.setSelected(true);
-            if (pairedCard != null) pairedCard.setSelected(true);
+            if (topDefCards.containsKey(i)) {
+              topDefCards.get(i).setSelected(false);
+            }
           }
+          selectedCard.setSelected(true);
+          if (pairedCard != null) pairedCard.setSelected(true);
         }
 
       }

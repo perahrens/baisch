@@ -63,6 +63,43 @@ public class EnemyKingCardListener extends ClickListener {
     }
     if (defender == null || defender == player) return;
 
+    // Issue #179: Magician can target an enemy king card if the defender has no
+    // defense cards. Replaces the king card with a new face-down card from the deck.
+    for (int mi = 0; mi < player.getHeroes().size(); mi++) {
+      Hero h = player.getHeroes().get(mi);
+      if ("Magician".equals(h.getHeroName()) && h.isSelected()) {
+        com.mygdx.game.heroes.Magician magician = (com.mygdx.game.heroes.Magician) h;
+        if (magician.getSpells() > 0
+            && defender.getDefCards().isEmpty()
+            && defender.getTopDefCards().isEmpty()
+            && player.getSelectedHandCards().isEmpty()
+            && !player.getKingCard().isSelected()) {
+          // The Magician spell on a king inverts the face state, just like for def cards.
+          boolean newCovered = !kingCard.isCovered();
+          Card newKing = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
+          gameState.getCemeteryDeck().addCard(kingCard);
+          newKing.setCovered(newCovered);
+          defender.setKingCard(newKing);
+          magician.castSpell();
+          if (socket != null) {
+            try {
+              JSONObject data = new JSONObject();
+              data.put("playerIdx", playerIdx);
+              data.put("targetPlayerIdx", defenderIdx);
+              data.put("positionId", -1);
+              data.put("bottomCardId", newKing.getCardId());
+              data.put("bottomCovered", newCovered);
+              data.put("topCardId", -1);
+              data.put("topCovered", true);
+              socket.emit("magicianSwap", data);
+            } catch (JSONException e) { e.printStackTrace(); }
+          }
+          if (gameState != null) gameState.setUpdateState(true);
+        }
+        return;
+      }
+    }
+
     // Spy peek: if Spy is selected with attacks remaining and ALL of the defender's
     // defense cards are already face-up, allow flipping the king card.
     for (int si = 0; si < player.getHeroes().size(); si++) {

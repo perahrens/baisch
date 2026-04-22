@@ -258,7 +258,7 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] BANNERET = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Banneret",
-      "The Banneret unlocks two passive abilities: Dual Symbol and Defense-to-Attack.",
+      "The Banneret unlocks one passive ability: Dual Symbol.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Dual Symbol (Passive)",
@@ -267,14 +267,9 @@ final class HeroTutorialSteps {
       + "  - Spades <-> Clubs\n\n"
       + "Both symbols can be combined in the same attack round.",
       null),
-    new GameScreen.TutorialStepDef(
-      "Defense-to-Attack (Passive)",
-      "Your own defense cards can also be used as attack cards. Select a mix of hand cards "
-      + "and own defense cards, then attack as usual. Used defense cards are discarded.",
-      null),
     GameScreen.TutorialStepDef.banner(
       "Try a Plunder",
-      "Select hand cards (and optionally own defense cards) and plunder a harvest deck. "
+      "Select hand cards and plunder a harvest deck. "
       + "Notice the dual symbol unlocking.",
       "PLUNDER"),
     GameScreen.TutorialStepDef.banner(
@@ -358,11 +353,14 @@ final class HeroTutorialSteps {
     new GameScreen.TutorialStepDef(
       "Cast Card Replacement",
       "Tap the Magician hero icon, then tap any enemy defense card. "
-      + "The slot is rebuilt with new cards from the deck.",
+      + "The slot is rebuilt with new cards from the deck.\n\n"
+      + "If the enemy has no defense cards left, you may instead target their king card "
+      + "to replace it.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Magician",
-      "Tap Magician, then tap any enemy defense card. Click Next when done.",
+      "Tap Magician, then tap any enemy defense card (or king card if the enemy has no "
+      + "defenses). Click Next when done.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",

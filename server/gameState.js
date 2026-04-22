@@ -355,6 +355,25 @@ class GameState {
     }
 
     const target = this.players[targetPlayerIdx];
+    // Issue #179: positionId === -1 means the spell targets the defender's king card
+    // (only allowed when the defender has no defense cards left).
+    if (positionId === -1) {
+      const hasDef = (target.defCards && Object.keys(target.defCards).length > 0)
+                  || (target.topDefCards && Object.keys(target.topDefCards).length > 0);
+      if (hasDef) {
+        console.log(`magicianSwap: rejected king-target — defender ${targetPlayerIdx} still has defense cards`);
+        return;
+      }
+      const oldKing = target.kingCard;
+      if (oldKing !== undefined && oldKing !== null) this.cemetery.push(oldKing);
+      const idx = this.deck.indexOf(newBottomCardId);
+      if (idx !== -1) this.deck.splice(idx, 1);
+      target.kingCard = newBottomCardId;
+      target.kingCovered = bottomCovered;
+      attacker.magicianSpells--;
+      this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s king`, true);
+      return;
+    }
     // Discard old bottom card
     const oldBottom = target.defCards[positionId];
     if (oldBottom !== undefined) this.cemetery.push(oldBottom);

@@ -992,12 +992,25 @@ io.on('connection', function(socket) {
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
-    var botCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
+    // botModes: array of personality strings, e.g. ["aggressive","passive"].
+    // Falls back to legacy botCount (numeric) for backward compat.
+    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician', 'llm'];
+    var botModes = [];
+    if (data && Array.isArray(data.botModes)) {
+      botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, 3);
+    } else {
+      var legacyCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
+      for (var li = 0; li < legacyCount; li++) botModes.push('balanced');
+    }
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
-    for (var bi = 1; bi <= botCount; bi++) {
-      var botUser = makeUser('bot_' + sess.id + '_' + bi, 'Bot ' + bi);
+    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician', llm: 'AI' };
+    for (var bi = 0; bi < botModes.length; bi++) {
+      var mode = botModes[bi];
+      var label = BOT_MODE_LABELS[mode] || 'Bot';
+      var botUser = makeUser('bot_' + sess.id + '_' + (bi + 1), 'Bot ' + (bi + 1) + ' (' + label + ')');
       botUser.isReady = true;
+      botUser.botMode = mode;
       sess.users.push(botUser);
     }
     if (cToken) {
@@ -1008,7 +1021,7 @@ io.on('connection', function(socket) {
     }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: " + botCount + ")");
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: [" + botModes.join(',') + "])");
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
     socket.emit('gameStatus', { running: false });

@@ -16,6 +16,7 @@ class GameState {
       kingCard: null,
       heroes: [],
       preyCards: [],
+      botMode: user.botMode || null,
     }));
     this.pickingDecks = [[], []]; // each entry: { id, covered }
     this.currentPlayerIndex = 0;

@@ -70,7 +70,9 @@ public class MenuScreen extends AbstractScreen {
   // Pending create-screen settings
   private boolean pendingManualSetup = false;
   private int pendingStartingCards = 8;
-  private int pendingBotCount = 0;
+  // Per-bot personality selections: "off" means no bot in that slot.
+  // Values map to server bot mode keys: "passive", "balanced", "aggressive", "tactician", "llm".
+  private String[] pendingBotModes = {"off", "off", "off"};
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -686,19 +688,37 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setItems(cardOptions);
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
-    // ── Bot count selector ───────────────────────────────────────────────────
-    Label botLabel = new Label("Bots:", MyGdxGame.skin);
-    final SelectBox<String> botBox = new SelectBox<String>(MyGdxGame.skin);
-    Array<String> botOptions = new Array<String>();
-    for (int n = 0; n <= 3; n++) botOptions.add(String.valueOf(n));
-    botBox.setItems(botOptions);
-    botBox.setSelected(String.valueOf(pendingBotCount));
-    botBox.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-      @Override
-      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-        try { pendingBotCount = Integer.parseInt(botBox.getSelected()); } catch (NumberFormatException ex) { pendingBotCount = 0; }
+    // ── Per-bot personality selectors (Bot 1 / 2 / 3) ───────────────────────
+    final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician", "AI"};
+    final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician", "llm"};
+    final Label[] botLabels = new Label[3];
+    @SuppressWarnings("unchecked")
+    final SelectBox<String>[] botBoxes = new SelectBox[3];
+    for (int bi = 0; bi < 3; bi++) {
+      botLabels[bi] = new Label("Bot " + (bi + 1) + ":", MyGdxGame.skin);
+      botBoxes[bi] = new SelectBox<String>(MyGdxGame.skin);
+      Array<String> botOpts = new Array<String>();
+      for (String d : BOT_DISPLAY) botOpts.add(d);
+      botBoxes[bi].setItems(botOpts);
+      // Restore from pending state
+      String currentMode = pendingBotModes[bi];
+      String displayVal = "Off";
+      for (int ki = 0; ki < BOT_KEYS.length; ki++) {
+        if (BOT_KEYS[ki].equals(currentMode)) { displayVal = BOT_DISPLAY[ki]; break; }
       }
-    });
+      botBoxes[bi].setSelected(displayVal);
+      final int botSlot = bi;
+      botBoxes[bi].addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+        @Override
+        public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+          String sel = botBoxes[botSlot].getSelected();
+          for (int ki = 0; ki < BOT_DISPLAY.length; ki++) {
+            if (BOT_DISPLAY[ki].equals(sel)) { pendingBotModes[botSlot] = BOT_KEYS[ki]; return; }
+          }
+          pendingBotModes[botSlot] = "off";
+        }
+      });
+    }
 
     // ── Checkboxes ───────────────────────────────────────────────────────────
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
@@ -719,6 +739,11 @@ public class MenuScreen extends AbstractScreen {
         try {
           pendingStartingCards = Integer.parseInt(cardsBox.getSelected());
         } catch (NumberFormatException ex) { pendingStartingCards = 8; }
+        // Collect non-"off" bot modes into a JSONArray
+        JSONArray botModesArr = new JSONArray();
+        for (int bi = 0; bi < 3; bi++) {
+          if (!"off".equals(pendingBotModes[bi])) botModesArr.put(pendingBotModes[bi]);
+        }
         JSONObject data = new JSONObject();
         try {
           data.put("name", menuState.getMyName());
@@ -726,14 +751,14 @@ public class MenuScreen extends AbstractScreen {
           data.put("allowHeroSelection", sessionAllowHeroSelection);
           data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
-          data.put("botCount", pendingBotCount);
+          data.put("botModes", botModesArr);
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
         pendingManualSetup = false;
         pendingStartingCards = 8;
-        pendingBotCount = 0;
+        pendingBotModes = new String[]{"off", "off", "off"};
         inSessionCreate = false;
       }
     });
@@ -750,9 +775,11 @@ public class MenuScreen extends AbstractScreen {
     form.row();
     form.add(cardsLabel).left().padRight(12f).padBottom(14f);
     form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
-    form.row();
-    form.add(botLabel).left().padRight(12f).padBottom(14f);
-    form.add(botBox).width(colW * 0.38f).left().padBottom(14f);
+    for (int bi = 0; bi < 3; bi++) {
+      form.row();
+      form.add(botLabels[bi]).left().padRight(12f).padBottom(8f);
+      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(8f);
+    }
     form.row();
     form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
     form.row();

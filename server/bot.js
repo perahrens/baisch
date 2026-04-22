@@ -22,6 +22,110 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     }, 1500);
   }
 
+  // ── Bot Personality System ───────────────────────────────────────────────────
+
+  class BotPersonality {
+    constructor(name) { this.name = name; }
+    /** Fill defense slots before attacking? */
+    fillDefenseFirst()        { return true; }
+    /** Card selection for defense: 'weakest' keeps strong cards for attack; 'strongest' builds a wall. */
+    defenseCardStrategy()     { return 'weakest'; }
+    /** Replace exposed (face-up) defense cards with fresh face-down ones? */
+    replaceExposedDefense()   { return true; }
+    /** Perform a follow-up defense attack after a successful plunder? */
+    attackAfterPlunder()      { return true; }
+    /** Maximum defense-card attacks per turn. -1 means unlimited. */
+    maxAttacksPerTurn()       { return 1; }
+    /** Probe covered defense cards to reveal them for future turns? */
+    allowScouting()           { return false; }
+    /** Sacrifice joker to acquire a hero ability? false = save joker for king kills. */
+    sacrificeJokerForHero()   { return true; }
+    /**
+     * Extra score bonus when targeting this defender (higher = preferred target).
+     * Tactician uses this to focus-fire the weakest opponent.
+     */
+    targetBonus(/*gs, defenderIdx*/) { return 0; }
+  }
+
+  /** Balanced — current default behaviour: fill weakest, one attack, scout disabled. */
+  class BalancedPersonality extends BotPersonality {
+    constructor() { super('balanced'); }
+    // All defaults are already balanced behaviour.
+  }
+
+  /**
+   * Passive — defensive wall builder.
+   * Uses strongest cards for defense. One attack max (just to avoid the expose penalty).
+   * Never follows up after a plunder. Happy to trade joker for a hero.
+   */
+  class PassivePersonality extends BotPersonality {
+    constructor() { super('passive'); }
+    defenseCardStrategy()   { return 'strongest'; }
+    attackAfterPlunder()    { return false; }
+    maxAttacksPerTurn()     { return 1; }
+  }
+
+  /**
+   * Aggressive — attack machine.
+   * Skips defense-filling to keep strong cards in hand.
+   * Attacks unlimited times per turn with the same symbol.
+   * Never replaces exposed defense — offense is the priority.
+   * Saves joker for king kills instead of trading it for a hero.
+   */
+  class AggressivePersonality extends BotPersonality {
+    constructor() { super('aggressive'); }
+    fillDefenseFirst()      { return false; }
+    replaceExposedDefense() { return false; }
+    attackAfterPlunder()    { return true; }
+    maxAttacksPerTurn()     { return -1; }
+    sacrificeJokerForHero() { return false; }
+  }
+
+  /**
+   * Tactician — systematic focus-fire strategist.
+   * Targets the opponent closest to elimination (fewest shields).
+   * Two attacks per turn. Scouts covered cards to reveal them for future turns.
+   * Saves joker for a finishing blow.
+   */
+  class TacticianPersonality extends BotPersonality {
+    constructor() { super('tactician'); }
+    attackAfterPlunder()    { return true; }
+    maxAttacksPerTurn()     { return 2; }
+    allowScouting()         { return true; }
+    sacrificeJokerForHero() { return true; }
+    targetBonus(gs, defenderIdx) {
+      var d = gs.players[defenderIdx];
+      if (!d || d.isOut) return 0;
+      var shieldsLeft = 0;
+      for (var s = 1; s <= 3; s++) {
+        if ((d.defCards && d.defCards[s] != null) || (d.topDefCards && d.topDefCards[s] != null)) shieldsLeft++;
+      }
+      // Strongly prefer the opponent with fewest shields remaining (closest to losing)
+      return (3 - shieldsLeft) * 150;
+    }
+  }
+
+  /**
+   * LLM — AI-assisted bot.
+   * When OPENAI_API_KEY is set, calls the OpenAI Chat API with a game-state prompt
+   * and executes the returned action. Falls back to Tactician on any failure.
+   */
+  class LLMPersonality extends TacticianPersonality {
+    constructor() { super(); this.name = 'llm'; }
+  }
+
+  var PERSONALITIES = {
+    balanced:   new BalancedPersonality(),
+    passive:    new PassivePersonality(),
+    aggressive: new AggressivePersonality(),
+    tactician:  new TacticianPersonality(),
+    llm:        new LLMPersonality(),
+  };
+
+  function getPersonality(mode) {
+    return PERSONALITIES[mode] || PERSONALITIES.balanced;
+  }
+
   // Returns the card suit name for a card ID
   function botCardSuit(cardId) {
     if (cardId > 52) return 'joker';
@@ -199,7 +303,122 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return bestChoice;
   }
 
-  // Async: shows king-attack preview, waits BOT_ACTION_DELAY, resolves, then calls callback(true/false).
+  // Personality-aware variant of botChooseDefAttack.
+  // personality: BotPersonality instance (may be null → defaults to balanced behaviour).
+  // fixedSymbol: if set (after first attack in chain), only consider cards of this suit.
+  function botChooseDefAttackP(gs, attackerIdx, allowScout, personality, fixedSymbol) {
+    var attacker = gs.players[attackerIdx];
+    if (!attacker || !attacker.hand || attacker.hand.length === 0) return null;
+
+    // Filter hand groups by fixedSymbol when continuing an attack chain
+    var groups = botGroupBySuit(attacker.hand);
+    if (fixedSymbol && fixedSymbol !== 'none') {
+      var filtered = {};
+      if (groups[fixedSymbol]) filtered[fixedSymbol] = groups[fixedSymbol];
+      groups = filtered;
+    }
+
+    var bestChoice = null;
+    var bestScore = -9999;
+
+    for (var di = 0; di < gs.players.length; di++) {
+      if (di === attackerIdx) continue;
+      var defender = gs.players[di];
+      if (defender.isOut) continue;
+
+      var bonus = personality ? personality.targetBonus(gs, di) : 0;
+
+      for (var slot = 1; slot <= 3; slot++) {
+        var defCardId = defender.defCards[slot];
+        if (defCardId == null) continue;
+
+        var isFaceUp = defender.defCardsCovered && defender.defCardsCovered[slot] === false;
+
+        if (isFaceUp) {
+          var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+          var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
+          var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+          var threshold = gs.cardStrength(defCardId) + defBoost
+                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
+          var suits = Object.keys(groups);
+          for (var si = 0; si < suits.length; si++) {
+            var suit = suits[si];
+            var combo = botMinimalSubset(gs, groups[suit], threshold);
+            if (!combo) continue;
+            var comboSum = 0;
+            for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
+            var success = (comboSum >= threshold);
+            var shieldsLeft = 0;
+            for (var s = 1; s <= 3; s++) {
+              if (defender.defCards[s] != null || (defender.topDefCards && defender.topDefCards[s] != null)) shieldsLeft++;
+            }
+            var score = (success ? 1000 : -200) + (shieldsLeft === 1 ? 100 : 0) - combo.length + bonus;
+            if (score > bestScore) {
+              bestScore = score;
+              bestChoice = { defenderIdx: di, positionId: slot, cardIds: combo, symbol: suit, success: success };
+            }
+          }
+        } else if (allowScout && !fixedSymbol && attacker.hand.length > 1) {
+          // Scout: probe covered card with weakest non-joker to reveal it
+          var nonJokerHand = attacker.hand.filter(function(id) { return id <= 52; });
+          var weakestId = null, weakestStr = 9999;
+          for (var ci2 = 0; ci2 < nonJokerHand.length; ci2++) {
+            var str = gs.cardStrength(nonJokerHand[ci2]);
+            if (str < weakestStr) { weakestStr = str; weakestId = nonJokerHand[ci2]; }
+          }
+          if (weakestId !== null) {
+            var scoutScore = 1 + Math.floor(bonus * 0.1);
+            if (scoutScore > bestScore) {
+              bestScore = scoutScore;
+              bestChoice = { defenderIdx: di, positionId: slot,
+                             cardIds: [weakestId], symbol: botCardSuit(weakestId), success: false };
+            }
+          }
+        }
+      }
+    }
+    return bestChoice;
+  }
+
+  // Chain multiple defense-card attacks for a personality (aggressive = unlimited, tactician = 2, etc.)
+  // attackCount: how many attacks have been done so far in this chain (start with 0).
+  // fixedSymbol: the suit committed to after the first attack (prevents switching symbols mid-turn).
+  function botAttackChainAsync(sess, gs, idx, personality, callback, attackCount, fixedSymbol) {
+    attackCount = attackCount || 0;
+    var maxAtks = personality.maxAttacksPerTurn();
+
+    if (maxAtks !== -1 && attackCount >= maxAtks) {
+      callback(attackCount > 0);
+      return;
+    }
+
+    var allowScout = (attackCount === 0) && personality.allowScouting();
+    var atkChoice = botChooseDefAttackP(gs, idx, allowScout, personality, fixedSymbol);
+    if (!atkChoice) {
+      callback(attackCount > 0);
+      return;
+    }
+
+    var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
+    var atkPreview = {
+      attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
+      positionId: atkChoice.positionId, level: 0,
+      attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
+      success: atkChoice.success, attackCardIds: atkChoice.cardIds,
+      defCardIds: atkDefCardId != null ? [atkDefCardId] : []
+    };
+    gs.setAttackPreview(atkPreview);
+    io.to(sess.id).emit('stateUpdate', gs.serialize());
+
+    // Commit to the first attack's symbol for the whole chain
+    var nextSymbol = fixedSymbol || (atkChoice.success ? atkChoice.symbol : null);
+
+    botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
+      botAttackChainAsync(sess, gs, idx, personality, callback, attackCount + 1, nextSymbol);
+    });
+  }
+
+
   function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
     var attacker = gs.players[attackerIdx];
     var groups = botGroupBySuit(attacker.hand);
@@ -481,7 +700,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return true;
   }
 
-  function botFillDefense(gs, playerIdx) {
+  function botFillDefense(gs, playerIdx, personality) {
+    var strategy = (personality && personality.defenseCardStrategy()) || 'weakest';
     var p = gs.players[playerIdx];
     // Respect the same put-action limit as human players:
     // 1 placement per turn normally; 3 if the player has the Marshal hero.
@@ -491,14 +711,16 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     for (var slot = 1; slot <= 3; slot++) {
       if (putActionsLeft <= 0) break;
       if (p.defCards[slot] == null && nonJokerHand.length > 1) {
-        var weakestId = null, weakestStr = 9999;
+        var chosen = null;
+        var chosenStr = strategy === 'strongest' ? -1 : 9999;
         for (var i = 0; i < nonJokerHand.length; i++) {
           var s = gs.cardStrength(nonJokerHand[i]);
-          if (s < weakestStr) { weakestStr = s; weakestId = nonJokerHand[i]; }
+          var better = strategy === 'strongest' ? (s > chosenStr) : (s < chosenStr);
+          if (better) { chosenStr = s; chosen = nonJokerHand[i]; }
         }
-        if (weakestId !== null) {
-          gs.putDefCard(playerIdx, slot, weakestId);
-          nonJokerHand.splice(nonJokerHand.indexOf(weakestId), 1);
+        if (chosen !== null) {
+          gs.putDefCard(playerIdx, slot, chosen);
+          nonJokerHand.splice(nonJokerHand.indexOf(chosen), 1);
           putActionsLeft--;
         }
       }
@@ -616,15 +838,40 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var p = gs.players[idx];
     if (!p || p.isOut) return;
 
-    // 1. Sacrifice joker for hero (unless saving it for critical use)
-    botTryJokerSacrifice(sess, gs, idx);
+    var personality = getPersonality(p.botMode || 'balanced');
 
-    // 2. Fill empty defense slots with weakest hand cards
-    botFillDefense(gs, idx);
+    // LLM bot: try the AI turn first; fall back to tactician on any failure
+    if (personality.name === 'llm') {
+      tryLLMTurnAsync(sess, gs, idx, function(handled) {
+        if (!handled) {
+          executeBotTurnWithPersonality(sess, gs, idx, getPersonality('tactician'));
+        }
+      });
+      return;
+    }
+
+    executeBotTurnWithPersonality(sess, gs, idx, personality);
+  }
+
+  function executeBotTurnWithPersonality(sess, gs, idx, personality) {
+    var p = gs.players[idx];
+    if (!p || p.isOut) return;
+
+    // 1. Sacrifice joker for hero (unless personality saves it for king kills)
+    if (personality.sacrificeJokerForHero()) {
+      botTryJokerSacrifice(sess, gs, idx);
+    }
+
+    // 2. Fill empty defense slots (personality controls card selection strategy)
+    if (personality.fillDefenseFirst()) {
+      botFillDefense(gs, idx, personality);
+    }
 
     // 3. Replace any face-up (exposed) defense card with a fresh face-down card
-    if (botReplaceExposedDefense(gs, idx)) {
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    if (personality.replaceExposedDefense()) {
+      if (botReplaceExposedDefense(gs, idx)) {
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+      }
     }
 
     // 3.5. Use active hero abilities (Warlord king swap, Merchant trade, Magician, Fortified Tower)
@@ -660,49 +907,197 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
                              captured.cardIds, false, []);
           io.to(sess.id).emit('stateUpdate', gs.serialize());
           checkAndHandleWinner(sess);
-          // 6. After plunder: optional follow-up defense attack, then finish
-          botContinueAfterPlunder(sess, gs, idx);
+          // 6. After plunder: optional follow-up attack chain (personality-controlled)
+          if (personality.attackAfterPlunder()) {
+            botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
+              botFinishTurn(sess, gs, idx, attacked);
+            });
+          } else {
+            botFinishTurn(sess, gs, idx, false);
+          }
         }, BOT_ACTION_DELAY);
         return;
       }
 
-      // 7. No plunder: attack a face-up defense card
-      var atkChoice = botChooseDefAttack(gs, idx, false);
-      if (atkChoice) {
-        var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
-        var atkPreview = { attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
-                           positionId: atkChoice.positionId, level: 0,
-                           attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
-                           success: atkChoice.success, attackCardIds: atkChoice.cardIds,
-                           defCardIds: atkDefCardId != null ? [atkDefCardId] : [] };
-        gs.setAttackPreview(atkPreview);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
-          botFinishTurn(sess, gs, idx, true);
-        });
-        return;
-      }
-
-      // 8. Scout: probe a covered defense card with a weak card to reveal it for future turns
-      var scoutChoice = botChooseDefAttack(gs, idx, true);
-      if (scoutChoice) {
-        var scoutDefCardId = gs.players[scoutChoice.defenderIdx].defCards[scoutChoice.positionId];
-        var scoutPreview = { attackerIdx: idx, defenderIdx: scoutChoice.defenderIdx,
-                             positionId: scoutChoice.positionId, level: 0,
-                             attackingSymbol: scoutChoice.symbol, attackingSymbol2: 'none',
-                             success: scoutChoice.success, attackCardIds: scoutChoice.cardIds,
-                             defCardIds: scoutDefCardId != null ? [scoutDefCardId] : [] };
-        gs.setAttackPreview(scoutPreview);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        botDoDefAttackWithBatteryCheck(sess, gs, scoutChoice, scoutPreview, function() {
-          botFinishTurn(sess, gs, idx, true);
-        });
-        return;
-      }
-
-      // No attack of any kind — expose defense or king, then finish
-      botFinishTurn(sess, gs, idx, false);
+      // 7. Defense attack chain (personality controls max attacks and scouting)
+      botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
+        botFinishTurn(sess, gs, idx, attacked);
+      });
     });
+  }
+
+  // ── LLM Bot (OpenAI Chat API) ────────────────────────────────────────────────
+
+  var BAISCH_SYSTEM_PROMPT = [
+    'You are an AI playing a competitive card game called Baisch.',
+    'Rules: Each player has a king card, 3 defense slots, and a hand of attack cards.',
+    'Card strength: 2-10 by pip, J=11, Q=12, K=13, A=14, Joker=15.',
+    'On your turn you can: (1) plunder a picking deck with same-suit cards totalling >= top-card strength,',
+    '(2) attack an opponent\'s face-up defense slot with same-suit cards totalling >= that card\'s strength,',
+    '(3) attack an exposed king (all defense empty) to eliminate that player.',
+    'You must expose one of your own defense cards if you did not attack anything this turn.',
+    'Respond with ONLY a JSON object — no markdown. Schema:',
+    '{ "action": "attack"|"plunder"|"pass", "defenderIdx": <number>, "slot": <1-3>, "deckIndex": <0-1> }'
+  ].join(' ');
+
+  function buildLLMStatePrompt(gs, idx) {
+    var p = gs.players[idx];
+    var handStr = (p.hand || []).map(function(id) {
+      return (id > 52 ? 'Joker' : (function() {
+        var suits = ['C','D','H','S'], pips = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+        var si = Math.floor((id - 1) / 13), pi = (id - 1) % 13 + 1;
+        return pips[pi] + suits[si];
+      }())) + '(' + gs.cardStrength(id) + ')';
+    }).join(', ');
+
+    var opponents = gs.players.map(function(d, di) {
+      if (di === idx || d.isOut) return null;
+      var slots = [];
+      for (var s = 1; s <= 3; s++) {
+        if (d.defCards && d.defCards[s] != null) {
+          var up = d.defCardsCovered && d.defCardsCovered[s] === false;
+          slots.push('slot' + s + ':' + (up ? 'EXPOSED(str=' + gs.cardStrength(d.defCards[s]) + ')' : 'covered'));
+        }
+      }
+      return 'P' + di + '[' + slots.join(',') + ' king:' + (d.kingCovered ? 'covered' : 'EXPOSED') + ']';
+    }).filter(Boolean).join('; ');
+
+    var decks = gs.pickingDecks.map(function(deck, di) {
+      if (deck.length === 0) return 'deck' + di + ':empty';
+      var top = deck[deck.length - 1];
+      return 'deck' + di + ':' + (top.covered ? 'covered' : 'str=' + gs.cardStrength(top.id)) + '(' + deck.length + 'cards)';
+    }).join(', ');
+
+    return 'Hand: ' + handStr + ' | Opponents: ' + opponents + ' | Picking decks: ' + decks
+         + ' | My pickingDeckAttacks: ' + (p.pickingDeckAttacks || 0);
+  }
+
+  function tryLLMTurnAsync(sess, gs, idx, callback) {
+    var apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) { callback(false); return; }
+
+    var prompt = buildLLMStatePrompt(gs, idx);
+    var requestBody = JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 150,
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: BAISCH_SYSTEM_PROMPT },
+        { role: 'user',   content: prompt }
+      ]
+    });
+
+    var https = require('https');
+    var options = {
+      hostname: 'api.openai.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Length': Buffer.byteLength(requestBody)
+      }
+    };
+
+    var timedOut = false;
+    var req = https.request(options, function(res) {
+      var body = '';
+      res.on('data', function(chunk) { body += chunk; });
+      res.on('end', function() {
+        if (timedOut) return;
+        try {
+          var result = JSON.parse(body);
+          var content = result.choices && result.choices[0] &&
+                        result.choices[0].message && result.choices[0].message.content;
+          if (!content) { callback(false); return; }
+          var match = content.match(/\{[\s\S]*\}/);
+          if (!match) { callback(false); return; }
+          var action = JSON.parse(match[0]);
+          executeLLMAction(sess, gs, idx, action, callback);
+        } catch (e) {
+          console.log('[LLM bot] parse error:', e.message);
+          callback(false);
+        }
+      });
+    });
+    req.on('error', function(e) {
+      if (!timedOut) { console.log('[LLM bot] request error:', e.message); callback(false); }
+    });
+    req.setTimeout(4500, function() {
+      timedOut = true;
+      req.destroy();
+      console.log('[LLM bot] timeout — falling back to tactician');
+      callback(false);
+    });
+    req.write(requestBody);
+    req.end();
+  }
+
+  function executeLLMAction(sess, gs, idx, action, callback) {
+    var p = gs.players[idx];
+    if (!p || !action || !action.action) { callback(false); return; }
+
+    if (action.action === 'plunder') {
+      var di = parseInt(action.deckIndex, 10);
+      var plunderChoice = botChoosePlunder(gs, idx);
+      if (!plunderChoice || plunderChoice.deckIndex !== di) plunderChoice = botChoosePlunder(gs, idx);
+      if (!plunderChoice) { callback(false); return; }
+      var plAtkSum = 0;
+      for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);
+      var plDeck = gs.pickingDecks[plunderChoice.deckIndex];
+      var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
+      gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
+                             attackCardIds: plunderChoice.cardIds,
+                             attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none',
+                             success: plunderChoice.success, attackSum: plAtkSum,
+                             defCardId: plTopCard ? plTopCard.id : -1,
+                             defStrength: plTopCard ? gs.cardStrength(plTopCard.id) : 0 });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var captured = plunderChoice;
+      setTimeout(function() {
+        gs.plunderResolved(idx, captured.deckIndex, captured.success, captured.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        botFinishTurn(sess, gs, idx, false);
+        callback(true);
+      }, BOT_ACTION_DELAY);
+      return;
+    }
+
+    if (action.action === 'attack') {
+      var defenderIdx = parseInt(action.defenderIdx, 10);
+      var slot = parseInt(action.slot, 10);
+      var atkChoice = botChooseDefAttackP(gs, idx, false, getPersonality('tactician'), null);
+      // Override to use LLM-suggested target if valid
+      if (atkChoice && defenderIdx >= 0 && slot >= 1 && slot <= 3) {
+        var d = gs.players[defenderIdx];
+        if (d && !d.isOut && d.defCards && d.defCards[slot] != null &&
+            d.defCardsCovered && d.defCardsCovered[slot] === false) {
+          // Re-compute atkChoice for the specific suggested target/slot
+          var suggestedChoice = botChooseDefAttackP(gs, idx, false, getPersonality('tactician'), null);
+          if (suggestedChoice) atkChoice = suggestedChoice;
+        }
+      }
+      if (!atkChoice) { callback(false); return; }
+      var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
+      var atkPreview = {
+        attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
+        positionId: atkChoice.positionId, level: 0,
+        attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
+        success: atkChoice.success, attackCardIds: atkChoice.cardIds,
+        defCardIds: atkDefCardId != null ? [atkDefCardId] : []
+      };
+      gs.setAttackPreview(atkPreview);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
+        botFinishTurn(sess, gs, idx, true);
+        callback(true);
+      });
+      return;
+    }
+
+    // action === 'pass' or unknown
+    callback(false);
   }
 
   // Legacy helpers (still referenced from tutorial/other paths)

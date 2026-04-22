@@ -25,6 +25,8 @@ class GameState {
     this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
     this.setupPhase = manualSetup;
     this.setupSubmitted = {}; // { playerIdx: true } — tracks who confirmed during manual setup
+    this.roundNumber = 1;     // incremented each time the full turn order wraps around
+    this.eliminationOrder = []; // player indices in elimination order (first out = index 0)
     this.dealCards(startingCards);
     if (manualSetup) {
       this.initPlayerStats(); // init combat counters without placing king/def/cemetery
@@ -55,6 +57,12 @@ class GameState {
       p.batteryTowerCharges = 0;
       p.attackingSymbol = 'none';
       p.attackingSymbol2 = 'none';
+      p.statHeroesReceived = 0;
+      p.statPlundersSuccess = 0;
+      p.statPlundersFailed = 0;
+      p.statAttacksSuccess = 0;
+      p.statAttacksFailed = 0;
+      p.statRoundEliminatedAt = 0;
     }
   }
 
@@ -505,6 +513,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}!`, true);
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
@@ -516,8 +525,13 @@ class GameState {
       const c2 = this.pickCard(); if (c2 !== null) this.pickingDecks[deckIdx].push({ id: c2, covered: false });
       const c3 = this.pickCard(); if (c3 !== null) this.pickingDecks[deckIdx].push({ id: c3, covered: true });
     } else {
+      attacker.statPlundersFailed = (attacker.statPlundersFailed || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed`, false);
-      if (kingUsed) attacker.isOut = true;
+      if (kingUsed) {
+        attacker.isOut = true;
+        attacker.statRoundEliminatedAt = this.roundNumber;
+        this.eliminationOrder.push(attacker.index);
+      }
       // Keep the attacked (top) card face-up after a failed plunder,
       // then add a new face-down card on top.
       const deck = this.pickingDecks[deckIdx];
@@ -548,6 +562,7 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}]`, true);
       // If the slot was sabotaged, clear it (saboteur destroyed when card is removed by attack)
       if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
@@ -567,8 +582,13 @@ class GameState {
         if (defender.topDefCardsBoost) delete defender.topDefCardsBoost[positionId];
       }
     } else {
+      attacker.statAttacksFailed = (attacker.statAttacksFailed || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}]`, false);
-      if (kingUsed) attacker.isOut = true;
+      if (kingUsed) {
+        attacker.isOut = true;
+        attacker.statRoundEliminatedAt = this.roundNumber;
+        this.eliminationOrder.push(attacker.index);
+      }
       // Mark attacked card(s) as revealed (face-up) — they stay in defCards but must remain visible
       if (!defender.defCardsCovered) defender.defCardsCovered = {};
       if (!defender.topDefCardsCovered) defender.topDefCardsCovered = {};
@@ -612,6 +632,10 @@ class GameState {
       next = (next + 1) % n;
     }
     this.currentPlayerIndex = next;
+    // A round completes whenever the turn order wraps back (next index < previous index).
+    if (next < currentPlayerIndex) {
+      this.roundNumber = (this.roundNumber || 1) + 1;
+    }
   }
 
   exposeDefCard(playerIdx, slot) {
@@ -638,6 +662,43 @@ class GameState {
   checkWinner() {
     const alive = this.players.filter(p => !p.isOut);
     return alive.length === 1 ? alive[0].index : -1;
+  }
+
+  /** Build a statistics summary to send to clients at game end. */
+  getGameStats() {
+    const alive = this.players.filter(p => !p.isOut);
+    const winner = alive.length === 1 ? alive[0] : null;
+    const playerResults = [];
+    if (winner) {
+      playerResults.push({
+        index: winner.index,
+        name: winner.name,
+        placement: 1,
+        roundsUntilOut: this.roundNumber,
+        heroesReceived: winner.statHeroesReceived || 0,
+        plundersSuccess: winner.statPlundersSuccess || 0,
+        plundersFailed: winner.statPlundersFailed || 0,
+        attacksSuccess: winner.statAttacksSuccess || 0,
+        attacksFailed: winner.statAttacksFailed || 0,
+      });
+    }
+    // Eliminated players: last out = 2nd place (reverse eliminationOrder)
+    for (let i = this.eliminationOrder.length - 1; i >= 0; i--) {
+      const idx = this.eliminationOrder[i];
+      const p = this.players[idx];
+      playerResults.push({
+        index: p.index,
+        name: p.name,
+        placement: playerResults.length + 1,
+        roundsUntilOut: p.statRoundEliminatedAt || this.roundNumber,
+        heroesReceived: p.statHeroesReceived || 0,
+        plundersSuccess: p.statPlundersSuccess || 0,
+        plundersFailed: p.statPlundersFailed || 0,
+        attacksSuccess: p.statAttacksSuccess || 0,
+        attacksFailed: p.statAttacksFailed || 0,
+      });
+    }
+    return { rounds: this.roundNumber, players: playerResults };
   }
 
   /**
@@ -669,9 +730,12 @@ class GameState {
     }
     if (kingUsed) attacker.kingCovered = false;
     if (success) {
+      attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}!`, true);
       // Defender loses their king and is eliminated; attacker gains their cards as prey
       defender.isOut = true;
+      defender.statRoundEliminatedAt = this.roundNumber;
+      this.eliminationOrder.push(defender.index);
       if (!attacker.preyCards) attacker.preyCards = [];
       for (const cardId of defender.hand) {
         attacker.hand.push(cardId);
@@ -691,8 +755,13 @@ class GameState {
         this.pendingHeroSelection = { attackerIdx, defenderIdx, options: [...defHeroes] };
       }
     } else {
+      attacker.statAttacksFailed = (attacker.statAttacksFailed || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed`, false);
-      if (kingUsed) attacker.isOut = true;
+      if (kingUsed) {
+        attacker.isOut = true;
+        attacker.statRoundEliminatedAt = this.roundNumber;
+        this.eliminationOrder.push(attacker.index);
+      }
     }
   }
 
@@ -815,6 +884,7 @@ class GameState {
     const target = this.players[playerIdx];
     if (!target.heroes) target.heroes = [];
     target.heroes.push(heroName);
+    target.statHeroesReceived = (target.statHeroesReceived || 0) + 1;
     // Give an immediate charge when Battery Tower is acquired
     if (heroName === 'Battery Tower') target.batteryTowerCharges = 1;
   }

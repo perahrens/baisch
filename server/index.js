@@ -233,10 +233,12 @@ function checkAndHandleWinner(sess) {
   const winner = sess.gameState.checkWinner();
   if (winner >= 0) {
     sess.winnerHandled = true;
-    console.log("Session " + sess.id + " winner: player " + winner + " — closing session in 5 seconds");
+    console.log("Session " + sess.id + " winner: player " + winner + " — sending gameStats, closing in 5 minutes");
+    // Immediately send stats so clients can show the stats screen
+    io.to(sess.id).emit('gameStats', sess.gameState.getGameStats());
     setTimeout(function() {
       var sessId = sess.id;
-      // Notify all participants to return to the session list
+      // Safety-net: return clients to lobby if they haven't navigated away yet
       io.to(sessId).emit('returnToLobby');
       // Remove all socket→session mappings so these sockets are session-less again
       sess.users.forEach(function(u) {
@@ -253,7 +255,7 @@ function checkAndHandleWinner(sess) {
       delete sessions[sessId];
       broadcastSessionList();
       broadcastPlayerList();
-    }, 5000);
+    }, 5 * 60 * 1000); // 5 minutes — gives players time to read the stats screen
   }
 }
 

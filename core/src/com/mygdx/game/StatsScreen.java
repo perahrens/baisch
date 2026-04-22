@@ -254,19 +254,18 @@ public class StatsScreen extends AbstractScreen {
 
     table.pack();
 
-    // Wrap in a ScrollPane — vertical for many players, horizontal for wide tables
+    // Wrap in a ScrollPane — horizontal only (table always fits vertically)
     ScrollPane scroll = new ScrollPane(table, MyGdxGame.skin);
     scroll.setFadeScrollBars(false);
-    scroll.setScrollingDisabled(false, false);
+    scroll.setScrollingDisabled(false, true);
 
-    float maxH    = 0.70f * MyGdxGame.HEIGHT;
     float maxW    = 0.96f * MyGdxGame.WIDTH;
-    float scrollH = Math.min(table.getPrefHeight(), maxH);
-    float scrollW = Math.min(table.getPrefWidth(),  maxW);
+    float scrollH = table.getPrefHeight();
+    float scrollW = Math.min(table.getPrefWidth(), maxW);
 
     scroll.setSize(scrollW, scrollH);
     scroll.setPosition(Math.round(cx - scrollW / 2f),
-        Math.round(0.14f * MyGdxGame.HEIGHT + (maxH - scrollH) / 2f));
+        Math.round(0.14f * MyGdxGame.HEIGHT + (scrollH - scrollH) / 2f));
     stage.addActor(scroll);
   }
 

@@ -154,6 +154,11 @@ public class GameScreen extends ScreenAdapter {
   private float batteryBotNotificationTimer = 0f;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
   private boolean pendingExposeCard = false;
+  // Static reference to the live GameScreen so listeners (e.g. OwnDefCardListener)
+  // can submit a covered-card-expose tap without us threading a parameter through
+  // every constructor call site. Set in show(), cleared in hide().
+  private static GameScreen INSTANCE = null;
+  public static GameScreen getInstance() { return INSTANCE; }
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;
@@ -685,6 +690,7 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void show() {
+    INSTANCE = this;
     MyGdxGame.setMusicTrack(null); // no music during the game
 
     players = gameState.getPlayers();
@@ -3054,10 +3060,33 @@ public class GameScreen extends ScreenAdapter {
 
     // Merchant 2nd-try reveal: display the drawn card face-up for ALL players (incl. trader),
     // and show "JOKER — lost" if the second draw was a joker. Hidden once the server clears
-    // merchantReveal on finishTurn.
+    // merchantReveal on finishTurn. The whole stage gets a transparent click-catcher so any
+    // tap dismisses the overlay (sends dismissMerchantReveal to the server, which clears
+    // lastMerchantReveal for every client on next stateUpdate).
     if (merchantRevealCardId != -1) {
       Card revealCard = Card.fromCardId(merchantRevealCardId);
       boolean isJoker = revealCard != null && "joker".equals(revealCard.getSymbol());
+      // Tap-anywhere dismiss layer (must be added FIRST so it is below the card visually
+      // but receives clicks meant for the empty area around the card).
+      Image dismissLayer = new Image(MyGdxGame.skin, "white");
+      dismissLayer.setFillParent(true);
+      dismissLayer.setColor(0f, 0f, 0f, 0.55f);
+      dismissLayer.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          // Hide locally for snappy UX, then notify the server to clear for everyone.
+          merchantRevealCardId = -1;
+          merchantRevealPlayerIdx = -1;
+          if (socket != null) {
+            JSONObject d = new JSONObject();
+            socket.emit("dismissMerchantReveal", d);
+          }
+          gameState.setUpdateState(true);
+          return true;
+        }
+      });
+      gameStage.addActor(dismissLayer);
+
       float rcw = revealCard.getDefWidth() * 1.5f;
       float rch = revealCard.getDefHeight() * 1.5f;
       revealCard.setWidth(rcw);
@@ -3065,17 +3094,33 @@ public class GameScreen extends ScreenAdapter {
       revealCard.setPosition(
           (MyGdxGame.WIDTH - rcw) / 2f,
           (MyGdxGame.WIDTH - rch) / 2f);
+      // Card itself also dismisses on tap.
+      revealCard.clearListeners();
+      revealCard.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          merchantRevealCardId = -1;
+          merchantRevealPlayerIdx = -1;
+          if (socket != null) {
+            JSONObject d = new JSONObject();
+            socket.emit("dismissMerchantReveal", d);
+          }
+          gameState.setUpdateState(true);
+          return true;
+        }
+      });
       gameStage.addActor(revealCard);
       String revealText;
       if (merchantRevealPlayerIdx == playerIndex) {
-        revealText = isJoker ? "JOKER — lost!" : "Your 2nd-try card";
+        revealText = isJoker ? "JOKER — lost! (tap to dismiss)" : "Your 2nd-try card (tap to dismiss)";
       } else {
         revealText = isJoker
-            ? "P" + merchantRevealPlayerIdx + " drew JOKER — lost!"
-            : "P" + merchantRevealPlayerIdx + " 2nd-try reveal";
+            ? "P" + merchantRevealPlayerIdx + " drew JOKER — lost! (tap to dismiss)"
+            : "P" + merchantRevealPlayerIdx + " 2nd-try reveal (tap to dismiss)";
       }
       Label revealLabel = new Label(revealText, MyGdxGame.skin);
       revealLabel.setColor(isJoker ? Color.RED : Color.GREEN);
+      revealLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
       revealLabel.setPosition(
           revealCard.getX() + (revealCard.getWidth() - revealLabel.getPrefWidth()) / 2f,
           revealCard.getY() + revealCard.getHeight() + 2f);
@@ -3844,25 +3889,14 @@ public class GameScreen extends ScreenAdapter {
       slotBtn.setSize(btnW, slotBtn.getPrefHeight() * 1.5f);
       slotBtn.setPosition(btnX, stageH / 2f - slotBtn.getHeight() / 2f);
       btnX += btnW + 4;
-      slotBtn.addListener(new ClickListener() {
+      slotBtn.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        // Use touchDown rather than ClickListener.clicked so the event fires even if a
+        // stateUpdate destroys/recreates the slot button between touchDown and touchUp
+        // (recurring bug: "select card to expose, nothing happens").
         @Override
-        public void clicked(InputEvent event, float x, float y) {
-          // Emit BEFORE mutating local state. If a stateUpdate arrives during the
-          // click and clears handStage, the messages have already been sent and
-          // the server is the authority on turn progression.
-          try {
-            JSONObject exposeData = new JSONObject();
-            exposeData.put("playerIdx", playerIndex);
-            exposeData.put("slot", finalSlot);
-            socket.emit("exposeDefCard", exposeData);
-            JSONObject ftData = new JSONObject();
-            ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
-            socket.emit("finishTurn", ftData);
-            tutorialAdvance(TUTORIAL_STEP_ENDTURN);
-            tutorialAdvanceHook("FINISH_TURN");
-          } catch (JSONException ex) { ex.printStackTrace(); }
-          pendingExposeCard = false;
-          gameState.setUpdateState(true);
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          submitExposeAndFinishTurn(finalSlot);
+          return true;
         }
       });
       handStage.addActor(slotBtn);
@@ -3882,6 +3916,33 @@ public class GameScreen extends ScreenAdapter {
         socket.emit("finishTurn", ftData);
       } catch (JSONException ex) { ex.printStackTrace(); }
     }
+  }
+
+  /** True when this client is in the "choose a covered defense card to expose" state. */
+  public boolean isPendingExpose() {
+    return pendingExposeCard;
+  }
+
+  /**
+   * Submit the choice of which slot to expose, then end the turn.
+   * Called by the slot buttons in {@link #addExposeCardOverlay()} and by
+   * OwnDefCardListener when the player taps a covered own defense card directly.
+   */
+  public void submitExposeAndFinishTurn(int slot) {
+    if (!pendingExposeCard) return;
+    pendingExposeCard = false;
+    try {
+      JSONObject exposeData = new JSONObject();
+      exposeData.put("playerIdx", playerIndex);
+      exposeData.put("slot", slot);
+      socket.emit("exposeDefCard", exposeData);
+      JSONObject ftData = new JSONObject();
+      ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+      socket.emit("finishTurn", ftData);
+      tutorialAdvance(TUTORIAL_STEP_ENDTURN);
+      tutorialAdvanceHook("FINISH_TURN");
+    } catch (JSONException ex) { ex.printStackTrace(); }
+    gameState.setUpdateState(true);
   }
 
   private void showHeroInfoOverlay(String heroName) {
@@ -5581,6 +5642,7 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void hide() {
+    if (INSTANCE == this) INSTANCE = null;
     dispose();
 
   }

@@ -59,6 +59,16 @@ public class OwnDefCardListener extends ClickListener {
     // Defense cards must not be interacted with when it is not the player's turn.
     if (gameState.getCurrentPlayerIndex() != playerIdx) return;
 
+    // Recurring "select card to expose, nothing happens" bug: the user expects the
+    // covered own defense card itself to be the expose target, not the slot button
+    // in the hand area. If we are in pendingExposeCard state and this card is
+    // covered, treat the click as the expose choice and finish the turn.
+    com.mygdx.game.GameScreen gs = com.mygdx.game.GameScreen.getInstance();
+    if (gs != null && gs.isPendingExpose() && selectedCard.isCovered()) {
+      gs.submitExposeAndFinishTurn(selectedCard.getPositionId());
+      return;
+    }
+
     if (!player.isSlotSabotaged(selectedCard.getPositionId())) {
       // Issue #174: Fortified Tower auto-stack — if the player has the Fortified Tower
       // hero with charges and exactly one hand card of the matching symbol is selected,

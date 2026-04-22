@@ -712,8 +712,16 @@ class GameState {
       return false;
     }
     p.warlordAttacks--;
+    // A Warlord direct attack counts as an attack for the "finish-turn without attacking"
+    // penalty check. Without this, the client would still force the player to expose
+    // a defense card after using Warlord (issue: "Warlord attack must not require expose").
+    p.attackCount = (p.attackCount || 0) + 1;
     this.pushLog(`${this.pname(playerIdx)} used Warlord direct attack`, true, true);
     return true;
+  }
+
+  dismissMerchantReveal() {
+    this.lastMerchantReveal = null;
   }
 
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {

@@ -62,12 +62,9 @@ public class OwnHandCardListener extends ClickListener {
         player.setKingCard(newKing);
         player.getHandCards().remove(newKing);
         player.addHandCard(oldKing);
-        // Non-warlord coup: keep old king selected so it can immediately attack.
-        // coupSwapPendingCardId survives stateUpdate hand rebuilds, keeping the card auto-selected.
         if (!hasWarlord) {
+          // Mark the swap for tutorial detection; reset king-used flag for the new board king
           player.getPlayerTurn().setCoupSwapPendingCardId(oldKing.getCardId());
-          player.setSelectedSymbol(oldKing.getSymbol());
-          // Fresh king on board: reset king-used flag so the new board king can attack this turn
           player.getPlayerTurn().setKingUsedThisTurn(false);
         }
         // Deselect king

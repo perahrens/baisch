@@ -3052,9 +3052,12 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(tryBtn);
     }
 
-    // Merchant 2nd-try reveal: display the drawn card face-up for all non-trading clients
-    if (merchantRevealCardId != -1 && merchantRevealPlayerIdx != playerIndex) {
+    // Merchant 2nd-try reveal: display the drawn card face-up for ALL players (incl. trader),
+    // and show "JOKER — lost" if the second draw was a joker. Hidden once the server clears
+    // merchantReveal on finishTurn.
+    if (merchantRevealCardId != -1) {
       Card revealCard = Card.fromCardId(merchantRevealCardId);
+      boolean isJoker = revealCard != null && "joker".equals(revealCard.getSymbol());
       float rcw = revealCard.getDefWidth() * 1.5f;
       float rch = revealCard.getDefHeight() * 1.5f;
       revealCard.setWidth(rcw);
@@ -3063,8 +3066,16 @@ public class GameScreen extends ScreenAdapter {
           (MyGdxGame.WIDTH - rcw) / 2f,
           (MyGdxGame.WIDTH - rch) / 2f);
       gameStage.addActor(revealCard);
-      Label revealLabel = new Label("Merch. reveal (P" + merchantRevealPlayerIdx + ")", MyGdxGame.skin);
-      revealLabel.setColor(Color.GREEN);
+      String revealText;
+      if (merchantRevealPlayerIdx == playerIndex) {
+        revealText = isJoker ? "JOKER — lost!" : "Your 2nd-try card";
+      } else {
+        revealText = isJoker
+            ? "P" + merchantRevealPlayerIdx + " drew JOKER — lost!"
+            : "P" + merchantRevealPlayerIdx + " 2nd-try reveal";
+      }
+      Label revealLabel = new Label(revealText, MyGdxGame.skin);
+      revealLabel.setColor(isJoker ? Color.RED : Color.GREEN);
       revealLabel.setPosition(
           revealCard.getX() + (revealCard.getWidth() - revealLabel.getPrefWidth()) / 2f,
           revealCard.getY() + revealCard.getHeight() + 2f);
@@ -3610,6 +3621,10 @@ public class GameScreen extends ScreenAdapter {
       finishTurnButton.setVisible(false);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
+      // Defensive: also disable touch on the hidden finish-turn button so it can
+      // never absorb the slot button click after being re-added on top of the overlay
+      // (recurring bug: "finish turn does nothing").
+      finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
       // Self-heal: if there is no covered defense card to expose (e.g. state
       // changed before the overlay rebuild), drop the flag and fall through
       // so the regular finish-turn button is shown instead of a dead overlay.
@@ -3627,11 +3642,13 @@ public class GameScreen extends ScreenAdapter {
       } else {
         pendingExposeCard = false;
         finishTurnButton.setVisible(isMyTurn);
+        finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
         finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
         finishTurnButton.addListener(finishTurnButtonListener);
       }
     } else {
       finishTurnButton.setVisible(isMyTurn);
+      finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
       finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket) {
         private boolean checkedPenalty = false;
         @Override
@@ -3798,8 +3815,10 @@ public class GameScreen extends ScreenAdapter {
     bg.setSize(stageW, stageH);
     bg.setPosition(0, 0);
     bg.setColor(0f, 0f, 0f, 0.72f);
-    // Block input under the overlay but don't capture clicks meant for slot buttons.
-    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+    // The veil is purely visual — keep it non-touchable so it can never absorb the
+    // slot button click in any race condition (recurring bug: "finish turn does
+    // nothing" when the user taps the expose slot button).
+    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
     handStage.addActor(bg);
 
     Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
@@ -5381,14 +5400,25 @@ public class GameScreen extends ScreenAdapter {
    */
   private void addCardActionHighlight(Actor actor, Color color, com.badlogic.gdx.scenes.scene2d.Stage stage) {
     Image hi = new Image(MyGdxGame.skin.newDrawable("white", color));
-    // For rotated hand cards we want an axis-aligned overlay, so use the actor's
-    // visual width/height (swap when rotated 90°/270°).
+    // For rotated cards we want an axis-aligned overlay matching the visual bounds.
+    // Hand cards rotate via Actor.setRotation(); board cards (left/right/top players)
+    // rotate via Card's internal `rotate` field used inside Card.draw — Actor.getRotation()
+    // returns 0 in that case so we must inspect Card.getRotate() too (issue: highlight
+    // overlay was vertical on horizontally-displayed enemy cards for left/right players).
     float w = actor.getWidth();
     float h = actor.getHeight();
     float rot = actor.getRotation();
-    if (Math.abs(rot - 90f) < 1f || Math.abs(rot - 270f) < 1f || Math.abs(rot + 90f) < 1f) {
-      // Visual bounds for a rotated card: centred on (x + w/2, y + h/2),
-      // visual size (h, w).
+    if (actor instanceof Card) {
+      float cardRot = ((Card) actor).getRotate();
+      if (Math.abs(cardRot) > 0.5f) rot = cardRot;
+    }
+    // Normalise to [-180,180]
+    while (rot > 180f) rot -= 360f;
+    while (rot < -180f) rot += 360f;
+    boolean sideways = Math.abs(Math.abs(rot) - 90f) < 1f;
+    if (sideways) {
+      // Visual bounds for a card rotated 90/-90 around its centre: still centred on
+      // (x + w/2, y + h/2) but visual size is (h, w).
       float cx = actor.getX() + w / 2f;
       float cy = actor.getY() + h / 2f;
       hi.setBounds(cx - h / 2f, cy - w / 2f, h, w);
@@ -5437,7 +5467,8 @@ public class GameScreen extends ScreenAdapter {
     } else if ("Warlord".equals(name) && !defCard.isPlaceholder()) {
       com.mygdx.game.heroes.Warlord wl = (com.mygdx.game.heroes.Warlord) sel;
       if (wl.isAttackAvailable()) {
-        addCardActionHighlight(defCard, new Color(1f, 0.3f, 0.3f, 0.32f), gameStage);
+        // Issue: red highlight invisible on face-down red card backs — use bright magenta.
+        addCardActionHighlight(defCard, new Color(1f, 0.1f, 0.85f, 0.45f), gameStage);
       }
     }
   }
@@ -5457,7 +5488,7 @@ public class GameScreen extends ScreenAdapter {
     } else if ("Warlord".equals(name) && defenderHasNoDef) {
       com.mygdx.game.heroes.Warlord wl = (com.mygdx.game.heroes.Warlord) sel;
       if (wl.isAttackAvailable()) {
-        addCardActionHighlight(kingCard, new Color(1f, 0.3f, 0.3f, 0.32f), gameStage);
+        addCardActionHighlight(kingCard, new Color(1f, 0.1f, 0.85f, 0.45f), gameStage);
       }
     } else if ("Spy".equals(name) && defenderHasNoDef && kingCard.isCovered()) {
       // Spy peek on king is allowed only when all defs are face-up; here the defender has none.

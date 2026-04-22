@@ -1414,6 +1414,13 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
+  socket.on('dismissMerchantReveal', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess || !sess.gameState) return;
+    sess.gameState.dismissMerchantReveal();
+    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+  });
+
   socket.on('fortifiedTowerStack', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;

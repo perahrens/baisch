@@ -258,6 +258,15 @@ public class Card extends Actor {
     this.rotate = rotation;
   }
 
+  /**
+   * Internal rotation used by Card.draw (centered around the card's geometric centre).
+   * Distinct from {@link com.badlogic.gdx.scenes.scene2d.Actor#getRotation()} which is
+   * not used for board cards. Returned in degrees; 0 = upright, 90/-90 = sideways, 180 = upside-down.
+   */
+  public float getRotate() {
+    return rotate;
+  }
+
   public void addBoosted(int boost) {
     boosted += boost; // can be positive or negative
   }

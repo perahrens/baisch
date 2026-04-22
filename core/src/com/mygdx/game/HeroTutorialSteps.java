@@ -258,7 +258,7 @@ final class HeroTutorialSteps {
   private static final GameScreen.TutorialStepDef[] BANNERET = new GameScreen.TutorialStepDef[] {
     new GameScreen.TutorialStepDef(
       "Banneret",
-      "The Banneret unlocks two passive abilities: Dual Symbol and Defense-to-Attack.",
+      "The Banneret unlocks one passive ability: Dual Symbol.",
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Dual Symbol (Passive)",
@@ -267,14 +267,9 @@ final class HeroTutorialSteps {
       + "  - Spades <-> Clubs\n\n"
       + "Both symbols can be combined in the same attack round.",
       null),
-    new GameScreen.TutorialStepDef(
-      "Defense-to-Attack (Passive)",
-      "Your own defense cards can also be used as attack cards. Select a mix of hand cards "
-      + "and own defense cards, then attack as usual. Used defense cards are discarded.",
-      null),
     GameScreen.TutorialStepDef.banner(
       "Try a Plunder",
-      "Select hand cards (and optionally own defense cards) and plunder a harvest deck. "
+      "Select hand cards and plunder a harvest deck. "
       + "Notice the dual symbol unlocking.",
       "PLUNDER"),
     GameScreen.TutorialStepDef.banner(
@@ -324,14 +319,16 @@ final class HeroTutorialSteps {
       "Begin"),
     new GameScreen.TutorialStepDef(
       "Stack a Defense Card",
-      "To stack a card:\n"
-      + "  1. Tap the Fortified Tower hero icon to select it.\n"
-      + "  2. Tap a hand card to select it.\n"
-      + "  3. Tap one of your own defense slots - the hand card stacks on top.",
+      "Stacking is automatic - no need to select the Fortified Tower hero first:\n"
+      + "  1. Tap a hand card to select it.\n"
+      + "  2. Matching defense slots are highlighted in purple.\n"
+      + "  3. Tap one of the highlighted slots - the hand card stacks on top "
+      + "and the Fortified Tower icon blinks green to confirm a charge was used.\n\n"
+      + "Only matching symbols can be stacked, and the slot must not already be stacked.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try Stacking",
-      "Tap Fortified Tower, select a hand card, then tap one of your own defense slots. "
+      "Select a hand card, then tap one of the highlighted matching defense slots. "
       + "Click Next when done.",
       null),
     new GameScreen.TutorialStepDef(
@@ -358,11 +355,14 @@ final class HeroTutorialSteps {
     new GameScreen.TutorialStepDef(
       "Cast Card Replacement",
       "Tap the Magician hero icon, then tap any enemy defense card. "
-      + "The slot is rebuilt with new cards from the deck.",
+      + "The slot is rebuilt with new cards from the deck.\n\n"
+      + "If the enemy has no defense cards left, you may instead target their king card "
+      + "to replace it.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Magician",
-      "Tap Magician, then tap any enemy defense card. Click Next when done.",
+      "Tap Magician, then tap any enemy defense card (or king card if the enemy has no "
+      + "defenses). Click Next when done.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",

@@ -47,6 +47,7 @@ class GameState {
       p.magicianSpells = 1;
       p.merchantTrades = 1;
       p.warlordAttacks = 1;
+      p.warlordSwaps = 1;
       p.spyAttacks = 1;
       p.spyMaxAttacks = 1;
       p.spyExtends = 1;
@@ -355,6 +356,25 @@ class GameState {
     }
 
     const target = this.players[targetPlayerIdx];
+    // Issue #179: positionId === -1 means the spell targets the defender's king card
+    // (only allowed when the defender has no defense cards left).
+    if (positionId === -1) {
+      const hasDef = (target.defCards && Object.keys(target.defCards).length > 0)
+                  || (target.topDefCards && Object.keys(target.topDefCards).length > 0);
+      if (hasDef) {
+        console.log(`magicianSwap: rejected king-target — defender ${targetPlayerIdx} still has defense cards`);
+        return;
+      }
+      const oldKing = target.kingCard;
+      if (oldKing !== undefined && oldKing !== null) this.cemetery.push(oldKing);
+      const idx = this.deck.indexOf(newBottomCardId);
+      if (idx !== -1) this.deck.splice(idx, 1);
+      target.kingCard = newBottomCardId;
+      target.kingCovered = bottomCovered;
+      attacker.magicianSpells--;
+      this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s king`, true);
+      return;
+    }
     // Discard old bottom card
     const oldBottom = target.defCards[positionId];
     if (oldBottom !== undefined) this.cemetery.push(oldBottom);
@@ -572,6 +592,7 @@ class GameState {
       this.players[currentPlayerIndex].magicianSpells = 1;
       this.players[currentPlayerIndex].merchantTrades = 1;
       this.players[currentPlayerIndex].warlordAttacks = 1;
+      this.players[currentPlayerIndex].warlordSwaps = 1;
       this.players[currentPlayerIndex].spyAttacks = 1;
       this.players[currentPlayerIndex].spyMaxAttacks = 1;
       this.players[currentPlayerIndex].spyExtends = 1;
@@ -693,24 +714,32 @@ class GameState {
       return false;
     }
     p.warlordAttacks--;
+    // A Warlord direct attack counts as an attack for the "finish-turn without attacking"
+    // penalty check. Without this, the client would still force the player to expose
+    // a defense card after using Warlord (issue: "Warlord attack must not require expose").
+    p.attackCount = (p.attackCount || 0) + 1;
     this.pushLog(`${this.pname(playerIdx)} used Warlord direct attack`, true, true);
     return true;
   }
 
+  dismissMerchantReveal() {
+    this.lastMerchantReveal = null;
+  }
+
   warlordKingSwap(playerIdx, oldKingCardId, newKingCardId) {
     const p = this.players[playerIdx];
-    // Accept either a Warlord swap (consumes warlordAttacks) or a coup swap
-    // (player has zero defense cards on the board — costs only the per-turn
+    // Accept either a Warlord swap (consumes warlordSwaps — independent from direct attack)
+    // or a coup swap (player has zero defense cards on the board — costs only the per-turn
     // take/put-defense actions, tracked client-side). Without this, a coup
     // swap is rejected by the server and the next stateUpdate reverts the
     // king on the client, leaving the visible "new king" detached from the
     // actual kingCard reference and unresponsive to clicks until the next turn.
-    const hasWarlord = (p.warlordAttacks || 0) > 0;
+    const hasWarlordSwap = (p.warlordSwaps || 0) > 0;
     const defCount = Object.keys(p.defCards || {}).length
         + Object.keys(p.topDefCards || {}).length;
     const isCoup = defCount === 0;
-    if (!hasWarlord && !isCoup) {
-      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no Warlord attacks and still has defense cards`);
+    if (!hasWarlordSwap && !isCoup) {
+      console.log(`warlordKingSwap: rejected — player ${playerIdx} has no swap actions remaining and still has defense cards`);
       return;
     }
     const handIdx = p.hand.indexOf(newKingCardId);
@@ -719,8 +748,8 @@ class GameState {
     p.hand.push(oldKingCardId);
     p.kingCard = newKingCardId;
     p.kingCovered = true; // new king is always placed face-down
-    if (hasWarlord) {
-      p.warlordAttacks--;
+    if (hasWarlordSwap) {
+      p.warlordSwaps--;
       this.pushLog(`${this.pname(playerIdx)} swapped king (Warlord)`, true, true);
     } else {
       this.pushLog(`${this.pname(playerIdx)} swapped king (coup)`, true, true);
@@ -831,6 +860,7 @@ class GameState {
         magicianSpells: p.magicianSpells !== undefined ? p.magicianSpells : 1,
         merchantTrades: p.merchantTrades !== undefined ? p.merchantTrades : 1,
         warlordAttacks: p.warlordAttacks !== undefined ? p.warlordAttacks : 1,
+        warlordSwaps: p.warlordSwaps !== undefined ? p.warlordSwaps : 1,
         spyAttacks: p.spyAttacks !== undefined ? p.spyAttacks : 1,
         spyMaxAttacks: p.spyMaxAttacks !== undefined ? p.spyMaxAttacks : 1,
         spyExtends: p.spyExtends !== undefined ? p.spyExtends : 1,

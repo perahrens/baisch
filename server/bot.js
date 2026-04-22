@@ -483,8 +483,13 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   function botFillDefense(gs, playerIdx) {
     var p = gs.players[playerIdx];
+    // Respect the same put-action limit as human players:
+    // 1 placement per turn normally; 3 if the player has the Marshal hero.
+    var hasMarshal = (p.heroes || []).indexOf('Marshal') !== -1;
+    var putActionsLeft = hasMarshal ? 3 : 1;
     var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
     for (var slot = 1; slot <= 3; slot++) {
+      if (putActionsLeft <= 0) break;
       if (p.defCards[slot] == null && nonJokerHand.length > 1) {
         var weakestId = null, weakestStr = 9999;
         for (var i = 0; i < nonJokerHand.length; i++) {
@@ -494,6 +499,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         if (weakestId !== null) {
           gs.putDefCard(playerIdx, slot, weakestId);
           nonJokerHand.splice(nonJokerHand.indexOf(weakestId), 1);
+          putActionsLeft--;
         }
       }
     }
@@ -508,7 +514,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var acted = false;
 
     // Warlord king swap: upgrade king if a hand card is stronger
-    if (heroes.indexOf('Warlord') !== -1 && (p.warlordAttacks || 0) > 0 && p.kingCard !== null) {
+    if (heroes.indexOf('Warlord') !== -1 && (p.warlordSwaps || 0) > 0 && p.kingCard !== null) {
       var kingStr = gs.cardStrength(p.kingCard);
       var bestHandId = null, bestHandStr = kingStr;
       var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });

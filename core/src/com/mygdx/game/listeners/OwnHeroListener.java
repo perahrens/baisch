@@ -59,11 +59,9 @@ public class OwnHeroListener extends ClickListener {
       if (hero.isSelected()) {
         // Deselect: if Mercenaries was in defense mode, just deselect
         hero.setSelected(false);
-        // Refresh the UI immediately so the Mercenaries selection highlights
-        // (issue #167: green/red halves on def + king cards) disappear.
-        if (hero.getHeroName() == "Mercenaries") {
-          if (gameState != null) gameState.setUpdateState(true);
-        }
+        // Refresh the UI immediately so any selection-driven highlights disappear.
+        // (Issue #167 Mercenaries; issues #54 #174 #175 #176 #178 #179 #180 highlight overlays.)
+        if (gameState != null) gameState.setUpdateState(true);
       } else {
         // Select: unselect everything else first
         player.getKingCard().setSelected(false);
@@ -82,11 +80,8 @@ public class OwnHeroListener extends ClickListener {
           player.getHeroes().get(i).setSelected(false);
         }
         hero.setSelected(true);
-        // Refresh the UI immediately so the Mercenaries selection highlights
-        // (issue #167: green/red halves on def + king cards) appear right away.
-        if (hero.getHeroName() == "Mercenaries") {
-          if (gameState != null) gameState.setUpdateState(true);
-        }
+        // Refresh the UI immediately so selection-driven highlights appear right away.
+        if (gameState != null) gameState.setUpdateState(true);
       }
     }
   }

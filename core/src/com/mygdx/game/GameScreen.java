@@ -154,6 +154,11 @@ public class GameScreen extends ScreenAdapter {
   private float batteryBotNotificationTimer = 0f;
   // Set when the current player ended their turn without attacking -- they must expose a defense card.
   private boolean pendingExposeCard = false;
+  // Static reference to the live GameScreen so listeners (e.g. OwnDefCardListener)
+  // can submit a covered-card-expose tap without us threading a parameter through
+  // every constructor call site. Set in show(), cleared in hide().
+  private static GameScreen INSTANCE = null;
+  public static GameScreen getInstance() { return INSTANCE; }
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;
@@ -685,6 +690,7 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void show() {
+    INSTANCE = this;
     MyGdxGame.setMusicTrack(null); // no music during the game
 
     players = gameState.getPlayers();
@@ -1164,6 +1170,10 @@ public class GameScreen extends ScreenAdapter {
               gameState.getPlayers(), i, gameState);
           handCard.addListener(enemyHandCardListener);
           gameStage.addActor(handCard);
+          // Issue #175: highlight the top hand card of an enemy deck when Priest is selected.
+          if (j == handCards.size() - 1) {
+            applyEnemyHandDeckHighlight(handCard, players.get(i), currentPlayer);
+          }
         }
 
         // Count label only for other players (not the local player).
@@ -1220,6 +1230,10 @@ public class GameScreen extends ScreenAdapter {
       if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
         addMercenarySelectionHighlight(kingCard);
       }
+
+      // Issues #54, #179, #180: highlight enemy king when Magician/Warlord/Spy is selected
+      // and the appropriate conditions are met.
+      applyEnemyKingHighlight(kingCard, players.get(i), currentPlayer);
 
       if (kingCard.getBoosted() > 0) {
         TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
@@ -1350,6 +1364,12 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
+        // Issues #54, #178, #179, #180: highlight enemy def cards (and empty enemy slots
+        // for Saboteurs) when the relevant attacker hero is selected.
+        applyEnemyDefCardHighlight(defCard, players.get(i), currentPlayer, j);
+        // Issue #174: highlight own def cards on which the selected hand card can be stacked.
+        applyOwnDefCardFortifyHighlight(defCard, players.get(i), currentPlayer, j);
+
         // Issue #167: when Mercenaries hero is selected, overlay translucent
         // green (top half) / red (bottom half) tint on each own def card so the
         // player sees where to click to add or remove a mercenary. Skip if a top
@@ -1467,6 +1487,8 @@ public class GameScreen extends ScreenAdapter {
           if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
             addMercenarySelectionHighlight(topDefCard);
           }
+          // Issues #54, #178, #179, #180: enemy-targeting hero highlight on top def card.
+          applyEnemyDefCardHighlight(topDefCard, players.get(i), currentPlayer, j);
         }
       }
 
@@ -3036,9 +3058,35 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(tryBtn);
     }
 
-    // Merchant 2nd-try reveal: display the drawn card face-up for all non-trading clients
-    if (merchantRevealCardId != -1 && merchantRevealPlayerIdx != playerIndex) {
+    // Merchant 2nd-try reveal: display the drawn card face-up for ALL players (incl. trader),
+    // and show "JOKER — lost" if the second draw was a joker. Hidden once the server clears
+    // merchantReveal on finishTurn. The whole stage gets a transparent click-catcher so any
+    // tap dismisses the overlay (sends dismissMerchantReveal to the server, which clears
+    // lastMerchantReveal for every client on next stateUpdate).
+    if (merchantRevealCardId != -1) {
       Card revealCard = Card.fromCardId(merchantRevealCardId);
+      boolean isJoker = revealCard != null && "joker".equals(revealCard.getSymbol());
+      // Tap-anywhere dismiss layer (must be added FIRST so it is below the card visually
+      // but receives clicks meant for the empty area around the card).
+      Image dismissLayer = new Image(MyGdxGame.skin, "white");
+      dismissLayer.setFillParent(true);
+      dismissLayer.setColor(0f, 0f, 0f, 0.55f);
+      dismissLayer.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          // Hide locally for snappy UX, then notify the server to clear for everyone.
+          merchantRevealCardId = -1;
+          merchantRevealPlayerIdx = -1;
+          if (socket != null) {
+            JSONObject d = new JSONObject();
+            socket.emit("dismissMerchantReveal", d);
+          }
+          gameState.setUpdateState(true);
+          return true;
+        }
+      });
+      gameStage.addActor(dismissLayer);
+
       float rcw = revealCard.getDefWidth() * 1.5f;
       float rch = revealCard.getDefHeight() * 1.5f;
       revealCard.setWidth(rcw);
@@ -3046,9 +3094,33 @@ public class GameScreen extends ScreenAdapter {
       revealCard.setPosition(
           (MyGdxGame.WIDTH - rcw) / 2f,
           (MyGdxGame.WIDTH - rch) / 2f);
+      // Card itself also dismisses on tap.
+      revealCard.clearListeners();
+      revealCard.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        @Override
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          merchantRevealCardId = -1;
+          merchantRevealPlayerIdx = -1;
+          if (socket != null) {
+            JSONObject d = new JSONObject();
+            socket.emit("dismissMerchantReveal", d);
+          }
+          gameState.setUpdateState(true);
+          return true;
+        }
+      });
       gameStage.addActor(revealCard);
-      Label revealLabel = new Label("Merch. reveal (P" + merchantRevealPlayerIdx + ")", MyGdxGame.skin);
-      revealLabel.setColor(Color.GREEN);
+      String revealText;
+      if (merchantRevealPlayerIdx == playerIndex) {
+        revealText = isJoker ? "JOKER — lost! (tap to dismiss)" : "Your 2nd-try card (tap to dismiss)";
+      } else {
+        revealText = isJoker
+            ? "P" + merchantRevealPlayerIdx + " drew JOKER — lost! (tap to dismiss)"
+            : "P" + merchantRevealPlayerIdx + " 2nd-try reveal (tap to dismiss)";
+      }
+      Label revealLabel = new Label(revealText, MyGdxGame.skin);
+      revealLabel.setColor(isJoker ? Color.RED : Color.GREEN);
+      revealLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
       revealLabel.setPosition(
           revealCard.getX() + (revealCard.getWidth() - revealLabel.getPrefWidth()) / 2f,
           revealCard.getY() + revealCard.getHeight() + 2f);
@@ -3135,6 +3207,30 @@ public class GameScreen extends ScreenAdapter {
             } else {
               display.setCovered(true);
               display.setActive(false);
+              // Issue #175: face-down cards remain clickable while attempts remain so the
+              // player can retry directly without an extra "Try again" button.
+              if (priest.getConversionAttempts() > 0) {
+                display.addListener(new ClickListener() {
+                  @Override
+                  public void clicked(InputEvent event, float x, float y) {
+                    String atkSym = priestCurrentPlayer.getPlayerTurn().getAttackingSymbol()[0];
+                    priest.conversionAttempt();
+                    if (atkSym.equals(tc.getSymbol()) || "joker".equals(tc.getSymbol())) {
+                      priest.conversion();
+                      Iterator<Card> it = priestPlayers.get(priestTarget).getHandCards().iterator();
+                      while (it.hasNext()) { if (it.next() == tc) { it.remove(); break; } }
+                      priestCurrentPlayer.addHandCard(tc);
+                      emitPriestConvert(priestTarget, tc.getCardId());
+                      gameState.setPriestTargetPlayerIdx(-1);
+                      gameState.setPriestRevealedCardId(-1);
+                    } else {
+                      gameState.setPriestRevealedCardId(tc.getCardId());
+                      emitPriestAttemptFailed();
+                    }
+                    gameState.setUpdateState(true);
+                  }
+                });
+              }
             }
           }
           gameStage.addActor(display);
@@ -3145,10 +3241,12 @@ public class GameScreen extends ScreenAdapter {
         float btnW = 120f;
         if (revealedId >= 0) {
           if (priest.getConversionAttempts() > 0) {
-            TextButton tryAgainBtn = new TextButton("Try again", MyGdxGame.skin);
-            tryAgainBtn.setSize(btnW, 45f);
-            tryAgainBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW / 2f, btnY);
-            tryAgainBtn.addListener(new ClickListener() {
+            // Issue #175: replace "Try again" with "Cancel" — face-down cards are now
+            // directly clickable for retry.
+            TextButton cancelBtn = new TextButton("Cancel", MyGdxGame.skin);
+            cancelBtn.setSize(btnW, 45f);
+            cancelBtn.setPosition(MyGdxGame.WIDTH / 2f - btnW / 2f, btnY);
+            cancelBtn.addListener(new ClickListener() {
               @Override
               public void clicked(InputEvent event, float x, float y) {
                 gameState.setPriestRevealedCardId(-1);
@@ -3156,7 +3254,7 @@ public class GameScreen extends ScreenAdapter {
                 gameState.setUpdateState(true);
               }
             });
-            gameStage.addActor(tryAgainBtn);
+            gameStage.addActor(cancelBtn);
           } else {
             // No more attempts
             TextButton doneBtn = new TextButton("Done", MyGdxGame.skin);
@@ -3303,6 +3401,8 @@ public class GameScreen extends ScreenAdapter {
         handcard.setY(MyGdxGame.WIDTH / 2 - handcard.getHeight());
       }
       handStage.addActor(handcard);
+      // Issues #54, #176: highlight own hand cards as discard candidates when Spy/Merchant is selected.
+      applyOwnHandCardHighlight(handcard, currentPlayer);
 
       if (handcard.getBoosted() > 0) {
         TextureRegion mercenaryRegion = new TextureRegion(texMercenary, 0, 0, 512, 512);
@@ -3566,6 +3666,10 @@ public class GameScreen extends ScreenAdapter {
       finishTurnButton.setVisible(false);
     } else if (isMyTurn && pendingExposeCard) {
       finishTurnButton.setVisible(false);
+      // Defensive: also disable touch on the hidden finish-turn button so it can
+      // never absorb the slot button click after being re-added on top of the overlay
+      // (recurring bug: "finish turn does nothing").
+      finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
       // Self-heal: if there is no covered defense card to expose (e.g. state
       // changed before the overlay rebuild), drop the flag and fall through
       // so the regular finish-turn button is shown instead of a dead overlay.
@@ -3583,11 +3687,13 @@ public class GameScreen extends ScreenAdapter {
       } else {
         pendingExposeCard = false;
         finishTurnButton.setVisible(isMyTurn);
+        finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
         finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
         finishTurnButton.addListener(finishTurnButtonListener);
       }
     } else {
       finishTurnButton.setVisible(isMyTurn);
+      finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
       finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket) {
         private boolean checkedPenalty = false;
         @Override
@@ -3754,8 +3860,10 @@ public class GameScreen extends ScreenAdapter {
     bg.setSize(stageW, stageH);
     bg.setPosition(0, 0);
     bg.setColor(0f, 0f, 0f, 0.72f);
-    // Block input under the overlay but don't capture clicks meant for slot buttons.
-    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+    // The veil is purely visual — keep it non-touchable so it can never absorb the
+    // slot button click in any race condition (recurring bug: "finish turn does
+    // nothing" when the user taps the expose slot button).
+    bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
     handStage.addActor(bg);
 
     Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
@@ -3781,25 +3889,14 @@ public class GameScreen extends ScreenAdapter {
       slotBtn.setSize(btnW, slotBtn.getPrefHeight() * 1.5f);
       slotBtn.setPosition(btnX, stageH / 2f - slotBtn.getHeight() / 2f);
       btnX += btnW + 4;
-      slotBtn.addListener(new ClickListener() {
+      slotBtn.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+        // Use touchDown rather than ClickListener.clicked so the event fires even if a
+        // stateUpdate destroys/recreates the slot button between touchDown and touchUp
+        // (recurring bug: "select card to expose, nothing happens").
         @Override
-        public void clicked(InputEvent event, float x, float y) {
-          // Emit BEFORE mutating local state. If a stateUpdate arrives during the
-          // click and clears handStage, the messages have already been sent and
-          // the server is the authority on turn progression.
-          try {
-            JSONObject exposeData = new JSONObject();
-            exposeData.put("playerIdx", playerIndex);
-            exposeData.put("slot", finalSlot);
-            socket.emit("exposeDefCard", exposeData);
-            JSONObject ftData = new JSONObject();
-            ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
-            socket.emit("finishTurn", ftData);
-            tutorialAdvance(TUTORIAL_STEP_ENDTURN);
-            tutorialAdvanceHook("FINISH_TURN");
-          } catch (JSONException ex) { ex.printStackTrace(); }
-          pendingExposeCard = false;
-          gameState.setUpdateState(true);
+        public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          submitExposeAndFinishTurn(finalSlot);
+          return true;
         }
       });
       handStage.addActor(slotBtn);
@@ -3819,6 +3916,33 @@ public class GameScreen extends ScreenAdapter {
         socket.emit("finishTurn", ftData);
       } catch (JSONException ex) { ex.printStackTrace(); }
     }
+  }
+
+  /** True when this client is in the "choose a covered defense card to expose" state. */
+  public boolean isPendingExpose() {
+    return pendingExposeCard;
+  }
+
+  /**
+   * Submit the choice of which slot to expose, then end the turn.
+   * Called by the slot buttons in {@link #addExposeCardOverlay()} and by
+   * OwnDefCardListener when the player taps a covered own defense card directly.
+   */
+  public void submitExposeAndFinishTurn(int slot) {
+    if (!pendingExposeCard) return;
+    pendingExposeCard = false;
+    try {
+      JSONObject exposeData = new JSONObject();
+      exposeData.put("playerIdx", playerIndex);
+      exposeData.put("slot", slot);
+      socket.emit("exposeDefCard", exposeData);
+      JSONObject ftData = new JSONObject();
+      ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+      socket.emit("finishTurn", ftData);
+      tutorialAdvance(TUTORIAL_STEP_ENDTURN);
+      tutorialAdvanceHook("FINISH_TURN");
+    } catch (JSONException ex) { ex.printStackTrace(); }
+    gameState.setUpdateState(true);
   }
 
   private void showHeroInfoOverlay(String heroName) {
@@ -5329,6 +5453,175 @@ public class GameScreen extends ScreenAdapter {
     gameStage.addActor(topHalf);
   }
 
+  /**
+   * Issues #54, #175, #176, #178, #179, #180: generic translucent highlight overlay
+   * placed on top of any actor (card, hero icon, etc.) to indicate it is targetable
+   * for the currently selected hero's action. Overlay is non-touchable so the
+   * underlying actor still receives the click.
+   */
+  private void addCardActionHighlight(Actor actor, Color color, com.badlogic.gdx.scenes.scene2d.Stage stage) {
+    Image hi = new Image(MyGdxGame.skin.newDrawable("white", color));
+    // For rotated cards we want an axis-aligned overlay matching the visual bounds.
+    // Hand cards rotate via Actor.setRotation(); board cards (left/right/top players)
+    // rotate via Card's internal `rotate` field used inside Card.draw — Actor.getRotation()
+    // returns 0 in that case so we must inspect Card.getRotate() too (issue: highlight
+    // overlay was vertical on horizontally-displayed enemy cards for left/right players).
+    float w = actor.getWidth();
+    float h = actor.getHeight();
+    float rot = actor.getRotation();
+    if (actor instanceof Card) {
+      float cardRot = ((Card) actor).getRotate();
+      if (Math.abs(cardRot) > 0.5f) rot = cardRot;
+    }
+    // Normalise to [-180,180]
+    while (rot > 180f) rot -= 360f;
+    while (rot < -180f) rot += 360f;
+    boolean sideways = Math.abs(Math.abs(rot) - 90f) < 1f;
+    if (sideways) {
+      // Visual bounds for a card rotated 90/-90 around its centre: still centred on
+      // (x + w/2, y + h/2) but visual size is (h, w).
+      float cx = actor.getX() + w / 2f;
+      float cy = actor.getY() + h / 2f;
+      hi.setBounds(cx - h / 2f, cy - w / 2f, h, w);
+    } else {
+      hi.setBounds(actor.getX(), actor.getY(), w, h);
+    }
+    hi.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+    stage.addActor(hi);
+  }
+
+  /** Returns the currently selected hero of the given player (if any), else null. */
+  private Hero selectedHero(Player player) {
+    if (player == null) return null;
+    for (Hero h : player.getHeroes()) {
+      if (h.isSelected()) return h;
+    }
+    return null;
+  }
+
+  /**
+   * Issues #54, #178, #179, #180: when an attacker hero is selected (Spy/Saboteurs/Magician/Warlord),
+   * tint each enemy defense card to indicate it is targetable by the current action.
+   * Also handles empty enemy slots (Saboteurs).
+   */
+  private void applyEnemyDefCardHighlight(Card defCard, Player owner, Player current, int slot) {
+    if (owner == current) return;
+    Hero sel = selectedHero(current);
+    if (sel == null) return;
+    String name = sel.getHeroName();
+    if ("Spy".equals(name)) {
+      com.mygdx.game.heroes.Spy spy = (com.mygdx.game.heroes.Spy) sel;
+      // Highlight only face-down enemy def cards while the spy still has flip actions.
+      if (spy.getSpyAttacks() > 0 && !defCard.isPlaceholder() && defCard.isCovered()) {
+        addCardActionHighlight(defCard, new Color(1f, 1f, 0f, 0.28f), gameStage);
+      }
+    } else if ("Saboteurs".equals(name)) {
+      com.mygdx.game.heroes.Saboteurs sab = (com.mygdx.game.heroes.Saboteurs) sel;
+      if (sab.isAvailable() && !owner.isSlotSabotaged(slot)) {
+        addCardActionHighlight(defCard, new Color(1f, 0.6f, 0f, 0.28f), gameStage);
+      }
+    } else if ("Magician".equals(name) && !defCard.isPlaceholder()) {
+      com.mygdx.game.heroes.Magician mag = (com.mygdx.game.heroes.Magician) sel;
+      if (mag.getSpells() > 0) {
+        addCardActionHighlight(defCard, new Color(0f, 0.7f, 1f, 0.28f), gameStage);
+      }
+    } else if ("Warlord".equals(name) && !defCard.isPlaceholder()) {
+      com.mygdx.game.heroes.Warlord wl = (com.mygdx.game.heroes.Warlord) sel;
+      if (wl.isAttackAvailable()) {
+        // Issue: red highlight invisible on face-down red card backs — use bright magenta.
+        addCardActionHighlight(defCard, new Color(1f, 0.1f, 0.85f, 0.45f), gameStage);
+      }
+    }
+  }
+
+  /** Issues #179, #180, #54: highlight enemy king when a hero action targets it. */
+  private void applyEnemyKingHighlight(Card kingCard, Player owner, Player current) {
+    if (owner == current) return;
+    Hero sel = selectedHero(current);
+    if (sel == null) return;
+    boolean defenderHasNoDef = owner.getDefCards().isEmpty() && owner.getTopDefCards().isEmpty();
+    String name = sel.getHeroName();
+    if ("Magician".equals(name) && defenderHasNoDef) {
+      com.mygdx.game.heroes.Magician mag = (com.mygdx.game.heroes.Magician) sel;
+      if (mag.getSpells() > 0) {
+        addCardActionHighlight(kingCard, new Color(0f, 0.7f, 1f, 0.28f), gameStage);
+      }
+    } else if ("Warlord".equals(name) && defenderHasNoDef) {
+      com.mygdx.game.heroes.Warlord wl = (com.mygdx.game.heroes.Warlord) sel;
+      if (wl.isAttackAvailable()) {
+        addCardActionHighlight(kingCard, new Color(1f, 0.1f, 0.85f, 0.45f), gameStage);
+      }
+    } else if ("Spy".equals(name) && defenderHasNoDef && kingCard.isCovered()) {
+      // Spy peek on king is allowed only when all defs are face-up; here the defender has none.
+      com.mygdx.game.heroes.Spy spy = (com.mygdx.game.heroes.Spy) sel;
+      if (spy.getSpyAttacks() > 0) {
+        addCardActionHighlight(kingCard, new Color(1f, 1f, 0f, 0.28f), gameStage);
+      }
+    } else if ("Spy".equals(name) && !defenderHasNoDef && kingCard.isCovered()) {
+      // Also: all def cards face-up case
+      com.mygdx.game.heroes.Spy spy = (com.mygdx.game.heroes.Spy) sel;
+      if (spy.getSpyAttacks() > 0) {
+        boolean allFaceUp = true;
+        for (Card dc : owner.getDefCards().values()) { if (dc.isCovered()) { allFaceUp = false; break; } }
+        if (allFaceUp) {
+          for (Card dc : owner.getTopDefCards().values()) { if (dc.isCovered()) { allFaceUp = false; break; } }
+        }
+        if (allFaceUp) addCardActionHighlight(kingCard, new Color(1f, 1f, 0f, 0.28f), gameStage);
+      }
+    }
+  }
+
+  /** Issue #175: highlight the enemy hand deck when the Priest is selected. */
+  private void applyEnemyHandDeckHighlight(Card topHandCard, Player owner, Player current) {
+    if (owner == current) return;
+    Hero sel = selectedHero(current);
+    if (sel == null || !"Priest".equals(sel.getHeroName())) return;
+    com.mygdx.game.heroes.Priest priest = (com.mygdx.game.heroes.Priest) sel;
+    if (priest.getConversionAttempts() > 0) {
+      addCardActionHighlight(topHandCard, new Color(1f, 1f, 0f, 0.28f), gameStage);
+    }
+  }
+
+  /** Issues #54, #176: highlight own hand cards when Spy/Merchant is selected (sacrifice / trade). */
+  private void applyOwnHandCardHighlight(Card handCard, Player current) {
+    Hero sel = selectedHero(current);
+    if (sel == null) return;
+    String name = sel.getHeroName();
+    if ("Spy".equals(name)) {
+      com.mygdx.game.heroes.Spy spy = (com.mygdx.game.heroes.Spy) sel;
+      if (spy.getSpyExtends() > 0) {
+        addCardActionHighlight(handCard, new Color(1f, 0f, 0f, 0.32f), handStage);
+      }
+    } else if ("Merchant".equals(name)) {
+      com.mygdx.game.heroes.Merchant m = (com.mygdx.game.heroes.Merchant) sel;
+      if (m.getTrades() > 0) {
+        addCardActionHighlight(handCard, new Color(1f, 0.6f, 0f, 0.32f), handStage);
+      }
+    }
+  }
+
+  /**
+   * Issue #174: when the player has the Fortified Tower hero with charges and exactly
+   * one hand card is selected, highlight every own defense slot whose bottom card matches
+   * the hand card's symbol (and is not already stacked) so the player sees where the
+   * auto-stack click will work.
+   */
+  private void applyOwnDefCardFortifyHighlight(Card defCard, Player owner, Player current, int slot) {
+    if (owner != current) return;
+    if (defCard.getLevel() != 0) return;
+    if (owner.getTopDefCards().containsKey(slot)) return;
+    if (current.getSelectedHandCards().size() != 1) return;
+    com.mygdx.game.heroes.FortifiedTower ft = null;
+    for (Hero h : current.getHeroes()) {
+      if ("Fortified Tower".equals(h.getHeroName())) { ft = (com.mygdx.game.heroes.FortifiedTower) h; break; }
+    }
+    if (ft == null || ft.getDefenseExpands() <= 0) return;
+    Card handCard = current.getSelectedHandCards().get(0);
+    if (handCard.getSymbol().equals(defCard.getSymbol())) {
+      addCardActionHighlight(defCard, new Color(0.6f, 0f, 1f, 0.32f), gameStage);
+    }
+  }
+
   @Override
   public void resize(int width, int height) {
     // TODO Auto-generated method stub
@@ -5349,6 +5642,7 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void hide() {
+    if (INSTANCE == this) INSTANCE = null;
     dispose();
 
   }

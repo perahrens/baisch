@@ -206,41 +206,53 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // Choose the best plunder: smart multi-card combo, preferring bigger decks with larger margin.
   // Returns { deckIndex, cardIds, symbol, success } or null.
+  // Expected strength of an unknown (covered) card — mean of all 52 regular card ranks.
+  // Ace=14, 2-13 face value → (14+2+3+…+13) * 4 suits / 52 = 8.0 exactly.
+  var BOT_UNKNOWN_CARD_STRENGTH = 8;
+
   // Score how attractive a picking deck is as plunder prey.
-  // Returns { value, hasJoker, totalStrength, visibleCount, visibleStrength }
+  // Only uses information a human player would have: face-up (visible) cards are
+  // read exactly; covered cards are estimated at the deck-average expected value.
+  // Returns { value, hasJoker, totalStrength, visibleCount, visibleStrength, coveredCount }
   function botEvaluateDeck(gs, deck) {
     var totalStrength = 0;
     var visibleStrength = 0;
     var visibleCount = 0;
-    var hasJoker = false;
+    var coveredCount = 0;
+    var hasJoker = false;   // only set when the joker is actually visible
     var foundFirstVisible = false;
 
     for (var i = 0; i < deck.length; i++) {
       var card = deck[i];
-      var isJoker = card.id > 52;
-      if (isJoker) hasJoker = true;
-      // Cap joker at 15 for strength summing (actual attack value is 999,
-      // but for deck comparison we don't want it to drown out everything else).
-      var str = isJoker ? 15 : gs.cardStrength(card.id);
-      totalStrength += str;
-      if (!card.covered) {
+      var str;
+      if (card.covered) {
+        // Unknown card — use expected value, don't peek at card.id
+        str = BOT_UNKNOWN_CARD_STRENGTH;
+        coveredCount++;
+      } else {
+        var isJoker = card.id > 52;
+        if (isJoker) hasJoker = true;
+        // Cap joker at 15 for summing (its 999 attack value would swamp the score)
+        str = isJoker ? 15 : gs.cardStrength(card.id);
         visibleCount++;
         if (!foundFirstVisible) { visibleStrength = str; foundFirstVisible = true; }
       }
+      totalStrength += str;
     }
 
     // Deck attractiveness:
-    //   totalStrength  — stronger cards received = more future attack power
-    //   hasJoker bonus — joker is extremely powerful in attack (+25)
+    //   totalStrength  — confirmed + estimated card value to be received
+    //   hasJoker bonus — a visible joker is extremely powerful in attack (+25)
     //   size bonus     — more cards = more flexibility (+3 per card)
-    //   visible bonus  — visible cards are confirmed value (+2 per visible card)
+    //   visible bonus  — visible cards are confirmed value, not estimates (+2 each)
     var value = totalStrength
               + (hasJoker ? 25 : 0)
               + deck.length * 3
               + visibleCount * 2;
 
     return { value: value, hasJoker: hasJoker, totalStrength: totalStrength,
-             visibleCount: visibleCount, visibleStrength: visibleStrength };
+             visibleCount: visibleCount, coveredCount: coveredCount,
+             visibleStrength: visibleStrength };
   }
 
   function botChoosePlunder(gs, attackerIdx) {
@@ -263,9 +275,13 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       // Evaluate how much this deck is worth receiving.
       var deckEval = botEvaluateDeck(gs, deck);
 
-      // Bot is server-side: read the actual top card (threshold for plunder success).
+      // Estimate the plunder threshold from the top card.
+      // If the top card is covered, a human can't see it — use the expected value.
+      // If it's visible, read it directly.
       var topCard = deck[deck.length - 1];
-      var actualThreshold = gs.cardStrength(topCard.id);
+      var actualThreshold = topCard.covered
+          ? BOT_UNKNOWN_CARD_STRENGTH
+          : gs.cardStrength(topCard.id);
       var deckSize = deck.length;
 
       // Safe target: beat threshold with a small margin to handle uncertainty.

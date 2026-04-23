@@ -734,7 +734,7 @@ public class GameScreen extends ScreenAdapter {
 
     gameStage.clear();
     handStage.clear();
-    overlayStage.clear();
+    if (!logOpen) overlayStage.clear();
 
     gameStage.addActor(gameBck);
     handStage.addActor(handBck);
@@ -779,13 +779,9 @@ public class GameScreen extends ScreenAdapter {
       heroTutorialPrevPlayerIdx = curIdx;
     }
 
-    if (menuOpen) {
-      if (logOpen) {
-        showLogOverlay();
-      } else {
-        buildMenuOverlay();
-      }
-    } else {
+    if (menuOpen && !logOpen) {
+      buildMenuOverlay();
+    } else if (!menuOpen) {
       addMenuButtonToOverlay();
       if (isTutorial && tutorialStep >= 0) {
         buildTutorialOverlay();

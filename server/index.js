@@ -1729,14 +1729,30 @@ io.on('connection', function(socket) {
     if (playerIdx < 0 || playerIdx >= sess.gameState.players.length) return;
     var player = sess.gameState.players[playerIdx];
     if (player.isOut) return;
-    console.log("Player " + playerIdx + " (" + player.name + ") gave up in session " + sess.id);
+    console.log("Player " + playerIdx + " (" + player.name + ") gave up (stay) in session " + sess.id);
     player.isOut = true;
-    if (sess.gameState.currentPlayerIndex === playerIdx) {
+    sess.gameState.eliminationOrder.push(playerIdx);
+    // Move hand cards to cemetery (same as other elimination paths).
+    for (var ci = 0; ci < player.hand.length; ci++) {
+      sess.gameState.cemetery.push(player.hand[ci]);
+    }
+    player.hand = [];
+    var wasCurrentPlayer = sess.gameState.currentPlayerIndex === playerIdx;
+    if (wasCurrentPlayer) {
       sess.gameState.finishTurn();
+    }
+    // Clear token map so a page-refresh does not ghost-reconnect the player.
+    var token = findTokenBySocketId(socket.id);
+    if (token && tokenMap[token]) {
+      delete tokenMap[token].sessionId;
+      delete tokenMap[token].playerIdx;
     }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
-    bot.playBotTurnIfNeeded(sess);
+    // Only restart bot chain if we advanced the turn.
+    if (wasCurrentPlayer) {
+      bot.playBotTurnIfNeeded(sess);
+    }
   });
 
   socket.on('giveUpAndLeave', function(data) {

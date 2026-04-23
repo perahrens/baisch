@@ -4724,6 +4724,8 @@ public class GameScreen extends ScreenAdapter {
       data.put("playerIndex", playerIndex);
       socket.emit("giveUp", data);
     } catch (JSONException e) { e.printStackTrace(); }
+    // Clear the saved session so a page-refresh does not auto-reconnect to the running game.
+    MyGdxGame.playerStorage.clearSessionId();
   }
 
   private void emitGiveUpAndLeave() {
@@ -5003,8 +5005,13 @@ public class GameScreen extends ScreenAdapter {
           p.setKingCard(null);
         }
 
-        // Apply out flag
+        // Apply out flag; if this client's own player just became eliminated, switch to spectator mode
+        // so game-action input is no longer processed.
+        boolean wasOut = p.isOut();
         p.setOut(pj.optBoolean("isOut", false));
+        if (!wasOut && p.isOut() && p == currentPlayer && !isSpectator) {
+          isSpectator = true;
+        }
 
         // Sync slot sabotage state from server-authoritative state
         for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);

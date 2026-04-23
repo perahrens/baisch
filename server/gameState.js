@@ -538,6 +538,9 @@ class GameState {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
         this.eliminationOrder.push(attacker.index);
+        // Remaining hand cards go to cemetery when eliminated
+        for (const cardId of attacker.hand) this.cemetery.push(cardId);
+        attacker.hand = [];
       }
       // Keep the attacked (top) card face-up after a failed plunder,
       // then add a new face-down card on top.
@@ -595,6 +598,9 @@ class GameState {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
         this.eliminationOrder.push(attacker.index);
+        // Remaining hand cards go to cemetery when eliminated
+        for (const cardId of attacker.hand) this.cemetery.push(cardId);
+        attacker.hand = [];
       }
       // Mark attacked card(s) as revealed (face-up) — they stay in defCards but must remain visible
       if (!defender.defCardsCovered) defender.defCardsCovered = {};
@@ -783,6 +789,9 @@ class GameState {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
         this.eliminationOrder.push(attacker.index);
+        // Remaining hand cards go to cemetery when eliminated
+        for (const cardId of attacker.hand) this.cemetery.push(cardId);
+        attacker.hand = [];
       }
     }
   }

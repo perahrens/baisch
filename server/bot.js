@@ -528,12 +528,14 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       var defender = gs.players[di];
       if (defender.isOut) continue;
 
-      // All 3 defense slots must be empty (king exposed)
+      // All 3 defense slots must be empty AND king must be face-up for a king assault.
       var allEmpty = true;
       for (var s = 1; s <= 3; s++) {
         if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
       }
       if (!allEmpty) continue;
+      // King still covered — can't assault yet (rule: king must be exposed/face-up).
+      if (defender.kingCovered !== false) continue;
 
       var kingStr = gs.cardStrength(defender.kingCard) + (defender.kingCardBoost || 0);
       var suits = Object.keys(groups);
@@ -776,7 +778,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var jokers = p.hand.filter(function(id) { return id > 52; });
     if (jokers.length === 0) return false;
 
-    // Exception 1: save joker to eliminate a player whose king is exposed
+    // Exception 1: save joker to eliminate a player whose king is already face-up
     for (var di = 0; di < gs.players.length; di++) {
       if (di === playerIdx || gs.players[di].isOut) continue;
       var defender = gs.players[di];
@@ -784,7 +786,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       for (var s = 1; s <= 3; s++) {
         if (defender.defCards[s] != null || defender.topDefCards[s] != null) { allEmpty = false; break; }
       }
-      if (allEmpty) {
+      // Only worth saving joker if we can legally king-assault this turn (king face-up).
+      if (allEmpty && defender.kingCovered === false) {
         var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
         var bestCombo = botBestSuitCombo(gs, nonJokerHand);
         if (bestCombo.sum < gs.cardStrength(defender.kingCard)) return false; // need joker for kill
@@ -872,7 +875,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       }
     }
 
-    // Merchant trade: discard weakest hand card and draw top deck card if it's an improvement
+    // Merchant trade: discard weakest hand card if it's below average expected card strength.
+    // The deck is hidden — the bot trades on the assumption a random card is better than a weak known card.
     if (heroes.indexOf('Merchant') !== -1 && (p.merchantTrades || 0) > 0 && gs.deck.length > 0) {
       var nonJokerHand2 = p.hand.filter(function(id) { return id <= 52; });
       if (nonJokerHand2.length > 0) {
@@ -881,15 +885,15 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var s = gs.cardStrength(nonJokerHand2[i]);
           if (s < weakestStr2) { weakestStr2 = s; weakestId = nonJokerHand2[i]; }
         }
-        var topDeckId = gs.deck[gs.deck.length - 1];
-        var topDeckStr = gs.cardStrength(topDeckId);
-        if (weakestId !== null && topDeckStr > weakestStr2) {
+        // Only trade if the card is clearly below average (expected random draw = 8).
+        // The bot cannot see the top of the deck, so it takes the gamble if the card is weak.
+        if (weakestId !== null && weakestStr2 < BOT_UNKNOWN_CARD_STRENGTH) {
+          var topDeckId = gs.deck[gs.deck.length - 1]; // server resolves which card is drawn
           gs.merchantTrade(playerIdx, weakestId, topDeckId);
           // If the drawn card is a joker, do a second try with the next deck card
           var justDrawnIdx = p.hand.indexOf(topDeckId);
           var justDrawn = justDrawnIdx !== -1 ? topDeckId : null;
           if (justDrawn !== null && justDrawn > 52 && (p.merchantTrades === 0) && gs.deck.length > 0) {
-            // merchantTrades was decremented — use merchantSecondTry to replace the joker
             var secondDeckId = gs.deck[gs.deck.length - 1];
             gs.merchantSecondTry(playerIdx, justDrawn, secondDeckId, false);
           }

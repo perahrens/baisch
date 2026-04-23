@@ -1988,6 +1988,9 @@ public class GameScreen extends ScreenAdapter {
               for (Card dc : apt.getPendingAttackDefCards()) {
                 dc.setRemoved(true);
                 atkPlayer.addHandCard(dc);
+                // Lock captured card as a prey card immediately (before server stateUpdate arrives)
+                // so the re-render does not show it as usable. Server confirms on stateUpdate.
+                atkPlayer.getPlayerTurn().getPreyCardIds().add(dc.getCardId());
               }
               if (apt.isKingUsed()) atkPlayer.getKingCard().setCovered(false);
             } else {
@@ -2039,6 +2042,9 @@ public class GameScreen extends ScreenAdapter {
           // are an additional action granted by the hero and must NOT consume the
           // regular once-per-turn king attack/plunder.
           if (apt.isKingUsed() && !apt.isPendingAttackIsWarlord()) apt.setKingUsedThisTurn(true);
+          // Count this attack locally (same pattern as Warlord) so the expose-card penalty
+          // check in FinishTurnButtonListener never falsely fires before the server stateUpdate arrives.
+          if (!apt.isPendingAttackIsWarlord()) apt.increaseAttackCounter();
           apt.setPendingAttackIsWarlord(false);
           // Clear hand card attack boost visuals after attack resolves
           for (Card c : atkPlayer.getHandCards()) {
@@ -5083,14 +5089,37 @@ public class GameScreen extends ScreenAdapter {
           }
         }
 
-        // Sync prey cards (captured this turn, locked until turn ends)
+        // Sync prey cards (captured this turn, locked until turn ends).
+        // RACE-SAFE: a stale stateUpdate from setAttackPreview can arrive AFTER the client has
+        // optimistically added the captured card IDs in the attack overlay handler. Taking the
+        // UNION of server and local prey IDs (only while it is still this player's turn)
+        // prevents the stale update from clobbering the locally-known captures. After the turn
+        // ends (currentPlayerIndex moves on), the server's value is authoritative.
         ArrayList<Integer> newPreyIds = new ArrayList<Integer>();
         JSONArray preyJson = pj.optJSONArray("preyCards");
         if (preyJson != null) {
           for (int pr = 0; pr < preyJson.length(); pr++) newPreyIds.add(preyJson.getInt(pr));
         }
+        boolean isThisPlayersTurn = (pj.getInt("index") == serverCurrentIdx);
+        if (isThisPlayersTurn) {
+          for (Integer localId : p.getPlayerTurn().getPreyCardIds()) {
+            if (!newPreyIds.contains(localId)) newPreyIds.add(localId);
+          }
+        }
         p.getPlayerTurn().setPreyCardIds(newPreyIds);
-        p.getPlayerTurn().setAttackCounter(pj.optInt("attackCount", 0));
+
+        // Sync attack counter. RACE-SAFE: same reasoning as preyCardIds — a stale stateUpdate
+        // from setAttackPreview can arrive after the client locally incremented the counter in
+        // the attack overlay handler. While it is still this player's turn, take MAX(server, local).
+        // After the turn ends, server is authoritative (server resets attackCount=0 on finishTurn,
+        // so the next stateUpdate naturally syncs the value down).
+        int serverAttackCount = pj.optInt("attackCount", 0);
+        if (isThisPlayersTurn) {
+          int localAttackCount = p.getPlayerTurn().getAttackCounter();
+          p.getPlayerTurn().setAttackCounter(Math.max(serverAttackCount, localAttackCount));
+        } else {
+          p.getPlayerTurn().setAttackCounter(serverAttackCount);
+        }
 
         // Restore per-turn client counters from server-authoritative state so they survive page refresh
         if (p == currentPlayer) {

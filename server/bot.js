@@ -8,6 +8,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // How long overlays stay visible (ms) — matches human player experience
   var BOT_ACTION_DELAY = 1500;
+  // Estimated strength threshold used when attacking a covered (unknown) defense card
+  var BOT_UNKNOWN_CARD_STRENGTH = 8;
 
   function isBot(player) {
     return player && player.id.indexOf('bot_') === 0;
@@ -286,20 +288,45 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
               bestChoice = { defenderIdx: di, positionId: slot, cardIds: combo, symbol: suit, success: success };
             }
           }
-        } else if (allowScout && attacker.hand.length > 1) {
-          // Scout: probe with weakest non-joker card to reveal the defense card
-          var nonJokerHand = attacker.hand.filter(function(id) { return id <= 52; });
-          var weakestId = null, weakestStr = 9999;
-          for (var ci = 0; ci < nonJokerHand.length; ci++) {
-            var s = gs.cardStrength(nonJokerHand[ci]);
-            if (s < weakestStr) { weakestStr = s; weakestId = nonJokerHand[ci]; }
+        } else {
+          // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
+          // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          var covSuits = Object.keys(groups);
+          for (var rsi = 0; rsi < covSuits.length; rsi++) {
+            var rSuit = covSuits[rsi];
+            var rCombo = botMinimalSubset(gs, groups[rSuit], BOT_UNKNOWN_CARD_STRENGTH);
+            if (!rCombo) continue;
+            var rSum = 0;
+            for (var rci = 0; rci < rCombo.length; rci++) rSum += gs.cardStrength(rCombo[rci]);
+            var rDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+            var rTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
+            var rTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+            var rActual = gs.cardStrength(defCardId) + rDefBoost
+                        + (rTopId != null ? gs.cardStrength(rTopId) + rTopBoost : 0);
+            var rSuccess = (rSum > rActual);
+            var rShields = 0;
+            for (var rs = 1; rs <= 3; rs++) {
+              if (defender.defCards[rs] != null || (defender.topDefCards && defender.topDefCards[rs] != null)) rShields++;
+            }
+            // Score lower than known face-up attacks (1000) so visible targets are always preferred.
+            var rScore = 300 + (rShields === 1 ? 100 : 0) - rCombo.length;
+            if (rScore > bestScore) {
+              bestScore = rScore;
+              bestChoice = { defenderIdx: di, positionId: slot, cardIds: rCombo, symbol: rSuit, success: rSuccess };
+            }
           }
-          if (weakestId !== null) {
-            var scoutScore = 1; // low priority vs face-up attacks
-            if (scoutScore > bestScore) {
-              bestScore = scoutScore;
+          // Scout fallback: probe with weakest card when no combo can beat the expected strength.
+          if (allowScout && attacker.hand.length > 1) {
+            var scoutHand = attacker.hand.filter(function(id) { return id <= 52; });
+            var scoutId = null, scoutStr = 9999;
+            for (var sci = 0; sci < scoutHand.length; sci++) {
+              var ss = gs.cardStrength(scoutHand[sci]);
+              if (ss < scoutStr) { scoutStr = ss; scoutId = scoutHand[sci]; }
+            }
+            if (scoutId !== null && 1 > bestScore) {
+              bestScore = 1;
               bestChoice = { defenderIdx: di, positionId: slot,
-                             cardIds: [weakestId], symbol: botCardSuit(weakestId), success: false };
+                             cardIds: [scoutId], symbol: botCardSuit(scoutId), success: false };
             }
           }
         }
@@ -363,20 +390,48 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
               bestChoice = { defenderIdx: di, positionId: slot, cardIds: combo, symbol: suit, success: success };
             }
           }
-        } else if (allowScout && !fixedSymbol && attacker.hand.length > 1) {
-          // Scout: probe covered card with weakest non-joker to reveal it
-          var nonJokerHand = attacker.hand.filter(function(id) { return id <= 52; });
-          var weakestId = null, weakestStr = 9999;
-          for (var ci2 = 0; ci2 < nonJokerHand.length; ci2++) {
-            var str = gs.cardStrength(nonJokerHand[ci2]);
-            if (str < weakestStr) { weakestStr = str; weakestId = nonJokerHand[ci2]; }
+        } else {
+          // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
+          // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          var pCovSuits = Object.keys(groups);
+          for (var prsi = 0; prsi < pCovSuits.length; prsi++) {
+            var prSuit = pCovSuits[prsi];
+            var prCombo = botMinimalSubset(gs, groups[prSuit], BOT_UNKNOWN_CARD_STRENGTH);
+            if (!prCombo) continue;
+            var prSum = 0;
+            for (var prci = 0; prci < prCombo.length; prci++) prSum += gs.cardStrength(prCombo[prci]);
+            var prDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+            var prTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
+            var prTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+            var prActual = gs.cardStrength(defCardId) + prDefBoost
+                         + (prTopId != null ? gs.cardStrength(prTopId) + prTopBoost : 0);
+            var prSuccess = (prSum > prActual);
+            var prShields = 0;
+            for (var prs = 1; prs <= 3; prs++) {
+              if (defender.defCards[prs] != null || (defender.topDefCards && defender.topDefCards[prs] != null)) prShields++;
+            }
+            // Score lower than known face-up attacks (1000) so visible targets are always preferred.
+            var prScore = 300 + (prShields === 1 ? 100 : 0) - prCombo.length + bonus;
+            if (prScore > bestScore) {
+              bestScore = prScore;
+              bestChoice = { defenderIdx: di, positionId: slot, cardIds: prCombo, symbol: prSuit, success: prSuccess };
+            }
           }
-          if (weakestId !== null) {
-            var scoutScore = 1 + Math.floor(bonus * 0.1);
-            if (scoutScore > bestScore) {
-              bestScore = scoutScore;
-              bestChoice = { defenderIdx: di, positionId: slot,
-                             cardIds: [weakestId], symbol: botCardSuit(weakestId), success: false };
+          // Scout fallback (first attack only, no locked symbol): probe with weakest card.
+          if (allowScout && !fixedSymbol && attacker.hand.length > 1) {
+            var pScoutHand = attacker.hand.filter(function(id) { return id <= 52; });
+            var pScoutId = null, pScoutStr = 9999;
+            for (var psci = 0; psci < pScoutHand.length; psci++) {
+              var pss = gs.cardStrength(pScoutHand[psci]);
+              if (pss < pScoutStr) { pScoutStr = pss; pScoutId = pScoutHand[psci]; }
+            }
+            if (pScoutId !== null) {
+              var pScoutScore = 1 + Math.floor(bonus * 0.1);
+              if (pScoutScore > bestScore) {
+                bestScore = pScoutScore;
+                bestChoice = { defenderIdx: di, positionId: slot,
+                               cardIds: [pScoutId], symbol: botCardSuit(pScoutId), success: false };
+              }
             }
           }
         }
@@ -611,11 +666,15 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       });
     } else {
       setTimeout(function() {
-        gs.defAttackResolved(atkPreviewData.attackerIdx, defenderIdx, atkChoice.positionId,
-                             0, atkChoice.success, atkChoice.cardIds, false, []);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        checkAndHandleWinner(sess);
-        resolveCallback();
+        try {
+          gs.defAttackResolved(atkPreviewData.attackerIdx, defenderIdx, atkChoice.positionId,
+                               0, atkChoice.success, atkChoice.cardIds, false, []);
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          checkAndHandleWinner(sess);
+          resolveCallback();
+        } catch (e) {
+          console.error('[defAttackResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
+        }
       }, BOT_ACTION_DELAY);
     }
   }
@@ -838,17 +897,21 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
   }
 
   function executeBotTurn(sess) {
-    var gs = sess.gameState;
-    var idx = gs.currentPlayerIndex;
-    var p = gs.players[idx];
-    if (!p || p.isOut) return;
+    try {
+      var gs = sess.gameState;
+      var idx = gs.currentPlayerIndex;
+      var p = gs.players[idx];
+      if (!p || p.isOut) return;
 
-    var personality = getPersonality(p.botMode || 'balanced');
-    if (personality.name === 'mcts') {
-      executeMctsTurnAsync(sess, gs, idx);
-      return;
+      var personality = getPersonality(p.botMode || 'balanced');
+      if (personality.name === 'mcts') {
+        executeMctsTurnAsync(sess, gs, idx);
+        return;
+      }
+      executeBotTurnWithPersonality(sess, gs, idx, personality);
+    } catch (e) {
+      console.error('[executeBotTurn] uncaught error:', e && e.message, e && e.stack);
     }
-    executeBotTurnWithPersonality(sess, gs, idx, personality);
   }
 
   // ── MCTS Bot Turn ────────────────────────────────────────────────────────────
@@ -1019,17 +1082,21 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var captured = plunderChoice;
         setTimeout(function() {
-          gs.plunderResolved(idx, captured.deckIndex, captured.success,
-                             captured.cardIds, false, []);
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          checkAndHandleWinner(sess);
-          // 6. After plunder: optional follow-up attack chain (personality-controlled)
-          if (personality.attackAfterPlunder()) {
-            botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
-              botFinishTurn(sess, gs, idx, attacked);
-            });
-          } else {
-            botFinishTurn(sess, gs, idx, false);
+          try {
+            gs.plunderResolved(idx, captured.deckIndex, captured.success,
+                               captured.cardIds, false, []);
+            io.to(sess.id).emit('stateUpdate', gs.serialize());
+            checkAndHandleWinner(sess);
+            // 6. After plunder: optional follow-up attack chain (personality-controlled)
+            if (personality.attackAfterPlunder()) {
+              botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
+                botFinishTurn(sess, gs, idx, attacked);
+              });
+            } else {
+              botFinishTurn(sess, gs, idx, false);
+            }
+          } catch (e) {
+            console.error('[plunderResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
           }
         }, BOT_ACTION_DELAY);
         return;

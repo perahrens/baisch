@@ -59,6 +59,9 @@ WORKDIR /app
 COPY server/package*.json ./
 RUN npm install --omit=dev
 
+# ARG-based cache bust: pass --build-arg CACHEBUST=$(date +%s) to force
+# re-evaluation of all layers below this line when server code changes.
+ARG CACHEBUST=1
 COPY server/ ./
 
 # Pull the compiled GWT assets into the public/ directory that express.static

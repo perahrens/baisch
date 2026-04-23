@@ -72,7 +72,9 @@ public class MenuScreen extends AbstractScreen {
   private int pendingStartingCards = 8;
   // Per-bot personality selections: "off" means no bot in that slot.
   // Values map to server bot mode keys: "passive", "balanced", "aggressive", "tactician", "llm".
-  private String[] pendingBotModes = {"off", "off", "off"};
+  private String[] pendingBotModes = {"off", "off", "off", "off"};
+  // Whether the creator joins as a spectator (4th bot slot enabled in this mode)
+  private boolean pendingSpectator = false;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -688,13 +690,14 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setItems(cardOptions);
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
-    // ── Per-bot personality selectors (Bot 1 / 2 / 3) ───────────────────────
+    // ── Per-bot personality selectors (Bot 1 / 2 / 3, plus Bot 4 in spectator mode) ──
     final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician", "MCTS"};
     final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician", "mcts"};
-    final Label[] botLabels = new Label[3];
+    final int totalBotSlots = 4;
+    final Label[] botLabels = new Label[totalBotSlots];
     @SuppressWarnings("unchecked")
-    final SelectBox<String>[] botBoxes = new SelectBox[3];
-    for (int bi = 0; bi < 3; bi++) {
+    final SelectBox<String>[] botBoxes = new SelectBox[totalBotSlots];
+    for (int bi = 0; bi < totalBotSlots; bi++) {
       botLabels[bi] = new Label("Bot " + (bi + 1) + ":", MyGdxGame.skin);
       botBoxes[bi] = new SelectBox<String>(MyGdxGame.skin);
       Array<String> botOpts = new Array<String>();
@@ -707,6 +710,11 @@ public class MenuScreen extends AbstractScreen {
         if (BOT_KEYS[ki].equals(currentMode)) { displayVal = BOT_DISPLAY[ki]; break; }
       }
       botBoxes[bi].setSelected(displayVal);
+      // Bot 4 is read-only unless spectator mode is enabled
+      if (bi == 3 && !pendingSpectator) {
+        botBoxes[bi].setDisabled(true);
+        botLabels[bi].setColor(1f, 1f, 1f, 0.35f);
+      }
       final int botSlot = bi;
       botBoxes[bi].addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
         @Override
@@ -721,6 +729,18 @@ public class MenuScreen extends AbstractScreen {
     }
 
     // ── Checkboxes ───────────────────────────────────────────────────────────
+    final CheckBox spectatorCheckbox = new CheckBox(" Spectator mode (watch bots only)", MyGdxGame.skin);
+    spectatorCheckbox.setChecked(pendingSpectator);
+    spectatorCheckbox.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+      @Override
+      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+        pendingSpectator = spectatorCheckbox.isChecked();
+        // Reset Bot 4 selection when spectator is unchecked
+        if (!pendingSpectator) pendingBotModes[3] = "off";
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
     manualSetupCheckbox.setChecked(pendingManualSetup);
 
@@ -736,12 +756,14 @@ public class MenuScreen extends AbstractScreen {
             ? menuState.getMyName() + "'s game" : pendingSessionName;
         sessionAllowHeroSelection = heroCheckbox.isChecked();
         pendingManualSetup = manualSetupCheckbox.isChecked();
+        boolean isSpectator = spectatorCheckbox.isChecked();
         try {
           pendingStartingCards = Integer.parseInt(cardsBox.getSelected());
         } catch (NumberFormatException ex) { pendingStartingCards = 8; }
-        // Collect non-"off" bot modes into a JSONArray
+        // Collect non-"off" bot modes (up to 3 normally, up to 4 in spectator mode)
+        int maxBots = isSpectator ? 4 : 3;
         JSONArray botModesArr = new JSONArray();
-        for (int bi = 0; bi < 3; bi++) {
+        for (int bi = 0; bi < maxBots; bi++) {
           if (!"off".equals(pendingBotModes[bi])) botModesArr.put(pendingBotModes[bi]);
         }
         JSONObject data = new JSONObject();
@@ -752,13 +774,15 @@ public class MenuScreen extends AbstractScreen {
           data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
           data.put("botModes", botModesArr);
+          data.put("spectator", isSpectator);
           data.put("token", MyGdxGame.playerStorage.getToken());
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
         pendingManualSetup = false;
         pendingStartingCards = 8;
-        pendingBotModes = new String[]{"off", "off", "off"};
+        pendingSpectator = false;
+        pendingBotModes = new String[]{"off", "off", "off", "off"};
         inSessionCreate = false;
       }
     });
@@ -775,11 +799,13 @@ public class MenuScreen extends AbstractScreen {
     form.row();
     form.add(cardsLabel).left().padRight(12f).padBottom(14f);
     form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
-    for (int bi = 0; bi < 3; bi++) {
+    for (int bi = 0; bi < totalBotSlots; bi++) {
       form.row();
       form.add(botLabels[bi]).left().padRight(12f).padBottom(8f);
       form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(8f);
     }
+    form.row();
+    form.add(spectatorCheckbox).colspan(2).left().padBottom(6f);
     form.row();
     form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
     form.row();

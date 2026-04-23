@@ -50,6 +50,7 @@ The turn ends when the player clicks **Finish Turn**.
 - Client: `playerTurn.attackCounter == 0` triggers the expose prompt in `FinishTurnButtonListener`.
 - Client: `increaseAttackCounter()` **must** be called locally for **every** attack type (including regular defence-card attacks and king assaults) when the attack overlay is confirmed — before `setUpdateState(true)` fires the re-render. This prevents a race-condition where the user clicks "Finish Turn" before the server's `stateUpdate` arrives with the updated `attackCount`, which would falsely trigger the expose-card penalty.
 - The sole exception is Warlord direct attacks: `increaseAttackCounter()` is called at commit time (in `EnemyDefCardListener`) rather than at overlay-confirm time — the pattern is therefore `if (!apt.isPendingAttackIsWarlord()) apt.increaseAttackCounter();` in the overlay click handler.
+- Client `applyStateUpdate` **must** be race-safe: a stale `stateUpdate` from `setAttackPreview` (emitted before the user confirmed the attack) can arrive AFTER the local optimistic increment. The handler therefore takes `Math.max(serverAttackCount, localAttackCount)` for the player whose turn it currently is. After the turn ends (current player index moves on) the server's value is authoritative.
 
 ---
 
@@ -68,6 +69,7 @@ The turn ends when the player clicks **Finish Turn**.
 - Prey cards are placed in the attacker's hand but are **locked** (greyed-out) for the rest of the turn — they cannot be used in attacks, placed as defence, or discarded until the turn ends.
 - `finishTurn()` on the server clears `preyCards = []` so captured cards become normal hand cards next turn.
 - **Client implementation**: When a successful defence-card attack is confirmed in the overlay click handler, the captured card IDs **must** be added to `atkPlayer.getPlayerTurn().getPreyCardIds()` locally — before `setUpdateState(true)` triggers the re-render. If this is omitted, the first re-render fires before the server's `stateUpdate` arrives with `preyCards`, so the card briefly appears as usable (race-condition bug). The server's `stateUpdate` will confirm the prey list on arrival.
+- **Client implementation**: `applyStateUpdate` **must** take the UNION of server `preyCards` and local `preyCardIds` while it is still this player's turn. A stale `stateUpdate` from `setAttackPreview` may arrive after the local optimistic update and would otherwise clobber the locally-known captures. After the turn ends, server is authoritative.
 - Cards gained from a **plunder** are NOT prey cards — they become immediately usable (by design).
 
 ### King Assault

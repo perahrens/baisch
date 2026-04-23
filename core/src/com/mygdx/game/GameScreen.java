@@ -1509,7 +1509,13 @@ public class GameScreen extends ScreenAdapter {
       }
 
       // display player label
-      Label playerLabel = new Label(players.get(i).getPlayerName(), MyGdxGame.skin);
+      // Break long names (e.g. "Bot 1 (Passive)") before the parenthesised suffix
+      // so the label never overlaps adjacent defense cards.
+      String rawName = players.get(i).getPlayerName();
+      String displayName = rawName.contains(" (") ? rawName.replace(" (", "\n(") : rawName;
+      Label playerLabel = new Label(displayName, MyGdxGame.skin);
+      playerLabel.setFontScale(0.8f);
+      playerLabel.pack(); // recalculate width/height after scale
       // Highlight the player whose turn it currently is
       if (players.get(i) == gameState.getCurrentPlayer()) {
         playerLabel.setColor(Color.GOLD);

@@ -407,7 +407,7 @@ function botChoosePlunder(gs, attackerIdx) {
       for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
       // Skip wildly over-spending
       if (comboSum > actualThreshold + 6 && comboSum > 15) continue;
-      var success = (comboSum >= actualThreshold);
+      var success = (comboSum > actualThreshold);
       var waste = Math.max(0, comboSum - actualThreshold);
       // Prefer success > bigger deck > less waste > fewer cards
       var score = (success ? 1000 : -500) + deckSize * 10 - waste * 2 - combo.length;
@@ -457,7 +457,7 @@ function botChooseDefAttack(gs, attackerIdx, allowScout) {
           if (!combo) continue;
           var comboSum = 0;
           for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
-          var success = (comboSum >= threshold);
+          var success = (comboSum > threshold);
           // Bonus if this would open the king (only shield remaining)
           var shieldsLeft = 0;
           for (var s = 1; s <= 3; s++) {
@@ -520,7 +520,7 @@ function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
       if (!combo) continue;
       var comboSum = 0;
       for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
-      if (comboSum < kingStr) continue;
+      if (comboSum <= kingStr) continue;
       gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
                              attackingSymbol: suit, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
@@ -992,12 +992,25 @@ io.on('connection', function(socket) {
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
-    var botCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
+    // botModes: array of personality strings, e.g. ["aggressive","passive"].
+    // Falls back to legacy botCount (numeric) for backward compat.
+    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician'];
+    var botModes = [];
+    if (data && Array.isArray(data.botModes)) {
+      botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, 3);
+    } else {
+      var legacyCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
+      for (var li = 0; li < legacyCount; li++) botModes.push('balanced');
+    }
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
-    for (var bi = 1; bi <= botCount; bi++) {
-      var botUser = makeUser('bot_' + sess.id + '_' + bi, 'Bot ' + bi);
+    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician' };
+    for (var bi = 0; bi < botModes.length; bi++) {
+      var mode = botModes[bi];
+      var label = BOT_MODE_LABELS[mode] || 'Bot';
+      var botUser = makeUser('bot_' + sess.id + '_' + (bi + 1), 'Bot ' + (bi + 1) + ' (' + label + ')');
       botUser.isReady = true;
+      botUser.botMode = mode;
       sess.users.push(botUser);
     }
     if (cToken) {
@@ -1008,7 +1021,7 @@ io.on('connection', function(socket) {
     }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: " + botCount + ")");
+    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: [" + botModes.join(',') + "])");
     socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
     io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
     socket.emit('gameStatus', { running: false });
@@ -1140,6 +1153,18 @@ io.on('connection', function(socket) {
       return;
     }
     console.log('submitSetup accepted for player ' + playerIdx + ' in session ' + sess.id + (sess.gameState.setupPhase ? ' (waiting for others)' : ' (setup complete)'));
+    // Defensive: auto-submit any bots that haven't submitted yet (handles the case where
+    // the game-start auto-submit silently failed or was skipped for any reason).
+    if (sess.manualSetup && sess.gameState.setupPhase) {
+      sess.users.forEach(function(u, idx) {
+        if (bot.isBot(u) && !sess.gameState.setupSubmitted[idx]) {
+          var setup = bot.autoSetupBot(sess.gameState, idx);
+          if (setup) {
+            sess.gameState.applyManualSetup(idx, setup.kingId, setup.defIds, setup.discardIds);
+          }
+        }
+      });
+    }
     // Broadcast updated state to all players
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     // Persist player indices once setup is complete
@@ -1150,6 +1175,8 @@ io.on('connection', function(socket) {
           tokenMap[u.token].sessionId = sess.id;
         }
       });
+      // Start bot turn chain if the first player is a bot
+      bot.playBotTurnIfNeeded(sess);
     }
   });
 

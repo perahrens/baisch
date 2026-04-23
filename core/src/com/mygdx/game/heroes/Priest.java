@@ -41,6 +41,8 @@ public class Priest extends Hero {
 
   public void conversion() {
     conversionAttempts = 0;
+    isSelectable = false;
+    isSelected = false;
   }
 
 }

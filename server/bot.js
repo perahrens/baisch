@@ -8,6 +8,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // How long overlays stay visible (ms) — matches human player experience
   var BOT_ACTION_DELAY = 1500;
+  // Estimated strength threshold used when attacking a covered (unknown) defense card
+  var BOT_UNKNOWN_CARD_STRENGTH = 8;
 
   function isBot(player) {
     return player && player.id.indexOf('bot_') === 0;

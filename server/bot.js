@@ -47,12 +47,17 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
      * Tactician uses this to focus-fire the weakest opponent.
      */
     targetBonus(/*gs, defenderIdx*/) { return 0; }
+    /**
+     * Maximum hand size before the bot skips plundering.
+     * Keeps bots from hoarding cards when they already have plenty.
+     */
+    maxHandSizeBeforePlunder()       { return 12; }
   }
 
-  /** Balanced — current default behaviour: fill weakest, one attack, scout disabled. */
+  /** Balanced — current default behaviour: fill weakest, two attacks, scout disabled. */
   class BalancedPersonality extends BotPersonality {
     constructor() { super('balanced'); }
-    // All defaults are already balanced behaviour.
+    maxAttacksPerTurn()     { return 2; }  // was 1; increased so bots don't hoard cards
   }
 
   /**
@@ -92,7 +97,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
   class TacticianPersonality extends BotPersonality {
     constructor() { super('tactician'); }
     attackAfterPlunder()    { return true; }
-    maxAttacksPerTurn()     { return 2; }
+    maxAttacksPerTurn()     { return 3; }  // was 2; focus-fire harder
     allowScouting()         { return true; }
     sacrificeJokerForHero() { return true; }
     targetBonus(gs, defenderIdx) {
@@ -129,6 +134,14 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   function getPersonality(mode) {
     return PERSONALITIES[mode] || PERSONALITIES.balanced;
+  }
+
+  // Defense card strength as seen by the BOT's attack evaluator.
+  // Game rule: a joker in DEFENSE has strength 1, not unlimited.
+  function botDefCardStrength(gs, cardId) {
+    if (cardId == null) return 0;
+    if (cardId > 52) return 1; // joker in defense slot = strength 1
+    return gs.cardStrength(cardId);
   }
 
   // Returns the card suit name for a card ID
@@ -265,8 +278,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = gs.cardStrength(defCardId) + defBoost
-                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost
+                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -343,8 +356,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = gs.cardStrength(defCardId) + defBoost
-                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost
+                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -537,6 +550,28 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     io.to(sess.id).emit('stateUpdate', gs.serialize());
     checkAndHandleWinner(sess);
     playBotTurnIfNeeded(sess);
+  }
+
+  // If the bot has a joker in a defense slot, take it back to hand immediately.
+  // Jokers have strength 1 in defense but are extremely powerful in attack.
+  // Returns true if a joker was retrieved.
+  function botRetrieveJokerFromDefense(gs, playerIdx) {
+    var p = gs.players[playerIdx];
+    if (!p) return false;
+    // Check take-action budget (Marshal = 3 combined, else 1 take)
+    var hasMarshal = (p.heroes || []).indexOf('Marshal') !== -1;
+    var takeActionsLeft = hasMarshal ? 3 : 1;
+    var retrieved = false;
+    for (var slot = 1; slot <= 3; slot++) {
+      if (takeActionsLeft <= 0) break;
+      var cardId = p.defCards && p.defCards[slot];
+      if (cardId != null && cardId > 52) { // joker in defense slot
+        gs.takeDefCard(playerIdx, slot);
+        takeActionsLeft--;
+        retrieved = true;
+      }
+    }
+    return retrieved;
   }
 
   // Replace an exposed (face-up) defense card with a face-down card from hand.
@@ -861,6 +896,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     // Setup: same heuristics as balanced bot
     botTryJokerSacrifice(sess, gs, idx);
     botFillDefense(gs, idx, getPersonality('balanced'));
+    if (botRetrieveJokerFromDefense(gs, idx)) {
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
     if (botReplaceExposedDefense(gs, idx)) {
       io.to(sess.id).emit('stateUpdate', gs.serialize());
     }
@@ -973,7 +1011,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var p = gs.players[idx];
     if (!p || p.isOut) return;
 
-    // 1. Sacrifice joker for hero (unless personality saves it for king kills)
+    // 1. Retrieve own jokers from defense — joker defense value is 1, wasteful
+    if (botRetrieveJokerFromDefense(gs, idx)) {
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
+
+    // 2. Sacrifice joker for hero (unless personality saves it for king kills)
     if (personality.sacrificeJokerForHero()) {
       botTryJokerSacrifice(sess, gs, idx);
     }
@@ -1002,8 +1045,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         return;
       }
 
-      // 5. Smart plunder — multi-card, economical combo
-      var plunderChoice = botChoosePlunder(gs, idx);
+      // 5. Smart plunder — skip if hand is already too large
+      var maxHandBeforePlunder = (personality.maxHandSizeBeforePlunder ? personality.maxHandSizeBeforePlunder() : 12);
+      var plunderChoice = (p.hand.length < maxHandBeforePlunder) ? botChoosePlunder(gs, idx) : null;
       if (plunderChoice) {
         var plAtkSum = 0;
         for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);

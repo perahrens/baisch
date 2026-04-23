@@ -84,7 +84,10 @@ public class GameScreen extends ScreenAdapter {
   private Stage overlayStage;
   private Image gameBck;
   private Image handBck;
+  private Image handHighlight;
   private Texture plainWhiteTexture;
+  private Texture texGameBck;
+  private Texture texHandBck;
   private Label myPlayerLabel;
   private Label roundCounter;
   private TextButton finishTurnButton;
@@ -647,17 +650,28 @@ public class GameScreen extends ScreenAdapter {
     pix.fill();
     plainWhiteTexture = new Texture(pix);
     pix.dispose();
-    TextureRegionDrawable whiteDrw = new TextureRegionDrawable(new TextureRegion(plainWhiteTexture));
 
-    gameBck = new Image(whiteDrw);
+    // Photographic wooden backgrounds for game table and hand area.
+    texGameBck = new Texture(Gdx.files.internal("data/graphics/bg_table.jpg"));
+    texGameBck.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+    texHandBck = new Texture(Gdx.files.internal("data/graphics/bg_hand.jpg"));
+    texHandBck.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+
+    gameBck = new Image(new TextureRegionDrawable(new TextureRegion(texGameBck)));
     gameBck.setFillParent(true);
-    gameBck.setColor(0.85f, 0.73f, 0.55f, 1);
     gameStage.addActor(gameBck);
 
-    handBck = new Image(whiteDrw);
+    // handBck uses a tinted white overlay on top of the photo so that the
+    // defence-card-selected highlight (green tint) still works.
+    handBck = new Image(new TextureRegionDrawable(new TextureRegion(texHandBck)));
     handBck.setFillParent(true);
-    handBck.setColor(1f, 1f, 1f, 0.5f);
     handStage.addActor(handBck);
+
+    // Semi-transparent green overlay; alpha driven in render() when a defence card is selected.
+    TextureRegionDrawable whiteDrw = new TextureRegionDrawable(new TextureRegion(plainWhiteTexture));
+    handHighlight = new Image(whiteDrw);
+    handHighlight.setFillParent(true);
+    handHighlight.setColor(0.3f, 0.8f, 0.3f, 0f);
 
     // Clicking anywhere in the hand area takes the currently-selected defense card.
     handBck.addListener(new ClickListener() {
@@ -721,6 +735,7 @@ public class GameScreen extends ScreenAdapter {
 
     gameStage.addActor(gameBck);
     handStage.addActor(handBck);
+    handStage.addActor(handHighlight);
 
     // Manual setup phase: show card-selection UI instead of the normal game board
     if (gameState.isSetupPhase()) {
@@ -1027,7 +1042,7 @@ public class GameScreen extends ScreenAdapter {
 
     // draw round number
     roundCounter = new Label("Round " + gameState.getRoundNumber(), MyGdxGame.skin);
-    roundCounter.setColor(0f, 0f, 0f, 1.0f);
+    roundCounter.setColor(Color.WHITE);
     roundCounter.setPosition(0, MyGdxGame.WIDTH - roundCounter.getHeight());
     gameStage.addActor(roundCounter);
 
@@ -1520,7 +1535,7 @@ public class GameScreen extends ScreenAdapter {
       if (players.get(i) == gameState.getCurrentPlayer()) {
         playerLabel.setColor(Color.GOLD);
       } else {
-        playerLabel.setColor(0f, 0f, 0f, 1.0f);
+        playerLabel.setColor(Color.WHITE);
       }
       switch (visualSlot) {
       case 0:
@@ -5272,9 +5287,8 @@ public class GameScreen extends ScreenAdapter {
         if (c.isSelected()) { anyOwnDefSelected = true; break; }
       }
     }
-    // Normal: soft teal; defense-selected: bright green highlight (both fully opaque)
-    handBck.setColor(anyOwnDefSelected ? 0.3f : 0.78f, anyOwnDefSelected ? 0.9f : 0.93f,
-        anyOwnDefSelected ? 0.3f : 0.87f, 1.0f);
+    // Show a semi-transparent green overlay when placing a defence card.
+    handHighlight.setColor(0.3f, 0.8f, 0.3f, anyOwnDefSelected ? 0.45f : 0f);
 
     /* Upper division (square play area) */
     Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);
@@ -5696,6 +5710,8 @@ public class GameScreen extends ScreenAdapter {
     handStage.dispose();
     overlayStage.dispose();
     if (plainWhiteTexture != null) plainWhiteTexture.dispose();
+    if (texGameBck != null) texGameBck.dispose();
+    if (texHandBck != null) texHandBck.dispose();
     texMercenary.dispose();
     texSabotaged.dispose();
     texHearts.dispose();

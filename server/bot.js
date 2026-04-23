@@ -206,6 +206,43 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // Choose the best plunder: smart multi-card combo, preferring bigger decks with larger margin.
   // Returns { deckIndex, cardIds, symbol, success } or null.
+  // Score how attractive a picking deck is as plunder prey.
+  // Returns { value, hasJoker, totalStrength, visibleCount, visibleStrength }
+  function botEvaluateDeck(gs, deck) {
+    var totalStrength = 0;
+    var visibleStrength = 0;
+    var visibleCount = 0;
+    var hasJoker = false;
+    var foundFirstVisible = false;
+
+    for (var i = 0; i < deck.length; i++) {
+      var card = deck[i];
+      var isJoker = card.id > 52;
+      if (isJoker) hasJoker = true;
+      // Cap joker at 15 for strength summing (actual attack value is 999,
+      // but for deck comparison we don't want it to drown out everything else).
+      var str = isJoker ? 15 : gs.cardStrength(card.id);
+      totalStrength += str;
+      if (!card.covered) {
+        visibleCount++;
+        if (!foundFirstVisible) { visibleStrength = str; foundFirstVisible = true; }
+      }
+    }
+
+    // Deck attractiveness:
+    //   totalStrength  — stronger cards received = more future attack power
+    //   hasJoker bonus — joker is extremely powerful in attack (+25)
+    //   size bonus     — more cards = more flexibility (+3 per card)
+    //   visible bonus  — visible cards are confirmed value (+2 per visible card)
+    var value = totalStrength
+              + (hasJoker ? 25 : 0)
+              + deck.length * 3
+              + visibleCount * 2;
+
+    return { value: value, hasJoker: hasJoker, totalStrength: totalStrength,
+             visibleCount: visibleCount, visibleStrength: visibleStrength };
+  }
+
   function botChoosePlunder(gs, attackerIdx) {
     var p = gs.players[attackerIdx];
     if (!p || !p.hand || p.hand.length === 0 || (p.pickingDeckAttacks || 0) <= 0) return null;
@@ -218,26 +255,25 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       var deck = gs.pickingDecks[d];
       if (deck.length === 0) continue;
 
-      // Find any face-up card in the deck — that's what the player can see as a hint.
-      var visibleStrength = 0;
-      for (var fi = 0; fi < deck.length; fi++) {
-        if (!deck[fi].covered) { visibleStrength = gs.cardStrength(deck[fi].id); break; }
-      }
-      if (visibleStrength === 0) continue; // entire deck is covered, skip
+      // Skip decks where no card is visible (bot can't legally attack them).
+      var hasVisible = false;
+      for (var vi = 0; vi < deck.length; vi++) { if (!deck[vi].covered) { hasVisible = true; break; } }
+      if (!hasVisible) continue;
 
-      // Bot is server-side so it can read the actual threshold (top covered card).
+      // Evaluate how much this deck is worth receiving.
+      var deckEval = botEvaluateDeck(gs, deck);
+
+      // Bot is server-side: read the actual top card (threshold for plunder success).
       var topCard = deck[deck.length - 1];
       var actualThreshold = gs.cardStrength(topCard.id);
       var deckSize = deck.length;
 
-      // Target: aim for 12-15 total, at least meeting the real threshold.
-      // Larger decks deserve a safer margin; smaller decks keep it economical.
+      // Safe target: beat threshold with a small margin to handle uncertainty.
       var safeTarget = Math.max(actualThreshold, deckSize >= 4 ? 14 : (deckSize >= 3 ? 13 : 12));
 
       var suits = Object.keys(groups);
       for (var si = 0; si < suits.length; si++) {
         var suit = suits[si];
-        // Try to reach safeTarget; if impossible, just try to meet the actual threshold.
         var combo = botMinimalSubset(gs, groups[suit], safeTarget)
                  || botMinimalSubset(gs, groups[suit], actualThreshold);
         if (!combo) continue;
@@ -247,8 +283,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         if (comboSum > actualThreshold + 6 && comboSum > 15) continue;
         var success = (comboSum > actualThreshold);
         var waste = Math.max(0, comboSum - actualThreshold);
-        // Prefer success > bigger deck > less waste > fewer cards
-        var score = (success ? 1000 : -500) + deckSize * 10 - waste * 2 - combo.length;
+        // Score: success dominates, then deck attractiveness, then efficiency
+        var score = (success ? 1000 : -500) + deckEval.value - waste * 2 - combo.length;
         if (score > bestScore) {
           bestScore = score;
           bestChoice = { deckIndex: d, cardIds: combo, symbol: suit, success: success };

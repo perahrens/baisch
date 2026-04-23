@@ -41,6 +41,23 @@ public class MyGdxGame extends Game implements InputProcessor {
   /** True once a user gesture has occurred — required to unblock browser autoplay. */
   static boolean musicStarted = false;
 
+  /**
+   * When true, the HTML/GWT layer provides its own animated GIF music button and
+   * {@link MenuScreen#addMusicToggleButton} skips adding the LibGDX TextButton.
+   * Set to {@code true} by HtmlLauncher before the first screen is shown.
+   */
+  public static boolean nativeMusicButton = false;
+
+  /**
+   * Called whenever the music enabled-state changes so the platform layer can
+   * update its visual music indicator (e.g. start/stop the animated GIF).
+   * Set by HtmlLauncher; null on non-web platforms.
+   */
+  public static Runnable onMusicUiUpdate = null;
+
+  /** Singleton reference — set in {@link #create()} for JSNI callbacks. */
+  public static MyGdxGame INSTANCE;
+
   private static Music loadTrack(String path) {
     try {
       Music m = Gdx.audio.newMusic(Gdx.files.internal(path));
@@ -104,10 +121,25 @@ public class MyGdxGame extends Game implements InputProcessor {
     } else {
       if (activeMusic != null) activeMusic.pause();
     }
+    if (onMusicUiUpdate != null) onMusicUiUpdate.run();
+  }
+
+  /**
+   * Called from the HTML music GIF button (via JSNI) when the user clicks it.
+   * Toggles the music state and refreshes the current menu screen if needed.
+   */
+  public static void handleMusicButtonClick() {
+    boolean newEnabled = !playerStorage.getMusicEnabled();
+    setMusicEnabled(newEnabled);
+    if (INSTANCE != null) {
+      com.badlogic.gdx.Screen scr = INSTANCE.getScreen();
+      if (scr instanceof MenuScreen) ((MenuScreen) scr).show();
+    }
   }
 
   @Override
   public void create() {
+    INSTANCE = this;
 
     // camera = new OrthographicCamera(Gdx.graphics.getWidth(),
     // Gdx.graphics.getHeight());

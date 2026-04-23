@@ -25,6 +25,17 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
         MyGdxGame app = new MyGdxGame();
+        // Tell the core that the HTML layer owns the music button visual.
+        MyGdxGame.nativeMusicButton = true;
+        // Inject the animated GIF music button into the DOM and wire up callbacks.
+        installMusicButton(app);
+        // Register the UI-update callback so setMusicEnabled() keeps the GIF in sync.
+        MyGdxGame.onMusicUiUpdate = new Runnable() {
+            @Override
+            public void run() {
+                refreshMusicButton(MyGdxGame.playerStorage.getMusicEnabled());
+            }
+        };
         installAudioUnlocker(app);
         return app;
     }
@@ -68,5 +79,76 @@ public class HtmlLauncher extends GwtApplication {
             return $wnd.location.protocol + '//' + hostname + ':8082';
         }
         return $wnd.location.protocol + '//' + $wnd.location.host;
+    }-*/;
+
+    /**
+     * Injects a fixed-position animated GIF music toggle button into the DOM.
+     *
+     * Two sibling elements are created:
+     *   #baisch-music-img    — the animated GIF (shown when music is ON)
+     *   #baisch-music-canvas — a canvas showing the GIF's first frame (shown when OFF)
+     *
+     * The first frame is captured once the image loads.  Subsequent toggles swap
+     * visibility between the two elements via window._baischSetMusicBtn(bool).
+     *
+     * Clicks call MyGdxGame.handleMusicButtonClick() via JSNI so that the LibGDX
+     * music state and the current menu screen re-render stay in sync.
+     */
+    private static native void installMusicButton(MyGdxGame app) /*-{
+        var SIZE = '54px';
+        var img = $doc.createElement('img');
+        img.id  = 'baisch-music-img';
+        img.src = 'music.gif';
+        img.style.cssText =
+            'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
+            'cursor:pointer;z-index:9999;border-radius:50%;display:block;';
+
+        var canvas = $doc.createElement('canvas');
+        canvas.id  = 'baisch-music-canvas';
+        canvas.style.cssText =
+            'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
+            'cursor:pointer;z-index:9999;border-radius:50%;display:none;';
+
+        $doc.body.appendChild(img);
+        $doc.body.appendChild(canvas);
+
+        var firstFrameCaptured = false;
+        function captureFirstFrame() {
+            if (firstFrameCaptured) return;
+            firstFrameCaptured = true;
+            canvas.width  = img.naturalWidth  || 100;
+            canvas.height = img.naturalHeight || 100;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+        }
+        if (img.complete) { captureFirstFrame(); }
+        else { img.addEventListener('load', captureFirstFrame); }
+
+        // Public setter used by the Java onMusicUiUpdate callback.
+        $wnd._baischSetMusicBtn = function(on) {
+            if (!on) {
+                captureFirstFrame();        // ensure first frame is ready
+                img.style.display    = 'none';
+                canvas.style.display = 'block';
+            } else {
+                img.style.display    = 'block';
+                canvas.style.display = 'none';
+            }
+        };
+
+        // Initialise visual state from localStorage.
+        var enabled = ($wnd.localStorage.getItem('baisch_music_enabled') !== '0');
+        $wnd._baischSetMusicBtn(enabled);
+
+        // Click: delegate to Java so LibGDX music state and screen refresh stay in sync.
+        function handleClick() {
+            @com.mygdx.game.MyGdxGame::handleMusicButtonClick()();
+        }
+        img.addEventListener('click',    handleClick);
+        canvas.addEventListener('click', handleClick);
+    }-*/;
+
+    /** Called from the onMusicUiUpdate Runnable to keep the GIF in sync with Java state. */
+    private static native void refreshMusicButton(boolean enabled) /*-{
+        if ($wnd._baischSetMusicBtn) $wnd._baischSetMusicBtn(enabled);
     }-*/;
 }

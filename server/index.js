@@ -991,19 +991,21 @@ io.on('connection', function(socket) {
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
+    var spectatorMode = !!(data && data.spectator);
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
     // botModes: array of personality strings, e.g. ["aggressive","passive"].
     // Falls back to legacy botCount (numeric) for backward compat.
+    // Spectator mode allows up to 4 bots; normal mode allows up to 3.
     var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician', 'mcts'];
+    var maxBots = spectatorMode ? 4 : 3;
     var botModes = [];
     if (data && Array.isArray(data.botModes)) {
-      botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, 3);
+      botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, maxBots);
     } else {
-      var legacyCount = Math.min(3, Math.max(0, parseInt(data && data.botCount) || 0));
+      var legacyCount = Math.min(maxBots, Math.max(0, parseInt(data && data.botCount) || 0));
       for (var li = 0; li < legacyCount; li++) botModes.push('balanced');
     }
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
-    sess.users.push(makeUser(socket.id, name, cToken));
     var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician', mcts: 'MCTS' };
     for (var bi = 0; bi < botModes.length; bi++) {
       var mode = botModes[bi];
@@ -1013,20 +1015,49 @@ io.on('connection', function(socket) {
       botUser.botMode = mode;
       sess.users.push(botUser);
     }
-    if (cToken) {
-      if (!tokenMap[cToken]) tokenMap[cToken] = {};
-      tokenMap[cToken].name = name;
-      tokenMap[cToken].socketId = socket.id;
-      tokenMap[cToken].sessionId = sess.id;
-    }
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
-    console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: [" + botModes.join(',') + "])");
-    socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
-    io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
-    socket.emit('gameStatus', { running: false });
-    broadcastSessionList();
-    broadcastPlayerList();
+
+    if (spectatorMode && sess.users.length >= 2) {
+      // Creator watches as spectator — all players are bots, start the game immediately.
+      sess.spectators.push(socket.id);
+      if (cToken) {
+        if (!tokenMap[cToken]) tokenMap[cToken] = {};
+        tokenMap[cToken].name = name;
+        tokenMap[cToken].socketId = socket.id;
+      }
+      console.log("Session created (spectator): " + sess.id + " '" + sess.name + "' by " + name + " (bots: [" + botModes.join(',') + "])");
+      // Start the game immediately — all users are bots and ready.
+      sess.gameState = new GameState(sess.users, { startingCards: sess.startingCards, manualSetup: sess.manualSetup });
+      if (sess.manualSetup && sess.gameState.setupPhase) {
+        sess.users.forEach(function(u, idx) {
+          if (bot.isBot(u)) {
+            var setup = bot.autoSetupBot(sess.gameState, idx);
+            if (setup) sess.gameState.applyManualSetup(idx, setup.kingId, setup.defIds, setup.discardIds);
+          }
+        });
+      }
+      // Send spectator gameState to creator (playerIndex -1)
+      socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize() });
+      broadcastSessionList();
+      broadcastPlayerList();
+      bot.playBotTurnIfNeeded(sess);
+    } else {
+      // Normal mode: creator joins as player.
+      sess.users.unshift(makeUser(socket.id, name, cToken));
+      if (cToken) {
+        if (!tokenMap[cToken]) tokenMap[cToken] = {};
+        tokenMap[cToken].name = name;
+        tokenMap[cToken].socketId = socket.id;
+        tokenMap[cToken].sessionId = sess.id;
+      }
+      console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ", bots: [" + botModes.join(',') + "])");
+      socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
+      io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));
+      socket.emit('gameStatus', { running: false });
+      broadcastSessionList();
+      broadcastPlayerList();
+    }
   });
 
   socket.on('joinSession', function(data) {

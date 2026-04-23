@@ -672,6 +672,8 @@ public class GameScreen extends ScreenAdapter {
     handHighlight = new Image(whiteDrw);
     handHighlight.setFillParent(true);
     handHighlight.setColor(0.3f, 0.8f, 0.3f, 0f);
+    // Purely visual — must not consume input events that handBck's listener needs.
+    handHighlight.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
 
     // Clicking anywhere in the hand area takes the currently-selected defense card.
     handBck.addListener(new ClickListener() {

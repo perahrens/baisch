@@ -117,6 +117,19 @@ public class HtmlLauncher extends GwtApplication {
         var enabled = ($wnd.localStorage.getItem('baisch_music_enabled') !== '0');
         $wnd._baischSetMusicBtn(enabled);
 
+        // Hover glow — desktop pointer devices only.
+        if ($wnd.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            img.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
+            img.addEventListener('mouseenter', function() {
+                img.style.transform = 'scale(1.12)';
+                img.style.boxShadow = '0 0 14px rgba(245,200,66,0.75)';
+            });
+            img.addEventListener('mouseleave', function() {
+                img.style.transform = '';
+                img.style.boxShadow = '';
+            });
+        }
+
         // Click: delegate to Java so LibGDX music state and screen refresh stay in sync.
         img.addEventListener('click', function() {
             @com.mygdx.game.MyGdxGame::handleMusicButtonClick()();

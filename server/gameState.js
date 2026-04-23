@@ -499,10 +499,16 @@ class GameState {
   plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
     // Use cards pre-locked in setPlunderPreview if available (prevents reappearance on refresh)
     const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
+    // Capture deck top card strength BEFORE any deck modification (for log display)
+    const deck = this.pickingDecks[deckIdx];
+    const topDeckCard = deck.length > 0 ? deck[deck.length - 1].id : null;
+    const deckDefStrength = topDeckCard ? this.cardStrength(topDeckCard) : 0;
     this.pendingPlunder = null;
     const attacker = this.players[attackerIdx];
     // NOTE: plundering does NOT increment attackCount — only real attacks (defAttack/kingAttack/warlord) do.
     const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
+    const plunderAtkSum = handCardsToProcess.reduce((sum, id) => sum + this.cardStrength(id), 0)
+      + (attackerOwnDefCardIds || []).reduce((sum, id) => sum + this.cardStrength(id), 0);
     for (const cardId of handCardsToProcess) {
       const i = attacker.hand.indexOf(cardId);
       if (i !== -1) attacker.hand.splice(i, 1); // already removed from hand if locking was used
@@ -521,7 +527,7 @@ class GameState {
     if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     if (success) {
       attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}!`, true);
+      this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}! (${plunderAtkSum} vs ${deckDefStrength})`, true);
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -533,7 +539,7 @@ class GameState {
       const c3 = this.pickCard(); if (c3 !== null) this.pickingDecks[deckIdx].push({ id: c3, covered: true });
     } else {
       attacker.statPlundersFailed = (attacker.statPlundersFailed || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed`, false);
+      this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed (${plunderAtkSum} vs ${deckDefStrength})`, false);
       if (kingUsed) {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
@@ -571,9 +577,18 @@ class GameState {
       this.cemetery.push(cardId);
     }
     if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
+    // Capture defense values before the card may be removed (for log display)
+    const _defCardId = defender.defCards[positionId];
+    const _defBoost = (defender.defCardsBoost && defender.defCardsBoost[positionId]) || 0;
+    const _topDefId = defender.topDefCards ? defender.topDefCards[positionId] : null;
+    const _topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[positionId]) || 0;
+    const defStrength = this.cardStrength(_defCardId) + _defBoost
+      + (_topDefId != null ? this.cardStrength(_topDefId) + _topBoost : 0);
+    const atkSum = attackCardIds.reduce((sum, id) => sum + this.cardStrength(id), 0)
+      + (attackerOwnDefCardIds || []).reduce((sum, id) => sum + this.cardStrength(id), 0);
     if (success) {
       attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}]`, true);
+      this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}] (${atkSum} vs ${defStrength})`, true);
       // If the slot was sabotaged, clear it (saboteur destroyed when card is removed by attack)
       if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
         delete defender.sabotaged[positionId];
@@ -593,7 +608,7 @@ class GameState {
       }
     } else {
       attacker.statAttacksFailed = (attacker.statAttacksFailed || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}]`, false);
+      this.pushLog(`${this.pname(attackerIdx)} missed ${this.pname(defenderIdx)}'s shield [${positionId}] (${atkSum} vs ${defStrength})`, false);
       if (kingUsed) {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
@@ -754,10 +769,12 @@ class GameState {
       this.cemetery.push(cardId);
     }
     if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
+    const kingStrength = this.cardStrength(defender.kingCard);
+    const kingAtkSum = attackCardIds.reduce((sum, id) => sum + this.cardStrength(id), 0);
     if (success) {
       attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
       attacker.statDefeated = (attacker.statDefeated || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}!`, true);
+      this.pushLog(`${this.pname(attackerIdx)} defeated ${this.pname(defenderIdx)}! (${kingAtkSum} vs ${kingStrength})`, true);
       // Defender loses their king and is eliminated; attacker gains their cards as prey
       defender.isOut = true;
       defender.statRoundEliminatedAt = this.roundNumber;
@@ -782,7 +799,7 @@ class GameState {
       }
     } else {
       attacker.statAttacksFailed = (attacker.statAttacksFailed || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed`, false);
+      this.pushLog(`${this.pname(attackerIdx)} king assault on ${this.pname(defenderIdx)} failed (${kingAtkSum} vs ${kingStrength})`, false);
       // Expose the defending king so it remains visible after a failed assault
       defender.kingCovered = false;
       if (kingUsed) {
@@ -918,6 +935,7 @@ class GameState {
     target.statHeroesReceived = (target.statHeroesReceived || 0) + 1;
     // Give an immediate charge when Battery Tower is acquired
     if (heroName === 'Battery Tower') target.batteryTowerCharges = 1;
+    this.pushLog(`${this.pname(playerIdx)} acquired hero: ${heroName}`, true, true);
   }
 
   heroLost(playerIdx, heroName) {

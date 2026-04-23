@@ -292,9 +292,11 @@ public class StatsScreen extends AbstractScreen {
   // ── Helpers ─────────────────────────────────────────────────────────────────
   private void buildHistoryTab(float cx) {
     float contentTop    = 0.825f * MyGdxGame.HEIGHT;
-    float contentBottom = 0.14f  * MyGdxGame.HEIGHT;
+    float contentBottom = 0.19f  * MyGdxGame.HEIGHT;
     float contentH = contentTop - contentBottom;
     float contentW = 0.92f * MyGdxGame.WIDTH;
+
+    final StringBuilder logText = new StringBuilder();
 
     Table inner = new Table();
     inner.top().left().pad(6f);
@@ -310,6 +312,8 @@ public class StatsScreen extends AbstractScreen {
           String text    = entry.optString("text", "");
           boolean neutral = entry.optBoolean("neutral", false);
           boolean success = entry.optBoolean("success", true);
+          if (logText.length() > 0) logText.append("\n");
+          logText.append(text);
           Label lbl = new Label(text, MyGdxGame.skin);
           lbl.setWrap(true);
           Color lc = neutral
@@ -329,6 +333,19 @@ public class StatsScreen extends AbstractScreen {
     scroll.layout();
     scroll.setScrollPercentY(1f);
     stage.addActor(scroll);
+
+    // "Copy log" button — copies all history entries to the system clipboard
+    TextButton copyBtn = new TextButton("Copy log", MyGdxGame.skin);
+    copyBtn.pack();
+    copyBtn.setPosition(Math.round(cx - copyBtn.getWidth() / 2f),
+        Math.round(0.11f * MyGdxGame.HEIGHT));
+    copyBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        Gdx.app.getClipboard().setContents(logText.toString());
+      }
+    });
+    stage.addActor(copyBtn);
   }
 
   private static void addCell(Table table, String text, float minWidth, Color color, boolean leftAlign) {

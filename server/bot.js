@@ -48,10 +48,18 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
      */
     targetBonus(/*gs, defenderIdx*/) { return 0; }
     /**
-     * Maximum hand size before the bot skips plundering.
-     * Keeps bots from hoarding cards when they already have plenty.
+     * How many attacks per turn when the hand has many cards.
+     * Returns the effective max attacks given the current hand size, so bots
+     * burn through surplus cards instead of hoarding them.
      */
-    maxHandSizeBeforePlunder()       { return 12; }
+    dynamicMaxAttacks(handSize) {
+      var base = this.maxAttacksPerTurn();
+      if (base === -1) return -1;          // already unlimited
+      if (handSize >= 14) return Math.max(base, 4);
+      if (handSize >= 10) return Math.max(base, 3);
+      if (handSize >= 7)  return Math.max(base, 2);
+      return base;
+    }
   }
 
   /** Balanced — current default behaviour: fill weakest, two attacks, scout disabled. */
@@ -398,12 +406,13 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return bestChoice;
   }
 
-  // Chain multiple defense-card attacks for a personality (aggressive = unlimited, tactician = 2, etc.)
+  // Chain multiple defense-card attacks for a personality (aggressive = unlimited, tactician = 3, etc.)
   // attackCount: how many attacks have been done so far in this chain (start with 0).
   // fixedSymbol: the suit committed to after the first attack (prevents switching symbols mid-turn).
   function botAttackChainAsync(sess, gs, idx, personality, callback, attackCount, fixedSymbol) {
     attackCount = attackCount || 0;
-    var maxAtks = personality.maxAttacksPerTurn();
+    var handSize = gs.players[idx] ? gs.players[idx].hand.length : 0;
+    var maxAtks = personality.dynamicMaxAttacks ? personality.dynamicMaxAttacks(handSize) : personality.maxAttacksPerTurn();
 
     if (maxAtks !== -1 && attackCount >= maxAtks) {
       callback(attackCount > 0);
@@ -432,6 +441,27 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var nextSymbol = fixedSymbol || (atkChoice.success ? atkChoice.symbol : null);
 
     botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
+      // After a successful attack: if this cleared the last defense slot of that enemy,
+      // immediately try a king attack before continuing the defense chain.
+      if (atkChoice.success) {
+        var tgt = gs.players[atkChoice.defenderIdx];
+        if (tgt && !tgt.isOut) {
+          var tgtAllEmpty = true;
+          for (var _s = 1; _s <= 3; _s++) {
+            if ((tgt.defCards && tgt.defCards[_s] != null) || (tgt.topDefCards && tgt.topDefCards[_s] != null)) {
+              tgtAllEmpty = false; break;
+            }
+          }
+          if (tgtAllEmpty) {
+            // King is now exposed — try to finish them off
+            botTryKingAttackAsync(sess, gs, idx, function(didKing) {
+              if (didKing) { callback(true); return; }
+              botAttackChainAsync(sess, gs, idx, personality, callback, attackCount + 1, nextSymbol);
+            });
+            return;
+          }
+        }
+      }
       botAttackChainAsync(sess, gs, idx, personality, callback, attackCount + 1, nextSymbol);
     });
   }
@@ -1045,9 +1075,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         return;
       }
 
-      // 5. Smart plunder — skip if hand is already too large
-      var maxHandBeforePlunder = (personality.maxHandSizeBeforePlunder ? personality.maxHandSizeBeforePlunder() : 12);
-      var plunderChoice = (p.hand.length < maxHandBeforePlunder) ? botChoosePlunder(gs, idx) : null;
+      // 5. Smart plunder — always attempt
+      var plunderChoice = botChoosePlunder(gs, idx);
       if (plunderChoice) {
         var plAtkSum = 0;
         for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);

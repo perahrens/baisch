@@ -689,8 +689,8 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
     // ── Per-bot personality selectors (Bot 1 / 2 / 3) ───────────────────────
-    final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician"};
-    final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician"};
+    final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician", "MCTS"};
+    final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician", "mcts"};
     final Label[] botLabels = new Label[3];
     @SuppressWarnings("unchecked")
     final SelectBox<String>[] botBoxes = new SelectBox[3];

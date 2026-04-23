@@ -407,7 +407,7 @@ function botChoosePlunder(gs, attackerIdx) {
       for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
       // Skip wildly over-spending
       if (comboSum > actualThreshold + 6 && comboSum > 15) continue;
-      var success = (comboSum >= actualThreshold);
+      var success = (comboSum > actualThreshold);
       var waste = Math.max(0, comboSum - actualThreshold);
       // Prefer success > bigger deck > less waste > fewer cards
       var score = (success ? 1000 : -500) + deckSize * 10 - waste * 2 - combo.length;
@@ -457,7 +457,7 @@ function botChooseDefAttack(gs, attackerIdx, allowScout) {
           if (!combo) continue;
           var comboSum = 0;
           for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
-          var success = (comboSum >= threshold);
+          var success = (comboSum > threshold);
           // Bonus if this would open the king (only shield remaining)
           var shieldsLeft = 0;
           for (var s = 1; s <= 3; s++) {
@@ -520,7 +520,7 @@ function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
       if (!combo) continue;
       var comboSum = 0;
       for (var ci = 0; ci < combo.length; ci++) comboSum += gs.cardStrength(combo[ci]);
-      if (comboSum < kingStr) continue;
+      if (comboSum <= kingStr) continue;
       gs.setAttackPreview({ attackerIdx: attackerIdx, defenderIdx: di, positionId: 0, level: 0,
                              attackingSymbol: suit, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());

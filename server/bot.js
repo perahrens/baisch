@@ -105,21 +105,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     }
   }
 
-  /**
-   * LLM — AI-assisted bot.
-   * When OPENAI_API_KEY is set, calls the OpenAI Chat API with a game-state prompt
-   * and executes the returned action. Falls back to Tactician on any failure.
-   */
-  class LLMPersonality extends TacticianPersonality {
-    constructor() { super(); this.name = 'llm'; }
-  }
-
   var PERSONALITIES = {
     balanced:   new BalancedPersonality(),
     passive:    new PassivePersonality(),
     aggressive: new AggressivePersonality(),
     tactician:  new TacticianPersonality(),
-    llm:        new LLMPersonality(),
   };
 
   function getPersonality(mode) {
@@ -839,17 +829,6 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     if (!p || p.isOut) return;
 
     var personality = getPersonality(p.botMode || 'balanced');
-
-    // LLM bot: try the AI turn first; fall back to tactician on any failure
-    if (personality.name === 'llm') {
-      tryLLMTurnAsync(sess, gs, idx, function(handled) {
-        if (!handled) {
-          executeBotTurnWithPersonality(sess, gs, idx, getPersonality('tactician'));
-        }
-      });
-      return;
-    }
-
     executeBotTurnWithPersonality(sess, gs, idx, personality);
   }
 
@@ -924,180 +903,6 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         botFinishTurn(sess, gs, idx, attacked);
       });
     });
-  }
-
-  // ── LLM Bot (OpenAI Chat API) ────────────────────────────────────────────────
-
-  var BAISCH_SYSTEM_PROMPT = [
-    'You are an AI playing a competitive card game called Baisch.',
-    'Rules: Each player has a king card, 3 defense slots, and a hand of attack cards.',
-    'Card strength: 2-10 by pip, J=11, Q=12, K=13, A=14, Joker=15.',
-    'On your turn you can: (1) plunder a picking deck with same-suit cards totalling >= top-card strength,',
-    '(2) attack an opponent\'s face-up defense slot with same-suit cards totalling >= that card\'s strength,',
-    '(3) attack an exposed king (all defense empty) to eliminate that player.',
-    'You must expose one of your own defense cards if you did not attack anything this turn.',
-    'Respond with ONLY a JSON object — no markdown. Schema:',
-    '{ "action": "attack"|"plunder"|"pass", "defenderIdx": <number>, "slot": <1-3>, "deckIndex": <0-1> }'
-  ].join(' ');
-
-  function buildLLMStatePrompt(gs, idx) {
-    var p = gs.players[idx];
-    var handStr = (p.hand || []).map(function(id) {
-      return (id > 52 ? 'Joker' : (function() {
-        var suits = ['C','D','H','S'], pips = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-        var si = Math.floor((id - 1) / 13), pi = (id - 1) % 13 + 1;
-        return pips[pi] + suits[si];
-      }())) + '(' + gs.cardStrength(id) + ')';
-    }).join(', ');
-
-    var opponents = gs.players.map(function(d, di) {
-      if (di === idx || d.isOut) return null;
-      var slots = [];
-      for (var s = 1; s <= 3; s++) {
-        if (d.defCards && d.defCards[s] != null) {
-          var up = d.defCardsCovered && d.defCardsCovered[s] === false;
-          slots.push('slot' + s + ':' + (up ? 'EXPOSED(str=' + gs.cardStrength(d.defCards[s]) + ')' : 'covered'));
-        }
-      }
-      return 'P' + di + '[' + slots.join(',') + ' king:' + (d.kingCovered ? 'covered' : 'EXPOSED') + ']';
-    }).filter(Boolean).join('; ');
-
-    var decks = gs.pickingDecks.map(function(deck, di) {
-      if (deck.length === 0) return 'deck' + di + ':empty';
-      var top = deck[deck.length - 1];
-      return 'deck' + di + ':' + (top.covered ? 'covered' : 'str=' + gs.cardStrength(top.id)) + '(' + deck.length + 'cards)';
-    }).join(', ');
-
-    return 'Hand: ' + handStr + ' | Opponents: ' + opponents + ' | Picking decks: ' + decks
-         + ' | My pickingDeckAttacks: ' + (p.pickingDeckAttacks || 0);
-  }
-
-  function tryLLMTurnAsync(sess, gs, idx, callback) {
-    var apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) { callback(false); return; }
-
-    var prompt = buildLLMStatePrompt(gs, idx);
-    var requestBody = JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 150,
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: BAISCH_SYSTEM_PROMPT },
-        { role: 'user',   content: prompt }
-      ]
-    });
-
-    var https = require('https');
-    var options = {
-      hostname: 'api.openai.com',
-      path: '/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey,
-        'Content-Length': Buffer.byteLength(requestBody)
-      }
-    };
-
-    var timedOut = false;
-    var req = https.request(options, function(res) {
-      var body = '';
-      res.on('data', function(chunk) { body += chunk; });
-      res.on('end', function() {
-        if (timedOut) return;
-        try {
-          var result = JSON.parse(body);
-          var content = result.choices && result.choices[0] &&
-                        result.choices[0].message && result.choices[0].message.content;
-          if (!content) { callback(false); return; }
-          var match = content.match(/\{[\s\S]*\}/);
-          if (!match) { callback(false); return; }
-          var action = JSON.parse(match[0]);
-          executeLLMAction(sess, gs, idx, action, callback);
-        } catch (e) {
-          console.log('[LLM bot] parse error:', e.message);
-          callback(false);
-        }
-      });
-    });
-    req.on('error', function(e) {
-      if (!timedOut) { console.log('[LLM bot] request error:', e.message); callback(false); }
-    });
-    req.setTimeout(4500, function() {
-      timedOut = true;
-      req.destroy();
-      console.log('[LLM bot] timeout — falling back to tactician');
-      callback(false);
-    });
-    req.write(requestBody);
-    req.end();
-  }
-
-  function executeLLMAction(sess, gs, idx, action, callback) {
-    var p = gs.players[idx];
-    if (!p || !action || !action.action) { callback(false); return; }
-
-    if (action.action === 'plunder') {
-      var di = parseInt(action.deckIndex, 10);
-      var plunderChoice = botChoosePlunder(gs, idx);
-      if (!plunderChoice || plunderChoice.deckIndex !== di) plunderChoice = botChoosePlunder(gs, idx);
-      if (!plunderChoice) { callback(false); return; }
-      var plAtkSum = 0;
-      for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);
-      var plDeck = gs.pickingDecks[plunderChoice.deckIndex];
-      var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
-      gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
-                             attackCardIds: plunderChoice.cardIds,
-                             attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none',
-                             success: plunderChoice.success, attackSum: plAtkSum,
-                             defCardId: plTopCard ? plTopCard.id : -1,
-                             defStrength: plTopCard ? gs.cardStrength(plTopCard.id) : 0 });
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
-      var captured = plunderChoice;
-      setTimeout(function() {
-        gs.plunderResolved(idx, captured.deckIndex, captured.success, captured.cardIds, false, []);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        checkAndHandleWinner(sess);
-        botFinishTurn(sess, gs, idx, false);
-        callback(true);
-      }, BOT_ACTION_DELAY);
-      return;
-    }
-
-    if (action.action === 'attack') {
-      var defenderIdx = parseInt(action.defenderIdx, 10);
-      var slot = parseInt(action.slot, 10);
-      var atkChoice = botChooseDefAttackP(gs, idx, false, getPersonality('tactician'), null);
-      // Override to use LLM-suggested target if valid
-      if (atkChoice && defenderIdx >= 0 && slot >= 1 && slot <= 3) {
-        var d = gs.players[defenderIdx];
-        if (d && !d.isOut && d.defCards && d.defCards[slot] != null &&
-            d.defCardsCovered && d.defCardsCovered[slot] === false) {
-          // Re-compute atkChoice for the specific suggested target/slot
-          var suggestedChoice = botChooseDefAttackP(gs, idx, false, getPersonality('tactician'), null);
-          if (suggestedChoice) atkChoice = suggestedChoice;
-        }
-      }
-      if (!atkChoice) { callback(false); return; }
-      var atkDefCardId = gs.players[atkChoice.defenderIdx].defCards[atkChoice.positionId];
-      var atkPreview = {
-        attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
-        positionId: atkChoice.positionId, level: 0,
-        attackingSymbol: atkChoice.symbol, attackingSymbol2: 'none',
-        success: atkChoice.success, attackCardIds: atkChoice.cardIds,
-        defCardIds: atkDefCardId != null ? [atkDefCardId] : []
-      };
-      gs.setAttackPreview(atkPreview);
-      io.to(sess.id).emit('stateUpdate', gs.serialize());
-      botDoDefAttackWithBatteryCheck(sess, gs, atkChoice, atkPreview, function() {
-        botFinishTurn(sess, gs, idx, true);
-        callback(true);
-      });
-      return;
-    }
-
-    // action === 'pass' or unknown
-    callback(false);
   }
 
   // Legacy helpers (still referenced from tutorial/other paths)

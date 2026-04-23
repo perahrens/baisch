@@ -994,7 +994,7 @@ io.on('connection', function(socket) {
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
     // botModes: array of personality strings, e.g. ["aggressive","passive"].
     // Falls back to legacy botCount (numeric) for backward compat.
-    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician', 'llm'];
+    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician'];
     var botModes = [];
     if (data && Array.isArray(data.botModes)) {
       botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, 3);
@@ -1004,7 +1004,7 @@ io.on('connection', function(socket) {
     }
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
-    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician', llm: 'AI' };
+    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician' };
     for (var bi = 0; bi < botModes.length; bi++) {
       var mode = botModes[bi];
       var label = BOT_MODE_LABELS[mode] || 'Bot';

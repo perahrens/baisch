@@ -132,6 +132,7 @@ public class GameScreen extends ScreenAdapter {
   private SocketClient socket;
   private Game game;
   private boolean menuOpen = false;
+  private boolean logOpen = false;
   private InputMultiplexer menuAndGameMulti;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
@@ -779,7 +780,11 @@ public class GameScreen extends ScreenAdapter {
     }
 
     if (menuOpen) {
-      buildMenuOverlay();
+      if (logOpen) {
+        showLogOverlay();
+      } else {
+        buildMenuOverlay();
+      }
     } else {
       addMenuButtonToOverlay();
       if (isTutorial && tutorialStep >= 0) {
@@ -4035,6 +4040,7 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void buildMenuOverlay() {
+    logOpen = false;
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4120,6 +4126,7 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void showLogOverlay() {
+    logOpen = true;
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4195,6 +4202,7 @@ public class GameScreen extends ScreenAdapter {
 
   private void closeMenu() {
     menuOpen = false;
+    logOpen = false;
     overlayStage.clear();
     addMenuButtonToOverlay();
     // render() will set the correct input processor next frame

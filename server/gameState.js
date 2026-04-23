@@ -20,7 +20,7 @@ class GameState {
     }));
     this.pickingDecks = [[], []]; // each entry: { id, covered }
     this.currentPlayerIndex = 0;
-    this.log = []; // activity log: [{ text, success }, ...], max 5 entries
+    this.log = []; // activity log: [{ text, success }, ...], max 100 entries
     this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
     this.pendingAttack = null; // current attack preview broadcast, cleared on defAttackResolved
     this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
@@ -206,7 +206,7 @@ class GameState {
 
   pushLog(text, success, neutral = false) {
     this.log.push({ text, success, neutral });
-    if (this.log.length > 5) this.log.shift();
+    if (this.log.length > 100) this.log.shift();
   }
 
   cardStrength(cardId) {

@@ -132,6 +132,7 @@ public class GameScreen extends ScreenAdapter {
   private SocketClient socket;
   private Game game;
   private boolean menuOpen = false;
+  private boolean logOpen = false;
   private InputMultiplexer menuAndGameMulti;
   // Battery Tower: stored when this local player is the defender and must allow/deny
   private JSONObject pendingBatteryDefCheck = null;
@@ -176,6 +177,10 @@ public class GameScreen extends ScreenAdapter {
   // from bot back to player and fire the MY_TURN_START hook exactly once.
   private int heroTutorialPrevPlayerIdx = -1;
   private JSONArray activityLog = new JSONArray();
+  // Log overlay live-update state
+  private ScrollPane logScrollPane = null;
+  private Table logInnerTable = null;
+  private int logLastRenderedCount = 0;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -606,7 +611,7 @@ public class GameScreen extends ScreenAdapter {
           @Override
           public void run() {
             screenDisposed = true;
-            theGame.setScreen(new StatsScreen(theGame, theSocket, statsJson));
+            theGame.setScreen(new StatsScreen(theGame, theSocket, statsJson, activityLog));
           }
         });
       }
@@ -733,7 +738,7 @@ public class GameScreen extends ScreenAdapter {
 
     gameStage.clear();
     handStage.clear();
-    overlayStage.clear();
+    if (!logOpen) overlayStage.clear();
 
     gameStage.addActor(gameBck);
     handStage.addActor(handBck);
@@ -778,7 +783,9 @@ public class GameScreen extends ScreenAdapter {
       heroTutorialPrevPlayerIdx = curIdx;
     }
 
-    if (menuOpen) {
+    if (menuOpen && logOpen) {
+      refreshLogOverlay();
+    } else if (menuOpen) {
       buildMenuOverlay();
     } else {
       addMenuButtonToOverlay();
@@ -4035,6 +4042,7 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void buildMenuOverlay() {
+    logOpen = false;
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4119,7 +4127,33 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.addActor(table);
   }
 
+  private void refreshLogOverlay() {
+    if (logScrollPane == null || logInnerTable == null) return;
+    int count = activityLog.length();
+    if (count <= logLastRenderedCount) return;
+    boolean wasAtBottom = logScrollPane.getScrollPercentY() >= 0.95f;
+    try {
+      for (int i = logLastRenderedCount; i < count; i++) {
+        JSONObject entry = activityLog.getJSONObject(i);
+        String text = entry.optString("text", "");
+        boolean neutral = entry.optBoolean("neutral", false);
+        boolean success = entry.optBoolean("success", true);
+        Label lbl = new Label(text, MyGdxGame.skin);
+        lbl.setWrap(true);
+        Color lc = neutral
+            ? new Color(0.85f, 0.85f, 0.85f, 1f)
+            : (success ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+        lbl.setColor(lc);
+        logInnerTable.add(lbl).left().padBottom(4f).expandX().fillX().row();
+      }
+    } catch (JSONException e) { e.printStackTrace(); }
+    logLastRenderedCount = count;
+    logScrollPane.layout();
+    if (wasAtBottom) logScrollPane.setScrollPercentY(1f);
+  }
+
   private void showLogOverlay() {
+    logOpen = true;
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4137,11 +4171,13 @@ public class GameScreen extends ScreenAdapter {
     // Scrollable inner table holds all log entries
     final Table inner = new Table();
     inner.top().left().pad(6f);
+    logInnerTable = inner;
 
     if (activityLog.length() == 0) {
       Label emptyLabel = new Label("No history yet.", MyGdxGame.skin);
       emptyLabel.setColor(Color.GRAY);
       inner.add(emptyLabel).row();
+      logLastRenderedCount = 0;
     } else {
       try {
         for (int i = 0; i < activityLog.length(); i++) {
@@ -4158,9 +4194,11 @@ public class GameScreen extends ScreenAdapter {
           inner.add(lbl).left().padBottom(4f).expandX().fillX().row();
         }
       } catch (JSONException e) { e.printStackTrace(); }
+      logLastRenderedCount = activityLog.length();
     }
 
     ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
+    logScrollPane = scroll;
     scroll.setFadeScrollBars(false);
     scroll.setScrollingDisabled(true, false);
     scroll.layout();
@@ -4195,6 +4233,7 @@ public class GameScreen extends ScreenAdapter {
 
   private void closeMenu() {
     menuOpen = false;
+    logOpen = false;
     overlayStage.clear();
     addMenuButtonToOverlay();
     // render() will set the correct input processor next frame

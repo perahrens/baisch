@@ -1214,6 +1214,7 @@ public class GameScreen extends ScreenAdapter {
         if (i != playerIndex) {
           Label handCountLabel = new Label(String.valueOf(handCards.size()), MyGdxGame.skin);
           handCountLabel.setColor(Color.BLACK);
+          handCountLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           float lw = handCountLabel.getPrefWidth();
           float lh = handCountLabel.getPrefHeight();
           handCountLabel.setPosition(deckX + cardW / 2f - lw / 2f, deckY + cardH / 2f - lh / 2f);

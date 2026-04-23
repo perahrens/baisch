@@ -877,6 +877,8 @@ public class MenuScreen extends AbstractScreen {
    * (works around browser autoplay restrictions).
    */
   private void addMusicToggleButton(final Stage stage) {
+    // On the web platform the HTML/GWT layer injects an animated GIF button instead.
+    if (MyGdxGame.nativeMusicButton) return;
     final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
     final TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
     musicBtn.pack();

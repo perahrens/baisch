@@ -1703,6 +1703,7 @@ public class GameScreen extends ScreenAdapter {
           pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
           pt.resetPendingAttackMercenaryBonus();
+          if (currentPlayer.getKingCard() != null) currentPlayer.getKingCard().setSelected(false);
           gameState.setUpdateState(true);
         }
       });
@@ -2047,6 +2048,7 @@ public class GameScreen extends ScreenAdapter {
           // Clear own def card selections
           for (Card c : atkPlayer.getDefCards().values()) c.setSelected(false);
           for (Card c : atkPlayer.getTopDefCards().values()) c.setSelected(false);
+          if (atkPlayer.getKingCard() != null) atkPlayer.getKingCard().setSelected(false);
           gameState.setUpdateState(true);
         }
       });

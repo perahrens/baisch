@@ -84,12 +84,9 @@ public class HtmlLauncher extends GwtApplication {
     /**
      * Injects a fixed-position animated GIF music toggle button into the DOM.
      *
-     * Two sibling elements are created:
-     *   #baisch-music-img    — the animated GIF (shown when music is ON)
-     *   #baisch-music-canvas — a canvas showing the GIF's first frame (shown when OFF)
-     *
-     * The first frame is captured once the image loads.  Subsequent toggles swap
-     * visibility between the two elements via window._baischSetMusicBtn(bool).
+     * A single <img> element is always visible. When music is ON the GIF plays
+     * at full colour; when OFF it is shown greyed-out (grayscale + reduced opacity)
+     * so the button is always findable regardless of localStorage state or load order.
      *
      * Clicks call MyGdxGame.handleMusicButtonClick() via JSNI so that the LibGDX
      * music state and the current menu screen re-render stay in sync.
@@ -98,40 +95,21 @@ public class HtmlLauncher extends GwtApplication {
         var SIZE = '54px';
         var img = $doc.createElement('img');
         img.id  = 'baisch-music-img';
-        img.src = 'music.gif';
+        img.src = '/music.gif';
         img.style.cssText =
             'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
             'cursor:pointer;z-index:9999;border-radius:50%;display:block;';
 
-        var canvas = $doc.createElement('canvas');
-        canvas.id  = 'baisch-music-canvas';
-        canvas.style.cssText =
-            'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
-            'cursor:pointer;z-index:9999;border-radius:50%;display:none;';
-
         $doc.body.appendChild(img);
-        $doc.body.appendChild(canvas);
-
-        var firstFrameCaptured = false;
-        function captureFirstFrame() {
-            if (firstFrameCaptured) return;
-            firstFrameCaptured = true;
-            canvas.width  = img.naturalWidth  || 100;
-            canvas.height = img.naturalHeight || 100;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-        }
-        if (img.complete) { captureFirstFrame(); }
-        else { img.addEventListener('load', captureFirstFrame); }
 
         // Public setter used by the Java onMusicUiUpdate callback.
         $wnd._baischSetMusicBtn = function(on) {
-            if (!on) {
-                captureFirstFrame();        // ensure first frame is ready
-                img.style.display    = 'none';
-                canvas.style.display = 'block';
+            if (on) {
+                img.style.opacity = '1';
+                img.style.filter  = 'none';
             } else {
-                img.style.display    = 'block';
-                canvas.style.display = 'none';
+                img.style.opacity = '0.4';
+                img.style.filter  = 'grayscale(100%)';
             }
         };
 
@@ -140,11 +118,9 @@ public class HtmlLauncher extends GwtApplication {
         $wnd._baischSetMusicBtn(enabled);
 
         // Click: delegate to Java so LibGDX music state and screen refresh stay in sync.
-        function handleClick() {
+        img.addEventListener('click', function() {
             @com.mygdx.game.MyGdxGame::handleMusicButtonClick()();
-        }
-        img.addEventListener('click',    handleClick);
-        canvas.addEventListener('click', handleClick);
+        });
     }-*/;
 
     /** Called from the onMusicUiUpdate Runnable to keep the GIF in sync with Java state. */

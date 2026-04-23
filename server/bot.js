@@ -666,11 +666,15 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       });
     } else {
       setTimeout(function() {
-        gs.defAttackResolved(atkPreviewData.attackerIdx, defenderIdx, atkChoice.positionId,
-                             0, atkChoice.success, atkChoice.cardIds, false, []);
-        io.to(sess.id).emit('stateUpdate', gs.serialize());
-        checkAndHandleWinner(sess);
-        resolveCallback();
+        try {
+          gs.defAttackResolved(atkPreviewData.attackerIdx, defenderIdx, atkChoice.positionId,
+                               0, atkChoice.success, atkChoice.cardIds, false, []);
+          io.to(sess.id).emit('stateUpdate', gs.serialize());
+          checkAndHandleWinner(sess);
+          resolveCallback();
+        } catch (e) {
+          console.error('[defAttackResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
+        }
       }, BOT_ACTION_DELAY);
     }
   }
@@ -893,17 +897,21 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
   }
 
   function executeBotTurn(sess) {
-    var gs = sess.gameState;
-    var idx = gs.currentPlayerIndex;
-    var p = gs.players[idx];
-    if (!p || p.isOut) return;
+    try {
+      var gs = sess.gameState;
+      var idx = gs.currentPlayerIndex;
+      var p = gs.players[idx];
+      if (!p || p.isOut) return;
 
-    var personality = getPersonality(p.botMode || 'balanced');
-    if (personality.name === 'mcts') {
-      executeMctsTurnAsync(sess, gs, idx);
-      return;
+      var personality = getPersonality(p.botMode || 'balanced');
+      if (personality.name === 'mcts') {
+        executeMctsTurnAsync(sess, gs, idx);
+        return;
+      }
+      executeBotTurnWithPersonality(sess, gs, idx, personality);
+    } catch (e) {
+      console.error('[executeBotTurn] uncaught error:', e && e.message, e && e.stack);
     }
-    executeBotTurnWithPersonality(sess, gs, idx, personality);
   }
 
   // ── MCTS Bot Turn ────────────────────────────────────────────────────────────
@@ -1074,17 +1082,21 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         var captured = plunderChoice;
         setTimeout(function() {
-          gs.plunderResolved(idx, captured.deckIndex, captured.success,
-                             captured.cardIds, false, []);
-          io.to(sess.id).emit('stateUpdate', gs.serialize());
-          checkAndHandleWinner(sess);
-          // 6. After plunder: optional follow-up attack chain (personality-controlled)
-          if (personality.attackAfterPlunder()) {
-            botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
-              botFinishTurn(sess, gs, idx, attacked);
-            });
-          } else {
-            botFinishTurn(sess, gs, idx, false);
+          try {
+            gs.plunderResolved(idx, captured.deckIndex, captured.success,
+                               captured.cardIds, false, []);
+            io.to(sess.id).emit('stateUpdate', gs.serialize());
+            checkAndHandleWinner(sess);
+            // 6. After plunder: optional follow-up attack chain (personality-controlled)
+            if (personality.attackAfterPlunder()) {
+              botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
+                botFinishTurn(sess, gs, idx, attacked);
+              });
+            } else {
+              botFinishTurn(sess, gs, idx, false);
+            }
+          } catch (e) {
+            console.error('[plunderResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
           }
         }, BOT_ACTION_DELAY);
         return;

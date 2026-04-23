@@ -1042,7 +1042,7 @@ public class GameScreen extends ScreenAdapter {
 
     // draw round number
     roundCounter = new Label("Round " + gameState.getRoundNumber(), MyGdxGame.skin);
-    roundCounter.setColor(0f, 0f, 0f, 1.0f);
+    roundCounter.setColor(Color.WHITE);
     roundCounter.setPosition(0, MyGdxGame.WIDTH - roundCounter.getHeight());
     gameStage.addActor(roundCounter);
 
@@ -1535,7 +1535,7 @@ public class GameScreen extends ScreenAdapter {
       if (players.get(i) == gameState.getCurrentPlayer()) {
         playerLabel.setColor(Color.GOLD);
       } else {
-        playerLabel.setColor(0f, 0f, 0f, 1.0f);
+        playerLabel.setColor(Color.WHITE);
       }
       switch (visualSlot) {
       case 0:

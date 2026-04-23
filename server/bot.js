@@ -299,8 +299,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
             var rDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
             var rTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
             var rTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-            var rActual = botDefCardStrength(gs, defCardId) + rDefBoost
-                        + (rTopId != null ? botDefCardStrength(gs, rTopId) + rTopBoost : 0);
+            var rActual = gs.cardStrength(defCardId) + rDefBoost
+                        + (rTopId != null ? gs.cardStrength(rTopId) + rTopBoost : 0);
             var rSuccess = (rSum > rActual);
             var rShields = 0;
             for (var rs = 1; rs <= 3; rs++) {
@@ -401,8 +401,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
             var prDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
             var prTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
             var prTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-            var prActual = botDefCardStrength(gs, defCardId) + prDefBoost
-                         + (prTopId != null ? botDefCardStrength(gs, prTopId) + prTopBoost : 0);
+            var prActual = gs.cardStrength(defCardId) + prDefBoost
+                         + (prTopId != null ? gs.cardStrength(prTopId) + prTopBoost : 0);
             var prSuccess = (prSum > prActual);
             var prShields = 0;
             for (var prs = 1; prs <= 3; prs++) {

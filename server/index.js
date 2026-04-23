@@ -994,7 +994,7 @@ io.on('connection', function(socket) {
     var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
     // botModes: array of personality strings, e.g. ["aggressive","passive"].
     // Falls back to legacy botCount (numeric) for backward compat.
-    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician'];
+    var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician', 'mcts'];
     var botModes = [];
     if (data && Array.isArray(data.botModes)) {
       botModes = data.botModes.filter(function(m) { return VALID_MODES.indexOf(String(m)) !== -1; }).slice(0, 3);
@@ -1004,7 +1004,7 @@ io.on('connection', function(socket) {
     }
     var cToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
     sess.users.push(makeUser(socket.id, name, cToken));
-    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician' };
+    var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician', mcts: 'MCTS' };
     for (var bi = 0; bi < botModes.length; bi++) {
       var mode = botModes[bi];
       var label = BOT_MODE_LABELS[mode] || 'Bot';
@@ -1263,8 +1263,14 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     sess.gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    // Auto-finish turn if attacker was eliminated (failed king-used plunder)
+    var plAttacker = sess.gameState.players[data.attackerIdx];
+    if (plAttacker && plAttacker.isOut && sess.gameState.currentPlayerIndex === data.attackerIdx) {
+      sess.gameState.finishTurn();
+    }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
+    bot.playBotTurnIfNeeded(sess);
   });
 
   socket.on('attackPreview', function(data) {
@@ -1279,8 +1285,14 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("defAttackResolved: attackerIdx=" + data.attackerIdx + " targetPlayerIdx=" + data.targetPlayerIdx + " success=" + data.success);
     sess.gameState.defAttackResolved(data.attackerIdx, data.targetPlayerIdx, data.positionId, data.level, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    // Auto-finish turn if attacker was eliminated (failed king-used attack)
+    var daAttacker = sess.gameState.players[data.attackerIdx];
+    if (daAttacker && daAttacker.isOut && sess.gameState.currentPlayerIndex === data.attackerIdx) {
+      sess.gameState.finishTurn();
+    }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
+    bot.playBotTurnIfNeeded(sess);
   });
 
   socket.on('kingAttackResolved', function(data) {
@@ -1288,8 +1300,14 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("kingAttackResolved: attackerIdx=" + data.attackerIdx + " defenderIdx=" + data.defenderIdx + " success=" + data.success);
     sess.gameState.kingAttackResolved(data.attackerIdx, data.defenderIdx, data.success, data.attackCardIds || [], data.kingUsed || false);
+    // Auto-finish turn if attacker was eliminated (failed king-used attack)
+    var kaAttacker = sess.gameState.players[data.attackerIdx];
+    if (kaAttacker && kaAttacker.isOut && sess.gameState.currentPlayerIndex === data.attackerIdx) {
+      sess.gameState.finishTurn();
+    }
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
     checkAndHandleWinner(sess);
+    bot.playBotTurnIfNeeded(sess);
   });
 
   socket.on('heroSelectedFromKingDefeat', function(data) {

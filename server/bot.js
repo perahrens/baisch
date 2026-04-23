@@ -2,6 +2,8 @@
 // Factory: call createBotAI(io, checkAndHandleWinner) once to get a bot instance
 // with two public methods: isBot(player) and playBotTurnIfNeeded(sess).
 
+var mctsModule = require('./mcts-sim');
+
 module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // How long overlays stay visible (ms) — matches human player experience
@@ -105,11 +107,24 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     }
   }
 
+  /**
+   * MCTS — Monte Carlo Tree Search bot.
+   * Uses statistical simulation to choose the best action each turn.
+   * Falls back to balanced heuristics for setup steps.
+   */
+  class MctsPersonality extends BotPersonality {
+    constructor() { super('mcts'); }
+    maxAttacksPerTurn()     { return 2; }
+    allowScouting()         { return true; }
+    sacrificeJokerForHero() { return true; }
+  }
+
   var PERSONALITIES = {
     balanced:   new BalancedPersonality(),
     passive:    new PassivePersonality(),
     aggressive: new AggressivePersonality(),
     tactician:  new TacticianPersonality(),
+    mcts:       new MctsPersonality(),
   };
 
   function getPersonality(mode) {
@@ -829,7 +844,129 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     if (!p || p.isOut) return;
 
     var personality = getPersonality(p.botMode || 'balanced');
+    if (personality.name === 'mcts') {
+      executeMctsTurnAsync(sess, gs, idx);
+      return;
+    }
     executeBotTurnWithPersonality(sess, gs, idx, personality);
+  }
+
+  // ── MCTS Bot Turn ────────────────────────────────────────────────────────────
+  // Runs balanced setup steps, then uses Monte Carlo Tree Search to select
+  // the best first action (plunder, defense attack, or king attack).
+  function executeMctsTurnAsync(sess, gs, idx) {
+    var p = gs.players[idx];
+    if (!p || p.isOut) return;
+
+    // Setup: same heuristics as balanced bot
+    botTryJokerSacrifice(sess, gs, idx);
+    botFillDefense(gs, idx, getPersonality('balanced'));
+    if (botReplaceExposedDefense(gs, idx)) {
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
+    if (botUseActiveHeroes(gs, idx)) {
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+    }
+
+    // MCTS action selection (synchronous)
+    var action = null;
+    try {
+      action = mctsModule.mctsSearch(gs, idx, 300);
+    } catch (e) {
+      console.log('[MCTS bot] search error:', e.message);
+    }
+
+    if (!action) {
+      botFinishTurn(sess, gs, idx, false);
+      return;
+    }
+
+    if (action.type === 'plunder') {
+      var plDeck = gs.pickingDecks[action.deckIndex];
+      var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
+      var plAtkSum = action.symbol === 'joker' ? 999
+        : action.cardIds.reduce(function(s, id) { return s + gs.cardStrength(id); }, 0);
+      var plDefStrength = plTopCard ? gs.cardStrength(plTopCard.id) : 0;
+      var plSuccess = plAtkSum > plDefStrength;
+      gs.setPlunderPreview({
+        attackerIdx: idx, deckIndex: action.deckIndex,
+        attackCardIds: action.cardIds,
+        attackingSymbol: action.symbol, attackingSymbol2: 'none',
+        success: plSuccess, attackSum: plAtkSum,
+        defCardId: plTopCard ? plTopCard.id : -1,
+        defStrength: plDefStrength
+      });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var plAction = action;
+      setTimeout(function() {
+        gs.plunderResolved(idx, plAction.deckIndex, plSuccess, plAction.cardIds, false, []);
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        botFinishTurn(sess, gs, idx, false);
+      }, BOT_ACTION_DELAY);
+      return;
+    }
+
+    if (action.type === 'defAttack') {
+      var daDefender = gs.players[action.defenderIdx];
+      var daDefCardId = daDefender.defCards[action.positionId];
+      var daDefBoost = (daDefender.defCardsBoost && daDefender.defCardsBoost[action.positionId]) || 0;
+      var daTopCardId = (daDefender.topDefCards && daDefender.topDefCards[action.positionId]) || null;
+      var daTopBoost = daTopCardId ? ((daDefender.topDefCardsBoost && daDefender.topDefCardsBoost[action.positionId]) || 0) : 0;
+      var daThreshold = gs.cardStrength(daDefCardId) + daDefBoost + (daTopCardId ? gs.cardStrength(daTopCardId) + daTopBoost : 0);
+      var daAtkSum = action.cardIds.reduce(function(s, id) { return s + gs.cardStrength(id); }, 0);
+      var daSuccess = daAtkSum > daThreshold;
+      var daPreview = {
+        attackerIdx: idx, defenderIdx: action.defenderIdx,
+        positionId: action.positionId, level: 0,
+        attackingSymbol: action.symbol, attackingSymbol2: 'none',
+        success: daSuccess, attackCardIds: action.cardIds,
+        defCardIds: daDefCardId != null ? [daDefCardId] : []
+      };
+      gs.setAttackPreview(daPreview);
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var daChoice = {
+        defenderIdx: action.defenderIdx,
+        positionId: action.positionId,
+        cardIds: action.cardIds,
+        symbol: action.symbol,
+        success: daSuccess
+      };
+      botDoDefAttackWithBatteryCheck(sess, gs, daChoice, daPreview, function() {
+        botFinishTurn(sess, gs, idx, true);
+      });
+      return;
+    }
+
+    if (action.type === 'kingAttack') {
+      var kaDefender = gs.players[action.defenderIdx];
+      var kaKingStr = gs.cardStrength(kaDefender.kingCard) + (kaDefender.kingCardBoost || 0);
+      var kaAtkSum = action.symbol === 'joker' ? 999
+        : action.cardIds.reduce(function(s, id) { return s + gs.cardStrength(id); }, 0);
+      var kaSuccess = kaAtkSum > kaKingStr;
+      gs.setAttackPreview({
+        attackerIdx: idx, defenderIdx: action.defenderIdx, positionId: 0, level: 0,
+        attackingSymbol: action.symbol, attackingSymbol2: 'none',
+        success: kaSuccess, attackCardIds: action.cardIds,
+        defCardIds: kaDefender.kingCard != null ? [kaDefender.kingCard] : []
+      });
+      io.to(sess.id).emit('stateUpdate', gs.serialize());
+      var kaDi = action.defenderIdx;
+      var kaCards = action.cardIds;
+      setTimeout(function() {
+        gs.kingAttackResolved(idx, kaDi, kaSuccess, kaCards, false);
+        if (gs.pendingHeroSelection && gs.pendingHeroSelection.attackerIdx === idx) {
+          gs.resolveHeroSelection(gs.pendingHeroSelection.options[0]);
+        }
+        io.to(sess.id).emit('stateUpdate', gs.serialize());
+        checkAndHandleWinner(sess);
+        botFinishTurn(sess, gs, idx, true);
+      }, BOT_ACTION_DELAY);
+      return;
+    }
+
+    // Fallback: pass
+    botFinishTurn(sess, gs, idx, false);
   }
 
   function executeBotTurnWithPersonality(sess, gs, idx, personality) {

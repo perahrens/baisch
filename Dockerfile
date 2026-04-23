@@ -49,7 +49,8 @@ RUN --mount=type=cache,target=/root/.gradle \
     mkdir -p /workspace/html/war/assets/data/sounds && \
     cp /workspace/android/assets/data/sounds/*.mp3 /workspace/html/war/assets/data/sounds/ && \
     cp -r /workspace/html/webapp/. /workspace/html/build/gwt/out/ && \
-    cp -r /workspace/html/war/assets /workspace/html/build/gwt/out/assets
+    cp -r /workspace/html/war/assets /workspace/html/build/gwt/out/assets && \
+    cp /workspace/html/war/music.gif /workspace/html/build/gwt/out/music.gif
 
 # ── Stage 2: Node.js server ──────────────────────────────────────────────────
 FROM node:18-alpine

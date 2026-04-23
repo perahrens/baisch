@@ -48,7 +48,8 @@ The turn ends when the player clicks **Finish Turn**.
 - Server: `attackCount` per player is incremented only in `defAttackResolved`, `kingAttackResolved`, and `warlordDirectAttack`.
 - `plunderResolved` must **not** increment `attackCount`.
 - Client: `playerTurn.attackCounter == 0` triggers the expose prompt in `FinishTurnButtonListener`.
-- Client: `increaseAttackCounter()` is called locally for Warlord direct attack (before the server's `stateUpdate` arrives) to prevent a race-condition false-trigger.
+- Client: `increaseAttackCounter()` **must** be called locally for **every** attack type (including regular defence-card attacks and king assaults) when the attack overlay is confirmed — before `setUpdateState(true)` fires the re-render. This prevents a race-condition where the user clicks "Finish Turn" before the server's `stateUpdate` arrives with the updated `attackCount`, which would falsely trigger the expose-card penalty.
+- The sole exception is Warlord direct attacks: `increaseAttackCounter()` is called at commit time (in `EnemyDefCardListener`) rather than at overlay-confirm time — the pattern is therefore `if (!apt.isPendingAttackIsWarlord()) apt.increaseAttackCounter();` in the overlay click handler.
 
 ---
 
@@ -59,8 +60,15 @@ The turn ends when the player clicks **Finish Turn**.
 - The combined strength of selected cards must **exceed** (not equal) the defence card's strength (plus top defence card if present — Fortified Tower).
 - The attacker's king card can be used instead of hand cards (but cannot be combined with hand cards).
 - The attacking symbol is **locked** after the first attack of a turn; all subsequent attacks in the same turn must use the same suit (or same-colour pair if Banneret).
-- On **success**: the attacker gains the captured defence card(s) as prey cards.
+- On **success**: the attacker gains the captured defence card(s) as **prey cards**.
 - On **failure** (attacker used the king): the attacker is eliminated.
+
+### Prey Cards
+- A prey card is a defence card (or king card) captured by the current player during their current turn.
+- Prey cards are placed in the attacker's hand but are **locked** (greyed-out) for the rest of the turn — they cannot be used in attacks, placed as defence, or discarded until the turn ends.
+- `finishTurn()` on the server clears `preyCards = []` so captured cards become normal hand cards next turn.
+- **Client implementation**: When a successful defence-card attack is confirmed in the overlay click handler, the captured card IDs **must** be added to `atkPlayer.getPlayerTurn().getPreyCardIds()` locally — before `setUpdateState(true)` triggers the re-render. If this is omitted, the first re-render fires before the server's `stateUpdate` arrives with `preyCards`, so the card briefly appears as usable (race-condition bug). The server's `stateUpdate` will confirm the prey list on arrival.
+- Cards gained from a **plunder** are NOT prey cards — they become immediately usable (by design).
 
 ### King Assault
 - The defender's king must be **exposed** (face-up) for a king assault to be possible.

@@ -177,6 +177,10 @@ public class GameScreen extends ScreenAdapter {
   // from bot back to player and fire the MY_TURN_START hook exactly once.
   private int heroTutorialPrevPlayerIdx = -1;
   private JSONArray activityLog = new JSONArray();
+  // Log overlay live-update state
+  private ScrollPane logScrollPane = null;
+  private Table logInnerTable = null;
+  private int logLastRenderedCount = 0;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -779,9 +783,11 @@ public class GameScreen extends ScreenAdapter {
       heroTutorialPrevPlayerIdx = curIdx;
     }
 
-    if (menuOpen && !logOpen) {
+    if (menuOpen && logOpen) {
+      refreshLogOverlay();
+    } else if (menuOpen) {
       buildMenuOverlay();
-    } else if (!menuOpen) {
+    } else {
       addMenuButtonToOverlay();
       if (isTutorial && tutorialStep >= 0) {
         buildTutorialOverlay();
@@ -4121,6 +4127,31 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.addActor(table);
   }
 
+  private void refreshLogOverlay() {
+    if (logScrollPane == null || logInnerTable == null) return;
+    int count = activityLog.length();
+    if (count <= logLastRenderedCount) return;
+    boolean wasAtBottom = logScrollPane.getScrollPercentY() >= 0.95f;
+    try {
+      for (int i = logLastRenderedCount; i < count; i++) {
+        JSONObject entry = activityLog.getJSONObject(i);
+        String text = entry.optString("text", "");
+        boolean neutral = entry.optBoolean("neutral", false);
+        boolean success = entry.optBoolean("success", true);
+        Label lbl = new Label(text, MyGdxGame.skin);
+        lbl.setWrap(true);
+        Color lc = neutral
+            ? new Color(0.85f, 0.85f, 0.85f, 1f)
+            : (success ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+        lbl.setColor(lc);
+        logInnerTable.add(lbl).left().padBottom(4f).expandX().fillX().row();
+      }
+    } catch (JSONException e) { e.printStackTrace(); }
+    logLastRenderedCount = count;
+    logScrollPane.layout();
+    if (wasAtBottom) logScrollPane.setScrollPercentY(1f);
+  }
+
   private void showLogOverlay() {
     logOpen = true;
     overlayStage.clear();
@@ -4140,11 +4171,13 @@ public class GameScreen extends ScreenAdapter {
     // Scrollable inner table holds all log entries
     final Table inner = new Table();
     inner.top().left().pad(6f);
+    logInnerTable = inner;
 
     if (activityLog.length() == 0) {
       Label emptyLabel = new Label("No history yet.", MyGdxGame.skin);
       emptyLabel.setColor(Color.GRAY);
       inner.add(emptyLabel).row();
+      logLastRenderedCount = 0;
     } else {
       try {
         for (int i = 0; i < activityLog.length(); i++) {
@@ -4161,9 +4194,11 @@ public class GameScreen extends ScreenAdapter {
           inner.add(lbl).left().padBottom(4f).expandX().fillX().row();
         }
       } catch (JSONException e) { e.printStackTrace(); }
+      logLastRenderedCount = activityLog.length();
     }
 
     ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
+    logScrollPane = scroll;
     scroll.setFadeScrollBars(false);
     scroll.setScrollingDisabled(true, false);
     scroll.layout();

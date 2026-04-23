@@ -611,7 +611,7 @@ public class GameScreen extends ScreenAdapter {
           @Override
           public void run() {
             screenDisposed = true;
-            theGame.setScreen(new StatsScreen(theGame, theSocket, statsJson));
+            theGame.setScreen(new StatsScreen(theGame, theSocket, statsJson, activityLog));
           }
         });
       }

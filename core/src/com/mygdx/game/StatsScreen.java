@@ -37,13 +37,15 @@ public class StatsScreen extends AbstractScreen {
 
   private final SocketClient socket;
   private final JSONObject stats;
+  private final JSONArray log;
   private Stage stage;
-  private boolean showPlayersTab = false;
+  private int activeTab = 0; // 0=General, 1=Players, 2=History
 
-  public StatsScreen(Game game, SocketClient socket, JSONObject stats) {
+  public StatsScreen(Game game, SocketClient socket, JSONObject stats, JSONArray log) {
     super(game);
     this.socket = socket;
     this.stats  = stats;
+    this.log    = (log != null) ? log : new JSONArray();
   }
 
   @Override
@@ -68,26 +70,31 @@ public class StatsScreen extends AbstractScreen {
     // ── Tab bar ──────────────────────────────────────────────────────────────
     Label generalTab = new Label("General", MyGdxGame.skin);
     Label playersTab = new Label("Players", MyGdxGame.skin);
+    Label historyTab = new Label("History", MyGdxGame.skin);
     generalTab.pack();
     playersTab.pack();
+    historyTab.pack();
 
-    float tabGap    = 32f;
-    float tabsWidth = generalTab.getWidth() + tabGap + playersTab.getWidth();
+    float tabGap    = 28f;
+    float tabsWidth = generalTab.getWidth() + tabGap + playersTab.getWidth() + tabGap + historyTab.getWidth();
     float tabY      = 0.855f * MyGdxGame.HEIGHT;
     float underlineH = 3f;
 
     generalTab.setPosition(Math.round(cx - tabsWidth / 2f), tabY);
     playersTab.setPosition(Math.round(cx - tabsWidth / 2f + generalTab.getWidth() + tabGap), tabY);
+    historyTab.setPosition(Math.round(cx - tabsWidth / 2f + generalTab.getWidth() + tabGap + playersTab.getWidth() + tabGap), tabY);
 
-    generalTab.setColor(!showPlayersTab ? ACTIVE_COLOR : INACTIVE_COLOR);
-    playersTab.setColor( showPlayersTab ? ACTIVE_COLOR : INACTIVE_COLOR);
+    generalTab.setColor(activeTab == 0 ? ACTIVE_COLOR : INACTIVE_COLOR);
+    playersTab.setColor(activeTab == 1 ? ACTIVE_COLOR : INACTIVE_COLOR);
+    historyTab.setColor(activeTab == 2 ? ACTIVE_COLOR : INACTIVE_COLOR);
     generalTab.setTouchable(Touchable.disabled);
     playersTab.setTouchable(Touchable.disabled);
+    historyTab.setTouchable(Touchable.disabled);
 
-    Label activeTab = !showPlayersTab ? generalTab : playersTab;
+    Label activeTabLabel = (activeTab == 0) ? generalTab : (activeTab == 1) ? playersTab : historyTab;
     Image underline = new Image(MyGdxGame.skin.newDrawable("white", UNDERLINE_COLOR));
-    underline.setSize(activeTab.getWidth(), underlineH);
-    underline.setPosition(activeTab.getX(), activeTab.getY() - underlineH - 2f);
+    underline.setSize(activeTabLabel.getWidth(), underlineH);
+    underline.setPosition(activeTabLabel.getX(), activeTabLabel.getY() - underlineH - 2f);
 
     // Invisible hit actors for generous tap targets
     com.badlogic.gdx.scenes.scene2d.Actor generalHit = new com.badlogic.gdx.scenes.scene2d.Actor();
@@ -95,7 +102,7 @@ public class StatsScreen extends AbstractScreen {
         generalTab.getWidth() + 16f, generalTab.getHeight() + 16f);
     generalHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = false; show();
+        activeTab = 0; show();
       }
     });
 
@@ -104,21 +111,34 @@ public class StatsScreen extends AbstractScreen {
         playersTab.getWidth() + 16f, playersTab.getHeight() + 16f);
     playersHit.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
-        showPlayersTab = true; show();
+        activeTab = 1; show();
+      }
+    });
+
+    com.badlogic.gdx.scenes.scene2d.Actor historyHit = new com.badlogic.gdx.scenes.scene2d.Actor();
+    historyHit.setBounds(historyTab.getX() - 8f, tabY - 8f,
+        historyTab.getWidth() + 16f, historyTab.getHeight() + 16f);
+    historyHit.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        activeTab = 2; show();
       }
     });
 
     stage.addActor(generalHit);
     stage.addActor(playersHit);
+    stage.addActor(historyHit);
     stage.addActor(underline);
     stage.addActor(generalTab);
     stage.addActor(playersTab);
+    stage.addActor(historyTab);
 
     // ── Tab content ──────────────────────────────────────────────────────────
-    if (!showPlayersTab) {
+    if (activeTab == 0) {
       buildGeneralTab(cx);
-    } else {
+    } else if (activeTab == 1) {
       buildPlayersTab(cx);
+    } else {
+      buildHistoryTab(cx);
     }
 
     // ── Return to Lobby button ───────────────────────────────────────────────
@@ -270,6 +290,46 @@ public class StatsScreen extends AbstractScreen {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+  private void buildHistoryTab(float cx) {
+    float contentTop    = 0.825f * MyGdxGame.HEIGHT;
+    float contentBottom = 0.14f  * MyGdxGame.HEIGHT;
+    float contentH = contentTop - contentBottom;
+    float contentW = 0.92f * MyGdxGame.WIDTH;
+
+    Table inner = new Table();
+    inner.top().left().pad(6f);
+
+    if (log.length() == 0) {
+      Label empty = new Label("No history yet.", MyGdxGame.skin);
+      empty.setColor(INACTIVE_COLOR);
+      inner.add(empty).row();
+    } else {
+      try {
+        for (int i = 0; i < log.length(); i++) {
+          JSONObject entry = log.getJSONObject(i);
+          String text    = entry.optString("text", "");
+          boolean neutral = entry.optBoolean("neutral", false);
+          boolean success = entry.optBoolean("success", true);
+          Label lbl = new Label(text, MyGdxGame.skin);
+          lbl.setWrap(true);
+          Color lc = neutral
+              ? new Color(0.85f, 0.85f, 0.85f, 1f)
+              : (success ? new Color(0.3f, 0.95f, 0.3f, 1f) : new Color(0.95f, 0.3f, 0.25f, 1f));
+          lbl.setColor(lc);
+          inner.add(lbl).left().padBottom(4f).width(contentW - 24f).row();
+        }
+      } catch (JSONException e) { e.printStackTrace(); }
+    }
+
+    ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
+    scroll.setFadeScrollBars(false);
+    scroll.setScrollingDisabled(true, false);
+    scroll.setSize(contentW, contentH);
+    scroll.setPosition(Math.round(cx - contentW / 2f), Math.round(contentBottom));
+    scroll.layout();
+    scroll.setScrollPercentY(1f);
+    stage.addActor(scroll);
+  }
 
   private static void addCell(Table table, String text, float minWidth, Color color, boolean leftAlign) {
     Label lbl = new Label(text, MyGdxGame.skin);

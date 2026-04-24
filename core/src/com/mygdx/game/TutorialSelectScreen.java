@@ -109,7 +109,7 @@ public class TutorialSelectScreen extends AbstractScreen {
 
   @Override
   public void render(float delta) {
-    Gdx.gl.glClearColor(0.08f, 0.08f, 0.18f, 1f);
+    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     stage.act(delta);
     stage.draw();

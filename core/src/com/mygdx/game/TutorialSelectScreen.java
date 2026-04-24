@@ -55,7 +55,7 @@ public class TutorialSelectScreen extends AbstractScreen {
         socket.emit("createTutorial", new JSONObject());
       }
     });
-    root.add(basicBtn).width(340f).height(66f).padBottom(24f).row();
+    root.add(basicBtn).width(340f).height(72f).padBottom(24f).row();
 
     // Section label
     Label heroLabel = new Label("Hero Tutorials", MyGdxGame.skin, "default");
@@ -81,7 +81,7 @@ public class TutorialSelectScreen extends AbstractScreen {
           }
         }
       });
-      heroTable.add(btn).width(320f).height(62f).padBottom(6f).row();
+      heroTable.add(btn).width(320f).height(72f).padBottom(6f).row();
     }
 
     ScrollPane scroll = new ScrollPane(heroTable, MyGdxGame.skin);
@@ -97,7 +97,7 @@ public class TutorialSelectScreen extends AbstractScreen {
         game.setScreen(new MenuScreen(game, socket));
       }
     });
-    root.add(backBtn).width(200f).height(62f).padTop(14f).row();
+    root.add(backBtn).width(200f).height(72f).padTop(14f).row();
 
     stage.addActor(root);
   }

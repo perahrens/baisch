@@ -3659,10 +3659,9 @@ public class GameScreen extends ScreenAdapter {
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
     finishTurnButton.setSize(finishTurnButton.getPrefWidth() + 10, finishTurnButton.getPrefHeight());
-    finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
+    finishTurnButton.setPosition(0, 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
-
-    // Turn indicator (spectators are never "my turn")
+    myPlayerLabel.setColor(Color.WHITE);
     boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);
 
     // "Sacrifice Joker" button — only on your turn, bottom-left of hand stage
@@ -4077,7 +4076,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    table.add(resumeBtn).width(300).height(76).padBottom(14).row();
+    table.add(resumeBtn).width(300).height(72).padBottom(14).row();
 
     TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
     historyBtn.addListener(new ClickListener() {
@@ -4086,7 +4085,7 @@ public class GameScreen extends ScreenAdapter {
         GameScreen.this.showLogOverlay();
       }
     });
-    table.add(historyBtn).width(300).height(76).padBottom(14).row();
+    table.add(historyBtn).width(300).height(72).padBottom(14).row();
 
     final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
     TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
@@ -4098,7 +4097,7 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-    table.add(musicBtn).width(300).height(76).padBottom(14).row();
+    table.add(musicBtn).width(300).height(72).padBottom(14).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
@@ -4109,7 +4108,7 @@ public class GameScreen extends ScreenAdapter {
           navigateToLobby();
         }
       });
-      table.add(leaveBtn).width(300).height(76).row();
+      table.add(leaveBtn).width(300).height(72).row();
     } else {
       TextButton giveUpStayBtn = new TextButton("Give Up & Stay", MyGdxGame.skin);
       giveUpStayBtn.addListener(new ClickListener() {
@@ -4119,7 +4118,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      table.add(giveUpStayBtn).width(300).height(76).padBottom(14).row();
+      table.add(giveUpStayBtn).width(300).height(72).padBottom(14).row();
 
       TextButton giveUpLeaveBtn = new TextButton("Give Up & Leave", MyGdxGame.skin);
       giveUpLeaveBtn.addListener(new ClickListener() {
@@ -4129,7 +4128,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      table.add(giveUpLeaveBtn).width(300).height(76).row();
+      table.add(giveUpLeaveBtn).width(300).height(72).row();
     }
 
     overlayStage.addActor(table);
@@ -4220,7 +4219,7 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-      outer.add(backBtn).width(300).height(76).padTop(8).row();
+      outer.add(backBtn).width(300).height(72).padTop(8).row();
 
     overlayStage.addActor(outer);
   }

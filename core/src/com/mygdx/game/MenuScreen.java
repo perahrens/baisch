@@ -538,11 +538,11 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
-      // Evenly-spaced button row: Rules | Tutorial | Create game | Log out
+      // Evenly-spaced button row: Rules | Tutorial | Create game
       float btnH = button.getPrefHeight();
       float gap = 8f;
       float margin = 16f;
-      float btnW = (MyGdxGame.WIDTH - 2 * margin - 3 * gap) / 4f;
+      float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
       float btnY = Math.round(0.06f * MyGdxGame.HEIGHT);
 
       TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
@@ -575,17 +575,9 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
-      TextButton lobbyLogoutBtn = new TextButton("Log out", MyGdxGame.skin);
-      lobbyLogoutBtn.setSize(btnW, btnH);
-      lobbyLogoutBtn.setPosition(margin + 3 * (btnW + gap), btnY);
-      lobbyLogoutBtn.addListener(new ClickListener() {
-        @Override public void clicked(InputEvent event, float x, float y) { logout(); }
-      });
-
       menuStage.addActor(rulesBtn);
       menuStage.addActor(tutorialBtn);
       menuStage.addActor(createBtn);
-      menuStage.addActor(lobbyLogoutBtn);
     } else {
       // ── Players tab ─────────────────────────────────────────────────────────
       Table playersTable = new Table(MyGdxGame.skin);
@@ -638,6 +630,7 @@ public class MenuScreen extends AbstractScreen {
     }
 
     addMusicToggleButton(menuStage);
+    addLogoutButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 

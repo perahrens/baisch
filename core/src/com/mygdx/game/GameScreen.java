@@ -4614,7 +4614,7 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+    banner.top().padTop(6f).padLeft(10f).padRight(85f);
 
     Label stepLbl = new Label("Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  ", MyGdxGame.skin);
     stepLbl.setColor(1f, 1f, 1f, 0.55f);
@@ -4628,7 +4628,7 @@ public class GameScreen extends ScreenAdapter {
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);
-    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 95f).left().row();
 
     overlayStage.addActor(banner);
 
@@ -4730,7 +4730,7 @@ public class GameScreen extends ScreenAdapter {
           buildHeroTutorialOverlay();
         }
       });
-      outer.add(gotItBtn).width(280).height(52).row();
+      outer.add(gotItBtn).width(gotItBtn.getPrefWidth() + 20).height(gotItBtn.getPrefHeight()).row();
 
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
@@ -4739,7 +4739,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      outer.add(skipBtn).width(200).height(40).padTop(8).row();
+      outer.add(skipBtn).width(skipBtn.getPrefWidth() + 20).height(skipBtn.getPrefHeight()).padTop(8).row();
     }
 
     overlayStage.addActor(outer);
@@ -4758,7 +4758,7 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+    banner.top().padTop(6f).padLeft(10f).padRight(180f);
 
     int total = heroTutorialSteps.length;
     Label stepLbl = new Label("Step " + (heroTutorialStep + 1) + "/" + total + "  ", MyGdxGame.skin);
@@ -4773,7 +4773,7 @@ public class GameScreen extends ScreenAdapter {
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);
-    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 190f).left().row();
 
     overlayStage.addActor(banner);
 

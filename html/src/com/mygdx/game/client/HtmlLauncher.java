@@ -36,6 +36,18 @@ public class HtmlLauncher extends GwtApplication {
                 refreshMusicButton(MyGdxGame.playerStorage.getMusicEnabled());
             }
         };
+        MyGdxGame.onGameScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setMusicButtonVisible(false);
+            }
+        };
+        MyGdxGame.onMenuScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setMusicButtonVisible(true);
+            }
+        };
         installAudioUnlocker(app);
         return app;
     }
@@ -139,5 +151,11 @@ public class HtmlLauncher extends GwtApplication {
     /** Called from the onMusicUiUpdate Runnable to keep the GIF in sync with Java state. */
     private static native void refreshMusicButton(boolean enabled) /*-{
         if ($wnd._baischSetMusicBtn) $wnd._baischSetMusicBtn(enabled);
+    }-*/;
+
+    /** Shows or hides the DOM music button when switching between game and menu screens. */
+    private static native void setMusicButtonVisible(boolean visible) /*-{
+        var img = $doc.getElementById('baisch-music-img');
+        if (img) img.style.display = visible ? 'block' : 'none';
     }-*/;
 }

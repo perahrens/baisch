@@ -54,6 +54,10 @@ public class MyGdxGame extends Game implements InputProcessor {
    * Set by HtmlLauncher; null on non-web platforms.
    */
   public static Runnable onMusicUiUpdate = null;
+  /** Called when the game-play screen becomes active; hides the native music button. */
+  public static Runnable onGameScreenActive = null;
+  /** Called when a menu/stats screen becomes active; shows the native music button again. */
+  public static Runnable onMenuScreenActive = null;
 
   /** Singleton reference — set in {@link #create()} for JSNI callbacks. */
   public static MyGdxGame INSTANCE;

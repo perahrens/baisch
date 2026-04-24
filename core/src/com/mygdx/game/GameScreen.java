@@ -729,6 +729,7 @@ public class GameScreen extends ScreenAdapter {
   public void show() {
     INSTANCE = this;
     MyGdxGame.setMusicTrack(null); // no music during the game
+    if (MyGdxGame.onGameScreenActive != null) MyGdxGame.onGameScreenActive.run();
 
     players = gameState.getPlayers();
     // Spectators always follow the player whose turn it currently is.
@@ -2604,20 +2605,27 @@ public class GameScreen extends ScreenAdapter {
       hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
       gameStage.addActor(hsTitle);
 
-      // Layout hero buttons in rows of 4
-      float btnW    = MyGdxGame.WIDTH / 5f;
-      float btnGapX = MyGdxGame.WIDTH * 0.05f;
-      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      // Layout: compute button width from the widest hero name so text never clips.
+      float maxBtnPrefW = 0f;
+      for (Hero c : choices) {
+        TextButton tb = new TextButton(c.getHeroName(), MyGdxGame.skin);
+        maxBtnPrefW = Math.max(maxBtnPrefW, tb.getPrefWidth());
+      }
+      float btnW = maxBtnPrefW + 20f;
+      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+      numCols = Math.min(numCols, choices.size());
+      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
       float startY  = MyGdxGame.WIDTH * 0.62f;
       float rowH    = 0f;
 
       for (int ci = 0; ci < choices.size(); ci++) {
         final Hero choice = choices.get(ci);
         TextButton heroBtn = new TextButton(choice.getHeroName(), MyGdxGame.skin);
-        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
-        int col = ci % 4;
-        int row = ci / 4;
-        heroBtn.setWidth(btnW);
+        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
+        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
+        int col = ci % numCols;
+        int row = ci / numCols;
         heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
@@ -2668,19 +2676,26 @@ public class GameScreen extends ScreenAdapter {
       kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
       gameStage.addActor(kdTitle);
 
-      float btnW    = MyGdxGame.WIDTH / 5f;
-      float btnGapX = MyGdxGame.WIDTH * 0.05f;
-      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      float maxKdPrefW = 0f;
+      for (String n : kdOptions) {
+        TextButton tb = new TextButton(n, MyGdxGame.skin);
+        maxKdPrefW = Math.max(maxKdPrefW, tb.getPrefWidth());
+      }
+      float btnW = maxKdPrefW + 20f;
+      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+      numCols = Math.min(numCols, kdOptions.size());
+      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
       float startY  = MyGdxGame.WIDTH * 0.62f;
       float rowH    = 0f;
 
       for (int ci = 0; ci < kdOptions.size(); ci++) {
         final String heroName = kdOptions.get(ci);
         TextButton heroBtn = new TextButton(heroName, MyGdxGame.skin);
-        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
-        int col = ci % 4;
-        int row = ci / 4;
-        heroBtn.setWidth(btnW);
+        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
+        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
+        int col = ci % numCols;
+        int row = ci / numCols;
         heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
@@ -2716,18 +2731,25 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(selTitle);
 
         final ArrayList<Hero> phList = currentPlayer.getHeroes();
-        float btnW    = MyGdxGame.WIDTH / 5f;
-        float btnGapX = MyGdxGame.WIDTH * 0.05f;
-        float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+        float maxPhPrefW = 0f;
+        for (Hero ph : phList) {
+          TextButton tb = new TextButton(ph.getHeroName(), MyGdxGame.skin);
+          maxPhPrefW = Math.max(maxPhPrefW, tb.getPrefWidth());
+        }
+        float btnW = maxPhPrefW + 20f;
+        int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+        numCols = Math.min(numCols, phList.size());
+        float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+        float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
         float startY  = MyGdxGame.WIDTH * 0.58f;
         float rowH    = 0f;
         for (int ci = 0; ci < phList.size(); ci++) {
           final String hName = phList.get(ci).getHeroName();
           TextButton hBtn = new TextButton(hName, MyGdxGame.skin);
-          if (rowH == 0f) rowH = hBtn.getHeight() + 8f;
-          int col = ci % 4;
-          int row = ci / 4;
-          hBtn.setWidth(btnW);
+          hBtn.setSize(btnW, hBtn.getPrefHeight());
+          if (rowH == 0f) rowH = hBtn.getPrefHeight() + 8f;
+          int col = ci % numCols;
+          int row = ci / numCols;
           hBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
           hBtn.addListener(new ClickListener() {
             @Override
@@ -2740,7 +2762,8 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(hBtn);
         }
         TextButton selCancel = new TextButton("Cancel", MyGdxGame.skin);
-        selCancel.setPosition(MyGdxGame.WIDTH / 2f - selCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.35f);
+        selCancel.setSize(selCancel.getPrefWidth() + 20, selCancel.getPrefHeight());
+        selCancel.setPosition(MyGdxGame.WIDTH / 2f - selCancel.getWidth() / 2f, MyGdxGame.WIDTH * 0.35f);
         selCancel.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2806,7 +2829,8 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(confirmBtn);
 
         TextButton mbCancel = new TextButton("Cancel", MyGdxGame.skin);
-        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.14f);
+        mbCancel.setSize(mbCancel.getPrefWidth() + 20, mbCancel.getPrefHeight());
+        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getWidth() / 2f, MyGdxGame.WIDTH * 0.14f);
         mbCancel.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2971,8 +2995,9 @@ public class GameScreen extends ScreenAdapter {
 
           final int finalTotal = totalBidStr;
           TextButton bidBtn = new TextButton("Bid", MyGdxGame.skin);
+          bidBtn.setSize(bidBtn.getPrefWidth() + 20, bidBtn.getPrefHeight());
           bidBtn.setColor(canBid ? Color.WHITE : Color.DARK_GRAY);
-          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.HEIGHT * 0.04f);
+          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getWidth() - 8f, MyGdxGame.HEIGHT * 0.04f);
           if (canBid) {
             final java.util.Set<Integer> snapHand = new java.util.HashSet<Integer>(auctionBidHandCardIds);
             final java.util.Set<Integer> snapDef  = new java.util.HashSet<Integer>(auctionBidDefCardIds);
@@ -2998,7 +3023,8 @@ public class GameScreen extends ScreenAdapter {
           overlayStage.addActor(bidBtn);
 
           TextButton passBtn = new TextButton("Pass", MyGdxGame.skin);
-          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 16f, MyGdxGame.HEIGHT * 0.04f);
+          passBtn.setSize(passBtn.getPrefWidth() + 20, passBtn.getPrefHeight());
+          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 8f, MyGdxGame.HEIGHT * 0.04f);
           passBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -3673,8 +3699,8 @@ public class GameScreen extends ScreenAdapter {
         // lower area, so theJoker coords are valid in overlayStage too.
         float rawBtnX = theJoker.getX() + theJoker.getWidth() / 2f - hBtnW / 2f;
         float hBtnX = Math.max(0f, Math.min(rawBtnX, MyGdxGame.WIDTH - hBtnW));
-        // Place button at the lower end of the joker card (slightly inside)
-        float hBtnY = theJoker.getY() + 4f;
+        // Place button just below the joker card so it never overlaps the card art.
+        float hBtnY = Math.max(0f, theJoker.getY() - hBtnH - 4f);
         heroBtn.setPosition(hBtnX, hBtnY);
         heroBtn.addListener(new ClickListener() {
           @Override

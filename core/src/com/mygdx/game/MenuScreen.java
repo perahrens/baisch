@@ -279,6 +279,7 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     heroSelectBox.hideList();
     menuStage.clear();
     if (menuBgTexture == null) menuBgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));

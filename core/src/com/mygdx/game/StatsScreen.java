@@ -52,6 +52,7 @@ public class StatsScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     stage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
     Gdx.input.setInputProcessor(stage);
     if (bgTexture == null) bgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));

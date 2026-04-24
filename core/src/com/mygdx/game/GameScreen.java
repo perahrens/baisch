@@ -2787,7 +2787,9 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(plusBtn);
 
         TextButton confirmBtn = new TextButton("Start Auction", MyGdxGame.skin);
-        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - confirmBtn.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.38f);
+        float caBtnW = confirmBtn.getPrefWidth() + 20;
+        confirmBtn.setSize(caBtnW, confirmBtn.getPrefHeight());
+        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - caBtnW / 2f, MyGdxGame.WIDTH * 0.38f);
         confirmBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -3663,17 +3665,26 @@ public class GameScreen extends ScreenAdapter {
       if (jokerInHand != null) {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
-        heroBtn.setSize(heroBtn.getPrefWidth() + 20, heroBtn.getPrefHeight());
-        // Place at the bottom of the joker card, centered horizontally over it
-        float btnX = theJoker.getX() + theJoker.getWidth() / 2f - heroBtn.getWidth() / 2f;
-        heroBtn.setPosition(btnX, theJoker.getY());
+        float hBtnW = heroBtn.getPrefWidth() + 20;
+        float hBtnH = heroBtn.getPrefHeight();
+        heroBtn.setSize(hBtnW, hBtnH);
+        // Center over joker, clamped so button stays fully within stage width.
+        // handStage and overlayStage share the same Y coordinate space for the
+        // lower area, so theJoker coords are valid in overlayStage too.
+        float rawBtnX = theJoker.getX() + theJoker.getWidth() / 2f - hBtnW / 2f;
+        float hBtnX = Math.max(0f, Math.min(rawBtnX, MyGdxGame.WIDTH - hBtnW));
+        // Place button at the lower end of the joker card (slightly inside)
+        float hBtnY = theJoker.getY() + 4f;
+        heroBtn.setPosition(hBtnX, hBtnY);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
             performJokerSacrifice(theJoker);
           }
         });
-        handStage.addActor(heroBtn);
+        // Use overlayStage: rendered on top of cards, and first in the input
+        // multiplexer — guarantees visual and clickable areas always match.
+        overlayStage.addActor(heroBtn);
       }
     }
 
@@ -5219,6 +5230,10 @@ public class GameScreen extends ScreenAdapter {
         PickingDeckListener pdl1 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(1), gameState.getPickingDecks().get(0), 1);
         gameState.getPickingDecks().get(1).addListener(pdl1);
       }
+
+      // Sync round number
+      int serverRound = state.optInt("roundNumber", 0);
+      if (serverRound > 0) gameState.setRoundNumber(serverRound);
 
       // 7. Activity log
       JSONArray logJson = state.optJSONArray("log");

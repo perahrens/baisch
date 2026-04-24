@@ -4581,7 +4581,7 @@ public class GameScreen extends ScreenAdapter {
           buildTutorialOverlay();
         }
       });
-      outer.add(gotItBtn).width(gotItBtn.getPrefWidth() + 20).height(gotItBtn.getPrefHeight()).row();
+      outer.add(gotItBtn).width(280).height(52).row();
 
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
@@ -4592,7 +4592,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(skipBtn).width(skipBtn.getPrefWidth() + 20).height(skipBtn.getPrefHeight()).padTop(8).row();
+      outer.add(skipBtn).width(200).height(40).padTop(8).row();
     }
 
     overlayStage.addActor(outer);

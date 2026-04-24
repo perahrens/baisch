@@ -3755,15 +3755,15 @@ public class GameScreen extends ScreenAdapter {
           if (c.isCovered()) { stillHasCovered = true; break; }
         }
       }
-      if (stillHasCovered) {
-        addExposeCardOverlay();
-      } else {
+      if (!stillHasCovered) {
         pendingExposeCard = false;
         finishTurnButton.setVisible(isMyTurn);
         finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
         finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
         finishTurnButton.addListener(finishTurnButtonListener);
       }
+      // addExposeCardOverlay() is called at the end of showHandStage() so it
+      // renders on top of all other handStage actors (hudPanel, sellHeroBtn etc.)
     } else {
       finishTurnButton.setVisible(isMyTurn);
       finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
@@ -3939,6 +3939,9 @@ public class GameScreen extends ScreenAdapter {
     }
 
     handStage.addActor(finishTurnButton);
+    // Expose-card overlay must be added last so its actors render on top of
+    // hudPanel, sellHeroActionBtn and finishTurnButton.
+    if (isMyTurn && pendingExposeCard) addExposeCardOverlay();
   }
 
   private void addExposeCardOverlay() {

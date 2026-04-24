@@ -717,7 +717,7 @@ public class MenuScreen extends AbstractScreen {
     final SelectBox<String>[] botBoxes = new SelectBox[totalBotSlots];
     for (int bi = 0; bi < totalBotSlots; bi++) {
       botLabels[bi] = new Label("Bot " + (bi + 1) + ":", MyGdxGame.skin);
-      botBoxes[bi] = new SelectBox<String>(MyGdxGame.skin);
+      botBoxes[bi] = new SelectBox<String>(MyGdxGame.plainSkin);
       Array<String> botOpts = new Array<String>();
       for (String d : BOT_DISPLAY) botOpts.add(d);
       botBoxes[bi].setItems(botOpts);

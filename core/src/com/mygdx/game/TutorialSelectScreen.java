@@ -74,6 +74,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     // Scrollable list of hero buttons
     Table heroTable = new Table();
     heroTable.top();
+    heroTable.defaults().space(0).pad(0);
     for (final String heroName : HERO_NAMES) {
       TextButton btn = new TextButton(heroName, MyGdxGame.skin);
       btn.addListener(new ClickListener() {
@@ -90,7 +91,7 @@ public class TutorialSelectScreen extends AbstractScreen {
           }
         }
       });
-      heroTable.add(btn).width(320f).height(90f).padBottom(2f).row();
+      heroTable.add(btn).width(320f).height(65f).padBottom(2f).row();
     }
 
     ScrollPane scroll = new ScrollPane(heroTable, MyGdxGame.skin);

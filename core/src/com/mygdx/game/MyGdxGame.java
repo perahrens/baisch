@@ -147,7 +147,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     stage = new Stage();
     Gdx.input.setInputProcessor(stage);
 
-    skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
+    skin = new Skin(Gdx.files.internal("data/skins/golden-spiral/golden-ui-skin.json"));
 
     // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
     // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the

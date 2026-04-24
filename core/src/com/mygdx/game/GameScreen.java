@@ -4557,7 +4557,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
+      outer.add(exitBtn).width(exitBtn.getPrefWidth() + 20).height(exitBtn.getPrefHeight()).padBottom(10).row();
 
       TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
       keepBtn.addListener(new ClickListener() {
@@ -4568,7 +4568,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(keepBtn).width(280).height(50).row();
+      outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
       final int nextStep = tutorialStep + 1;
       String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
@@ -4581,7 +4581,7 @@ public class GameScreen extends ScreenAdapter {
           buildTutorialOverlay();
         }
       });
-      outer.add(gotItBtn).width(280).height(52).row();
+      outer.add(gotItBtn).width(gotItBtn.getPrefWidth() + 20).height(gotItBtn.getPrefHeight()).row();
 
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
@@ -4592,7 +4592,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(skipBtn).width(200).height(40).padTop(8).row();
+      outer.add(skipBtn).width(skipBtn.getPrefWidth() + 20).height(skipBtn.getPrefHeight()).padTop(8).row();
     }
 
     overlayStage.addActor(outer);
@@ -4633,8 +4633,8 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.addActor(banner);
 
     TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
-    skipBtn.setSize(70f, 30f);
-    skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
+    skipBtn.setSize(skipBtn.getPrefWidth() + 20, skipBtn.getPrefHeight());
+    skipBtn.setPosition(MyGdxGame.WIDTH - skipBtn.getWidth() - 5f, bannerY + bannerH - skipBtn.getHeight() - 4f);
     skipBtn.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         tutorialStep = -1;
@@ -4707,7 +4707,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
+      outer.add(exitBtn).width(exitBtn.getPrefWidth() + 20).height(exitBtn.getPrefHeight()).padBottom(10).row();
 
       TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
       keepBtn.addListener(new ClickListener() {
@@ -4718,7 +4718,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(keepBtn).width(280).height(50).row();
+      outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
       String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
       TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
@@ -4778,8 +4778,8 @@ public class GameScreen extends ScreenAdapter {
     overlayStage.addActor(banner);
 
     TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
-    skipBtn.setSize(70f, 30f);
-    skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
+    skipBtn.setSize(skipBtn.getPrefWidth() + 20, skipBtn.getPrefHeight());
+    skipBtn.setPosition(MyGdxGame.WIDTH - skipBtn.getWidth() - 5f, bannerY + bannerH - skipBtn.getHeight() - 4f);
     skipBtn.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         heroTutorialStep = -1;
@@ -4791,8 +4791,8 @@ public class GameScreen extends ScreenAdapter {
     // Manual "Next" button so the player can advance past steps whose hook
     // they may not be able to satisfy in the current state.
     TextButton nextBtn = new TextButton("Next ►", MyGdxGame.skin);
-    nextBtn.setSize(90f, 30f);
-    nextBtn.setPosition(MyGdxGame.WIDTH - 170f, bannerY + bannerH - 34f);
+    nextBtn.setSize(nextBtn.getPrefWidth() + 20, nextBtn.getPrefHeight());
+    nextBtn.setPosition(MyGdxGame.WIDTH - skipBtn.getWidth() - nextBtn.getWidth() - 15f, bannerY + bannerH - nextBtn.getHeight() - 4f);
     nextBtn.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) {
         heroTutorialStep++;

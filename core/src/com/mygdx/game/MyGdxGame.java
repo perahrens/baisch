@@ -111,13 +111,22 @@ public class MyGdxGame extends Game implements InputProcessor {
    * Called from the DOM touchend/click handler to start music inside the
    * browser's user-activation context.  We call stop() before play() because
    * an earlier rejected play() may have left SoundManager2's playState stale.
+   * Guards against re-triggering if music was already started.
    */
   public void resumeMusicIfEnabled() {
-    if (playerStorage.getMusicEnabled() && activeMusic != null) {
+    if (playerStorage.getMusicEnabled() && activeMusic != null && !musicStarted) {
       musicStarted = true;
       activeMusic.stop();
       activeMusic.play();
     }
+  }
+
+  /**
+   * Returns true once the music track has been loaded (activeMusic != null).
+   * Used by the DOM audio unlocker to decide whether to remove its listener.
+   */
+  public boolean isMusicActive() {
+    return activeMusic != null;
   }
 
   /** Toggle music on/off, persist the preference, and update playback immediately. */

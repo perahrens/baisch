@@ -431,8 +431,14 @@ public class MenuScreen extends AbstractScreen {
     final Color INACTIVE_COLOR = new Color(1f, 1f, 1f, 0.35f);
     final Color UNDERLINE_COLOR = new Color(0.98f, 0.80f, 0.25f, 1f); // warm gold
 
-    Label gamesTab   = new Label("Games",   MyGdxGame.skin);
-    Label playersTab = new Label("Players", MyGdxGame.skin);
+    Label gamesTab   = new Label("Games",   MyGdxGame.skin, "title");
+    Label playersTab = new Label("Players", MyGdxGame.skin, "title");
+    // Use linear filter on title font for smooth downscale rendering
+    MyGdxGame.skin.getFont("title").getRegion().getTexture()
+        .setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear,
+                   com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+    gamesTab.setFontScale(0.55f);
+    playersTab.setFontScale(0.55f);
     gamesTab.pack();
     playersTab.pack();
 
@@ -481,16 +487,6 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(underline);
     menuStage.addActor(gamesTab);
     menuStage.addActor(playersTab);
-
-    // Small logo at top of session-list screen
-    Image smallLogo = new Image(logoRegion);
-    float smallLogoW = Math.round(logoImage.getWidth() * 0.22f);
-    float smallLogoH = Math.round(logoImage.getHeight() * 0.22f);
-    smallLogo.setSize(smallLogoW, smallLogoH);
-    smallLogo.setPosition(
-        Math.round(cx - smallLogoW / 2f),
-        Math.round(MyGdxGame.HEIGHT - smallLogoH - 5f));
-    menuStage.addActor(smallLogo);
 
     if (!showPlayersTab) {
       // ── Games tab ───────────────────────────────────────────────────────────
@@ -953,16 +949,6 @@ public class MenuScreen extends AbstractScreen {
     MyGdxGame.setMusicTrack(timerStarted ? MyGdxGame.musicIntrigue : MyGdxGame.musicDrums);
     float cx = MyGdxGame.WIDTH / 2f;
     float buttonY = 0.16f * MyGdxGame.HEIGHT;
-
-    // Small logo at top of lobby screen
-    Image lobbyLogo = new Image(logoRegion);
-    float lobbyLogoW = Math.round(logoImage.getWidth() * 0.22f);
-    float lobbyLogoH = Math.round(logoImage.getHeight() * 0.22f);
-    lobbyLogo.setSize(lobbyLogoW, lobbyLogoH);
-    lobbyLogo.setPosition(
-        Math.round(cx - lobbyLogoW / 2f),
-        Math.round(MyGdxGame.HEIGHT - lobbyLogoH - 5f));
-    menuStage.addActor(lobbyLogo);
 
     Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
     actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getPrefHeight() + 24f);

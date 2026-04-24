@@ -9,6 +9,7 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
@@ -39,6 +40,7 @@ public class StatsScreen extends AbstractScreen {
   private final JSONObject stats;
   private final JSONArray log;
   private Stage stage;
+  private Texture bgTexture;
   private int activeTab = 0; // 0=General, 1=Players, 2=History
 
   public StatsScreen(Game game, SocketClient socket, JSONObject stats, JSONArray log) {
@@ -52,6 +54,10 @@ public class StatsScreen extends AbstractScreen {
   public void show() {
     stage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
     Gdx.input.setInputProcessor(stage);
+    if (bgTexture == null) bgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
+    Image bg = new Image(bgTexture);
+    bg.setFillParent(true);
+    stage.addActor(bg);
     buildUI();
   }
 
@@ -376,7 +382,7 @@ public class StatsScreen extends AbstractScreen {
 
   @Override
   public void render(float delta) {
-    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1f);
+    Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
     stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
@@ -400,5 +406,6 @@ public class StatsScreen extends AbstractScreen {
   @Override
   public void dispose() {
     if (stage != null) { stage.dispose(); stage = null; }
+    if (bgTexture != null) { bgTexture.dispose(); bgTexture = null; }
   }
 }

@@ -1794,7 +1794,7 @@ public class GameScreen extends ScreenAdapter {
                   > pt.getPendingPlunderDefStrength();
           if (canFlipPlunder) {
             TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
-            resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+            resBtn.pack();
             resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
             resBtn.addListener(new ClickListener() {
               @Override
@@ -2233,7 +2233,7 @@ public class GameScreen extends ScreenAdapter {
                 && (atkBase + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
             if (canFlipAttack) {
               TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
-              resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+              resBtn.pack();
               resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
               resBtn.addListener(new ClickListener() {
                 @Override
@@ -3681,7 +3681,7 @@ public class GameScreen extends ScreenAdapter {
       final ArrayList<Hero> phForSell = playerHeroes;
       float heroW = phForSell.get(0).getWidth();
       TextButton sellHeroBtn = new TextButton("Sell Hero", MyGdxGame.skin);
-      sellHeroBtn.setSize(heroW * 1.2f, sellHeroBtn.getPrefHeight());
+      sellHeroBtn.setSize(sellHeroBtn.getPrefWidth() + 20, sellHeroBtn.getPrefHeight());
       sellHeroBtn.setPosition(phForSell.size() * heroW + 8f, 0f);
       sellHeroBtn.addListener(new ClickListener() {
         @Override
@@ -4076,18 +4076,6 @@ public class GameScreen extends ScreenAdapter {
       }
     });
     table.add(historyBtn).width(300).height(90).padBottom(5).row();
-
-    final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
-    TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
-    musicBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        boolean newEnabled = !MyGdxGame.playerStorage.getMusicEnabled();
-        MyGdxGame.setMusicEnabled(newEnabled);
-        buildMenuOverlay();
-      }
-    });
-    table.add(musicBtn).width(300).height(90).padBottom(5).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);

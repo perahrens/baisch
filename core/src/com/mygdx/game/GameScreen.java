@@ -3658,7 +3658,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
-    finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
+    finishTurnButton.setSize(finishTurnButton.getPrefWidth() + 10, finishTurnButton.getPrefHeight());
     finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
 
@@ -3675,7 +3675,7 @@ public class GameScreen extends ScreenAdapter {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
         heroBtn.setSize(theJoker.getWidth(), heroBtn.getPrefHeight());
-        heroBtn.setPosition(theJoker.getX(), theJoker.getY());
+        heroBtn.setPosition(theJoker.getX(), theJoker.getY() + theJoker.getHeight() + 4f);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -4077,7 +4077,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    table.add(resumeBtn).width(300).height(60).padBottom(14).row();
+    table.add(resumeBtn).width(300).height(76).padBottom(14).row();
 
     TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
     historyBtn.addListener(new ClickListener() {
@@ -4086,7 +4086,7 @@ public class GameScreen extends ScreenAdapter {
         GameScreen.this.showLogOverlay();
       }
     });
-    table.add(historyBtn).width(300).height(60).padBottom(14).row();
+    table.add(historyBtn).width(300).height(76).padBottom(14).row();
 
     final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
     TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
@@ -4098,7 +4098,7 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-    table.add(musicBtn).width(300).height(60).padBottom(14).row();
+    table.add(musicBtn).width(300).height(76).padBottom(14).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
@@ -4109,7 +4109,7 @@ public class GameScreen extends ScreenAdapter {
           navigateToLobby();
         }
       });
-      table.add(leaveBtn).width(300).height(60).row();
+      table.add(leaveBtn).width(300).height(76).row();
     } else {
       TextButton giveUpStayBtn = new TextButton("Give Up & Stay", MyGdxGame.skin);
       giveUpStayBtn.addListener(new ClickListener() {
@@ -4119,7 +4119,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      table.add(giveUpStayBtn).width(300).height(60).padBottom(14).row();
+      table.add(giveUpStayBtn).width(300).height(76).padBottom(14).row();
 
       TextButton giveUpLeaveBtn = new TextButton("Give Up & Leave", MyGdxGame.skin);
       giveUpLeaveBtn.addListener(new ClickListener() {
@@ -4129,7 +4129,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      table.add(giveUpLeaveBtn).width(300).height(60).row();
+      table.add(giveUpLeaveBtn).width(300).height(76).row();
     }
 
     overlayStage.addActor(table);
@@ -4220,14 +4220,14 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-      outer.add(backBtn).width(300).height(60).padTop(8).row();
+      outer.add(backBtn).width(300).height(76).padTop(8).row();
 
     overlayStage.addActor(outer);
   }
 
   private void addMenuButtonToOverlay() {
     TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
-    menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
+    menuBtn.setSize(menuBtn.getPrefWidth() + 10, menuBtn.getPrefHeight());
     menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
         MyGdxGame.HEIGHT - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {

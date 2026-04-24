@@ -166,7 +166,7 @@ public class MenuScreen extends AbstractScreen {
 
     button = new TextButton("Ready", MyGdxGame.skin);
 
-    button.setSize(button.getWidth() * 2, button.getHeight() * 2);
+    button.setSize(button.getPrefWidth() + 20, button.getPrefHeight());
 
     logoImage.setPosition((MyGdxGame.WIDTH - logoImage.getWidth()) / 2f,
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
@@ -355,7 +355,7 @@ public class MenuScreen extends AbstractScreen {
     // so the mobile keyboard always opens.
     String label = menuState.getMyName().isEmpty() ? "Enter your name" : menuState.getMyName();
     TextButton enterNameButton = new TextButton(label, MyGdxGame.skin);
-    enterNameButton.setSize(button.getWidth() * 2, button.getHeight());
+    enterNameButton.setSize(250f, button.getPrefHeight());
     enterNameButton.setPosition(cx - enterNameButton.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
     enterNameButton.addListener(new ClickListener() {
       @Override
@@ -395,14 +395,7 @@ public class MenuScreen extends AbstractScreen {
         Math.round(logoImage.getY() - subtitle.getHeight() - 10f));
     menuStage.addActor(subtitle);
 
-    // Instruction hint above name button
-    Label nameHint = new Label("Tap to enter your name", MyGdxGame.skin);
-    nameHint.setColor(1f, 1f, 1f, 0.55f);
-    nameHint.pack();
-    nameHint.setPosition(
-        Math.round(cx - nameHint.getWidth() / 2f),
-        Math.round(0.3f * MyGdxGame.HEIGHT + enterNameButton.getHeight() + 8f));
-    menuStage.addActor(nameHint);
+
 
     addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
@@ -545,11 +538,11 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
-      // Evenly-spaced button row: Rules | Tutorial | Create game
+      // Evenly-spaced button row: Rules | Tutorial | Create game | Log out
       float btnH = button.getPrefHeight();
       float gap = 8f;
       float margin = 16f;
-      float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
+      float btnW = (MyGdxGame.WIDTH - 2 * margin - 3 * gap) / 4f;
       float btnY = Math.round(0.06f * MyGdxGame.HEIGHT);
 
       TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
@@ -582,9 +575,17 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
+      TextButton lobbyLogoutBtn = new TextButton("Log out", MyGdxGame.skin);
+      lobbyLogoutBtn.setSize(btnW, btnH);
+      lobbyLogoutBtn.setPosition(margin + 3 * (btnW + gap), btnY);
+      lobbyLogoutBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) { logout(); }
+      });
+
       menuStage.addActor(rulesBtn);
       menuStage.addActor(tutorialBtn);
       menuStage.addActor(createBtn);
+      menuStage.addActor(lobbyLogoutBtn);
     } else {
       // ── Players tab ─────────────────────────────────────────────────────────
       Table playersTable = new Table(MyGdxGame.skin);
@@ -632,12 +633,11 @@ public class MenuScreen extends AbstractScreen {
       playersTable.pack();
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
-
+      addLogoutButton(menuStage);
 
     }
 
     addMusicToggleButton(menuStage);
-    addLogoutButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -790,35 +790,36 @@ public class MenuScreen extends AbstractScreen {
     // ── Table layout (no overlap guaranteed) ────────────────────────────────
     Table form = new Table(MyGdxGame.skin);
     form.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
-    form.pad(20f, 24f, 20f, 24f);
+    form.pad(10f, 20f, 10f, 20f);
     float colW = MyGdxGame.WIDTH * 0.72f;
 
-    form.add(title).colspan(2).center().padBottom(18f);
+    form.add(title).colspan(2).center().padBottom(10f);
     form.row();
-    form.add(gameNameBtn).colspan(2).fillX().padBottom(14f);
+    form.add(gameNameBtn).colspan(2).fillX().padBottom(8f);
     form.row();
-    form.add(cardsLabel).left().padRight(12f).padBottom(14f);
-    form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
+    form.add(cardsLabel).left().padRight(12f).padBottom(6f);
+    form.add(cardsBox).width(colW * 0.38f).left().padBottom(6f);
     for (int bi = 0; bi < totalBotSlots; bi++) {
       form.row();
-      form.add(botLabels[bi]).left().padRight(12f).padBottom(8f);
-      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(8f);
+      form.add(botLabels[bi]).left().padRight(12f).padBottom(4f);
+      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(4f);
     }
     form.row();
-    form.add(spectatorCheckbox).colspan(2).left().padBottom(6f);
+    form.add(spectatorCheckbox).colspan(2).left().padBottom(4f);
     form.row();
-    form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
+    form.add(manualSetupCheckbox).colspan(2).left().padBottom(4f);
     form.row();
-    form.add(heroCheckbox).colspan(2).left().padBottom(18f);
+    form.add(heroCheckbox).colspan(2).left().padBottom(8f);
     form.row();
     form.add(confirmCreateBtn).colspan(2).center();
 
     form.pack();
-    // Centre the form vertically in the lower 55% of the screen (below the logo area)
-    float formTop = 0.82f * MyGdxGame.HEIGHT;
+    // Position form from just below the back button; clamp bottom away from logout button
+    float formTop = backBtn.getY() - 6f;
+    float formY = Math.max(60f, formTop - form.getHeight());
     form.setPosition(
         Math.round(cx - form.getWidth() / 2f),
-        Math.round(formTop - form.getHeight()));
+        Math.round(formY));
     menuStage.addActor(form);
 
     addMusicToggleButton(menuStage);
@@ -947,7 +948,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(lobbyLogo);
 
     Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
-    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
+    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getPrefHeight() + 24f);
     actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
     actionBar.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
 
@@ -1074,7 +1075,7 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(gameRunningLabel);
 
       TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
-      watchButton.setSize(button.getWidth(), button.getHeight());
+      watchButton.setSize(button.getPrefWidth(), button.getPrefHeight());
       watchButton.setPosition((MyGdxGame.WIDTH - watchButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
       watchButton.addListener(new ClickListener() {
         @Override
@@ -1106,7 +1107,7 @@ public class MenuScreen extends AbstractScreen {
 
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
-        startGameButton.setSize(button.getWidth(), button.getHeight());
+        startGameButton.setSize(button.getPrefWidth(), button.getPrefHeight());
         float buttonGap = 20f;
         float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
         float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);

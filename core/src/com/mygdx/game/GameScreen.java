@@ -3928,7 +3928,7 @@ public class GameScreen extends ScreenAdapter {
     if (sellHeroActionBtn != null && getHeroActionBtn != null) {
       sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
       handStage.addActor(sellHeroActionBtn);
-      getHeroActionBtn.setPosition(actionBtnX, actionBtnY + sellHeroActionBtn.getHeight() + 4f);
+      getHeroActionBtn.setPosition(actionBtnX + sellHeroActionBtn.getWidth() + 4f, actionBtnY);
       handStage.addActor(getHeroActionBtn);
     } else if (sellHeroActionBtn != null) {
       sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);

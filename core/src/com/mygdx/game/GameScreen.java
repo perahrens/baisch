@@ -4632,7 +4632,7 @@ public class GameScreen extends ScreenAdapter {
 
     overlayStage.addActor(banner);
 
-    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.plainSkin);
     skipBtn.setSize(70f, 30f);
     skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
     skipBtn.addListener(new ClickListener() {
@@ -4777,7 +4777,7 @@ public class GameScreen extends ScreenAdapter {
 
     overlayStage.addActor(banner);
 
-    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.plainSkin);
     skipBtn.setSize(70f, 30f);
     skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
     skipBtn.addListener(new ClickListener() {
@@ -4790,7 +4790,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Manual "Next" button so the player can advance past steps whose hook
     // they may not be able to satisfy in the current state.
-    TextButton nextBtn = new TextButton("Next ►", MyGdxGame.skin);
+    TextButton nextBtn = new TextButton("Next ►", MyGdxGame.plainSkin);
     nextBtn.setSize(90f, 30f);
     nextBtn.setPosition(MyGdxGame.WIDTH - 170f, bannerY + bannerH - 34f);
     nextBtn.addListener(new ClickListener() {

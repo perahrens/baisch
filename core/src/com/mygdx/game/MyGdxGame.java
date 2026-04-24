@@ -27,6 +27,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   private SpriteBatch batch;
 
   static Skin skin;
+  /** Old plain uiskin — used for compact banner buttons (Skip / Next ►). */
+  static Skin plainSkin;
   static Stage stage;
 
   // --- Music tracks ---
@@ -165,6 +167,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     Gdx.input.setInputProcessor(stage);
 
     skin = new Skin(Gdx.files.internal("data/skins/rusty-robot/rusty-robot-ui.json"));
+    plainSkin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
     // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
     // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the

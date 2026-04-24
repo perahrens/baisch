@@ -3693,7 +3693,7 @@ public class GameScreen extends ScreenAdapter {
       if (jokerInHand != null) {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
-        float hBtnW = heroBtn.getPrefWidth() + 20;
+        float hBtnW = heroBtn.getPrefWidth() + 4;
         float hBtnH = heroBtn.getPrefHeight();
         heroBtn.setSize(hBtnW, hBtnH);
         heroBtn.addListener(new ClickListener() {
@@ -3711,7 +3711,7 @@ public class GameScreen extends ScreenAdapter {
         && !playerHeroes.isEmpty()) {
       final ArrayList<Hero> phForSell = playerHeroes;
       TextButton sellHeroBtn = new TextButton("Sell Hero", MyGdxGame.skin);
-      sellHeroBtn.setSize(sellHeroBtn.getPrefWidth() + 20, sellHeroBtn.getPrefHeight());
+      sellHeroBtn.setSize(sellHeroBtn.getPrefWidth() + 4, sellHeroBtn.getPrefHeight());
       sellHeroBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {

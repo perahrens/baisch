@@ -51,6 +51,9 @@ public class MenuScreen extends AbstractScreen {
   private Texture menuBgTexture;
   private TextureRegion logoRegion;
   private Image logoImage;
+  private Texture jokerLogoTexture;
+  private Texture[] symbolLogoTextures;
+  private float nameEntryLogoBottomY;
 
   private int currentUsersCount;
   private boolean updateScreen = false;
@@ -170,9 +173,43 @@ public class MenuScreen extends AbstractScreen {
 
     button.setSize(button.getPrefWidth() + 20, button.getPrefHeight());
 
+    // logoImage kept for the small session-list logo only — not shown on name-entry screen
     logoImage.setPosition((MyGdxGame.WIDTH - logoImage.getWidth()) / 2f,
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+
+    // Composite logo: Joker face + golden BAISCH text + 4 suit symbols
+    float logoCx   = MyGdxGame.WIDTH / 2f;
+    float logoTopY = 0.9f * MyGdxGame.HEIGHT;
+    float jokerW = 92f; float jokerH = jokerW * 277f / 200f;
+    jokerLogoTexture = new Texture(Gdx.files.internal("data/graphics/joker.png"));
+    Image jokerImg = new Image(jokerLogoTexture);
+    jokerImg.setSize(jokerW, jokerH);
+    jokerImg.setPosition(Math.round(logoCx - jokerW / 2f), Math.round(logoTopY - jokerH));
+    Label baischLabel = new Label("BAISCH", MyGdxGame.skin);
+    baischLabel.setFontScale(3f);
+    baischLabel.setColor(new Color(0.98f, 0.80f, 0.25f, 1f));
+    baischLabel.pack();
+    float baischY = Math.round(logoTopY - jokerH - 4f - baischLabel.getHeight());
+    baischLabel.setPosition(Math.round(logoCx - baischLabel.getWidth() / 2f), baischY);
+    float symSize = 38f; float symGap = 12f;
+    float symStartX = Math.round(logoCx - (4 * symSize + 3 * symGap) / 2f);
+    float symY = Math.round(baischY - 8f - symSize);
+    nameEntryLogoBottomY = symY;
+    symbolLogoTextures = new Texture[] {
+        new Texture(Gdx.files.internal("data/skins/spades.png")),
+        new Texture(Gdx.files.internal("data/skins/hearts_red.png")),
+        new Texture(Gdx.files.internal("data/skins/diamonds_red.png")),
+        new Texture(Gdx.files.internal("data/skins/clubs.png"))
+    };
+    for (int i = 0; i < 4; i++) {
+      Image si = new Image(symbolLogoTextures[i]);
+      si.setSize(symSize, symSize);
+      si.setPosition(symStartX + i * (symSize + symGap), symY);
+      group.addActor(si);
+    }
+    group.addActor(jokerImg);
+    group.addActor(baischLabel);
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
@@ -215,8 +252,8 @@ public class MenuScreen extends AbstractScreen {
       };
     });
 
-    group.addActor(logoImage);
     // button is NOT in the group so it only appears on the lobby screen
+    // logoImage is intentionally NOT added to the group — only used for the small session-list logo
 
     menuStage.addActor(group);
 
@@ -399,7 +436,7 @@ public class MenuScreen extends AbstractScreen {
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(logoImage.getY() - subtitle.getHeight() - 10f));
+        Math.round(nameEntryLogoBottomY - subtitle.getHeight() - 10f));
     menuStage.addActor(subtitle);
 
 
@@ -1237,6 +1274,11 @@ public class MenuScreen extends AbstractScreen {
   public void dispose() {
     menuStage.dispose();
     logoTexture.dispose();
+    if (jokerLogoTexture != null) { jokerLogoTexture.dispose(); jokerLogoTexture = null; }
+    if (symbolLogoTextures != null) {
+      for (Texture t : symbolLogoTextures) { if (t != null) t.dispose(); }
+      symbolLogoTextures = null;
+    }
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
   }
 

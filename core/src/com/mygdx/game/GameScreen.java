@@ -3659,7 +3659,7 @@ public class GameScreen extends ScreenAdapter {
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
     finishTurnButton.setSize(finishTurnButton.getPrefWidth() + 10, finishTurnButton.getPrefHeight());
-    finishTurnButton.setPosition(0, 0);
+    finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setColor(Color.WHITE);
     boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);

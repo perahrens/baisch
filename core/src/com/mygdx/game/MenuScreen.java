@@ -538,7 +538,7 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(sessTable);
 
-      // Evenly-spaced button row: Rules | Tutorial | Create game
+      // Evenly-spaced button row: Rules | Tutorial | New game
       float btnH = button.getPrefHeight();
       float gap = 8f;
       float margin = 16f;
@@ -564,7 +564,7 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
-      TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+      TextButton createBtn = new TextButton("New game", MyGdxGame.skin);
       createBtn.setSize(btnW, btnH);
       createBtn.setPosition(margin + 2 * (btnW + gap), btnY);
       createBtn.addListener(new ClickListener() {
@@ -927,7 +927,7 @@ public class MenuScreen extends AbstractScreen {
   private void showLobbyScreen() {
     MyGdxGame.setMusicTrack(timerStarted ? MyGdxGame.musicIntrigue : MyGdxGame.musicDrums);
     float cx = MyGdxGame.WIDTH / 2f;
-    float buttonY = 0.08f * MyGdxGame.HEIGHT;
+    float buttonY = 0.16f * MyGdxGame.HEIGHT;
 
     // Small logo at top of lobby screen
     Image lobbyLogo = new Image(logoRegion);

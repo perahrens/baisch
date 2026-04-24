@@ -14,6 +14,12 @@ com.badlogic.gdx.graphics.Color: {
 		b: 0
 		a: 1
 	}
+	white: {
+		r: 1
+		g: 1
+		b: 1
+		a: 1
+	}
 }
 com.badlogic.gdx.scenes.scene2d.ui.Skin$TintedDrawable: {
 	tan: {
@@ -102,14 +108,14 @@ com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton$ImageTextButtonStyle: {
 com.badlogic.gdx.scenes.scene2d.ui.Label$LabelStyle: {
 	default: {
 		font: font
-		fontColor: black
+		fontColor: white
 	}
 	title: {
 		font: title
 	}
 	bg: {
 		font: font
-		fontColor: black
+		fontColor: white
 		background: label-bg
 	}
 }

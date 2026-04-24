@@ -543,7 +543,7 @@ public class MenuScreen extends AbstractScreen {
       float gap = 8f;
       float margin = 16f;
       float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
-      float btnY = Math.round(0.06f * MyGdxGame.HEIGHT);
+      float btnY = Math.round(0.15f * MyGdxGame.HEIGHT);
 
       TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
       rulesBtn.setSize(btnW, btnH);
@@ -625,7 +625,6 @@ public class MenuScreen extends AbstractScreen {
       playersTable.pack();
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
-      addLogoutButton(menuStage);
 
     }
 
@@ -855,7 +854,7 @@ public class MenuScreen extends AbstractScreen {
     TextButton logoutBtn = new TextButton("Log out", MyGdxGame.skin);
     logoutBtn.pack();
     logoutBtn.setSize(logoutBtn.getPrefWidth() + 10, logoutBtn.getPrefHeight() + 6);
-    logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth() - 10, 10);
+    logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth(), 0);
     logoutBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {

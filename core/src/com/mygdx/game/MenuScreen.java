@@ -404,14 +404,15 @@ public class MenuScreen extends AbstractScreen {
 
     menuStage.addActor(enterNameButton);
 
-    // Subtitle below logo — the DOM overlay (BAISCH + suits) sits in the upper half;
-    // place this label roughly where the suits end (~55% down the screen).
+    // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
+    // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
+    // so the two elements don't visually overlap.
     Label subtitle = new Label("A card game for 2-4 players", MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(0.36f * MyGdxGame.HEIGHT));
+        Math.round(0.42f * MyGdxGame.HEIGHT));
     menuStage.addActor(subtitle);
 
 

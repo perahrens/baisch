@@ -21,6 +21,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
@@ -47,6 +48,7 @@ public class MenuScreen extends AbstractScreen {
   private Group group;
 
   private Texture logoTexture;
+  private Texture menuBgTexture;
   private TextureRegion logoRegion;
   private Image logoImage;
 
@@ -279,6 +281,10 @@ public class MenuScreen extends AbstractScreen {
   public void show() {
     heroSelectBox.hideList();
     menuStage.clear();
+    if (menuBgTexture == null) menuBgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
+    Image menuBg = new Image(menuBgTexture);
+    menuBg.setFillParent(true);
+    menuStage.addActor(menuBg);
 
     if (disconnectedByDuplicateTab) {
       showDuplicateTabScreen();
@@ -534,9 +540,14 @@ public class MenuScreen extends AbstractScreen {
         sessTable.row();
       }
 
-      sessTable.pack();
-      sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
-      menuStage.addActor(sessTable);
+      ScrollPane sessScrollPane = new ScrollPane(sessTable, MyGdxGame.skin);
+      sessScrollPane.setScrollingDisabled(true, false);
+      sessScrollPane.setFadeScrollBars(false);
+      float spW = MyGdxGame.WIDTH - 32f;
+      float spH = 0.58f * MyGdxGame.HEIGHT;
+      sessScrollPane.setSize(spW, spH);
+      sessScrollPane.setPosition(Math.round(cx - spW / 2f), Math.round(0.22f * MyGdxGame.HEIGHT));
+      menuStage.addActor(sessScrollPane);
 
       // Evenly-spaced button row: Rules | Tutorial | New game
       float btnH = button.getPrefHeight();
@@ -1099,7 +1110,7 @@ public class MenuScreen extends AbstractScreen {
 
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
-        startGameButton.setSize(button.getPrefWidth(), button.getPrefHeight());
+        startGameButton.setSize(startGameButton.getPrefWidth() + 20, startGameButton.getPrefHeight());
         float buttonGap = 20f;
         float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
         float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
@@ -1170,7 +1181,7 @@ public class MenuScreen extends AbstractScreen {
   @Override
   public void render(float delta) {
     // System.out.println("render menu screen");
-    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1);
+    Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
     // Auto-escape from stuck reconnect state after timeout.
@@ -1225,6 +1236,7 @@ public class MenuScreen extends AbstractScreen {
   public void dispose() {
     menuStage.dispose();
     logoTexture.dispose();
+    if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
   }
 
   public void configSocketEvents(final SocketClient socket) {

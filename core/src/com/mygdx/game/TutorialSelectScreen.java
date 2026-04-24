@@ -4,8 +4,10 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -29,15 +31,22 @@ public class TutorialSelectScreen extends AbstractScreen {
 
   private final SocketClient socket;
   private Stage stage;
+  private Texture bgTexture;
 
   public TutorialSelectScreen(Game game, SocketClient socket) {
     super(game);
     this.socket = socket;
     stage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
+    bgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
     build();
   }
 
   private void build() {
+    if (bgTexture != null) {
+      Image bg = new Image(bgTexture);
+      bg.setFillParent(true);
+      stage.addActor(bg);
+    }
     Table root = new Table();
     root.setFillParent(true);
     root.top().pad(20f);
@@ -55,7 +64,7 @@ public class TutorialSelectScreen extends AbstractScreen {
         socket.emit("createTutorial", new JSONObject());
       }
     });
-    root.add(basicBtn).width(340f).height(80f).padBottom(24f).row();
+    root.add(basicBtn).width(340f).height(90f).padBottom(24f).row();
 
     // Section label
     Label heroLabel = new Label("Hero Tutorials", MyGdxGame.skin, "default");
@@ -81,7 +90,7 @@ public class TutorialSelectScreen extends AbstractScreen {
           }
         }
       });
-      heroTable.add(btn).width(320f).height(80f).padBottom(3f).row();
+      heroTable.add(btn).width(320f).height(90f).padBottom(2f).row();
     }
 
     ScrollPane scroll = new ScrollPane(heroTable, MyGdxGame.skin);
@@ -97,7 +106,7 @@ public class TutorialSelectScreen extends AbstractScreen {
         game.setScreen(new MenuScreen(game, socket));
       }
     });
-    root.add(backBtn).width(200f).height(80f).padTop(14f).row();
+    root.add(backBtn).width(200f).height(90f).padTop(14f).row();
 
     stage.addActor(root);
   }
@@ -109,7 +118,7 @@ public class TutorialSelectScreen extends AbstractScreen {
 
   @Override
   public void render(float delta) {
-    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1f);
+    Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     stage.act(delta);
     stage.draw();
@@ -127,5 +136,6 @@ public class TutorialSelectScreen extends AbstractScreen {
   @Override
   public void dispose() {
     stage.dispose();
+    if (bgTexture != null) { bgTexture.dispose(); bgTexture = null; }
   }
 }

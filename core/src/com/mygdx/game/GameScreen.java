@@ -3419,20 +3419,10 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
     ArrayList<Integer> preyCardIds = currentPlayer.getPlayerTurn().getPreyCardIds();
 
-    // Compute row distribution: when >10 cards, extra cards go first to upper row then lower row
+    // Single row layout for all hand cards
     int handCardCount = handCards.size();
-    int upperCount, lowerCount;
-    if (handCardCount <= 5) {
-      upperCount = handCardCount;
-      lowerCount = 0;
-    } else if (handCardCount <= 10) {
-      upperCount = 5;
-      lowerCount = handCardCount - 5;
-    } else {
-      int extra = handCardCount - 10;
-      upperCount = 5 + (extra + 1) / 2;
-      lowerCount = 5 + extra / 2;
-    }
+    int upperCount = handCardCount;
+    int lowerCount = 0;
 
     for (int j = 0; j < handCards.size(); j++) {
       Card handcard = handCards.get(j);
@@ -4076,7 +4066,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    table.add(resumeBtn).width(300).height(72).padBottom(14).row();
+    table.add(resumeBtn).width(300).height(90).padBottom(5).row();
 
     TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
     historyBtn.addListener(new ClickListener() {
@@ -4085,7 +4075,7 @@ public class GameScreen extends ScreenAdapter {
         GameScreen.this.showLogOverlay();
       }
     });
-    table.add(historyBtn).width(300).height(72).padBottom(14).row();
+    table.add(historyBtn).width(300).height(90).padBottom(5).row();
 
     final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
     TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
@@ -4097,7 +4087,7 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-    table.add(musicBtn).width(300).height(72).padBottom(14).row();
+    table.add(musicBtn).width(300).height(90).padBottom(5).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
@@ -4108,7 +4098,7 @@ public class GameScreen extends ScreenAdapter {
           navigateToLobby();
         }
       });
-      table.add(leaveBtn).width(300).height(72).row();
+      table.add(leaveBtn).width(300).height(90).row();
     } else {
       TextButton giveUpStayBtn = new TextButton("Give Up & Stay", MyGdxGame.skin);
       giveUpStayBtn.addListener(new ClickListener() {
@@ -4118,7 +4108,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      table.add(giveUpStayBtn).width(300).height(72).padBottom(14).row();
+      table.add(giveUpStayBtn).width(300).height(90).padBottom(5).row();
 
       TextButton giveUpLeaveBtn = new TextButton("Give Up & Leave", MyGdxGame.skin);
       giveUpLeaveBtn.addListener(new ClickListener() {
@@ -4128,7 +4118,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      table.add(giveUpLeaveBtn).width(300).height(72).row();
+      table.add(giveUpLeaveBtn).width(300).height(90).row();
     }
 
     overlayStage.addActor(table);
@@ -4219,7 +4209,7 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-      outer.add(backBtn).width(300).height(72).padTop(8).row();
+      outer.add(backBtn).width(300).height(90).padTop(8).row();
 
     overlayStage.addActor(outer);
   }

@@ -554,17 +554,22 @@ public class MenuScreen extends AbstractScreen {
       sessScrollPane.setScrollingDisabled(true, false);
       sessScrollPane.setFadeScrollBars(false);
       float spW = MyGdxGame.WIDTH - 32f;
-      float spH = 0.58f * MyGdxGame.HEIGHT;
+      // Position the scroll pane to sit between the tab bar and the button row,
+      // with a safe gap above the buttons to avoid overlap.
+      float spBtnH = button.getPrefHeight();
+      float spBtnY = Math.round(0.15f * MyGdxGame.HEIGHT);
+      float spBottom = spBtnY + spBtnH + 8f;
+      float spH = tabY - 8f - spBottom;
       sessScrollPane.setSize(spW, spH);
-      sessScrollPane.setPosition(Math.round(cx - spW / 2f), Math.round(0.22f * MyGdxGame.HEIGHT));
+      sessScrollPane.setPosition(Math.round(cx - spW / 2f), Math.round(spBottom));
       menuStage.addActor(sessScrollPane);
 
       // Evenly-spaced button row: Rules | Tutorial | New game
-      float btnH = button.getPrefHeight();
+      float btnH = spBtnH;
       float gap = 8f;
       float margin = 16f;
       float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
-      float btnY = Math.round(0.15f * MyGdxGame.HEIGHT);
+      float btnY = spBtnY;
 
       TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
       rulesBtn.setSize(btnW, btnH);

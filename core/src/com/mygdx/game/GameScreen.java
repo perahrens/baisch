@@ -2754,18 +2754,18 @@ public class GameScreen extends ScreenAdapter {
         final String sHeroName = auctionSellHeroName;
         Label mbTitle = new Label("Sell " + sHeroName + " — Minimum bid strength:", MyGdxGame.skin);
         mbTitle.setColor(Color.GOLD);
-        mbTitle.setPosition(MyGdxGame.WIDTH / 2f - mbTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.62f);
+        mbTitle.setPosition(MyGdxGame.WIDTH / 2f - mbTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.82f);
         gameStage.addActor(mbTitle);
 
         Label mbValue = new Label(String.valueOf(auctionSellMinBid), MyGdxGame.skin);
         mbValue.setFontScale(2f);
         mbValue.setColor(Color.WHITE);
-        mbValue.setPosition(MyGdxGame.WIDTH / 2f - mbValue.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.47f);
+        mbValue.setPosition(MyGdxGame.WIDTH / 2f - mbValue.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.65f);
         gameStage.addActor(mbValue);
 
         TextButton minusBtn = new TextButton("-", MyGdxGame.skin);
         minusBtn.setSize(90f, 70f);
-        minusBtn.setPosition(MyGdxGame.WIDTH / 2f - 140f, MyGdxGame.WIDTH * 0.46f);
+        minusBtn.setPosition(MyGdxGame.WIDTH / 2f - 140f, MyGdxGame.WIDTH * 0.62f);
         minusBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2776,7 +2776,7 @@ public class GameScreen extends ScreenAdapter {
 
         TextButton plusBtn = new TextButton("+", MyGdxGame.skin);
         plusBtn.setSize(90f, 70f);
-        plusBtn.setPosition(MyGdxGame.WIDTH / 2f + 60f, MyGdxGame.WIDTH * 0.46f);
+        plusBtn.setPosition(MyGdxGame.WIDTH / 2f + 60f, MyGdxGame.WIDTH * 0.62f);
         plusBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2787,7 +2787,7 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(plusBtn);
 
         TextButton confirmBtn = new TextButton("Start Auction", MyGdxGame.skin);
-        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - confirmBtn.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.33f);
+        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - confirmBtn.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.38f);
         confirmBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2804,7 +2804,7 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(confirmBtn);
 
         TextButton mbCancel = new TextButton("Cancel", MyGdxGame.skin);
-        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.24f);
+        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.14f);
         mbCancel.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -3664,7 +3664,12 @@ public class GameScreen extends ScreenAdapter {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
         heroBtn.setSize(theJoker.getWidth(), heroBtn.getPrefHeight());
-        heroBtn.setPosition(theJoker.getX(), theJoker.getY() + theJoker.getHeight() + 4f);
+        // Clamp Y so the button stays within the handStage viewport (HEIGHT - WIDTH logical units)
+        float handH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+        float btnY = Math.min(
+            theJoker.getY() + theJoker.getHeight() + 4f,
+            handH - heroBtn.getHeight() - 2f);
+        heroBtn.setPosition(theJoker.getX(), btnY);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {

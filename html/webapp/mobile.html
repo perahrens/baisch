@@ -98,13 +98,12 @@
         from { opacity: 0; transform: translateY(32px) scale(0.85); }
         to   { opacity: 1; transform: translateY(0) scale(1); }
       }
-      #loading-suits {
-        font-size: clamp(24px, 6vw, 42px);
-        letter-spacing: 0.3em;
-        color: #cccccc;
+      #loading-suits-gif {
+        width: clamp(220px, 55vw, 420px);
+        height: auto;
         margin-bottom: 40px;
+        border-radius: 8px;
       }
-      #loading-suits .red { color: #e05555; }
       #loading-bar-wrap {
         width: clamp(160px, 40vw, 260px);
         height: 6px;
@@ -133,7 +132,7 @@
     <!-- Game-branded loading screen, removed once the canvas appears -->
     <div id="loading-overlay">
       <div id="loading-title"><span>B</span><span>A</span><span>I</span><span>S</span><span>C</span><span>H</span></div>
-      <div id="loading-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
+      <img id="loading-suits-gif" src="cards.gif" alt="card suits">
       <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
     </div>
     <div id="embed-html"></div>

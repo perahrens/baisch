@@ -31,7 +31,7 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background-color: #222222;
+        background: radial-gradient(ellipse at center, #3a3a3a 0%, #000000 100%);
       }
       /* Center the canvas horizontally on tablets and desktops.
          text-align:center works because canvas is inline-block.
@@ -52,13 +52,23 @@
       #loading-overlay {
         position: fixed;
         inset: 0;
-        background: #1a1a2e;
+        background: #000 url('assets/data/graphics/bg_darkmoon.jpg') center center / cover no-repeat;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 8000;
         transition: opacity 0.4s ease;
+      }
+      #loading-overlay::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        opacity: 0.12;
+        border-radius: inherit;
       }
       #loading-overlay.fade-out {
         opacity: 0;
@@ -72,15 +82,28 @@
         color: #f5c842;
         text-shadow: 0 0 30px rgba(245,200,66,0.6), 0 2px 8px rgba(0,0,0,0.8);
         margin-bottom: 20px;
-        animation: pulse 2s ease-in-out infinite;
       }
-      #loading-suits {
-        font-size: clamp(24px, 6vw, 42px);
-        letter-spacing: 0.3em;
-        color: #cccccc;
+      /* Staggered per-letter entrance */
+      #loading-title span {
+        display: inline-block;
+        animation: letter-in 0.4s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      #loading-title span:nth-child(1) { animation-delay:   0ms; }
+      #loading-title span:nth-child(2) { animation-delay:  60ms; }
+      #loading-title span:nth-child(3) { animation-delay: 120ms; }
+      #loading-title span:nth-child(4) { animation-delay: 180ms; }
+      #loading-title span:nth-child(5) { animation-delay: 240ms; }
+      #loading-title span:nth-child(6) { animation-delay: 300ms; }
+      @keyframes letter-in {
+        from { opacity: 0; transform: translateY(32px) scale(0.85); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      #loading-suits-gif {
+        width: clamp(220px, 55vw, 420px);
+        height: auto;
         margin-bottom: 40px;
+        border-radius: 8px;
       }
-      #loading-suits .red { color: #e05555; }
       #loading-bar-wrap {
         width: clamp(160px, 40vw, 260px);
         height: 6px;
@@ -103,14 +126,55 @@
         0%   { transform: translateX(-120%); }
         100% { transform: translateX(500%); }
       }
+      /* ── Name-entry screen logo overlay ──────────────────────────── */
+      /* Shown on top of the game canvas during the name-entry screen  */
+      /* only; hidden by JSNI when the player moves past that screen.  */
+      #name-entry-logo {
+        position: fixed;
+        inset: 0;
+        display: none; /* toggled by JSNI */
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 8vh;
+        pointer-events: none;
+        z-index: 100;
+      }
+      #ne-joker {
+        width: clamp(70px, 18vw, 108px);
+        height: auto;
+        border-radius: 50%;
+        margin-bottom: 10px;
+      }
+      #name-entry-logo .ne-title {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(40px, 10vw, 76px);
+        font-weight: bold;
+        letter-spacing: 0.15em;
+        color: #f5c842;
+        text-shadow: 0 0 30px rgba(245,200,66,0.6), 0 2px 8px rgba(0,0,0,0.8);
+        margin-bottom: 10px;
+      }
+      #name-entry-logo .ne-suits {
+        font-size: clamp(22px, 5.5vw, 36px);
+        letter-spacing: 0.35em;
+        color: #cccccc;
+      }
+      #name-entry-logo .ne-suits .red { color: #e05555; }
     </style>
   </head>
   <body>
     <!-- Game-branded loading screen, removed once the canvas appears -->
     <div id="loading-overlay">
-      <div id="loading-title">BAISCH</div>
-      <div id="loading-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
+      <div id="loading-title"><span>B</span><span>A</span><span>I</span><span>S</span><span>C</span><span>H</span></div>
+      <img id="loading-suits-gif" src="cards.gif" alt="card suits">
       <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    </div>
+    <!-- Name-entry screen logo: joker face + crisp HTML BAISCH title + suits -->
+    <div id="name-entry-logo">
+      <img id="ne-joker" src="assets/data/graphics/joker.png" alt="Joker">
+      <div class="ne-title">BAISCH</div>
+      <div class="ne-suits">&#9824; <span class="red">&#9829;</span> <span class="red">&#9830;</span> &#9827;</div>
     </div>
     <div id="embed-html"></div>
     <script type="text/javascript" src="html/html.nocache.js"></script>
@@ -177,18 +241,33 @@
         evt.target.style.cursor = '';
       }, false);
 
-      // Remove the loading overlay once GWT creates the canvas
+      // Remove the loading overlay once GWT creates the canvas,
+      // but always show it for at least 1.4s so the stagger animation plays.
       (function waitAndRemoveOverlay() {
         var overlay = document.getElementById('loading-overlay');
         if (!overlay) return;
-        if (document.querySelector('#embed-html canvas')) {
+        var startTime = Date.now();
+        var MIN_DISPLAY_MS = 1400;
+        function dismiss() {
           overlay.classList.add('fade-out');
           setTimeout(function() {
             if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
           }, 450);
-          return;
         }
-        setTimeout(waitAndRemoveOverlay, 200);
+        function check() {
+          if (document.querySelector('#embed-html canvas')) {
+            var elapsed = Date.now() - startTime;
+            var remaining = MIN_DISPLAY_MS - elapsed;
+            if (remaining > 0) {
+              setTimeout(dismiss, remaining);
+            } else {
+              dismiss();
+            }
+            return;
+          }
+          setTimeout(check, 50);
+        }
+        check();
       })();
     </script>
   </body>

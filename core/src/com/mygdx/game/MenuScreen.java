@@ -21,6 +21,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
@@ -47,6 +48,7 @@ public class MenuScreen extends AbstractScreen {
   private Group group;
 
   private Texture logoTexture;
+  private Texture menuBgTexture;
   private TextureRegion logoRegion;
   private Image logoImage;
 
@@ -166,11 +168,16 @@ public class MenuScreen extends AbstractScreen {
 
     button = new TextButton("Ready", MyGdxGame.skin);
 
-    button.setSize(button.getWidth() * 2, button.getHeight() * 2);
+    button.setSize(button.getPrefWidth() + 20, button.getPrefHeight());
 
+    // logoImage kept for the small session-list logo only — not shown on name-entry screen
     logoImage.setPosition((MyGdxGame.WIDTH - logoImage.getWidth()) / 2f,
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
+
+    // The Joker face, BAISCH title, and suit symbols are all rendered via the
+    // #name-entry-logo DOM overlay (see mobile.html / HtmlLauncher.java).
+    // Nothing is added to the LibGDX group for the name-entry logo here.
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
@@ -191,7 +198,7 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
     heroSelectBox.setItems(heroNames);
     heroSelectBox.setSelected("None");
-    heroSelectBox.setSize(button.getWidth(), button.getHeight());
+    heroSelectBox.setSize(140f, 44f);
     heroSelectBox.setPosition((MyGdxGame.WIDTH - heroSelectBox.getWidth()) / 2f, 0.21f * MyGdxGame.HEIGHT);
     heroSelectBox.addListener(new ChangeListener() {
       @Override
@@ -213,8 +220,8 @@ public class MenuScreen extends AbstractScreen {
       };
     });
 
-    group.addActor(logoImage);
     // button is NOT in the group so it only appears on the lobby screen
+    // logoImage is intentionally NOT added to the group — only used for the small session-list logo
 
     menuStage.addActor(group);
 
@@ -277,22 +284,32 @@ public class MenuScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     heroSelectBox.hideList();
     menuStage.clear();
+    if (menuBgTexture == null) menuBgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
+    Image menuBg = new Image(menuBgTexture);
+    menuBg.setFillParent(true);
+    menuStage.addActor(menuBg);
 
     if (disconnectedByDuplicateTab) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showDuplicateTabScreen();
     } else if (reconnecting) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showReconnectingScreen();
     } else if (!nameConfirmed) {
       // Logo only shown on the name-entry screen.
       menuStage.addActor(group);
       showNameEntryScreen();
     } else if (!lobbyJoined && inSessionCreate) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showSessionCreateScreen();
     } else if (!lobbyJoined) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showSessionListScreen();
     } else {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showLobbyScreen();
     }
   }
@@ -347,6 +364,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showNameEntryScreen() {
+    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
@@ -355,7 +373,7 @@ public class MenuScreen extends AbstractScreen {
     // so the mobile keyboard always opens.
     String label = menuState.getMyName().isEmpty() ? "Enter your name" : menuState.getMyName();
     TextButton enterNameButton = new TextButton(label, MyGdxGame.skin);
-    enterNameButton.setSize(button.getWidth() * 2, button.getHeight());
+    enterNameButton.setSize(250f, button.getPrefHeight());
     enterNameButton.setPosition(cx - enterNameButton.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
     enterNameButton.addListener(new ClickListener() {
       @Override
@@ -386,23 +404,18 @@ public class MenuScreen extends AbstractScreen {
 
     menuStage.addActor(enterNameButton);
 
-    // Subtitle below logo
+    // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
+    // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
+    // so the two elements don't visually overlap.
     Label subtitle = new Label("A card game for 2-4 players", MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(logoImage.getY() - subtitle.getHeight() - 10f));
+        Math.round(0.42f * MyGdxGame.HEIGHT));
     menuStage.addActor(subtitle);
 
-    // Instruction hint above name button
-    Label nameHint = new Label("Tap to enter your name", MyGdxGame.skin);
-    nameHint.setColor(1f, 1f, 1f, 0.55f);
-    nameHint.pack();
-    nameHint.setPosition(
-        Math.round(cx - nameHint.getWidth() / 2f),
-        Math.round(0.3f * MyGdxGame.HEIGHT + enterNameButton.getHeight() + 8f));
-    menuStage.addActor(nameHint);
+
 
     addMusicToggleButton(menuStage);
     Gdx.input.setInputProcessor(menuStage);
@@ -418,8 +431,14 @@ public class MenuScreen extends AbstractScreen {
     final Color INACTIVE_COLOR = new Color(1f, 1f, 1f, 0.35f);
     final Color UNDERLINE_COLOR = new Color(0.98f, 0.80f, 0.25f, 1f); // warm gold
 
-    Label gamesTab   = new Label("Games",   MyGdxGame.skin);
-    Label playersTab = new Label("Players", MyGdxGame.skin);
+    Label gamesTab   = new Label("Games",   MyGdxGame.skin, "title");
+    Label playersTab = new Label("Players", MyGdxGame.skin, "title");
+    // Use linear filter on title font for smooth downscale rendering
+    MyGdxGame.skin.getFont("title").getRegion().getTexture()
+        .setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear,
+                   com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+    gamesTab.setFontScale(0.55f);
+    playersTab.setFontScale(0.55f);
     gamesTab.pack();
     playersTab.pack();
 
@@ -468,16 +487,6 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(underline);
     menuStage.addActor(gamesTab);
     menuStage.addActor(playersTab);
-
-    // Small logo at top of session-list screen
-    Image smallLogo = new Image(logoRegion);
-    float smallLogoW = Math.round(logoImage.getWidth() * 0.22f);
-    float smallLogoH = Math.round(logoImage.getHeight() * 0.22f);
-    smallLogo.setSize(smallLogoW, smallLogoH);
-    smallLogo.setPosition(
-        Math.round(cx - smallLogoW / 2f),
-        Math.round(MyGdxGame.HEIGHT - smallLogoH - 5f));
-    menuStage.addActor(smallLogo);
 
     if (!showPlayersTab) {
       // ── Games tab ───────────────────────────────────────────────────────────
@@ -541,16 +550,26 @@ public class MenuScreen extends AbstractScreen {
         sessTable.row();
       }
 
-      sessTable.pack();
-      sessTable.setPosition(Math.round(cx - sessTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
-      menuStage.addActor(sessTable);
+      ScrollPane sessScrollPane = new ScrollPane(sessTable, MyGdxGame.skin);
+      sessScrollPane.setScrollingDisabled(true, false);
+      sessScrollPane.setFadeScrollBars(false);
+      float spW = MyGdxGame.WIDTH - 32f;
+      // Position the scroll pane to sit between the tab bar and the button row,
+      // with a safe gap above the buttons to avoid overlap.
+      float spBtnH = button.getPrefHeight();
+      float spBtnY = Math.round(0.15f * MyGdxGame.HEIGHT);
+      float spBottom = spBtnY + spBtnH + 8f;
+      float spH = tabY - 8f - spBottom;
+      sessScrollPane.setSize(spW, spH);
+      sessScrollPane.setPosition(Math.round(cx - spW / 2f), Math.round(spBottom));
+      menuStage.addActor(sessScrollPane);
 
-      // Evenly-spaced button row: Rules | Tutorial | Create game
-      float btnH = button.getHeight();
+      // Evenly-spaced button row: Rules | Tutorial | New game
+      float btnH = spBtnH;
       float gap = 8f;
       float margin = 16f;
       float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
-      float btnY = Math.round(0.06f * MyGdxGame.HEIGHT);
+      float btnY = spBtnY;
 
       TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
       rulesBtn.setSize(btnW, btnH);
@@ -571,7 +590,7 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
-      TextButton createBtn = new TextButton("Create game", MyGdxGame.skin);
+      TextButton createBtn = new TextButton("New game", MyGdxGame.skin);
       createBtn.setSize(btnW, btnH);
       createBtn.setPosition(margin + 2 * (btnW + gap), btnY);
       createBtn.addListener(new ClickListener() {
@@ -632,7 +651,6 @@ public class MenuScreen extends AbstractScreen {
       playersTable.pack();
       playersTable.setPosition(Math.round(cx - playersTable.getWidth() / 2f), Math.round(0.45f * MyGdxGame.HEIGHT));
       menuStage.addActor(playersTable);
-
 
     }
 
@@ -790,35 +808,36 @@ public class MenuScreen extends AbstractScreen {
     // ── Table layout (no overlap guaranteed) ────────────────────────────────
     Table form = new Table(MyGdxGame.skin);
     form.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
-    form.pad(20f, 24f, 20f, 24f);
+    form.pad(10f, 20f, 10f, 20f);
     float colW = MyGdxGame.WIDTH * 0.72f;
 
-    form.add(title).colspan(2).center().padBottom(18f);
+    form.add(title).colspan(2).center().padBottom(10f);
     form.row();
-    form.add(gameNameBtn).colspan(2).fillX().padBottom(14f);
+    form.add(gameNameBtn).colspan(2).fillX().padBottom(8f);
     form.row();
-    form.add(cardsLabel).left().padRight(12f).padBottom(14f);
-    form.add(cardsBox).width(colW * 0.38f).left().padBottom(14f);
+    form.add(cardsLabel).left().padRight(12f).padBottom(6f);
+    form.add(cardsBox).width(colW * 0.38f).left().padBottom(6f);
     for (int bi = 0; bi < totalBotSlots; bi++) {
       form.row();
-      form.add(botLabels[bi]).left().padRight(12f).padBottom(8f);
-      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(8f);
+      form.add(botLabels[bi]).left().padRight(12f).padBottom(4f);
+      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(4f);
     }
     form.row();
-    form.add(spectatorCheckbox).colspan(2).left().padBottom(6f);
+    form.add(spectatorCheckbox).colspan(2).left().padBottom(4f);
     form.row();
-    form.add(manualSetupCheckbox).colspan(2).left().padBottom(10f);
+    form.add(manualSetupCheckbox).colspan(2).left().padBottom(4f);
     form.row();
-    form.add(heroCheckbox).colspan(2).left().padBottom(18f);
+    form.add(heroCheckbox).colspan(2).left().padBottom(8f);
     form.row();
     form.add(confirmCreateBtn).colspan(2).center();
 
     form.pack();
-    // Centre the form vertically in the lower 55% of the screen (below the logo area)
-    float formTop = 0.82f * MyGdxGame.HEIGHT;
+    // Position form from just below the back button; clamp bottom away from logout button
+    float formTop = backBtn.getY() - 6f;
+    float formY = Math.max(60f, formTop - form.getHeight());
     form.setPosition(
         Math.round(cx - form.getWidth() / 2f),
-        Math.round(formTop - form.getHeight()));
+        Math.round(formY));
     menuStage.addActor(form);
 
     addMusicToggleButton(menuStage);
@@ -861,7 +880,7 @@ public class MenuScreen extends AbstractScreen {
     TextButton logoutBtn = new TextButton("Log out", MyGdxGame.skin);
     logoutBtn.pack();
     logoutBtn.setSize(logoutBtn.getPrefWidth() + 10, logoutBtn.getPrefHeight() + 6);
-    logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth() - 10, 10);
+    logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth(), 0);
     logoutBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -934,20 +953,10 @@ public class MenuScreen extends AbstractScreen {
   private void showLobbyScreen() {
     MyGdxGame.setMusicTrack(timerStarted ? MyGdxGame.musicIntrigue : MyGdxGame.musicDrums);
     float cx = MyGdxGame.WIDTH / 2f;
-    float buttonY = 0.08f * MyGdxGame.HEIGHT;
-
-    // Small logo at top of lobby screen
-    Image lobbyLogo = new Image(logoRegion);
-    float lobbyLogoW = Math.round(logoImage.getWidth() * 0.22f);
-    float lobbyLogoH = Math.round(logoImage.getHeight() * 0.22f);
-    lobbyLogo.setSize(lobbyLogoW, lobbyLogoH);
-    lobbyLogo.setPosition(
-        Math.round(cx - lobbyLogoW / 2f),
-        Math.round(MyGdxGame.HEIGHT - lobbyLogoH - 5f));
-    menuStage.addActor(lobbyLogo);
+    float buttonY = 0.16f * MyGdxGame.HEIGHT;
 
     Image actionBar = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.12f)));
-    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getHeight() + 24f);
+    actionBar.setSize(0.86f * MyGdxGame.WIDTH, button.getPrefHeight() + 24f);
     actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
     actionBar.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
 
@@ -1074,7 +1083,7 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(gameRunningLabel);
 
       TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
-      watchButton.setSize(button.getWidth(), button.getHeight());
+      watchButton.setSize(button.getPrefWidth(), button.getPrefHeight());
       watchButton.setPosition((MyGdxGame.WIDTH - watchButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
       watchButton.addListener(new ClickListener() {
         @Override
@@ -1106,7 +1115,7 @@ public class MenuScreen extends AbstractScreen {
 
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
-        startGameButton.setSize(button.getWidth(), button.getHeight());
+        startGameButton.setSize(startGameButton.getPrefWidth() + 20, startGameButton.getPrefHeight());
         float buttonGap = 20f;
         float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
         float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
@@ -1177,7 +1186,7 @@ public class MenuScreen extends AbstractScreen {
   @Override
   public void render(float delta) {
     // System.out.println("render menu screen");
-    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1);
+    Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
     // Auto-escape from stuck reconnect state after timeout.
@@ -1232,6 +1241,7 @@ public class MenuScreen extends AbstractScreen {
   public void dispose() {
     menuStage.dispose();
     logoTexture.dispose();
+    if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
   }
 
   public void configSocketEvents(final SocketClient socket) {

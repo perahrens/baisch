@@ -53,7 +53,7 @@
                 #loading-overlay {
                   position: fixed;
                   inset: 0;
-                  background: #1a1a2e;
+                  background: #000 url('assets/data/graphics/bg_darkmoon.jpg') center center / cover no-repeat;
                   display: flex;
                   flex-direction: column;
                   align-items: center;
@@ -129,6 +129,35 @@
                   0%   { transform: translateX(-120%); }
                   100% { transform: translateX(500%); }
                 }
+                /* ── Name-entry screen logo overlay ────────────────────────── */
+                /* Shown on top of the game canvas during the name-entry screen  */
+                /* only; hidden by JSNI when the player moves past that screen.  */
+                #name-entry-logo {
+                  position: fixed;
+                  inset: 0;
+                  display: none; /* shown by JSNI */
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: flex-start;
+                  padding-top: 10vh;
+                  pointer-events: none; /* clicks pass through to the game canvas */
+                  z-index: 100;
+                }
+                #name-entry-logo .ne-title {
+                  font-family: Georgia, 'Times New Roman', serif;
+                  font-size: clamp(40px, 10vw, 76px);
+                  font-weight: bold;
+                  letter-spacing: 0.15em;
+                  color: #f5c842;
+                  text-shadow: 0 0 30px rgba(245,200,66,0.6), 0 2px 8px rgba(0,0,0,0.8);
+                  margin-bottom: 12px;
+                }
+                #name-entry-logo .ne-suits {
+                  font-size: clamp(22px, 5.5vw, 36px);
+                  letter-spacing: 0.35em;
+                  color: #cccccc;
+                }
+                #name-entry-logo .ne-suits .red { color: #e05555; }
               </style>
        </head>
 
@@ -138,6 +167,11 @@
                 <div id="loading-title"><span>B</span><span>A</span><span>I</span><span>S</span><span>C</span><span>H</span></div>
                 <div id="loading-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
                 <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+              </div>
+              <!-- Name-entry screen logo: crisp HTML/CSS BAISCH title + suits -->
+              <div id="name-entry-logo">
+                <div class="ne-title">BAISCH</div>
+                <div class="ne-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
               </div>
               <a class="superdev" href="javascript:%7B%20window.__gwt_bookmarklet_params%20%3D%20%7B'server_url'%3A'http%3A%2F%2Flocalhost%3A9876%2F'%7D%3B%20var%20s%20%3D%20document.createElement('script')%3B%20s.src%20%3D%20'http%3A%2F%2Flocalhost%3A9876%2Fdev_mode_on.js'%3B%20void(document.getElementsByTagName('head')%5B0%5D.appendChild(s))%3B%7D">&#8635;</a>
               <div id="embed-html"></div>

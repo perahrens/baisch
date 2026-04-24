@@ -20,6 +20,10 @@ RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew :html:dependencies --no-daemon -q
 
 # Copy all subproject sources.
+# HTML_CACHEBUST can be passed as a build-arg (e.g. --build-arg HTML_CACHEBUST=$(date +%s))
+# to force Depot's remote layer cache to invalidate for the html/ COPY and the
+# GWT compile that follows it.
+ARG HTML_CACHEBUST=1
 COPY core/   core/
 COPY html/   html/
 # Assets are needed by PreloaderBundleGenerator at GWT compile time.

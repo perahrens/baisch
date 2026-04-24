@@ -9,6 +9,7 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
@@ -39,6 +40,7 @@ public class StatsScreen extends AbstractScreen {
   private final JSONObject stats;
   private final JSONArray log;
   private Stage stage;
+  private Texture bgTexture;
   private int activeTab = 0; // 0=General, 1=Players, 2=History
 
   public StatsScreen(Game game, SocketClient socket, JSONObject stats, JSONArray log) {
@@ -50,8 +52,13 @@ public class StatsScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     stage = new Stage(new FitViewport(MyGdxGame.WIDTH, MyGdxGame.HEIGHT));
     Gdx.input.setInputProcessor(stage);
+    if (bgTexture == null) bgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
+    Image bg = new Image(bgTexture);
+    bg.setFillParent(true);
+    stage.addActor(bg);
     buildUI();
   }
 
@@ -143,9 +150,14 @@ public class StatsScreen extends AbstractScreen {
 
     // ── Return to Lobby button ───────────────────────────────────────────────
     TextButton returnBtn = new TextButton("Return to Lobby", MyGdxGame.skin);
-    returnBtn.pack();
-    returnBtn.setPosition(Math.round(cx - returnBtn.getWidth() / 2f),
-        Math.round(0.055f * MyGdxGame.HEIGHT));
+    returnBtn.setSize(returnBtn.getPrefWidth() + 20, returnBtn.getPrefHeight());
+    float btnRowY = Math.round(0.055f * MyGdxGame.HEIGHT);
+    if (activeTab == 2) {
+      // Side-by-side with Copy log: return on the right of centre
+      returnBtn.setPosition(Math.round(cx + 6f), btnRowY);
+    } else {
+      returnBtn.setPosition(Math.round(cx - returnBtn.getWidth() / 2f), btnRowY);
+    }
     returnBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -325,6 +337,12 @@ public class StatsScreen extends AbstractScreen {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
+    // Dark background behind history list for readability
+    Image historyBg = new Image(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.55f)));
+    historyBg.setSize(contentW, contentH);
+    historyBg.setPosition(Math.round(cx - contentW / 2f), Math.round(contentBottom));
+    stage.addActor(historyBg);
+
     ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
     scroll.setFadeScrollBars(false);
     scroll.setScrollingDisabled(true, false);
@@ -335,10 +353,11 @@ public class StatsScreen extends AbstractScreen {
     stage.addActor(scroll);
 
     // "Copy log" button — copies all history entries to the system clipboard
+    // Placed to the left of the centred Return to Lobby button (which sits right of centre)
     TextButton copyBtn = new TextButton("Copy log", MyGdxGame.skin);
-    copyBtn.pack();
-    copyBtn.setPosition(Math.round(cx - copyBtn.getWidth() / 2f),
-        Math.round(0.11f * MyGdxGame.HEIGHT));
+    copyBtn.setSize(copyBtn.getPrefWidth() + 20, copyBtn.getPrefHeight());
+    copyBtn.setPosition(Math.round(cx - copyBtn.getWidth() - 6f),
+        Math.round(0.055f * MyGdxGame.HEIGHT));
     copyBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -376,7 +395,7 @@ public class StatsScreen extends AbstractScreen {
 
   @Override
   public void render(float delta) {
-    Gdx.gl.glClearColor(0.55f, 0.73f, 0.55f, 1f);
+    Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
     stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
@@ -400,5 +419,6 @@ public class StatsScreen extends AbstractScreen {
   @Override
   public void dispose() {
     if (stage != null) { stage.dispose(); stage = null; }
+    if (bgTexture != null) { bgTexture.dispose(); bgTexture = null; }
   }
 }

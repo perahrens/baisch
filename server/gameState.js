@@ -955,6 +955,7 @@ class GameState {
 
   serialize() {
     return {
+      roundNumber: this.roundNumber,
       currentPlayerIndex: this.currentPlayerIndex,
       setupPhase: this.setupPhase || false,
       setupSubmitted: Object.assign({}, this.setupSubmitted || {}),

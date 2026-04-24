@@ -408,6 +408,10 @@ public class GameState {
     return roundNumber;
   }
 
+  public void setRoundNumber(int roundNumber) {
+    this.roundNumber = roundNumber;
+  }
+
   public boolean getUpdateState() {
     return updateState;
   }

@@ -27,6 +27,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   private SpriteBatch batch;
 
   static Skin skin;
+  /** Old plain uiskin — used for compact banner buttons (Skip / Next ►). */
+  static Skin plainSkin;
   static Stage stage;
 
   // --- Music tracks ---
@@ -54,6 +56,14 @@ public class MyGdxGame extends Game implements InputProcessor {
    * Set by HtmlLauncher; null on non-web platforms.
    */
   public static Runnable onMusicUiUpdate = null;
+  /** Called when the game-play screen becomes active; hides the native music button. */
+  public static Runnable onGameScreenActive = null;
+  /** Called when a menu/stats screen becomes active; shows the native music button again. */
+  public static Runnable onMenuScreenActive = null;
+  /** Called when the name-entry screen is shown; reveals the DOM logo overlay. */
+  public static Runnable onNameEntryScreenActive = null;
+  /** Called when leaving the name-entry screen; hides the DOM logo overlay. */
+  public static Runnable onNameEntryScreenDone = null;
 
   /** Singleton reference — set in {@link #create()} for JSNI callbacks. */
   public static MyGdxGame INSTANCE;
@@ -103,13 +113,22 @@ public class MyGdxGame extends Game implements InputProcessor {
    * Called from the DOM touchend/click handler to start music inside the
    * browser's user-activation context.  We call stop() before play() because
    * an earlier rejected play() may have left SoundManager2's playState stale.
+   * Guards against re-triggering if music was already started.
    */
   public void resumeMusicIfEnabled() {
-    if (playerStorage.getMusicEnabled() && activeMusic != null) {
+    if (playerStorage.getMusicEnabled() && activeMusic != null && !musicStarted) {
       musicStarted = true;
       activeMusic.stop();
       activeMusic.play();
     }
+  }
+
+  /**
+   * Returns true once the music track has been loaded (activeMusic != null).
+   * Used by the DOM audio unlocker to decide whether to remove its listener.
+   */
+  public boolean isMusicActive() {
+    return activeMusic != null;
   }
 
   /** Toggle music on/off, persist the preference, and update playback immediately. */
@@ -147,7 +166,8 @@ public class MyGdxGame extends Game implements InputProcessor {
     stage = new Stage();
     Gdx.input.setInputProcessor(stage);
 
-    skin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
+    skin = new Skin(Gdx.files.internal("data/skins/rusty-robot/rusty-robot-ui.json"));
+    plainSkin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
     // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
     // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the

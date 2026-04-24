@@ -729,6 +729,7 @@ public class GameScreen extends ScreenAdapter {
   public void show() {
     INSTANCE = this;
     MyGdxGame.setMusicTrack(null); // no music during the game
+    if (MyGdxGame.onGameScreenActive != null) MyGdxGame.onGameScreenActive.run();
 
     players = gameState.getPlayers();
     // Spectators always follow the player whose turn it currently is.
@@ -1794,7 +1795,7 @@ public class GameScreen extends ScreenAdapter {
                   > pt.getPendingPlunderDefStrength();
           if (canFlipPlunder) {
             TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
-            resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+            resBtn.pack();
             resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
             resBtn.addListener(new ClickListener() {
               @Override
@@ -2233,7 +2234,7 @@ public class GameScreen extends ScreenAdapter {
                 && (atkBase + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
             if (canFlipAttack) {
               TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
-              resBtn.setWidth(MyGdxGame.WIDTH / 3f);
+              resBtn.pack();
               resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
               resBtn.addListener(new ClickListener() {
                 @Override
@@ -2604,20 +2605,27 @@ public class GameScreen extends ScreenAdapter {
       hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
       gameStage.addActor(hsTitle);
 
-      // Layout hero buttons in rows of 4
-      float btnW    = MyGdxGame.WIDTH / 5f;
-      float btnGapX = MyGdxGame.WIDTH * 0.05f;
-      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      // Layout: compute button width from the widest hero name so text never clips.
+      float maxBtnPrefW = 0f;
+      for (Hero c : choices) {
+        TextButton tb = new TextButton(c.getHeroName(), MyGdxGame.skin);
+        maxBtnPrefW = Math.max(maxBtnPrefW, tb.getPrefWidth());
+      }
+      float btnW = maxBtnPrefW + 20f;
+      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+      numCols = Math.min(numCols, choices.size());
+      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
       float startY  = MyGdxGame.WIDTH * 0.62f;
       float rowH    = 0f;
 
       for (int ci = 0; ci < choices.size(); ci++) {
         final Hero choice = choices.get(ci);
         TextButton heroBtn = new TextButton(choice.getHeroName(), MyGdxGame.skin);
-        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
-        int col = ci % 4;
-        int row = ci / 4;
-        heroBtn.setWidth(btnW);
+        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
+        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
+        int col = ci % numCols;
+        int row = ci / numCols;
         heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
@@ -2668,19 +2676,26 @@ public class GameScreen extends ScreenAdapter {
       kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
       gameStage.addActor(kdTitle);
 
-      float btnW    = MyGdxGame.WIDTH / 5f;
-      float btnGapX = MyGdxGame.WIDTH * 0.05f;
-      float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+      float maxKdPrefW = 0f;
+      for (String n : kdOptions) {
+        TextButton tb = new TextButton(n, MyGdxGame.skin);
+        maxKdPrefW = Math.max(maxKdPrefW, tb.getPrefWidth());
+      }
+      float btnW = maxKdPrefW + 20f;
+      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+      numCols = Math.min(numCols, kdOptions.size());
+      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
       float startY  = MyGdxGame.WIDTH * 0.62f;
       float rowH    = 0f;
 
       for (int ci = 0; ci < kdOptions.size(); ci++) {
         final String heroName = kdOptions.get(ci);
         TextButton heroBtn = new TextButton(heroName, MyGdxGame.skin);
-        if (rowH == 0f) rowH = heroBtn.getHeight() + 8f;
-        int col = ci % 4;
-        int row = ci / 4;
-        heroBtn.setWidth(btnW);
+        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
+        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
+        int col = ci % numCols;
+        int row = ci / numCols;
         heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
@@ -2716,18 +2731,25 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(selTitle);
 
         final ArrayList<Hero> phList = currentPlayer.getHeroes();
-        float btnW    = MyGdxGame.WIDTH / 5f;
-        float btnGapX = MyGdxGame.WIDTH * 0.05f;
-        float startX  = (MyGdxGame.WIDTH - 4f * btnW - 3f * btnGapX) / 2f;
+        float maxPhPrefW = 0f;
+        for (Hero ph : phList) {
+          TextButton tb = new TextButton(ph.getHeroName(), MyGdxGame.skin);
+          maxPhPrefW = Math.max(maxPhPrefW, tb.getPrefWidth());
+        }
+        float btnW = maxPhPrefW + 20f;
+        int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
+        numCols = Math.min(numCols, phList.size());
+        float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
+        float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
         float startY  = MyGdxGame.WIDTH * 0.58f;
         float rowH    = 0f;
         for (int ci = 0; ci < phList.size(); ci++) {
           final String hName = phList.get(ci).getHeroName();
           TextButton hBtn = new TextButton(hName, MyGdxGame.skin);
-          if (rowH == 0f) rowH = hBtn.getHeight() + 8f;
-          int col = ci % 4;
-          int row = ci / 4;
-          hBtn.setWidth(btnW);
+          hBtn.setSize(btnW, hBtn.getPrefHeight());
+          if (rowH == 0f) rowH = hBtn.getPrefHeight() + 8f;
+          int col = ci % numCols;
+          int row = ci / numCols;
           hBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
           hBtn.addListener(new ClickListener() {
             @Override
@@ -2740,7 +2762,8 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(hBtn);
         }
         TextButton selCancel = new TextButton("Cancel", MyGdxGame.skin);
-        selCancel.setPosition(MyGdxGame.WIDTH / 2f - selCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.35f);
+        selCancel.setSize(selCancel.getPrefWidth() + 20, selCancel.getPrefHeight());
+        selCancel.setPosition(MyGdxGame.WIDTH / 2f - selCancel.getWidth() / 2f, MyGdxGame.WIDTH * 0.35f);
         selCancel.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2754,18 +2777,18 @@ public class GameScreen extends ScreenAdapter {
         final String sHeroName = auctionSellHeroName;
         Label mbTitle = new Label("Sell " + sHeroName + " — Minimum bid strength:", MyGdxGame.skin);
         mbTitle.setColor(Color.GOLD);
-        mbTitle.setPosition(MyGdxGame.WIDTH / 2f - mbTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.62f);
+        mbTitle.setPosition(MyGdxGame.WIDTH / 2f - mbTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.82f);
         gameStage.addActor(mbTitle);
 
         Label mbValue = new Label(String.valueOf(auctionSellMinBid), MyGdxGame.skin);
         mbValue.setFontScale(2f);
         mbValue.setColor(Color.WHITE);
-        mbValue.setPosition(MyGdxGame.WIDTH / 2f - mbValue.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.47f);
+        mbValue.setPosition(MyGdxGame.WIDTH / 2f - mbValue.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.65f);
         gameStage.addActor(mbValue);
 
         TextButton minusBtn = new TextButton("-", MyGdxGame.skin);
         minusBtn.setSize(90f, 70f);
-        minusBtn.setPosition(MyGdxGame.WIDTH / 2f - 140f, MyGdxGame.WIDTH * 0.46f);
+        minusBtn.setPosition(MyGdxGame.WIDTH / 2f - 140f, MyGdxGame.WIDTH * 0.62f);
         minusBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2776,7 +2799,7 @@ public class GameScreen extends ScreenAdapter {
 
         TextButton plusBtn = new TextButton("+", MyGdxGame.skin);
         plusBtn.setSize(90f, 70f);
-        plusBtn.setPosition(MyGdxGame.WIDTH / 2f + 60f, MyGdxGame.WIDTH * 0.46f);
+        plusBtn.setPosition(MyGdxGame.WIDTH / 2f + 60f, MyGdxGame.WIDTH * 0.62f);
         plusBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2787,7 +2810,9 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(plusBtn);
 
         TextButton confirmBtn = new TextButton("Start Auction", MyGdxGame.skin);
-        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - confirmBtn.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.33f);
+        float caBtnW = confirmBtn.getPrefWidth() + 20;
+        confirmBtn.setSize(caBtnW, confirmBtn.getPrefHeight());
+        confirmBtn.setPosition(MyGdxGame.WIDTH / 2f - caBtnW / 2f, MyGdxGame.WIDTH * 0.38f);
         confirmBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2804,7 +2829,8 @@ public class GameScreen extends ScreenAdapter {
         gameStage.addActor(confirmBtn);
 
         TextButton mbCancel = new TextButton("Cancel", MyGdxGame.skin);
-        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.24f);
+        mbCancel.setSize(mbCancel.getPrefWidth() + 20, mbCancel.getPrefHeight());
+        mbCancel.setPosition(MyGdxGame.WIDTH / 2f - mbCancel.getWidth() / 2f, MyGdxGame.WIDTH * 0.14f);
         mbCancel.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2969,8 +2995,9 @@ public class GameScreen extends ScreenAdapter {
 
           final int finalTotal = totalBidStr;
           TextButton bidBtn = new TextButton("Bid", MyGdxGame.skin);
+          bidBtn.setSize(bidBtn.getPrefWidth() + 20, bidBtn.getPrefHeight());
           bidBtn.setColor(canBid ? Color.WHITE : Color.DARK_GRAY);
-          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getPrefWidth() - 16f, MyGdxGame.HEIGHT * 0.04f);
+          bidBtn.setPosition(MyGdxGame.WIDTH / 2f - bidBtn.getWidth() - 8f, MyGdxGame.HEIGHT * 0.04f);
           if (canBid) {
             final java.util.Set<Integer> snapHand = new java.util.HashSet<Integer>(auctionBidHandCardIds);
             final java.util.Set<Integer> snapDef  = new java.util.HashSet<Integer>(auctionBidDefCardIds);
@@ -2996,7 +3023,8 @@ public class GameScreen extends ScreenAdapter {
           overlayStage.addActor(bidBtn);
 
           TextButton passBtn = new TextButton("Pass", MyGdxGame.skin);
-          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 16f, MyGdxGame.HEIGHT * 0.04f);
+          passBtn.setSize(passBtn.getPrefWidth() + 20, passBtn.getPrefHeight());
+          passBtn.setPosition(MyGdxGame.WIDTH / 2f + 8f, MyGdxGame.HEIGHT * 0.04f);
           passBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -3419,20 +3447,10 @@ public class GameScreen extends ScreenAdapter {
     ArrayList<Integer> deniedCardIds = currentPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds();
     ArrayList<Integer> preyCardIds = currentPlayer.getPlayerTurn().getPreyCardIds();
 
-    // Compute row distribution: when >10 cards, extra cards go first to upper row then lower row
+    // Single row layout for all hand cards
     int handCardCount = handCards.size();
-    int upperCount, lowerCount;
-    if (handCardCount <= 5) {
-      upperCount = handCardCount;
-      lowerCount = 0;
-    } else if (handCardCount <= 10) {
-      upperCount = 5;
-      lowerCount = handCardCount - 5;
-    } else {
-      int extra = handCardCount - 10;
-      upperCount = 5 + (extra + 1) / 2;
-      lowerCount = 5 + extra / 2;
-    }
+    int upperCount = handCardCount;
+    int lowerCount = 0;
 
     for (int j = 0; j < handCards.size(); j++) {
       Card handcard = handCards.get(j);
@@ -3658,12 +3676,13 @@ public class GameScreen extends ScreenAdapter {
 
     // Turn info and button
     finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
-    finishTurnButton.setSize(finishTurnButton.getWidth() * 1.5f, finishTurnButton.getHeight() * 1.5f);
+    finishTurnButton.setSize(finishTurnButton.getPrefWidth() + 10, finishTurnButton.getPrefHeight());
     finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
-
-    // Turn indicator (spectators are never "my turn")
+    myPlayerLabel.setColor(Color.WHITE);
     boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);
+    TextButton getHeroActionBtn = null;
+    TextButton sellHeroActionBtn = null;
 
     // "Sacrifice Joker" button — only on your turn, bottom-left of hand stage
     if (isMyTurn && !currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
@@ -3674,15 +3693,16 @@ public class GameScreen extends ScreenAdapter {
       if (jokerInHand != null) {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
-        heroBtn.setSize(theJoker.getWidth(), heroBtn.getPrefHeight());
-        heroBtn.setPosition(theJoker.getX(), theJoker.getY());
+        float hBtnW = heroBtn.getPrefWidth() + 4;
+        float hBtnH = heroBtn.getPrefHeight();
+        heroBtn.setSize(hBtnW, hBtnH);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
             performJokerSacrifice(theJoker);
           }
         });
-        handStage.addActor(heroBtn);
+        getHeroActionBtn = heroBtn;
       }
     }
 
@@ -3690,10 +3710,8 @@ public class GameScreen extends ScreenAdapter {
     if (isMyTurn && pendingHeroAuction == null && auctionSellHeroName == null
         && !playerHeroes.isEmpty()) {
       final ArrayList<Hero> phForSell = playerHeroes;
-      float heroW = phForSell.get(0).getWidth();
       TextButton sellHeroBtn = new TextButton("Sell Hero", MyGdxGame.skin);
-      sellHeroBtn.setSize(heroW * 1.2f, sellHeroBtn.getPrefHeight());
-      sellHeroBtn.setPosition(phForSell.size() * heroW + 8f, 0f);
+      sellHeroBtn.setSize(sellHeroBtn.getPrefWidth() + 4, sellHeroBtn.getPrefHeight());
       sellHeroBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -3706,7 +3724,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      handStage.addActor(sellHeroBtn);
+      sellHeroActionBtn = sellHeroBtn;
     }
 
     // Spectators: hide finish-turn button and show a spectator indicator instead.
@@ -3737,15 +3755,15 @@ public class GameScreen extends ScreenAdapter {
           if (c.isCovered()) { stillHasCovered = true; break; }
         }
       }
-      if (stillHasCovered) {
-        addExposeCardOverlay();
-      } else {
+      if (!stillHasCovered) {
         pendingExposeCard = false;
         finishTurnButton.setVisible(isMyTurn);
         finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
         finishTurnButtonListener = new FinishTurnButtonListener(gameState, socket);
         finishTurnButton.addListener(finishTurnButtonListener);
       }
+      // addExposeCardOverlay() is called at the end of showHandStage() so it
+      // renders on top of all other handStage actors (hudPanel, sellHeroBtn etc.)
     } else {
       finishTurnButton.setVisible(isMyTurn);
       finishTurnButton.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
@@ -3904,7 +3922,26 @@ public class GameScreen extends ScreenAdapter {
         finishTurnButton.getHeight() + 2f);
     handStage.addActor(hudPanel);
 
+    // Action buttons (Get Hero / Sell Hero) — fixed position: left side, same row as HUD panel
+    float actionBtnY = finishTurnButton.getHeight() + 2f;
+    float actionBtnX = 2f;
+    if (sellHeroActionBtn != null && getHeroActionBtn != null) {
+      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(sellHeroActionBtn);
+      getHeroActionBtn.setPosition(actionBtnX + sellHeroActionBtn.getWidth() + 4f, actionBtnY);
+      handStage.addActor(getHeroActionBtn);
+    } else if (sellHeroActionBtn != null) {
+      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(sellHeroActionBtn);
+    } else if (getHeroActionBtn != null) {
+      getHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(getHeroActionBtn);
+    }
+
     handStage.addActor(finishTurnButton);
+    // Expose-card overlay must be added last so its actors render on top of
+    // hudPanel, sellHeroActionBtn and finishTurnButton.
+    if (isMyTurn && pendingExposeCard) addExposeCardOverlay();
   }
 
   private void addExposeCardOverlay() {
@@ -4077,7 +4114,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    table.add(resumeBtn).width(300).height(60).padBottom(14).row();
+    table.add(resumeBtn).width(300).height(90).padBottom(5).row();
 
     TextButton historyBtn = new TextButton("History", MyGdxGame.skin);
     historyBtn.addListener(new ClickListener() {
@@ -4086,19 +4123,7 @@ public class GameScreen extends ScreenAdapter {
         GameScreen.this.showLogOverlay();
       }
     });
-    table.add(historyBtn).width(300).height(60).padBottom(14).row();
-
-    final boolean musicOn = MyGdxGame.playerStorage.getMusicEnabled();
-    TextButton musicBtn = new TextButton(musicOn ? "Music ON" : "Music OFF", MyGdxGame.skin);
-    musicBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        boolean newEnabled = !MyGdxGame.playerStorage.getMusicEnabled();
-        MyGdxGame.setMusicEnabled(newEnabled);
-        buildMenuOverlay();
-      }
-    });
-    table.add(musicBtn).width(300).height(60).padBottom(14).row();
+    table.add(historyBtn).width(300).height(90).padBottom(5).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);
@@ -4109,7 +4134,7 @@ public class GameScreen extends ScreenAdapter {
           navigateToLobby();
         }
       });
-      table.add(leaveBtn).width(300).height(60).row();
+      table.add(leaveBtn).width(300).height(90).row();
     } else {
       TextButton giveUpStayBtn = new TextButton("Give Up & Stay", MyGdxGame.skin);
       giveUpStayBtn.addListener(new ClickListener() {
@@ -4119,7 +4144,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      table.add(giveUpStayBtn).width(300).height(60).padBottom(14).row();
+      table.add(giveUpStayBtn).width(300).height(90).padBottom(5).row();
 
       TextButton giveUpLeaveBtn = new TextButton("Give Up & Leave", MyGdxGame.skin);
       giveUpLeaveBtn.addListener(new ClickListener() {
@@ -4129,7 +4154,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      table.add(giveUpLeaveBtn).width(300).height(60).row();
+      table.add(giveUpLeaveBtn).width(300).height(90).row();
     }
 
     overlayStage.addActor(table);
@@ -4220,14 +4245,14 @@ public class GameScreen extends ScreenAdapter {
         buildMenuOverlay();
       }
     });
-      outer.add(backBtn).width(300).height(60).padTop(8).row();
+      outer.add(backBtn).width(300).height(90).padTop(8).row();
 
     overlayStage.addActor(outer);
   }
 
   private void addMenuButtonToOverlay() {
     TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
-    menuBtn.setSize(menuBtn.getWidth() * 1.5f, menuBtn.getHeight() * 1.5f);
+    menuBtn.setSize(menuBtn.getPrefWidth() + 10, menuBtn.getPrefHeight());
     menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
         MyGdxGame.HEIGHT - menuBtn.getHeight());
     menuBtn.addListener(new ClickListener() {
@@ -4535,7 +4560,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUp();
         }
       });
-      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
+      outer.add(exitBtn).width(exitBtn.getPrefWidth() + 20).height(exitBtn.getPrefHeight()).padBottom(10).row();
 
       TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
       keepBtn.addListener(new ClickListener() {
@@ -4546,7 +4571,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(keepBtn).width(280).height(50).row();
+      outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
       final int nextStep = tutorialStep + 1;
       String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
@@ -4559,7 +4584,7 @@ public class GameScreen extends ScreenAdapter {
           buildTutorialOverlay();
         }
       });
-      outer.add(gotItBtn).width(280).height(52).row();
+      outer.add(gotItBtn).width(gotItBtn.getPrefWidth() + 20).height(gotItBtn.getPrefHeight()).row();
 
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
@@ -4570,7 +4595,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(skipBtn).width(200).height(40).padTop(8).row();
+      outer.add(skipBtn).width(skipBtn.getPrefWidth() + 20).height(skipBtn.getPrefHeight()).padTop(8).row();
     }
 
     overlayStage.addActor(outer);
@@ -4592,25 +4617,21 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+    banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
-    Label stepLbl = new Label("Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  ", MyGdxGame.skin);
-    stepLbl.setColor(1f, 1f, 1f, 0.55f);
-    Label titleLbl = new Label(step.bannerTitle, MyGdxGame.skin);
-    titleLbl.setColor(Color.GOLD);
-
-    Table topRow = new Table();
-    topRow.add(stepLbl);
-    topRow.add(titleLbl).left();
-    banner.add(topRow).left().padBottom(4f).row();
+    String headerText = "Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  " + step.bannerTitle;
+    Label headerLbl = new Label(headerText, MyGdxGame.skin);
+    headerLbl.setColor(Color.GOLD);
+    headerLbl.setWrap(true);
+    banner.add(headerLbl).width(MyGdxGame.WIDTH - 95f).left().padBottom(4f).row();
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);
-    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 95f).left().row();
 
     overlayStage.addActor(banner);
 
-    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.plainSkin);
     skipBtn.setSize(70f, 30f);
     skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
     skipBtn.addListener(new ClickListener() {
@@ -4685,7 +4706,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      outer.add(exitBtn).width(280).height(50).padBottom(10).row();
+      outer.add(exitBtn).width(exitBtn.getPrefWidth() + 20).height(exitBtn.getPrefHeight()).padBottom(10).row();
 
       TextButton keepBtn = new TextButton("Keep Playing", MyGdxGame.skin);
       keepBtn.addListener(new ClickListener() {
@@ -4696,7 +4717,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      outer.add(keepBtn).width(280).height(50).row();
+      outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
       String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
       TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
@@ -4708,7 +4729,7 @@ public class GameScreen extends ScreenAdapter {
           buildHeroTutorialOverlay();
         }
       });
-      outer.add(gotItBtn).width(280).height(52).row();
+      outer.add(gotItBtn).width(gotItBtn.getPrefWidth() + 20).height(gotItBtn.getPrefHeight()).row();
 
       TextButton skipBtn = new TextButton("Skip Tutorial", MyGdxGame.skin);
       skipBtn.addListener(new ClickListener() {
@@ -4717,7 +4738,7 @@ public class GameScreen extends ScreenAdapter {
           emitGiveUpAndLeave();
         }
       });
-      outer.add(skipBtn).width(200).height(40).padTop(8).row();
+      outer.add(skipBtn).width(skipBtn.getPrefWidth() + 20).height(skipBtn.getPrefHeight()).padTop(8).row();
     }
 
     overlayStage.addActor(outer);
@@ -4736,26 +4757,22 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(10f);
+    banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
     int total = heroTutorialSteps.length;
-    Label stepLbl = new Label("Step " + (heroTutorialStep + 1) + "/" + total + "  ", MyGdxGame.skin);
-    stepLbl.setColor(1f, 1f, 1f, 0.55f);
-    Label titleLbl = new Label(step.bannerTitle, MyGdxGame.skin);
-    titleLbl.setColor(Color.GOLD);
-
-    Table topRow = new Table();
-    topRow.add(stepLbl);
-    topRow.add(titleLbl).left();
-    banner.add(topRow).left().padBottom(4f).row();
+    String headerText = "Step " + (heroTutorialStep + 1) + "/" + total + "  " + step.bannerTitle;
+    Label headerLbl = new Label(headerText, MyGdxGame.skin);
+    headerLbl.setColor(Color.GOLD);
+    headerLbl.setWrap(true);
+    banner.add(headerLbl).width(MyGdxGame.WIDTH - 190f).left().padBottom(4f).row();
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);
-    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 20f).left().row();
+    banner.add(bodyLbl).width(MyGdxGame.WIDTH - 190f).left().row();
 
     overlayStage.addActor(banner);
 
-    TextButton skipBtn = new TextButton("Skip", MyGdxGame.skin);
+    TextButton skipBtn = new TextButton("Skip", MyGdxGame.plainSkin);
     skipBtn.setSize(70f, 30f);
     skipBtn.setPosition(MyGdxGame.WIDTH - 75f, bannerY + bannerH - 34f);
     skipBtn.addListener(new ClickListener() {
@@ -4768,7 +4785,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Manual "Next" button so the player can advance past steps whose hook
     // they may not be able to satisfy in the current state.
-    TextButton nextBtn = new TextButton("Next ►", MyGdxGame.skin);
+    TextButton nextBtn = new TextButton("Next ►", MyGdxGame.plainSkin);
     nextBtn.setSize(90f, 30f);
     nextBtn.setPosition(MyGdxGame.WIDTH - 170f, bannerY + bannerH - 34f);
     nextBtn.addListener(new ClickListener() {
@@ -5240,6 +5257,10 @@ public class GameScreen extends ScreenAdapter {
         PickingDeckListener pdl1 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(1), gameState.getPickingDecks().get(0), 1);
         gameState.getPickingDecks().get(1).addListener(pdl1);
       }
+
+      // Sync round number
+      int serverRound = state.optInt("roundNumber", 0);
+      if (serverRound > 0) gameState.setRoundNumber(serverRound);
 
       // 7. Activity log
       JSONArray logJson = state.optJSONArray("log");

@@ -36,13 +36,41 @@ public class HtmlLauncher extends GwtApplication {
                 refreshMusicButton(MyGdxGame.playerStorage.getMusicEnabled());
             }
         };
+        MyGdxGame.onGameScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setMusicButtonVisible(false);
+            }
+        };
+        MyGdxGame.onMenuScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setMusicButtonVisible(true);
+            }
+        };
+        MyGdxGame.onNameEntryScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setNameEntryLogoVisible(true);
+            }
+        };
+        MyGdxGame.onNameEntryScreenDone = new Runnable() {
+            @Override
+            public void run() {
+                setNameEntryLogoVisible(false);
+            }
+        };
         installAudioUnlocker(app);
         return app;
     }
 
     /**
-     * Installs a one-shot DOM listener that on the first valid user activation event
-     * unlocks audio and starts the music track.
+     * Installs a DOM listener that unlocks audio and starts the music track
+     * on the first valid user activation event.
+     *
+     * The listener keeps retrying until the music track is actually loaded
+     * (activeMusic != null), so it works correctly even when the first user
+     * interaction occurs during the loading screen before GWT initialises.
      *
      * IMPORTANT: We listen for 'touchend' and 'click', NOT 'touchstart'.
      * Android Chrome only grants audio playback permission on activation events
@@ -51,9 +79,9 @@ public class HtmlLauncher extends GwtApplication {
      * the gesture as user activation yet.)
      */
     private static native void installAudioUnlocker(MyGdxGame app) /*-{
+        var musicTriggered = false;
         var handler = function(evt) {
-            $doc.removeEventListener('touchend', handler, true);
-            $doc.removeEventListener('click',    handler, true);
+            if (musicTriggered) return;
 
             // Unlock Web Audio API (iOS Safari)
             var AudioCtx = $wnd.AudioContext || $wnd.webkitAudioContext;
@@ -63,6 +91,15 @@ public class HtmlLauncher extends GwtApplication {
 
             // Start the actual music track — now from a valid activation event
             app.@com.mygdx.game.MyGdxGame::resumeMusicIfEnabled()();
+
+            // Remove listeners only once the music track is ready.
+            // If the game hadn't finished loading yet (activeMusic == null),
+            // keep the listeners so we retry on the next user interaction.
+            if (app.@com.mygdx.game.MyGdxGame::isMusicActive()()) {
+                musicTriggered = true;
+                $doc.removeEventListener('touchend', handler, true);
+                $doc.removeEventListener('click',    handler, true);
+            }
         };
         $doc.addEventListener('touchend', handler, true);
         $doc.addEventListener('click',    handler, true);
@@ -139,5 +176,17 @@ public class HtmlLauncher extends GwtApplication {
     /** Called from the onMusicUiUpdate Runnable to keep the GIF in sync with Java state. */
     private static native void refreshMusicButton(boolean enabled) /*-{
         if ($wnd._baischSetMusicBtn) $wnd._baischSetMusicBtn(enabled);
+    }-*/;
+
+    /** Shows or hides the DOM music button when switching between game and menu screens. */
+    private static native void setMusicButtonVisible(boolean visible) /*-{
+        var img = $doc.getElementById('baisch-music-img');
+        if (img) img.style.display = visible ? 'block' : 'none';
+    }-*/;
+
+    /** Shows or hides the name-entry logo overlay (crisp HTML BAISCH title + suits). */
+    private static native void setNameEntryLogoVisible(boolean visible) /*-{
+        var el = $doc.getElementById('name-entry-logo');
+        if (el) el.style.display = visible ? 'flex' : 'none';
     }-*/;
 }

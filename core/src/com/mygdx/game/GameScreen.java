@@ -3663,13 +3663,10 @@ public class GameScreen extends ScreenAdapter {
       if (jokerInHand != null) {
         final Card theJoker = jokerInHand;
         TextButton heroBtn = new TextButton("Get Hero", MyGdxGame.skin);
-        heroBtn.setSize(theJoker.getWidth(), heroBtn.getPrefHeight());
-        // Clamp Y so the button stays within the handStage viewport (HEIGHT - WIDTH logical units)
-        float handH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
-        float btnY = Math.min(
-            theJoker.getY() + theJoker.getHeight() + 4f,
-            handH - heroBtn.getHeight() - 2f);
-        heroBtn.setPosition(theJoker.getX(), btnY);
+        heroBtn.setSize(heroBtn.getPrefWidth() + 20, heroBtn.getPrefHeight());
+        // Place at the bottom of the joker card, centered horizontally over it
+        float btnX = theJoker.getX() + theJoker.getWidth() / 2f - heroBtn.getWidth() / 2f;
+        heroBtn.setPosition(btnX, theJoker.getY());
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {

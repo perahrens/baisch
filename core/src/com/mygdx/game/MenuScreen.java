@@ -193,7 +193,7 @@ public class MenuScreen extends AbstractScreen {
     heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
     heroSelectBox.setItems(heroNames);
     heroSelectBox.setSelected("None");
-    heroSelectBox.setSize(button.getWidth(), button.getHeight());
+    heroSelectBox.setSize(140f, 44f);
     heroSelectBox.setPosition((MyGdxGame.WIDTH - heroSelectBox.getWidth()) / 2f, 0.21f * MyGdxGame.HEIGHT);
     heroSelectBox.addListener(new ChangeListener() {
       @Override

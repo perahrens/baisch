@@ -51,7 +51,6 @@ public class MenuScreen extends AbstractScreen {
   private Texture menuBgTexture;
   private TextureRegion logoRegion;
   private Image logoImage;
-  private Texture jokerLogoTexture;
 
   private int currentUsersCount;
   private boolean updateScreen = false;
@@ -176,16 +175,9 @@ public class MenuScreen extends AbstractScreen {
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
 
-    // Joker face rendered in LibGDX at the top of the name-entry screen.
-    // BAISCH text and suit symbols are rendered as a crisp HTML DOM overlay.
-    float logoCx   = MyGdxGame.WIDTH / 2f;
-    float logoTopY = 0.9f * MyGdxGame.HEIGHT;
-    float jokerW = 92f; float jokerH = jokerW * 277f / 200f;
-    jokerLogoTexture = new Texture(Gdx.files.internal("data/graphics/joker.png"));
-    Image jokerImg = new Image(jokerLogoTexture);
-    jokerImg.setSize(jokerW, jokerH);
-    jokerImg.setPosition(Math.round(logoCx - jokerW / 2f), Math.round(logoTopY - jokerH));
-    group.addActor(jokerImg);
+    // The Joker face, BAISCH title, and suit symbols are all rendered via the
+    // #name-entry-logo DOM overlay (see mobile.html / HtmlLauncher.java).
+    // Nothing is added to the LibGDX group for the name-entry logo here.
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
@@ -1257,7 +1249,6 @@ public class MenuScreen extends AbstractScreen {
   public void dispose() {
     menuStage.dispose();
     logoTexture.dispose();
-    if (jokerLogoTexture != null) { jokerLogoTexture.dispose(); jokerLogoTexture = null; }
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
   }
 

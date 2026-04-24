@@ -126,6 +126,41 @@
         0%   { transform: translateX(-120%); }
         100% { transform: translateX(500%); }
       }
+      /* ── Name-entry screen logo overlay ──────────────────────────── */
+      /* Shown on top of the game canvas during the name-entry screen  */
+      /* only; hidden by JSNI when the player moves past that screen.  */
+      #name-entry-logo {
+        position: fixed;
+        inset: 0;
+        display: none; /* toggled by JSNI */
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 8vh;
+        pointer-events: none;
+        z-index: 100;
+      }
+      #ne-joker {
+        width: clamp(70px, 18vw, 108px);
+        height: auto;
+        border-radius: 50%;
+        margin-bottom: 10px;
+      }
+      #name-entry-logo .ne-title {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(40px, 10vw, 76px);
+        font-weight: bold;
+        letter-spacing: 0.15em;
+        color: #f5c842;
+        text-shadow: 0 0 30px rgba(245,200,66,0.6), 0 2px 8px rgba(0,0,0,0.8);
+        margin-bottom: 10px;
+      }
+      #name-entry-logo .ne-suits {
+        font-size: clamp(22px, 5.5vw, 36px);
+        letter-spacing: 0.35em;
+        color: #cccccc;
+      }
+      #name-entry-logo .ne-suits .red { color: #e05555; }
     </style>
   </head>
   <body>
@@ -134,6 +169,12 @@
       <div id="loading-title"><span>B</span><span>A</span><span>I</span><span>S</span><span>C</span><span>H</span></div>
       <img id="loading-suits-gif" src="cards.gif" alt="card suits">
       <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    </div>
+    <!-- Name-entry screen logo: joker face + crisp HTML BAISCH title + suits -->
+    <div id="name-entry-logo">
+      <img id="ne-joker" src="assets/data/graphics/joker.png" alt="Joker">
+      <div class="ne-title">BAISCH</div>
+      <div class="ne-suits">&#9824; <span class="red">&#9829;</span> <span class="red">&#9830;</span> &#9827;</div>
     </div>
     <div id="embed-html"></div>
     <script type="text/javascript" src="html/html.nocache.js"></script>

@@ -3681,6 +3681,8 @@ public class GameScreen extends ScreenAdapter {
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setColor(Color.WHITE);
     boolean isMyTurn = !isSpectator && (gameState.getCurrentPlayer() == currentPlayer);
+    TextButton getHeroActionBtn = null;
+    TextButton sellHeroActionBtn = null;
 
     // "Sacrifice Joker" button — only on your turn, bottom-left of hand stage
     if (isMyTurn && !currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
@@ -3694,23 +3696,13 @@ public class GameScreen extends ScreenAdapter {
         float hBtnW = heroBtn.getPrefWidth() + 20;
         float hBtnH = heroBtn.getPrefHeight();
         heroBtn.setSize(hBtnW, hBtnH);
-        // Center over joker, clamped so button stays fully within stage width.
-        // handStage and overlayStage share the same Y coordinate space for the
-        // lower area, so theJoker coords are valid in overlayStage too.
-        float rawBtnX = theJoker.getX() + theJoker.getWidth() / 2f - hBtnW / 2f;
-        float hBtnX = Math.max(0f, Math.min(rawBtnX, MyGdxGame.WIDTH - hBtnW));
-        // Place button just below the joker card so it never overlaps the card art.
-        float hBtnY = Math.max(0f, theJoker.getY() - hBtnH - 4f);
-        heroBtn.setPosition(hBtnX, hBtnY);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
             performJokerSacrifice(theJoker);
           }
         });
-        // Use overlayStage: rendered on top of cards, and first in the input
-        // multiplexer — guarantees visual and clickable areas always match.
-        overlayStage.addActor(heroBtn);
+        getHeroActionBtn = heroBtn;
       }
     }
 
@@ -3718,10 +3710,8 @@ public class GameScreen extends ScreenAdapter {
     if (isMyTurn && pendingHeroAuction == null && auctionSellHeroName == null
         && !playerHeroes.isEmpty()) {
       final ArrayList<Hero> phForSell = playerHeroes;
-      float heroW = phForSell.get(0).getWidth();
       TextButton sellHeroBtn = new TextButton("Sell Hero", MyGdxGame.skin);
       sellHeroBtn.setSize(sellHeroBtn.getPrefWidth() + 20, sellHeroBtn.getPrefHeight());
-      sellHeroBtn.setPosition(phForSell.size() * heroW + 8f, 0f);
       sellHeroBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -3734,7 +3724,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      handStage.addActor(sellHeroBtn);
+      sellHeroActionBtn = sellHeroBtn;
     }
 
     // Spectators: hide finish-turn button and show a spectator indicator instead.
@@ -3931,6 +3921,22 @@ public class GameScreen extends ScreenAdapter {
         MyGdxGame.WIDTH - hudPanel.getWidth() - 2f,
         finishTurnButton.getHeight() + 2f);
     handStage.addActor(hudPanel);
+
+    // Action buttons (Get Hero / Sell Hero) — fixed position: left side, same row as HUD panel
+    float actionBtnY = finishTurnButton.getHeight() + 2f;
+    float actionBtnX = 2f;
+    if (sellHeroActionBtn != null && getHeroActionBtn != null) {
+      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(sellHeroActionBtn);
+      getHeroActionBtn.setPosition(actionBtnX, actionBtnY + sellHeroActionBtn.getHeight() + 4f);
+      handStage.addActor(getHeroActionBtn);
+    } else if (sellHeroActionBtn != null) {
+      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(sellHeroActionBtn);
+    } else if (getHeroActionBtn != null) {
+      getHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      handStage.addActor(getHeroActionBtn);
+    }
 
     handStage.addActor(finishTurnButton);
   }

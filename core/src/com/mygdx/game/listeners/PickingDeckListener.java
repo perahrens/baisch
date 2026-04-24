@@ -33,7 +33,7 @@ public class PickingDeckListener extends ClickListener {
     Player currentPlayer = gameState.getCurrentPlayer();
     PlayerTurn pt = currentPlayer.getPlayerTurn();
 
-    if (pt.isPlunderPending()) {
+    if (pt.isLootPending()) {
       // Confirmation is handled by the fullscreen overlay in GameScreen; ignore deck clicks.
       return;
     }
@@ -117,14 +117,14 @@ public class PickingDeckListener extends ClickListener {
         System.out.println("Attack with " + attackSum + " defense is " + topCard.getStrength());
 
         pt.decreasePickingDeckAttacks();
-        pt.setPlunderPending(true);
+        pt.setLootPending(true);
         // Joker on top of harvest deck defends with infinite+1 (1000) — unbeatable
         int defStrength = "joker".equals(topCard.getSymbol()) ? 1000 : topCard.getStrength();
-        pt.setPendingPlunderAttackSum(attackSum);
-        pt.setPendingPlunderDefStrength(defStrength);
-        pt.setPlunderSuccess(attackSum > defStrength);
+        pt.setPendingLootAttackSum(attackSum);
+        pt.setPendingLootDefStrength(defStrength);
+        pt.setLootSuccess(attackSum > defStrength);
 
-        // Broadcast plunder preview to all players so watchers can see what's happening
+        // Broadcast loot preview to all players so watchers can see what's happening
         if (gameState.getSocket() != null) {
           try {
             int attackerIdx = gameState.getCurrentPlayerIndex();
@@ -147,7 +147,7 @@ public class PickingDeckListener extends ClickListener {
             preview.put("ownDefCardIds", ownDefIds);
             preview.put("attackingSymbol", pt.getAttackingSymbol()[0]);
             preview.put("attackingSymbol2", pt.getAttackingSymbol()[1]);
-            gameState.getSocket().emit("plunderPreview", preview);
+            gameState.getSocket().emit("lootPreview", preview);
           } catch (JSONException e) { e.printStackTrace(); }
         }
 

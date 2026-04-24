@@ -11,7 +11,7 @@ package com.mygdx.game;
  *
  * Hooks fired by GameScreen:
  *   FINISH_TURN     - player clicked Finish Turn
- *   PLUNDER         - player resolved a plunder
+ *   LOOT            - player resolved a loot
  *   PUT_DEF         - player placed a defense card
  *   TAKE_DEF        - player took a defense card back
  *   MY_TURN_START   - player turn started (after bot turn ended)
@@ -67,12 +67,12 @@ final class HeroTutorialSteps {
       "To boost an attack:\n"
       + "  1. Select hand cards for an attack.\n"
       + "  2. Tap the Mercenaries hero icon - each tap adds +1 attack strength.\n\n"
-      + "Then plunder a deck or attack an enemy as usual.",
+      + "Then loot a deck or attack an enemy as usual.",
       null),
     GameScreen.TutorialStepDef.banner(
-      "Try a Plunder with Mercenaries",
+      "Try a Loot with Mercenaries",
       "Select a hand card, tap Mercenaries to boost, then tap a harvest deck.",
-      "PLUNDER"),
+      "LOOT"),
     new GameScreen.TutorialStepDef(
       "Recovery",
       "Mercenaries lost in a failed attack are gone forever.\n\n"
@@ -211,12 +211,12 @@ final class HeroTutorialSteps {
     new GameScreen.TutorialStepDef(
       "How to Use the Priest",
       "To steal an enemy hand card:\n  1. Tap the Priest hero icon to select it.\n  2. Tap the enemy's hand card deck.\n  3. Pick a card matching your attack symbol to take it.\n\n"
-      + "Note: you must make at least one attack or plunder first this turn to set your attack symbol.",
+      + "Note: you must make at least one attack or loot first this turn to set your attack symbol.",
       null),
     GameScreen.TutorialStepDef.banner(
       "Try the Priest",
-      "First plunder or attack to set your symbol, then tap Priest and tap the bot's hand deck. Click Next when done.",
-      "PLUNDER"),
+      "First loot or attack to set your symbol, then tap Priest and tap the bot's hand deck. Click Next when done.",
+      "LOOT"),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
       "Click 'Finish turn' when done. Conversion attempts reset each new turn.",
@@ -244,9 +244,9 @@ final class HeroTutorialSteps {
       null),
     GameScreen.TutorialStepDef.banner(
       "Try an Attack",
-      "Plunder a harvest deck or attack an enemy defense card. If the attack is failing and you "
+      "Loot a harvest deck or attack an enemy defense card. If the attack is failing and you "
       + "have ready reservists, the boost button will appear.",
-      "PLUNDER"),
+      "LOOT"),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
       "Click 'Finish turn'. 2 reservists will recover for next turn.",
@@ -268,10 +268,10 @@ final class HeroTutorialSteps {
       + "Both symbols can be combined in the same attack round.",
       null),
     GameScreen.TutorialStepDef.banner(
-      "Try a Plunder",
-      "Select hand cards and plunder a harvest deck. "
+      "Try a Loot",
+      "Select hand cards and loot a harvest deck. "
       + "Notice the dual symbol unlocking.",
-      "PLUNDER"),
+      "LOOT"),
     GameScreen.TutorialStepDef.banner(
       "Finish Your Turn",
       "Click 'Finish turn' when done.",

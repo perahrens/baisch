@@ -20,7 +20,7 @@ Each turn a player may perform any combination of the following actions in any o
 1. **Mobilise** (take/put defence cards) — 1 take and 1 put per turn by default (3 combined with Marshal)
 2. **Attack** enemy defence cards (with hand cards, own defence cards via Banneret, Reservists boost, or own king)
 3. **King assault** on an exposed enemy king card
-4. **Plunder** a picking deck
+4. **Loot** a picking deck
 5. **Use hero abilities** (Spy, Merchant, Priest, Warlord, etc.)
 
 The turn ends when the player clicks **Finish Turn**.
@@ -39,14 +39,14 @@ The turn ends when the player clicks **Finish Turn**.
 | Attacking an enemy defence card (Banneret own-def-cards) | ✅ Yes |
 | Attacking an enemy king card (king assault) | ✅ Yes |
 | Warlord direct attack | ✅ Yes |
-| **Plundering a picking deck** | ❌ **No** |
+| **Looting a picking deck** | ❌ **No** |
 | Taking or placing a defence card (mobilise) | ❌ No |
 | Using a hero ability (Spy, Merchant, Priest, etc.) | ❌ No |
 | Warlord king swap | ❌ No |
 
 ### Implementation details:
 - Server: `attackCount` per player is incremented only in `defAttackResolved`, `kingAttackResolved`, and `warlordDirectAttack`.
-- `plunderResolved` must **not** increment `attackCount`.
+- `lootResolved` must **not** increment `attackCount`.
 - Client: `playerTurn.attackCounter == 0` triggers the expose prompt in `FinishTurnButtonListener`.
 - Client: `increaseAttackCounter()` **must** be called locally for **every** attack type (including regular defence-card attacks and king assaults) when the attack overlay is confirmed — before `setUpdateState(true)` fires the re-render. This prevents a race-condition where the user clicks "Finish Turn" before the server's `stateUpdate` arrives with the updated `attackCount`, which would falsely trigger the expose-card penalty.
 - The sole exception is Warlord direct attacks: `increaseAttackCounter()` is called at commit time (in `EnemyDefCardListener`) rather than at overlay-confirm time — the pattern is therefore `if (!apt.isPendingAttackIsWarlord()) apt.increaseAttackCounter();` in the overlay click handler.
@@ -70,7 +70,7 @@ The turn ends when the player clicks **Finish Turn**.
 - `finishTurn()` on the server clears `preyCards = []` so captured cards become normal hand cards next turn.
 - **Client implementation**: When a successful defence-card attack is confirmed in the overlay click handler, the captured card IDs **must** be added to `atkPlayer.getPlayerTurn().getPreyCardIds()` locally — before `setUpdateState(true)` triggers the re-render. If this is omitted, the first re-render fires before the server's `stateUpdate` arrives with `preyCards`, so the card briefly appears as usable (race-condition bug). The server's `stateUpdate` will confirm the prey list on arrival.
 - **Client implementation**: `applyStateUpdate` **must** take the UNION of server `preyCards` and local `preyCardIds` while it is still this player's turn. A stale `stateUpdate` from `setAttackPreview` may arrive after the local optimistic update and would otherwise clobber the locally-known captures. After the turn ends, server is authoritative.
-- Cards gained from a **plunder** are NOT prey cards — they become immediately usable (by design).
+- Cards gained from a **loot** are NOT prey cards — they become immediately usable (by design).
 
 ### King Assault
 - The defender's king must be **exposed** (face-up) for a king assault to be possible.
@@ -79,11 +79,11 @@ The turn ends when the player clicks **Finish Turn**.
 - On **success**: the defender is eliminated; the attacker gains all of the defender's cards.
 - On **failure**: the defending king is exposed (flipped face-up) as a result of the attack. If the attacker used their king, the attacker is also eliminated.
 
-### Plunder
+### Loot
 - The attacker selects hand cards of the same suit whose combined strength exceeds the **top card** of the target picking deck.
 - On **success**: the attacker gains all cards in that picking deck; the deck is rebuilt.
 - On **failure** (attacker used their king): the attacker is eliminated. Otherwise no penalty for failure.
-- **Plundering does not count as an attack** for the expose-defence-card penalty check.
+- **Looting does not count as an attack** for the expose-defence-card penalty check.
 
 ---
 
@@ -124,7 +124,7 @@ The turn ends when the player clicks **Finish Turn**.
 
 ### Reservists
 - Up to 4 figures (starts with 2 ready). Each figure passively adds +1 to the owner's king card defence strength.
-- During an attack/plunder, the owner may spend figures to add +1 per figure to the **attack** strength.
+- During an attack/loot, the owner may spend figures to add +1 per figure to the **attack** strength.
 - Recovers 2 figures per turn.
 
 ### Banneret
@@ -166,7 +166,7 @@ The turn ends when the player clicks **Finish Turn**.
 
 A player is eliminated when:
 1. Their king card is successfully attacked in a **king assault**, OR
-2. They used their king card in an **attack that failed** (defence/plunder/assault), OR
+2. They used their king card in an **attack that failed** (defence/loot/assault), OR
 3. Their king card was targeted by a Warlord direct attack that succeeded.
 
 An eliminated player's hand cards, king card, and heroes go to the attacker. If the defender had multiple heroes, the attacker chooses one; the rest are lost.
@@ -181,7 +181,7 @@ The game ends when only **one player** remains. That player is the winner.
 
 ## Notes for Coding Agents
 
-- Never treat a plunder as an attack for the expose-defence-card penalty.
+- Never treat a loot as an attack for the expose-defence-card penalty.
 - `attackCount` on the server and `attackCounter` on the client track **real attacks** only (defence/king attacks and Warlord direct attacks).
 - The Banneret dual-symbol rule applies from the **first** attack of the turn; it does not require a prior symbol to have been locked.
 - Warlord direct attack and Warlord king swap use **separate** server-side counters (`warlordAttacks` and `warlordSwaps`).

@@ -40,7 +40,7 @@ This glossary defines the key terms used throughout the Baisch codebase, issues,
 |---|---|
 | **Card Deck** | The main draw pile. Cards are drawn from here during setup and gameplay. When empty it is automatically reshuffled from the Cemetery. |
 | **Cemetery Deck (Cemetery)** | The discard pile. Cards that are spent in attacks, discarded by heroes, or used in sacrifices go here. |
-| **Picking Deck** | One of two face-up/face-down stacks placed in the middle of the table. Players can *plunder* a picking deck to gain all its cards. There are always two picking decks (index 0 and 1). |
+| **Picking Deck** | One of two face-up/face-down stacks placed in the middle of the table. Players can *loot* a picking deck to gain all its cards. There are always two picking decks (index 0 and 1). |
 
 ---
 
@@ -57,7 +57,7 @@ This glossary defines the key terms used throughout the Baisch codebase, issues,
 | **Attack (Defence Card Attack)** | Selecting hand cards (and optionally own defence cards via Banneret) whose combined strength exceeds an enemy's defence card strength. On success the attacker gains the card(s); on failure the attacked card remains face-up. |
 | **King Attack (Royal Attack)** | Using the player's king card to attack an enemy defence card. The king's strength is compared directly against the defence card. Result: win (2), draw (1), or loss (0). |
 | **King Assault** | Using hand cards (or the king card) to attack an enemy's *king card* directly. Success eliminates the defender; failure with king used eliminates the attacker. |
-| **Plunder** | Attacking a picking deck. If the attack sum beats the top card's strength the attacker gains all cards in that picking deck; otherwise the deck grows by one new card. |
+| **Loot** | Attacking a picking deck. If the attack sum beats the top card's strength the attacker gains all cards in that picking deck; otherwise the deck grows by one new card. |
 | **Joker Sacrifice** | Discarding a joker card to draw one card from the top of the deck, which determines the type of hero awarded. |
 | **Coup (King Swap)** | Replacing the player's current king card with a hand card (without using the Warlord hero). The old king goes to hand and can immediately be used for an attack. |
 | **Hero Selection** | When a joker sacrifice results in an ace (or joker determines a free choice), the player selects their hero from a list of available options. |
@@ -70,8 +70,8 @@ This glossary defines the key terms used throughout the Baisch codebase, issues,
 |---|---|
 | **Game Lobby** | The waiting room where players join, set their name, mark themselves as ready, and optionally pre-select a starting hero before the game begins. |
 | **Game Screen** | The main in-game view showing both players' fields, hand cards, picking decks, heroes, dice, and action buttons. |
-| **Overlay** | A temporary UI layer shown during attacks or special hero actions (e.g. attack confirmation, plunder confirmation, Priest card selection, hero choice). |
-| **Activity Log** | A small scrollable area in the game screen that shows the last 5 game events (attacks, plunders, mobilisations, etc.) with colour-coded success/failure indicators. |
+| **Overlay** | A temporary UI layer shown during attacks or special hero actions (e.g. attack confirmation, loot confirmation, Priest card selection, hero choice). |
+| **Activity Log** | A small scrollable area in the game screen that shows the last 5 game events (attacks, loots, mobilisations, etc.) with colour-coded success/failure indicators. |
 | **Hand Area** | The bottom portion of the game screen displaying the current player's hand cards. |
 | **Field / Board** | The area showing a player's defence slots, king card, and heroes. |
 | **Defence Slot** | One of three positions (1, 2, 3) on a player's field where a defence card can be placed. |
@@ -91,7 +91,7 @@ Heroes are acquired by sacrificing a joker card. The drawn card (or player choic
 | **Battery Tower** | 5 | White | 1 charge per turn. When the owner's defence card or king is attacked, the owner can spend 1 charge to deny the attack: attacker's used hand cards are locked for the rest of their turn. |
 | **Merchant** | 6 | White | 1 trade per turn: discard a hand card (or defence card) and draw a replacement from the deck. On the last trade the drawn card is revealed to all players. |
 | **Priest** | 7 | White | 2 conversion attempts per turn. After committing an attack with the same suit, convert one of the target player's matching hand cards to your own hand. |
-| **Reservists** | 8 | Black | Up to 4 reservist figures (starts 2 ready). Each figure passively adds +1 to king card defence strength. During an attack/plunder overlay, spend figures to add +1 to attack. Recovers 2 per turn. |
+| **Reservists** | 8 | Black | Up to 4 reservist figures (starts 2 ready). Each figure passively adds +1 to king card defence strength. During an attack/loot overlay, spend figures to add +1 to attack. Recovers 2 per turn. |
 | **Banneret** | 9 | Black | Allows two attacking suits of the same colour (hearts + diamonds, or spades + clubs) in a single attack. Also allows own face-down defence cards to be used as additional attack cards. |
 | **Saboteurs** | 10 | Black | 2 saboteur figures. Deploy one onto an enemy defence slot to block that slot (cannot be taken or placed into). The defender can sacrifice the slot's card (or a hand card for an empty slot) to remove the saboteur. Saboteurs recover over 2 turns after being destroyed. |
 | **Fortified Tower** | J | Black | 1 fortify action per turn: stack an additional hand card face-down on top of an existing defence card (a *top defence card*). The combined strength of both cards must be beaten by an attacker. |
@@ -129,4 +129,4 @@ Heroes are acquired by sacrificing a joker card. The drawn card (or player choic
 | **Relict** | A legacy placeholder class for special game objects (currently not actively used in gameplay). |
 | **`isOut`** | Internal flag on a player marking them as eliminated. Eliminated players are skipped in turn order. |
 | **`preyCards`** | Cards captured by the current player during their turn. They are locked until the turn ends, after which they become usable hand cards. |
-| **`pendingAttack` / `pendingPlunder`** | Server-side state stored while waiting for the client to confirm an attack or plunder result. Cleared once the action is resolved. |
+| **`pendingAttack` / `pendingLoot`** | Server-side state stored while waiting for the client to confirm an attack or loot result. Cleared once the action is resolved. |

@@ -213,7 +213,7 @@ public class StatsScreen extends AbstractScreen {
     addCell(table, "#",        colPlace,    hc, false);
     addCell(table, "Name",     colName,     hc, true);
     addCell(table, "Rounds",   colRounds,   hc, false);
-    addCell(table, "Plunders", colPlund,    hc, false);
+    addCell(table, "Loots", colPlund,    hc, false);
     addCell(table, "Attacks",  colAtk,      hc, false);
     addCell(table, "Defeated", colDefeated, hc, false);
     addCell(table, "King",     colKing,     hc, false);
@@ -250,8 +250,8 @@ public class StatsScreen extends AbstractScreen {
           int placement   = p.optInt("placement", i + 1);
           String name     = p.optString("name", "?");
           int roundsOut   = p.optInt("roundsUntilOut", 0);
-          int plundOk     = p.optInt("plundersSuccess", 0);
-          int plundFail   = p.optInt("plundersFailed", 0);
+          int plundOk     = p.optInt("lootsSuccess", 0);
+          int plundFail   = p.optInt("lootsFailed", 0);
           int atkOk       = p.optInt("attacksSuccess", 0);
           int atkFail     = p.optInt("attacksFailed", 0);
           int defeated    = p.optInt("defeated", 0);

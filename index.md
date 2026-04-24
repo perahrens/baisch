@@ -13,7 +13,7 @@ Be the last player not eliminated. A player is eliminated when their king is def
 On your turn, you typically:
 
 1. Improve your board (take/put defense cards)
-2. Plunder center picking decks for resources
+2. Loot center picking decks for resources
 3. Attack enemy defenses or king when legal
 4. Use hero abilities for tactical advantage
 5. End with Finish Turn
@@ -21,7 +21,7 @@ On your turn, you typically:
 ## Core Concepts
 
 - Defense cards protect your king.
-- Picking decks are central reward piles for plunder actions.
+- Picking decks are central reward piles for loot actions.
 - Captured cards become prey cards and unlock after your turn ends.
 - Jokers can be sacrificed to acquire heroes.
 

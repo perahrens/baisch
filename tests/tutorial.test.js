@@ -181,26 +181,26 @@ test('tutorial full walkthrough', async ({ page }) => {
   await page.waitForTimeout(800);
   await shot(page, '08_after_symbols_info');
 
-  // ── Step 4: PLUNDER – tap a harvest deck (card already selected from step 2)
+  // ── Step 4: LOOT – tap a harvest deck (card already selected from step 2)
   // Deck 1 center in gameStage: (232, 267) → browser(232, 208)
   await cgame(page, 232, 267, 'harvest deck');
   await page.waitForTimeout(2500);
-  await shot(page, '09_after_plunder');
+  await shot(page, '09_after_loot');
 
-  // ── Step 5: INFO_PLUNDER ──────────────────────────────────────────────────
-  // The plunder result ("FAILED. Tap to continue.") is a gameStage overlay and
+  // ── Step 5: INFO_LOOT ────────────────────────────────────────────────────
+  // The loot result ("FAILED. Tap to continue.") is a gameStage overlay and
   // MUST be dismissed by clicking inside gameStage (browser Y 25-475), not the
-  // hand area. After it is tapped the tutorial advances to INFO_PLUNDER whose
+  // hand area. After it is tapped the tutorial advances to INFO_LOOT whose
   // "Got it" button sits lower (~Y 601) because the body text is very long.
-  await cgame(page, 225, 200, 'dismiss plunder result');
-  await page.waitForTimeout(800);  // wait for INFO_PLUNDER overlay to build
-  console.log('  [click] Got it (plunder) browser(225,601)');
+  await cgame(page, 225, 200, 'dismiss loot result');
+  await page.waitForTimeout(800);  // wait for INFO_LOOT overlay to build
+  console.log('  [click] Got it (loot) browser(225,601)');
   await page.mouse.click(225, 601);
   await page.waitForTimeout(800);
-  await shot(page, '10_after_plunder_info');
+  await shot(page, '10_after_loot_info');
 
   // ── Step 6: INFO_JOKER ────────────────────────────────────────────────────
-  // INFO_JOKER body text is slightly shorter than INFO_PLUNDER, button ≈ Y 555.
+  // INFO_JOKER body text is slightly shorter than INFO_LOOT, button ≈ Y 555.
   console.log('  [click] Got it (joker) browser(225,555)');
   await page.mouse.click(225, 555);
   await page.waitForTimeout(800);

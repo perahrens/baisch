@@ -36,8 +36,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     defenseCardStrategy()     { return 'weakest'; }
     /** Replace exposed (face-up) defense cards with fresh face-down ones? */
     replaceExposedDefense()   { return true; }
-    /** Perform a follow-up defense attack after a successful plunder? */
-    attackAfterPlunder()      { return true; }
+    /** Perform a follow-up defense attack after a successful loot? */
+    attackAfterLoot()      { return true; }
     /** Maximum defense-card attacks per turn. -1 means unlimited. */
     maxAttacksPerTurn()       { return 1; }
     /** Probe covered defense cards to reveal them for future turns? */
@@ -60,12 +60,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
   /**
    * Passive — defensive wall builder.
    * Uses strongest cards for defense. One attack max (just to avoid the expose penalty).
-   * Never follows up after a plunder. Happy to trade joker for a hero.
+   * Never follows up after a loot. Happy to trade joker for a hero.
    */
   class PassivePersonality extends BotPersonality {
     constructor() { super('passive'); }
     defenseCardStrategy()   { return 'strongest'; }
-    attackAfterPlunder()    { return false; }
+    attackAfterLoot()    { return false; }
     maxAttacksPerTurn()     { return 1; }
   }
 
@@ -80,7 +80,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     constructor() { super('aggressive'); }
     fillDefenseFirst()      { return false; }
     replaceExposedDefense() { return false; }
-    attackAfterPlunder()    { return true; }
+    attackAfterLoot()    { return true; }
     maxAttacksPerTurn()     { return -1; }
     sacrificeJokerForHero() { return false; }
   }
@@ -93,7 +93,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
    */
   class TacticianPersonality extends BotPersonality {
     constructor() { super('tactician'); }
-    attackAfterPlunder()    { return true; }
+    attackAfterLoot()    { return true; }
     maxAttacksPerTurn()     { return 2; }
     allowScouting()         { return true; }
     sacrificeJokerForHero() { return true; }
@@ -185,9 +185,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return best;
   }
 
-  // Choose the best plunder: smart multi-card combo, preferring bigger decks with larger margin.
+  // Choose the best loot: smart multi-card combo, preferring bigger decks with larger margin.
   // Returns { deckIndex, cardIds, symbol, success } or null.
-  function botChoosePlunder(gs, attackerIdx) {
+  function botChooseLoot(gs, attackerIdx) {
     var p = gs.players[attackerIdx];
     if (!p || !p.hand || p.hand.length === 0 || (p.pickingDeckAttacks || 0) <= 0) return null;
 
@@ -236,7 +236,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         }
       }
     }
-    // Don't attempt plunder if facing certain failure
+    // Don't attempt loot if facing certain failure
     return (bestChoice && (bestChoice.success || bestScore > -200)) ? bestChoice : null;
   }
 
@@ -550,19 +550,19 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     callback(false);
   }
 
-  // After a plunder: optionally attack a face-up defense card, then finish the turn.
-  function botContinueAfterPlunder(sess, gs, idx) {
-    var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
-    if (atkAfterPlunder) {
-      var apDefCardId = gs.players[atkAfterPlunder.defenderIdx].defCards[atkAfterPlunder.positionId];
-      var apPreview = { attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
-                        positionId: atkAfterPlunder.positionId, level: 0,
-                        attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none',
-                        success: atkAfterPlunder.success, attackCardIds: atkAfterPlunder.cardIds,
+  // After a loot: optionally attack a face-up defense card, then finish the turn.
+  function botContinueAfterLoot(sess, gs, idx) {
+    var atkAfterLoot = botChooseDefAttack(gs, idx, false);
+    if (atkAfterLoot) {
+      var apDefCardId = gs.players[atkAfterLoot.defenderIdx].defCards[atkAfterLoot.positionId];
+      var apPreview = { attackerIdx: idx, defenderIdx: atkAfterLoot.defenderIdx,
+                        positionId: atkAfterLoot.positionId, level: 0,
+                        attackingSymbol: atkAfterLoot.symbol, attackingSymbol2: 'none',
+                        success: atkAfterLoot.success, attackCardIds: atkAfterLoot.cardIds,
                         defCardIds: apDefCardId != null ? [apDefCardId] : [] };
       gs.setAttackPreview(apPreview);
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      botDoDefAttackWithBatteryCheck(sess, gs, atkAfterPlunder, apPreview, function() {
+      botDoDefAttackWithBatteryCheck(sess, gs, atkAfterLoot, apPreview, function() {
         botFinishTurn(sess, gs, idx, true);
       });
     } else {
@@ -733,11 +733,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       }
     }
 
-    // Exception 2: save joker if it is the only way to plunder a known deck
+    // Exception 2: save joker if it is the only way to loot a known deck
     if ((p.pickingDeckAttacks || 0) > 0) {
       var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
       var hasUncoveredDeck = false;
-      var canPlunderWithoutJoker = false;
+      var canLootWithoutJoker = false;
       for (var d = 0; d < gs.pickingDecks.length; d++) {
         var deck = gs.pickingDecks[d];
         if (deck.length === 0) continue;
@@ -746,9 +746,9 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         hasUncoveredDeck = true;
         var threshold = gs.cardStrength(topCard.id);
         var best = botBestSuitCombo(gs, nonJokerHand);
-        if (best.sum >= threshold) { canPlunderWithoutJoker = true; break; }
+        if (best.sum >= threshold) { canLootWithoutJoker = true; break; }
       }
-      if (hasUncoveredDeck && !canPlunderWithoutJoker) return false; // save joker for plunder
+      if (hasUncoveredDeck && !canLootWithoutJoker) return false; // save joker for loot
     }
 
     // Perform sacrifice
@@ -916,7 +916,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
 
   // ── MCTS Bot Turn ────────────────────────────────────────────────────────────
   // Runs balanced setup steps, then uses Monte Carlo Tree Search to select
-  // the best first action (plunder, defense attack, or king attack).
+  // the best first action (loot, defense attack, or king attack).
   function executeMctsTurnAsync(sess, gs, idx) {
     var p = gs.players[idx];
     if (!p || p.isOut) return;
@@ -944,14 +944,14 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       return;
     }
 
-    if (action.type === 'plunder') {
+    if (action.type === 'loot') {
       var plDeck = gs.pickingDecks[action.deckIndex];
       var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
       var plAtkSum = action.symbol === 'joker' ? 999
         : action.cardIds.reduce(function(s, id) { return s + gs.cardStrength(id); }, 0);
       var plDefStrength = plTopCard ? gs.cardStrength(plTopCard.id) : 0;
       var plSuccess = plAtkSum > plDefStrength;
-      gs.setPlunderPreview({
+      gs.setLootPreview({
         attackerIdx: idx, deckIndex: action.deckIndex,
         attackCardIds: action.cardIds,
         attackingSymbol: action.symbol, attackingSymbol2: 'none',
@@ -962,7 +962,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
       io.to(sess.id).emit('stateUpdate', gs.serialize());
       var plAction = action;
       setTimeout(function() {
-        gs.plunderResolved(idx, plAction.deckIndex, plSuccess, plAction.cardIds, false, []);
+        gs.lootResolved(idx, plAction.deckIndex, plSuccess, plAction.cardIds, false, []);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         checkAndHandleWinner(sess);
         botFinishTurn(sess, gs, idx, false);
@@ -1065,30 +1065,30 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         return;
       }
 
-      // 5. Smart plunder — multi-card, economical combo
-      var plunderChoice = botChoosePlunder(gs, idx);
-      if (plunderChoice) {
+      // 5. Smart loot — multi-card, economical combo
+      var lootChoice = botChooseLoot(gs, idx);
+      if (lootChoice) {
         var plAtkSum = 0;
-        for (var pci = 0; pci < plunderChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(plunderChoice.cardIds[pci]);
-        var plDeck = gs.pickingDecks[plunderChoice.deckIndex];
+        for (var pci = 0; pci < lootChoice.cardIds.length; pci++) plAtkSum += gs.cardStrength(lootChoice.cardIds[pci]);
+        var plDeck = gs.pickingDecks[lootChoice.deckIndex];
         var plTopCard = plDeck && plDeck.length > 0 ? plDeck[plDeck.length - 1] : null;
         var plDefStrength = plTopCard ? gs.cardStrength(plTopCard.id) : 0;
-        gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
-                               attackCardIds: plunderChoice.cardIds,
-                               attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none',
-                               success: plunderChoice.success, attackSum: plAtkSum,
+        gs.setLootPreview({ attackerIdx: idx, deckIndex: lootChoice.deckIndex,
+                               attackCardIds: lootChoice.cardIds,
+                               attackingSymbol: lootChoice.symbol, attackingSymbol2: 'none',
+                               success: lootChoice.success, attackSum: plAtkSum,
                                defCardId: plTopCard ? plTopCard.id : -1,
                                defStrength: plDefStrength });
         io.to(sess.id).emit('stateUpdate', gs.serialize());
-        var captured = plunderChoice;
+        var captured = lootChoice;
         setTimeout(function() {
           try {
-            gs.plunderResolved(idx, captured.deckIndex, captured.success,
+            gs.lootResolved(idx, captured.deckIndex, captured.success,
                                captured.cardIds, false, []);
             io.to(sess.id).emit('stateUpdate', gs.serialize());
             checkAndHandleWinner(sess);
-            // 6. After plunder: optional follow-up attack chain (personality-controlled)
-            if (personality.attackAfterPlunder()) {
+            // 6. After loot: optional follow-up attack chain (personality-controlled)
+            if (personality.attackAfterLoot()) {
               botAttackChainAsync(sess, gs, idx, personality, function(attacked) {
                 botFinishTurn(sess, gs, idx, attacked);
               });
@@ -1096,7 +1096,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
               botFinishTurn(sess, gs, idx, false);
             }
           } catch (e) {
-            console.error('[plunderResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
+            console.error('[lootResolved setTimeout] uncaught error:', e && e.message, e && e.stack);
           }
         }, BOT_ACTION_DELAY);
         return;

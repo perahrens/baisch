@@ -52,8 +52,6 @@ public class MenuScreen extends AbstractScreen {
   private TextureRegion logoRegion;
   private Image logoImage;
   private Texture jokerLogoTexture;
-  private Texture[] symbolLogoTextures;
-  private float nameEntryLogoBottomY;
 
   private int currentUsersCount;
   private boolean updateScreen = false;
@@ -178,7 +176,8 @@ public class MenuScreen extends AbstractScreen {
         0.9f * MyGdxGame.HEIGHT - logoImage.getHeight());
     button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
 
-    // Composite logo: Joker face + golden BAISCH text + 4 suit symbols
+    // Joker face rendered in LibGDX at the top of the name-entry screen.
+    // BAISCH text and suit symbols are rendered as a crisp HTML DOM overlay.
     float logoCx   = MyGdxGame.WIDTH / 2f;
     float logoTopY = 0.9f * MyGdxGame.HEIGHT;
     float jokerW = 92f; float jokerH = jokerW * 277f / 200f;
@@ -186,30 +185,7 @@ public class MenuScreen extends AbstractScreen {
     Image jokerImg = new Image(jokerLogoTexture);
     jokerImg.setSize(jokerW, jokerH);
     jokerImg.setPosition(Math.round(logoCx - jokerW / 2f), Math.round(logoTopY - jokerH));
-    Label baischLabel = new Label("BAISCH", MyGdxGame.skin);
-    baischLabel.setFontScale(3f);
-    baischLabel.setColor(new Color(0.98f, 0.80f, 0.25f, 1f));
-    baischLabel.pack();
-    float baischY = Math.round(logoTopY - jokerH - 4f - baischLabel.getHeight());
-    baischLabel.setPosition(Math.round(logoCx - baischLabel.getWidth() / 2f), baischY);
-    float symSize = 38f; float symGap = 12f;
-    float symStartX = Math.round(logoCx - (4 * symSize + 3 * symGap) / 2f);
-    float symY = Math.round(baischY - 8f - symSize);
-    nameEntryLogoBottomY = symY;
-    symbolLogoTextures = new Texture[] {
-        new Texture(Gdx.files.internal("data/skins/spades.png")),
-        new Texture(Gdx.files.internal("data/skins/hearts_red.png")),
-        new Texture(Gdx.files.internal("data/skins/diamonds_red.png")),
-        new Texture(Gdx.files.internal("data/skins/clubs.png"))
-    };
-    for (int i = 0; i < 4; i++) {
-      Image si = new Image(symbolLogoTextures[i]);
-      si.setSize(symSize, symSize);
-      si.setPosition(symStartX + i * (symSize + symGap), symY);
-      group.addActor(si);
-    }
     group.addActor(jokerImg);
-    group.addActor(baischLabel);
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
@@ -325,18 +301,23 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(menuBg);
 
     if (disconnectedByDuplicateTab) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showDuplicateTabScreen();
     } else if (reconnecting) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showReconnectingScreen();
     } else if (!nameConfirmed) {
       // Logo only shown on the name-entry screen.
       menuStage.addActor(group);
       showNameEntryScreen();
     } else if (!lobbyJoined && inSessionCreate) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showSessionCreateScreen();
     } else if (!lobbyJoined) {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showSessionListScreen();
     } else {
+      if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showLobbyScreen();
     }
   }
@@ -391,6 +372,7 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private void showNameEntryScreen() {
+    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
@@ -430,13 +412,14 @@ public class MenuScreen extends AbstractScreen {
 
     menuStage.addActor(enterNameButton);
 
-    // Subtitle below logo
+    // Subtitle below logo — the DOM overlay (BAISCH + suits) sits in the upper half;
+    // place this label roughly where the suits end (~55% down the screen).
     Label subtitle = new Label("A card game for 2-4 players", MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(nameEntryLogoBottomY - subtitle.getHeight() - 10f));
+        Math.round(0.36f * MyGdxGame.HEIGHT));
     menuStage.addActor(subtitle);
 
 
@@ -1275,10 +1258,6 @@ public class MenuScreen extends AbstractScreen {
     menuStage.dispose();
     logoTexture.dispose();
     if (jokerLogoTexture != null) { jokerLogoTexture.dispose(); jokerLogoTexture = null; }
-    if (symbolLogoTextures != null) {
-      for (Texture t : symbolLogoTextures) { if (t != null) t.dispose(); }
-      symbolLogoTextures = null;
-    }
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
   }
 

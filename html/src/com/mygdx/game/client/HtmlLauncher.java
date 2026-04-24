@@ -48,6 +48,18 @@ public class HtmlLauncher extends GwtApplication {
                 setMusicButtonVisible(true);
             }
         };
+        MyGdxGame.onNameEntryScreenActive = new Runnable() {
+            @Override
+            public void run() {
+                setNameEntryLogoVisible(true);
+            }
+        };
+        MyGdxGame.onNameEntryScreenDone = new Runnable() {
+            @Override
+            public void run() {
+                setNameEntryLogoVisible(false);
+            }
+        };
         installAudioUnlocker(app);
         return app;
     }
@@ -157,5 +169,11 @@ public class HtmlLauncher extends GwtApplication {
     private static native void setMusicButtonVisible(boolean visible) /*-{
         var img = $doc.getElementById('baisch-music-img');
         if (img) img.style.display = visible ? 'block' : 'none';
+    }-*/;
+
+    /** Shows or hides the name-entry logo overlay (crisp HTML BAISCH title + suits). */
+    private static native void setNameEntryLogoVisible(boolean visible) /*-{
+        var el = $doc.getElementById('name-entry-logo');
+        if (el) el.style.display = visible ? 'flex' : 'none';
     }-*/;
 }

@@ -58,6 +58,10 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static Runnable onGameScreenActive = null;
   /** Called when a menu/stats screen becomes active; shows the native music button again. */
   public static Runnable onMenuScreenActive = null;
+  /** Called when the name-entry screen is shown; reveals the DOM logo overlay. */
+  public static Runnable onNameEntryScreenActive = null;
+  /** Called when leaving the name-entry screen; hides the DOM logo overlay. */
+  public static Runnable onNameEntryScreenDone = null;
 
   /** Singleton reference — set in {@link #create()} for JSNI callbacks. */
   public static MyGdxGame INSTANCE;

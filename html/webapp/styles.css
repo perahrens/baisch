@@ -9,7 +9,7 @@ canvas {
 }
 
 body {
-    background: radial-gradient(ellipse at center, #2a2a2a 0%, #111111 100%);
+    background: radial-gradient(ellipse at center, #3a3a3a 0%, #000000 100%);
     /* Override the browser's default 8px margin so the canvas starts at
        exactly (0,0) and touch/click coordinates map correctly. */
     margin: 0;

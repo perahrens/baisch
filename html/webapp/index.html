@@ -118,7 +118,7 @@
                   pointer-events: none;
                   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
                   mix-blend-mode: overlay;
-                  opacity: 0.06;
+                  opacity: 0.12;
                   border-radius: inherit;
                 }
                 @keyframes pulse {
@@ -172,17 +172,29 @@
               document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
               document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
 
-              // Remove the loading overlay once GWT creates the canvas
+              // Remove the loading overlay once GWT creates the canvas,
+              // but always show it for at least 1.4 s so the stagger animation plays.
               (function() {
                 var overlay = document.getElementById('loading-overlay');
                 if (!overlay) return;
+                var startTime = Date.now();
+                var MIN_DISPLAY_MS = 1400;
+                function dismiss() {
+                  overlay.classList.add('fade-out');
+                  setTimeout(function() {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                  }, 450);
+                }
                 var observer = new MutationObserver(function() {
                   if (document.querySelector('#embed-html canvas')) {
                     observer.disconnect();
-                    overlay.classList.add('fade-out');
-                    setTimeout(function() {
-                      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-                    }, 450);
+                    var elapsed = Date.now() - startTime;
+                    var remaining = MIN_DISPLAY_MS - elapsed;
+                    if (remaining > 0) {
+                      setTimeout(dismiss, remaining);
+                    } else {
+                      dismiss();
+                    }
                   }
                 });
                 observer.observe(document.getElementById('embed-html'), { childList: true, subtree: true });

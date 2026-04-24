@@ -4614,17 +4614,13 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(85f);
+    banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
-    Label stepLbl = new Label("Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  ", MyGdxGame.skin);
-    stepLbl.setColor(1f, 1f, 1f, 0.55f);
-    Label titleLbl = new Label(step.bannerTitle, MyGdxGame.skin);
-    titleLbl.setColor(Color.GOLD);
-
-    Table topRow = new Table();
-    topRow.add(stepLbl);
-    topRow.add(titleLbl).left();
-    banner.add(topRow).left().padBottom(4f).row();
+    String headerText = "Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  " + step.bannerTitle;
+    Label headerLbl = new Label(headerText, MyGdxGame.skin);
+    headerLbl.setColor(Color.GOLD);
+    headerLbl.setWrap(true);
+    banner.add(headerLbl).width(MyGdxGame.WIDTH - 95f).left().padBottom(4f).row();
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);
@@ -4758,18 +4754,14 @@ public class GameScreen extends ScreenAdapter {
     Table banner = new Table();
     banner.setSize(MyGdxGame.WIDTH, bannerH);
     banner.setPosition(0, bannerY);
-    banner.top().padTop(6f).padLeft(10f).padRight(180f);
+    banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
     int total = heroTutorialSteps.length;
-    Label stepLbl = new Label("Step " + (heroTutorialStep + 1) + "/" + total + "  ", MyGdxGame.skin);
-    stepLbl.setColor(1f, 1f, 1f, 0.55f);
-    Label titleLbl = new Label(step.bannerTitle, MyGdxGame.skin);
-    titleLbl.setColor(Color.GOLD);
-
-    Table topRow = new Table();
-    topRow.add(stepLbl);
-    topRow.add(titleLbl).left();
-    banner.add(topRow).left().padBottom(4f).row();
+    String headerText = "Step " + (heroTutorialStep + 1) + "/" + total + "  " + step.bannerTitle;
+    Label headerLbl = new Label(headerText, MyGdxGame.skin);
+    headerLbl.setColor(Color.GOLD);
+    headerLbl.setWrap(true);
+    banner.add(headerLbl).width(MyGdxGame.WIDTH - 190f).left().padBottom(4f).row();
 
     Label bodyLbl = new Label(step.bannerText, MyGdxGame.skin);
     bodyLbl.setWrap(true);

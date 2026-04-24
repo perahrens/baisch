@@ -546,7 +546,7 @@ public class MenuScreen extends AbstractScreen {
       menuStage.addActor(sessTable);
 
       // Evenly-spaced button row: Rules | Tutorial | Create game
-      float btnH = button.getHeight();
+      float btnH = button.getPrefHeight();
       float gap = 8f;
       float margin = 16f;
       float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;

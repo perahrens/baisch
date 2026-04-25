@@ -4332,11 +4332,16 @@ public class GameScreen extends ScreenAdapter {
   // ── Card zoom helpers (issue #218) ─────────────────────────────────────────
 
   private boolean nothingSelectedInHand() {
-    if (currentPlayer == null) return true;
-    if (!currentPlayer.getSelectedHandCards().isEmpty()) return false;
-    Card king = currentPlayer.getKingCard();
+    // Highlight only when the LOCAL player has nothing selected in their area
+    // (regardless of whose turn it is).
+    if (players == null || playerIndex < 0 || playerIndex >= players.size()) return true;
+    Player local = players.get(playerIndex);
+    if (local == null) return true;
+    if (!local.getSelectedHandCards().isEmpty()) return false;
+    Card king = local.getKingCard();
     if (king != null && king.isSelected()) return false;
-    if (currentPlayer.hasHero("Banneret") && !currentPlayer.getSelectedDefCards().isEmpty()) return false;
+    if (!local.getSelectedDefCards().isEmpty()) return false;
+    if (!local.getSelectedHeroes().isEmpty()) return false;
     return true;
   }
 
@@ -4346,27 +4351,31 @@ public class GameScreen extends ScreenAdapter {
     float cx = card.getX();
     float cy = card.getY();
     float s = CARD_ZOOM;
-
-    // Default: scale from bottom-center (card grows upward, horizontally symmetric)
-    float originX = w / 2f;
-    float originY = 0f;
-
-    // Clamp originX so the zoomed card stays within [0, WIDTH] (horizontal edges).
-    // Left edge  = cx - originX*(s-1) >= 0       →  originX <= cx/(s-1)
-    // Right edge = cx - originX*(s-1) + w*s <= W →  originX >= (cx+w*s-W)/(s-1)
     float W = MyGdxGame.WIDTH;
-    float maxOriginX = cx / (s - 1f);
-    float minOriginX = (cx + w * s - W) / (s - 1f);
-    originX = Math.max(minOriginX, Math.min(maxOriginX, originX));
-    originX = Math.max(0f, Math.min(w, originX));
 
-    // Clamp originY so the zoomed card stays within [0, WIDTH] (top/bottom edges).
-    // Bottom edge = cy - originY*(s-1) >= 0       →  originY <= cy/(s-1)
-    // Top edge    = cy - originY*(s-1) + h*s <= W →  originY >= (cy+h*s-W)/(s-1)
-    float maxOriginY = cy / (s - 1f);
-    float minOriginY = (cy + h * s - W) / (s - 1f);
-    originY = Math.max(minOriginY, Math.min(maxOriginY, originY));
-    originY = Math.max(0f, Math.min(h, originY));
+    // Margins keep the zoomed card a bit inside the play-area edges so it is
+    // never cut off and the bottom-player king never touches the hand strip.
+    float MARGIN_X      = 4f;
+    float MARGIN_TOP    = 4f;
+    float MARGIN_BOTTOM = 14f; // extra clearance from the hand strip below the play area
+
+    // Default: scale around the card centre, then clamp the origin so the
+    // visible (scaled) card stays within [MARGIN, W - MARGIN] on each axis.
+    // Visible left   = cx + originX*(1-s)
+    // Visible right  = cx + originX*(1-s) + w*s
+    // Constraint     left   >= MARGIN_X  ⇔  originX <= (cx - MARGIN_X)/(s-1)
+    // Constraint     right  <= W - MARGIN_X ⇔ originX >= (cx + w*s - W + MARGIN_X)/(s-1)
+    float originX = w / 2f;
+    float maxOriginX = (cx - MARGIN_X) / (s - 1f);
+    float minOriginX = (cx + w * s - W + MARGIN_X) / (s - 1f);
+    if (originX > maxOriginX) originX = maxOriginX;
+    if (originX < minOriginX) originX = minOriginX;
+
+    float originY = h / 2f;
+    float maxOriginY = (cy - MARGIN_BOTTOM) / (s - 1f);
+    float minOriginY = (cy + h * s - W + MARGIN_TOP) / (s - 1f);
+    if (originY > maxOriginY) originY = maxOriginY;
+    if (originY < minOriginY) originY = minOriginY;
 
     card.setOriginX(originX);
     card.setOriginY(originY);

@@ -755,6 +755,7 @@ public class GameScreen extends ScreenAdapter {
     // Reset card zoom state (cards are reused between show() calls; scale persists)
     if (currentlyZoomedCard != null) {
       currentlyZoomedCard.setScale(1f);
+      currentlyZoomedCard.remove(); // remove from overlayStage; show() will re-add to gameStage
       currentlyZoomedCard = null;
     }
     for (PickingDeck pd : gameState.getPickingDecks()) {
@@ -4344,12 +4345,20 @@ public class GameScreen extends ScreenAdapter {
     card.setOriginX(card.getWidth() / 2f);
     card.setOriginY(card.getHeight() / 2f);
     card.setScale(CARD_ZOOM);
-    card.toFront();
+    // Move to overlayStage so the zoomed card renders above the hand area.
+    // overlayStage Y = gameStage Y + (HEIGHT - WIDTH) due to different viewport heights.
+    card.remove();
+    card.setY(card.getY() + (MyGdxGame.HEIGHT - MyGdxGame.WIDTH));
+    overlayStage.addActor(card);
     currentlyZoomedCard = card;
   }
 
   private void unzoomCard(Card card) {
     card.setScale(1f);
+    // Move back to gameStage; convert Y back to gameStage coordinate space.
+    card.remove();
+    card.setY(card.getY() - (MyGdxGame.HEIGHT - MyGdxGame.WIDTH));
+    gameStage.addActor(card);
     if (currentlyZoomedCard == card) currentlyZoomedCard = null;
   }
 
@@ -4421,7 +4430,10 @@ public class GameScreen extends ScreenAdapter {
       c.setOriginX(c.getWidth() / 2f);
       c.setOriginY(c.getHeight() / 2f);
       c.setScale(scale);
-      if (scale > 1f) c.toFront();
+      // Do NOT call c.toFront() here: the PickingDeck actor is already added on top
+      // of the card actors in gameStage. Calling toFront() on a card would move it
+      // in front of the PickingDeck, which would block touch events from reaching
+      // the PickingDeck listener (causing looting to break and the game to get stuck).
     }
   }
 

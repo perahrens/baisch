@@ -4390,33 +4390,20 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void attachZoomListener(final Card card) {
-    final boolean[] hovering = { false };
+    // Desktop hover-only zoom. On touch devices the pointer is >= 0 so this
+    // listener is a no-op, leaving the card's own click handler (added
+    // elsewhere) to drive the actual game action without interference.
     card.addListener(new InputListener() {
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return; // mouse hover only, not touch
         if (!nothingSelectedInHand()) return;
-        hovering[0] = true;
         zoomCard(card);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
         if (pointer != -1) return;
-        hovering[0] = false;
         unzoomCard(card);
-      }
-    });
-    card.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (hovering[0]) return; // hover already handles it on desktop
-        if (!nothingSelectedInHand()) return;
-        if (currentlyZoomedCard == card) {
-          unzoomCard(card);
-        } else {
-          if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
-          zoomCard(card);
-        }
       }
     });
   }

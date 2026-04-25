@@ -755,7 +755,6 @@ public class GameScreen extends ScreenAdapter {
     // Reset card zoom state (cards are reused between show() calls; scale persists)
     if (currentlyZoomedCard != null) {
       currentlyZoomedCard.setScale(1f);
-      currentlyZoomedCard.remove(); // remove from overlayStage; show() will re-add to gameStage
       currentlyZoomedCard = null;
     }
     for (PickingDeck pd : gameState.getPickingDecks()) {
@@ -4342,23 +4341,16 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void zoomCard(Card card) {
+    // Scale from the bottom edge so the card grows upward, away from the hand strip.
     card.setOriginX(card.getWidth() / 2f);
-    card.setOriginY(card.getHeight() / 2f);
+    card.setOriginY(0);
     card.setScale(CARD_ZOOM);
-    // Move to overlayStage so the zoomed card renders above the hand area.
-    // overlayStage Y = gameStage Y + (HEIGHT - WIDTH) due to different viewport heights.
-    card.remove();
-    card.setY(card.getY() + (MyGdxGame.HEIGHT - MyGdxGame.WIDTH));
-    overlayStage.addActor(card);
+    card.toFront();
     currentlyZoomedCard = card;
   }
 
   private void unzoomCard(Card card) {
     card.setScale(1f);
-    // Move back to gameStage; convert Y back to gameStage coordinate space.
-    card.remove();
-    card.setY(card.getY() - (MyGdxGame.HEIGHT - MyGdxGame.WIDTH));
-    gameStage.addActor(card);
     if (currentlyZoomedCard == card) currentlyZoomedCard = null;
   }
 

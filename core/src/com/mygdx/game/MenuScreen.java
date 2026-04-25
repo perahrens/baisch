@@ -449,13 +449,14 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(enterNameButton);
 
     // Avatar selector — shown below the name button
-    Table avatarSelector = new Table(MyGdxGame.skin);
-    avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
-    avatarSelector.pad(8f, 12f, 8f, 12f);
+    // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
+    float selectorMaxW = MyGdxGame.WIDTH - 24f;
+
     Label avatarLabel = new Label("Choose your avatar:", MyGdxGame.skin);
     avatarLabel.setColor(1f, 1f, 1f, 0.70f);
-    avatarSelector.add(avatarLabel).padBottom(6f).colspan(AVATAR_NAMES.length == 0 ? 1 : AVATAR_NAMES.length);
-    avatarSelector.row();
+
+    Table avatarRow = new Table();
+    avatarRow.pad(2f, 0f, 2f, 0f);
     for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
       final String avName = AVATAR_NAMES[ai];
       Texture avTex = getAvatarTexture(avName);
@@ -465,7 +466,7 @@ public class MenuScreen extends AbstractScreen {
       Color borderCol = selected ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
       Table wrapper = new Table();
       wrapper.setBackground(MyGdxGame.skin.newDrawable("white", borderCol));
-      wrapper.add(avImg).size(40f, 40f).pad(selected ? 2f : 2f);
+      wrapper.add(avImg).size(40f, 40f).pad(2f);
       wrapper.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -474,8 +475,31 @@ public class MenuScreen extends AbstractScreen {
           show();
         }
       });
-      avatarSelector.add(wrapper).padRight(ai < AVATAR_NAMES.length - 1 ? 6f : 0f);
+      avatarRow.add(wrapper).padRight(ai < AVATAR_NAMES.length - 1 ? 6f : 0f);
     }
+
+    ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
+    avatarScroll.setScrollingDisabled(false, true); // horizontal only
+    avatarScroll.setFadeScrollBars(false);
+    avatarScroll.setOverscroll(false, false);
+
+    // Scroll to show the selected avatar
+    if (!selectedIcon.isEmpty()) {
+      for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
+        if (AVATAR_NAMES[ai].equals(selectedIcon)) {
+          final float targetX = ai * (40f + 2f + 2f + 6f);
+          avatarScroll.layout();
+          avatarScroll.setScrollX(Math.max(0f, targetX - selectorMaxW / 2f));
+          break;
+        }
+      }
+    }
+
+    Table avatarSelector = new Table(MyGdxGame.skin);
+    avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
+    avatarSelector.pad(8f, 12f, 8f, 12f);
+    avatarSelector.add(avatarLabel).padBottom(6f).row();
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(52f);
     avatarSelector.pack();
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f),

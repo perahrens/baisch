@@ -217,6 +217,13 @@ public class GameScreen extends ScreenAdapter {
   private static final float CARD_ZOOM = 1.35f;
   private Card currentlyZoomedCard = null;
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
+  // Once any touch is detected (mobile/tablet) we permanently disable the
+  // hover-zoom behaviour. On mobile the browser synthesises a mouseover
+  // event right before each tap, which would otherwise zoom the card while
+  // the same tap also performs the selection click — producing a confusing
+  // "hover + click" feel. Desktop mice never call touchDown so this stays
+  // false and the hover-zoom keeps working there.
+  private boolean touchDetected = false;
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
@@ -657,6 +664,20 @@ public class GameScreen extends ScreenAdapter {
     menuAndGameMulti.addProcessor(gameStage);
     menuAndGameMulti.addProcessor(handStage);
     // Initial input processor is set by render() each frame.
+
+    // Issue #218: detect touch devices so we can disable hover-zoom on mobile.
+    // Capture listeners run before any actor listener and never consume the
+    // event, so they don't interfere with normal click handling.
+    InputListener touchDetector = new InputListener() {
+      @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        touchDetected = true;
+        return false; // do not consume
+      }
+    };
+    gameStage.addCaptureListener(touchDetector);
+    handStage.addCaptureListener(touchDetector);
+    overlayStage.addCaptureListener(touchDetector);
 
     // Use a standalone 1×1 white texture (not the atlas "white" region) so that
     // the atlas Linear filter cannot bleed into these full-stage backgrounds.
@@ -4397,12 +4418,14 @@ public class GameScreen extends ScreenAdapter {
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return; // mouse hover only, not touch
+        if (touchDetected) return;  // mobile sometimes synthesises mouseover before tap
         if (!nothingSelectedInHand()) return;
         zoomCard(card);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
         if (pointer != -1) return;
+        if (touchDetected) return;
         unzoomCard(card);
       }
     });
@@ -4418,12 +4441,14 @@ public class GameScreen extends ScreenAdapter {
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return;
+        if (touchDetected) return;
         if (!nothingSelectedInHand()) return;
         setDeckScale(deck, CARD_ZOOM);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
         if (pointer != -1) return;
+        if (touchDetected) return;
         setDeckScale(deck, 1f);
       }
     });

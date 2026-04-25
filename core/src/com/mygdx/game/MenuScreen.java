@@ -456,8 +456,7 @@ public class MenuScreen extends AbstractScreen {
     avatarLabel.setColor(1f, 1f, 1f, 0.70f);
 
     Table avatarRow = new Table();
-    // Bottom padding reserves space for the scrollbar overlay so icons aren't clipped.
-    avatarRow.pad(2f, 0f, 14f, 0f);
+    avatarRow.pad(4f, 0f, 0f, 0f);
     for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
       final String avName = AVATAR_NAMES[ai];
       Texture avTex = getAvatarTexture(avName);

@@ -209,6 +209,7 @@ public class GameScreen extends ScreenAdapter {
   private Texture texCrone;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
+  private Texture texMenuButton;
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
@@ -717,6 +718,7 @@ public class GameScreen extends ScreenAdapter {
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
+    texMenuButton = new Texture(Gdx.files.internal("data/graphics/menu_button.png"));
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -4286,10 +4288,10 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void addMenuButtonToOverlay() {
-    TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
-    menuBtn.setSize(menuBtn.getPrefWidth() + 10, menuBtn.getPrefHeight());
-    menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
-        MyGdxGame.HEIGHT - menuBtn.getHeight());
+    float btnSize = 44f;
+    Image menuBtn = new Image(texMenuButton);
+    menuBtn.setSize(btnSize, btnSize);
+    menuBtn.setPosition(MyGdxGame.WIDTH - btnSize, MyGdxGame.HEIGHT - btnSize);
     menuBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -5859,6 +5861,7 @@ public class GameScreen extends ScreenAdapter {
     texCrone.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
+    texMenuButton.dispose();
   }
 
 }

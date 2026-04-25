@@ -274,8 +274,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = botDefCardStrength(gs, defCardId) + defBoost
-                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
+          // Top card may be covered: use its actual strength only if face-up, else BOT_UNKNOWN_CARD_STRENGTH.
+          var topCovered = topCardId != null && (!defender.topDefCardsCovered || defender.topDefCardsCovered[slot] !== false);
+          var topContrib = topCardId != null
+              ? (topCovered ? BOT_UNKNOWN_CARD_STRENGTH : botDefCardStrength(gs, topCardId)) + topBoost
+              : 0;
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost + topContrib;
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -298,16 +302,22 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         } else {
           // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
           // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          // Estimate threshold: BOT_UNKNOWN per covered card. If top card is present and face-up, use its real strength.
+          var rDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+          var rTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
+          var rTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+          var rTopCovered = rTopId != null && (!defender.topDefCardsCovered || defender.topDefCardsCovered[slot] !== false);
+          var rTopEst = rTopId != null
+              ? (rTopCovered ? BOT_UNKNOWN_CARD_STRENGTH : botDefCardStrength(gs, rTopId)) + rTopBoost
+              : 0;
+          var rComboTarget = BOT_UNKNOWN_CARD_STRENGTH + rDefBoost + rTopEst;
           var covSuits = Object.keys(groups);
           for (var rsi = 0; rsi < covSuits.length; rsi++) {
             var rSuit = covSuits[rsi];
-            var rCombo = botMinimalSubset(gs, groups[rSuit], BOT_UNKNOWN_CARD_STRENGTH);
+            var rCombo = botMinimalSubset(gs, groups[rSuit], rComboTarget);
             if (!rCombo) continue;
             var rSum = 0;
             for (var rci = 0; rci < rCombo.length; rci++) rSum += gs.cardStrength(rCombo[rci]);
-            var rDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
-            var rTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
-            var rTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
             var rActual = gs.cardStrength(defCardId) + rDefBoost
                         + (rTopId != null ? gs.cardStrength(rTopId) + rTopBoost : 0);
             var rSuccess = (rSum > rActual);
@@ -377,8 +387,12 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = botDefCardStrength(gs, defCardId) + defBoost
-                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
+          // Top card may be covered: use its actual strength only if face-up, else BOT_UNKNOWN_CARD_STRENGTH.
+          var topCoveredP = topCardId != null && (!defender.topDefCardsCovered || defender.topDefCardsCovered[slot] !== false);
+          var topContribP = topCardId != null
+              ? (topCoveredP ? BOT_UNKNOWN_CARD_STRENGTH : botDefCardStrength(gs, topCardId)) + topBoost
+              : 0;
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost + topContribP;
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -400,16 +414,22 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         } else {
           // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
           // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          // Estimate threshold: BOT_UNKNOWN per covered card. If top card is present and face-up, use its real strength.
+          var prDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
+          var prTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
+          var prTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
+          var prTopCovered = prTopId != null && (!defender.topDefCardsCovered || defender.topDefCardsCovered[slot] !== false);
+          var prTopEst = prTopId != null
+              ? (prTopCovered ? BOT_UNKNOWN_CARD_STRENGTH : botDefCardStrength(gs, prTopId)) + prTopBoost
+              : 0;
+          var prComboTarget = BOT_UNKNOWN_CARD_STRENGTH + prDefBoost + prTopEst;
           var pCovSuits = Object.keys(groups);
           for (var prsi = 0; prsi < pCovSuits.length; prsi++) {
             var prSuit = pCovSuits[prsi];
-            var prCombo = botMinimalSubset(gs, groups[prSuit], BOT_UNKNOWN_CARD_STRENGTH);
+            var prCombo = botMinimalSubset(gs, groups[prSuit], prComboTarget);
             if (!prCombo) continue;
             var prSum = 0;
             for (var prci = 0; prci < prCombo.length; prci++) prSum += gs.cardStrength(prCombo[prci]);
-            var prDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
-            var prTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
-            var prTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
             var prActual = gs.cardStrength(defCardId) + prDefBoost
                          + (prTopId != null ? gs.cardStrength(prTopId) + prTopBoost : 0);
             var prSuccess = (prSum > prActual);

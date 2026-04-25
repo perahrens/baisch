@@ -27,9 +27,6 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame app = new MyGdxGame();
         // Tell the core that the HTML layer owns the music button visual.
         MyGdxGame.nativeMusicButton = true;
-        // Detect touch-only devices (no fine hover) and flag them so GameScreen
-        // can immediately disable hover-zoom without waiting for a first touch event.
-        MyGdxGame.isTouchDevice = !detectHoverPointer();
         // Inject the animated GIF music button into the DOM and wire up callbacks.
         installMusicButton(app);
         // Register the UI-update callback so setMusicEnabled() keeps the GIF in sync.
@@ -106,11 +103,6 @@ public class HtmlLauncher extends GwtApplication {
         };
         $doc.addEventListener('touchend', handler, true);
         $doc.addEventListener('click',    handler, true);
-    }-*/;
-
-    /** Returns true when the device has a fine hover-capable pointer (mouse/trackpad). */
-    private static native boolean detectHoverPointer() /*-{
-        return $wnd.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }-*/;
 
     /**

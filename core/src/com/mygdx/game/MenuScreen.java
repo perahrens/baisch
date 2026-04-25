@@ -456,7 +456,8 @@ public class MenuScreen extends AbstractScreen {
     avatarLabel.setColor(1f, 1f, 1f, 0.70f);
 
     Table avatarRow = new Table();
-    avatarRow.pad(2f, 0f, 2f, 0f);
+    // Bottom padding reserves space for the scrollbar overlay so icons aren't clipped.
+    avatarRow.pad(2f, 0f, 14f, 0f);
     for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
       final String avName = AVATAR_NAMES[ai];
       Texture avTex = getAvatarTexture(avName);
@@ -499,7 +500,7 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
     avatarSelector.pad(8f, 12f, 8f, 12f);
     avatarSelector.add(avatarLabel).padBottom(6f).row();
-    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(52f);
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(60f);
     avatarSelector.pack();
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f),

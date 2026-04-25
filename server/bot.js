@@ -153,6 +153,13 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     return groups;
   }
 
+  // Strength of a card used as a DEFENCE card.
+  // Jokers (id > 52) have defence strength 1; all other cards use their normal strength.
+  function botDefCardStrength(gs, cardId) {
+    if (cardId > 52) return 1;
+    return gs.cardStrength(cardId);
+  }
+
   // Find the minimal subset of cards (from sorted list) with combined strength >= threshold.
   // Returns array of cardIds, or null if impossible even with all cards.
   function botMinimalSubset(gs, cards, threshold) {
@@ -267,8 +274,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = gs.cardStrength(defCardId) + defBoost
-                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost
+                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -291,25 +298,28 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         } else {
           // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
           // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          // Exception: bot is server-side and can identify a Joker defence card (strength 1) — attack it cheaply.
           var covSuits = Object.keys(groups);
           for (var rsi = 0; rsi < covSuits.length; rsi++) {
             var rSuit = covSuits[rsi];
-            var rCombo = botMinimalSubset(gs, groups[rSuit], BOT_UNKNOWN_CARD_STRENGTH);
-            if (!rCombo) continue;
-            var rSum = 0;
-            for (var rci = 0; rci < rCombo.length; rci++) rSum += gs.cardStrength(rCombo[rci]);
             var rDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
             var rTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
             var rTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-            var rActual = gs.cardStrength(defCardId) + rDefBoost
-                        + (rTopId != null ? gs.cardStrength(rTopId) + rTopBoost : 0);
+            var rActual = botDefCardStrength(gs, defCardId) + rDefBoost
+                        + (rTopId != null ? botDefCardStrength(gs, rTopId) + rTopBoost : 0);
+            // For a Joker defence, use its known strength for combo selection; otherwise use the unknown estimate.
+            var rComboTarget = (defCardId > 52) ? rActual : BOT_UNKNOWN_CARD_STRENGTH;
+            var rCombo = botMinimalSubset(gs, groups[rSuit], rComboTarget);
+            if (!rCombo) continue;
+            var rSum = 0;
+            for (var rci = 0; rci < rCombo.length; rci++) rSum += gs.cardStrength(rCombo[rci]);
             var rSuccess = (rSum > rActual);
             var rShields = 0;
             for (var rs = 1; rs <= 3; rs++) {
               if (defender.defCards[rs] != null || (defender.topDefCards && defender.topDefCards[rs] != null)) rShields++;
             }
-            // Score lower than known face-up attacks (1000) so visible targets are always preferred.
-            var rScore = 300 + (rShields === 1 ? 100 : 0) - rCombo.length;
+            // Joker defence is known-strength 1 — prioritise at face-up level; otherwise score lower.
+            var rScore = (defCardId > 52 ? 1000 : 300) + (rShields === 1 ? 100 : 0) - rCombo.length;
             if (rScore > bestScore) {
               bestScore = rScore;
               bestChoice = { defenderIdx: di, positionId: slot, cardIds: rCombo, symbol: rSuit, success: rSuccess };
@@ -370,8 +380,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           var defBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
           var topCardId = defender.topDefCards ? defender.topDefCards[slot] : null;
           var topBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-          var threshold = gs.cardStrength(defCardId) + defBoost
-                        + (topCardId != null ? gs.cardStrength(topCardId) + topBoost : 0);
+          var threshold = botDefCardStrength(gs, defCardId) + defBoost
+                        + (topCardId != null ? botDefCardStrength(gs, topCardId) + topBoost : 0);
           var suits = Object.keys(groups);
           for (var si = 0; si < suits.length; si++) {
             var suit = suits[si];
@@ -393,25 +403,28 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         } else {
           // Covered card: attempt a real attack using BOT_UNKNOWN_CARD_STRENGTH as estimated threshold.
           // The decision is made without knowing the actual card; outcome is resolved against the real value.
+          // Exception: bot is server-side and can identify a Joker defence card (strength 1) — attack it cheaply.
           var pCovSuits = Object.keys(groups);
           for (var prsi = 0; prsi < pCovSuits.length; prsi++) {
             var prSuit = pCovSuits[prsi];
-            var prCombo = botMinimalSubset(gs, groups[prSuit], BOT_UNKNOWN_CARD_STRENGTH);
-            if (!prCombo) continue;
-            var prSum = 0;
-            for (var prci = 0; prci < prCombo.length; prci++) prSum += gs.cardStrength(prCombo[prci]);
             var prDefBoost = (defender.defCardsBoost && defender.defCardsBoost[slot]) || 0;
             var prTopId = defender.topDefCards ? defender.topDefCards[slot] : null;
             var prTopBoost = (defender.topDefCardsBoost && defender.topDefCardsBoost[slot]) || 0;
-            var prActual = gs.cardStrength(defCardId) + prDefBoost
-                         + (prTopId != null ? gs.cardStrength(prTopId) + prTopBoost : 0);
+            var prActual = botDefCardStrength(gs, defCardId) + prDefBoost
+                         + (prTopId != null ? botDefCardStrength(gs, prTopId) + prTopBoost : 0);
+            // For a Joker defence, use its known strength for combo selection; otherwise use the unknown estimate.
+            var prComboTarget = (defCardId > 52) ? prActual : BOT_UNKNOWN_CARD_STRENGTH;
+            var prCombo = botMinimalSubset(gs, groups[prSuit], prComboTarget);
+            if (!prCombo) continue;
+            var prSum = 0;
+            for (var prci = 0; prci < prCombo.length; prci++) prSum += gs.cardStrength(prCombo[prci]);
             var prSuccess = (prSum > prActual);
             var prShields = 0;
             for (var prs = 1; prs <= 3; prs++) {
               if (defender.defCards[prs] != null || (defender.topDefCards && defender.topDefCards[prs] != null)) prShields++;
             }
-            // Score lower than known face-up attacks (1000) so visible targets are always preferred.
-            var prScore = 300 + (prShields === 1 ? 100 : 0) - prCombo.length + bonus;
+            // Joker defence is known-strength 1 — prioritise at face-up level; otherwise score lower.
+            var prScore = (defCardId > 52 ? 1000 : 300) + (prShields === 1 ? 100 : 0) - prCombo.length + bonus;
             if (prScore > bestScore) {
               bestScore = prScore;
               bestChoice = { defenderIdx: di, positionId: slot, cardIds: prCombo, symbol: prSuit, success: prSuccess };
@@ -849,7 +862,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         for (var slot = 1; slot <= 3; slot++) {
           var defCardId = def.defCards[slot];
           if (defCardId == null) continue;
-          var defStr = gs.cardStrength(defCardId);
+          var defStr = botDefCardStrength(gs, defCardId);
           // Only cast on face-up (known) cards — avoids wasting spell on a weak hidden card
           var isFaceUp = def.defCardsCovered && def.defCardsCovered[slot] === false;
           if (isFaceUp && defStr > bestTargetStr) {

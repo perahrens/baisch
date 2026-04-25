@@ -104,7 +104,7 @@ function simLegalActions(sim, allowCovered) {
   var jokers = p.hand.filter(function(id) { return id > 52; });
   var suits = Object.keys(groups);
 
-  // ---- Plunder ----
+  // ---- Loot ----
   if ((p.pickingDeckAttacks || 0) > 0) {
     for (var di = 0; di < sim.pickingDecks.length; di++) {
       var deck = sim.pickingDecks[di];
@@ -113,10 +113,10 @@ function simLegalActions(sim, allowCovered) {
       var threshold = simCardStrength(topCard.id);
       for (var si = 0; si < suits.length; si++) {
         var combo = simMinimalWinning(groups[suits[si]], threshold);
-        if (combo) actions.push({ type: 'plunder', deckIndex: di, cardIds: combo, symbol: suits[si] });
+        if (combo) actions.push({ type: 'loot', deckIndex: di, cardIds: combo, symbol: suits[si] });
       }
       if (jokers.length > 0) {
-        actions.push({ type: 'plunder', deckIndex: di, cardIds: [jokers[0]], symbol: 'joker' });
+        actions.push({ type: 'loot', deckIndex: di, cardIds: [jokers[0]], symbol: 'joker' });
       }
     }
   }
@@ -199,7 +199,7 @@ function simApplyAction(sim, action) {
   var p = sim.players[idx];
   var i, cardId;
 
-  if (action.type === 'plunder') {
+  if (action.type === 'loot') {
     p.pickingDeckAttacks = 0;
     for (i = 0; i < action.cardIds.length; i++) {
       cardId = action.cardIds[i];

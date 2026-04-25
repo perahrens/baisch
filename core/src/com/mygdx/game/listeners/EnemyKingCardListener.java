@@ -49,7 +49,7 @@ public class EnemyKingCardListener extends ClickListener {
   @Override
   public void clicked(InputEvent event, float x, float y) {
     PlayerTurn pt = player.getPlayerTurn();
-    if (pt.isPlunderPending() || pt.isAttackPending()) return;
+    if (pt.isLootPending() || pt.isAttackPending()) return;
 
     // Find which player owns this king card (the defender)
     int defenderIdx = -1;
@@ -229,7 +229,7 @@ public class EnemyKingCardListener extends ClickListener {
     if (warlordAttack && warlord != null) {
       // Mark this pending attack as a Warlord extra-attack so the resolved
       // callback does NOT mark the king as spent for the turn (Warlord grants
-      // an additional attack action; the regular king attack/plunder must
+      // an additional attack action; the regular king attack/loot must
       // remain available).
       pt.setPendingAttackIsWarlord(true);
       warlord.useAttack();

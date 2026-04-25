@@ -65,7 +65,7 @@ public class EnemyDefCardListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
     // Ignore taps while ANY preview overlay is active
     PlayerTurn pt = player.getPlayerTurn();
-    if (pt.isPlunderPending() || pt.isAttackPending()) return;
+    if (pt.isLootPending() || pt.isAttackPending()) return;
 
     // Spy peek: if spy is selected with no attack cards, flip enemy card face-up
     for (int si = 0; si < player.getHeroes().size(); si++) {
@@ -303,7 +303,7 @@ public class EnemyDefCardListener extends ClickListener {
     if (warlordAttack && warlord != null) {
       // Mark this pending attack as a Warlord extra-attack so the resolved
       // callback does NOT mark the king as spent for the turn (Warlord grants
-      // an additional attack action; the regular king attack/plunder must
+      // an additional attack action; the regular king attack/loot must
       // remain available).
       pt.setPendingAttackIsWarlord(true);
       warlord.useAttack();

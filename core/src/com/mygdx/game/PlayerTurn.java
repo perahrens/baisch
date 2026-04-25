@@ -80,26 +80,26 @@ public class PlayerTurn {
     return attackingSymbol;
   }
 
-  // --- Plunder preview state ---
-  private boolean plunderPending = false;
-  private boolean plunderSuccess = false;
+  // --- Loot preview state ---
+  private boolean lootPending = false;
+  private boolean lootSuccess = false;
   private ArrayList<Card> pendingAttackCards = new ArrayList<Card>();
   private int pendingPickingDeckIndex = -1;
 
-  public boolean isPlunderPending() {
-    return plunderPending;
+  public boolean isLootPending() {
+    return lootPending;
   }
 
-  public void setPlunderPending(boolean pending) {
-    this.plunderPending = pending;
+  public void setLootPending(boolean pending) {
+    this.lootPending = pending;
   }
 
-  public boolean isPlunderSuccess() {
-    return plunderSuccess;
+  public boolean isLootSuccess() {
+    return lootSuccess;
   }
 
-  public void setPlunderSuccess(boolean success) {
-    this.plunderSuccess = success;
+  public void setLootSuccess(boolean success) {
+    this.lootSuccess = success;
   }
 
   public ArrayList<Card> getPendingAttackCards() {
@@ -160,7 +160,7 @@ public class PlayerTurn {
   // True when the pending attack was initiated via the Warlord hero's extra attack.
   // Warlord grants an additional attack action, so resolving such an attack must NOT
   // mark the king as spent for the turn — otherwise the regular once-per-turn king
-  // attack/plunder is permanently blocked even after the player clears all defenses.
+  // attack/loot is permanently blocked even after the player clears all defenses.
   private boolean pendingAttackIsWarlord = false;
   public boolean isPendingAttackIsWarlord() { return pendingAttackIsWarlord; }
   public void setPendingAttackIsWarlord(boolean v) { this.pendingAttackIsWarlord = v; }
@@ -218,21 +218,21 @@ public class PlayerTurn {
   public void setPreyCardIds(ArrayList<Integer> ids) { this.preyCardIds = ids; }
 
   // --- Reservists attack bonus ---
-  // Incremented each time the player clicks the Reservists button in the attack or plunder overlay.
-  // Reset to 0 after the attack/plunder resolves.
+  // Incremented each time the player clicks the Reservists button in the attack or loot overlay.
+  // Reset to 0 after the attack/loot resolves.
   private int reservistAttackBonus = 0;
   public int getReservistAttackBonus() { return reservistAttackBonus; }
   public void incrementReservistAttackBonus() { reservistAttackBonus++; }
   public void resetReservistAttackBonus() { reservistAttackBonus = 0; }
 
-  // --- Plunder pending strength snapshot ---
-  // Stored when a plunder is initiated so the Reservists overlay button can recalculate the result.
-  private int pendingPlunderAttackSum = 0;
-  private int pendingPlunderDefStrength = 0;
-  public int getPendingPlunderAttackSum() { return pendingPlunderAttackSum; }
-  public void setPendingPlunderAttackSum(int v) { this.pendingPlunderAttackSum = v; }
-  public int getPendingPlunderDefStrength() { return pendingPlunderDefStrength; }
-  public void setPendingPlunderDefStrength(int v) { this.pendingPlunderDefStrength = v; }
+  // --- Loot pending strength snapshot ---
+  // Stored when a loot is initiated so the Reservists overlay button can recalculate the result.
+  private int pendingLootAttackSum = 0;
+  private int pendingLootDefStrength = 0;
+  public int getPendingLootAttackSum() { return pendingLootAttackSum; }
+  public void setPendingLootAttackSum(int v) { this.pendingLootAttackSum = v; }
+  public int getPendingLootDefStrength() { return pendingLootDefStrength; }
+  public void setPendingLootDefStrength(int v) { this.pendingLootDefStrength = v; }
 
   // --- King attack pending strength snapshot ---
   // Stored when a king attack is initiated so the Reservists overlay button can recalculate.

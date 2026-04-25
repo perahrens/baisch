@@ -138,8 +138,8 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingBatteryDefCheck = null;
   // Attack preview broadcast: set from stateUpdate when another player has a pending attack
   private JSONObject pendingAttackBroadcast = null;
-  // Plunder preview broadcast: set from stateUpdate when another player has a pending plunder
-  private JSONObject pendingPlunderBroadcast = null;
+  // Loot preview broadcast: set from stateUpdate when another player has a pending loot
+  private JSONObject pendingLootBroadcast = null;
   // Pending hero selection after a successful king defeat (attacker must choose one hero)
   private java.util.ArrayList<String> pendingKingDefeatHeroOptions = null;
   // Hero auction: server-authoritative state (non-null when auction is in progress)
@@ -1625,11 +1625,11 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(lbl);
     }
 
-    // Plunder preview overlay — added LAST so it renders on top of everything
-    if (currentPlayer.getPlayerTurn().isPlunderPending()) {
-      final Player plunderPlayer = currentPlayer;
-      final PlayerTurn pt = plunderPlayer.getPlayerTurn();
-      final boolean plunderSuccess = pt.isPlunderSuccess();
+    // Loot preview overlay — added LAST so it renders on top of everything
+    if (currentPlayer.getPlayerTurn().isLootPending()) {
+      final Player lootPlayer = currentPlayer;
+      final PlayerTurn pt = lootPlayer.getPlayerTurn();
+      final boolean lootSuccess = pt.isLootSuccess();
 
       // Semi-transparent black tint over the whole board; catches any tap to confirm
       Image overlay = new Image(MyGdxGame.skin, "white");
@@ -1641,34 +1641,34 @@ public class GameScreen extends ScreenAdapter {
           final int deckIdx = pt.getPendingPickingDeckIndex();
           PickingDeck thisD = gameState.getPickingDecks().get(deckIdx);
           PickingDeck otherD = gameState.getPickingDecks().get(1 - deckIdx);
-          if (plunderSuccess) {
+          if (lootSuccess) {
             Iterator<Card> it = thisD.getCards().iterator();
-            while (it.hasNext()) { plunderPlayer.addHandCard(it.next()); it.remove(); }
+            while (it.hasNext()) { lootPlayer.addHandCard(it.next()); it.remove(); }
             otherD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
             thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
             thisD.getCards().get(thisD.getCards().size() - 1).setCovered(false);
             thisD.addCard(gameState.getCardDeck().getCard(gameState.getCemeteryDeck()));
-            if (pt.isKingUsed()) plunderPlayer.getKingCard().setCovered(false);
+            if (pt.isKingUsed()) lootPlayer.getKingCard().setCovered(false);
           } else {
             Card newPickCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
             newPickCard.setCovered(true);
             thisD.addCard(newPickCard);
             if (pt.isKingUsed()) {
-              plunderPlayer.getKingCard().setCovered(false);
-              plunderPlayer.setOut(true);
+              lootPlayer.getKingCard().setCovered(false);
+              lootPlayer.setOut(true);
             }
           }
           for (Card c : pt.getPendingAttackCards()) {
-            plunderPlayer.getHandCards().remove(c);
+            lootPlayer.getHandCards().remove(c);
             gameState.getCemeteryDeck().addCard(c);
           }
           for (Card c : pt.getPendingAttackOwnDefCards()) {
             int slot = c.getPositionId();
-            plunderPlayer.getDefCards().remove(slot);
-            plunderPlayer.getTopDefCards().remove(slot);
+            lootPlayer.getDefCards().remove(slot);
+            lootPlayer.getTopDefCards().remove(slot);
             gameState.getCemeteryDeck().addCard(c);
           }
-          pt.setPlunderPending(false);
+          pt.setLootPending(false);
           if (pt.isKingUsed()) pt.setKingUsedThisTurn(true);
           // Coup swap: if the old king (now a hand card) was used in this attack, mark king as spent
           int coupId = pt.getCoupSwapPendingCardId();
@@ -1686,7 +1686,7 @@ public class GameScreen extends ScreenAdapter {
             JSONObject emitData = new JSONObject();
             emitData.put("attackerIdx", gameState.getCurrentPlayerIndex());
             emitData.put("deckIndex", deckIdx);
-            emitData.put("success", plunderSuccess);
+            emitData.put("success", lootSuccess);
             emitData.put("kingUsed", pt.isKingUsed());
             JSONArray atkIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackCards()) atkIdArr.put(c.getCardId());
@@ -1694,12 +1694,12 @@ public class GameScreen extends ScreenAdapter {
             JSONArray ownDefIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackOwnDefCards()) ownDefIdArr.put(c.getCardId());
             emitData.put("attackerOwnDefCardIds", ownDefIdArr);
-            socket.emit("plunderResolved", emitData);
+            socket.emit("lootResolved", emitData);
           } catch (JSONException e) {
             e.printStackTrace();
           }
-          tutorialAdvance(TUTORIAL_STEP_PLUNDER);
-          tutorialAdvanceHook("PLUNDER");
+          tutorialAdvance(TUTORIAL_STEP_LOOT);
+          tutorialAdvanceHook("LOOT");
           pt.getPendingAttackCards().clear();
           pt.getPendingAttackOwnDefCards().clear();
           pt.resetReservistAttackBonus();
@@ -1717,16 +1717,16 @@ public class GameScreen extends ScreenAdapter {
       float plLeftX = 10f;
       float plRightX = MyGdxGame.WIDTH / 2f + 10f;
 
-      int plAtkSum = pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus();
-      int plDefStr = pt.getPendingPlunderDefStrength();
+      int plAtkSum = pt.getPendingLootAttackSum() + pt.getReservistAttackBonus();
+      int plDefStr = pt.getPendingLootDefStrength();
 
-      Label plunderResultLabel = new Label(
-          plunderSuccess ? "SUCCESS!  Tap to claim the cards."
-                        : "FAILED.  Tap to continue.",
+      Label lootResultLabel = new Label(
+          lootSuccess ? "SUCCESS!  Tap to claim the cards."
+                      : "FAILED.  Tap to continue.",
           MyGdxGame.skin);
-      plunderResultLabel.setColor(plunderSuccess ? Color.GREEN : Color.RED);
-      plunderResultLabel.setPosition(
-          MyGdxGame.WIDTH / 2f - plunderResultLabel.getPrefWidth() / 2f,
+      lootResultLabel.setColor(lootSuccess ? Color.GREEN : Color.RED);
+      lootResultLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - lootResultLabel.getPrefWidth() / 2f,
           plBotY - 44f);
 
       gameStage.addActor(overlay);
@@ -1736,14 +1736,14 @@ public class GameScreen extends ScreenAdapter {
       plAtkHdr.setColor(Color.CYAN);
       plAtkHdr.setPosition(plLeftX, plBotY + plCH + 5f);
       gameStage.addActor(plAtkHdr);
-      Label plDefHdr = new Label("PLUNDER", MyGdxGame.skin);
+      Label plDefHdr = new Label("LOOT", MyGdxGame.skin);
       plDefHdr.setColor(Color.ORANGE);
       plDefHdr.setPosition(plRightX, plBotY + plCH + 5f);
       gameStage.addActor(plDefHdr);
 
       // Attack cards (left column)
-      if (pt.isKingUsed() && plunderPlayer.getKingCard() != null) {
-        Card kd = Card.fromCardId(plunderPlayer.getKingCard().getCardId());
+      if (pt.isKingUsed() && lootPlayer.getKingCard() != null) {
+        Card kd = Card.fromCardId(lootPlayer.getKingCard().getCardId());
         kd.setCovered(false); kd.setActive(true);
         kd.setSize(plCW, plCH);
         kd.setPosition(plLeftX, plBotY);
@@ -1784,16 +1784,16 @@ public class GameScreen extends ScreenAdapter {
       plDefSumLbl.setPosition(plRightX, plBotY - 22f);
       gameStage.addActor(plDefSumLbl);
 
-      gameStage.addActor(plunderResultLabel);
+      gameStage.addActor(lootResultLabel);
 
-      // Reservists plunder boost button — only when currently failing but can be won
-      for (Hero resH : plunderPlayer.getHeroes()) {
+      // Reservists loot boost button — only when currently failing but can be won
+      for (Hero resH : lootPlayer.getHeroes()) {
         if ("Reservists".equals(resH.getHeroName())) {
           final Reservists resHero = (Reservists) resH;
-          boolean canFlipPlunder = !pt.isPlunderSuccess() && resHero.isAvailable()
-              && (pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() + resHero.countReady())
-                  > pt.getPendingPlunderDefStrength();
-          if (canFlipPlunder) {
+          boolean canFlipLoot = !pt.isLootSuccess() && resHero.isAvailable()
+              && (pt.getPendingLootAttackSum() + pt.getReservistAttackBonus() + resHero.countReady())
+                  > pt.getPendingLootDefStrength();
+          if (canFlipLoot) {
             TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
             resBtn.pack();
             resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
@@ -1803,10 +1803,10 @@ public class GameScreen extends ScreenAdapter {
                 resHero.spend();
                 emitReservistsKingBoost(resHero.countReady());
                 pt.incrementReservistAttackBonus();
-                boolean newPlunderSuccess =
-                    pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus() > pt.getPendingPlunderDefStrength();
-                pt.setPlunderSuccess(newPlunderSuccess);
-                // Re-emit plunderPreview so watchers see the updated sum and outcome
+                boolean newLootSuccess =
+                    pt.getPendingLootAttackSum() + pt.getReservistAttackBonus() > pt.getPendingLootDefStrength();
+                pt.setLootSuccess(newLootSuccess);
+                // Re-emit lootPreview so watchers see the updated sum and outcome
                 if (socket != null) {
                   try {
                     JSONObject plPreview = new JSONObject();
@@ -1814,11 +1814,11 @@ public class GameScreen extends ScreenAdapter {
                     plPreview.put("deckIndex", plDeckIdx);
                     ArrayList<Card> plDeckCurr = gameState.getPickingDecks().get(plDeckIdx).getCards();
                     plPreview.put("defCardId", plDeckCurr.isEmpty() ? -1 : plDeckCurr.get(plDeckCurr.size() - 1).getCardId());
-                    plPreview.put("attackSum", pt.getPendingPlunderAttackSum() + pt.getReservistAttackBonus());
-                    plPreview.put("defStrength", pt.getPendingPlunderDefStrength());
-                    plPreview.put("success", newPlunderSuccess);
+                    plPreview.put("attackSum", pt.getPendingLootAttackSum() + pt.getReservistAttackBonus());
+                    plPreview.put("defStrength", pt.getPendingLootDefStrength());
+                    plPreview.put("success", newLootSuccess);
                     plPreview.put("kingUsed", pt.isKingUsed());
-                    plPreview.put("kingCardId", pt.isKingUsed() && plunderPlayer.getKingCard() != null ? plunderPlayer.getKingCard().getCardId() : -1);
+                    plPreview.put("kingCardId", pt.isKingUsed() && lootPlayer.getKingCard() != null ? lootPlayer.getKingCard().getCardId() : -1);
                     plPreview.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
                     plPreview.put("reservistBonus", pt.getReservistAttackBonus());
                     JSONArray plResAtkIds = new JSONArray();
@@ -1827,7 +1827,7 @@ public class GameScreen extends ScreenAdapter {
                     JSONArray plResOwnIds = new JSONArray();
                     for (Card c : pt.getPendingAttackOwnDefCards()) plResOwnIds.put(c.getCardId());
                     plPreview.put("ownDefCardIds", plResOwnIds);
-                    socket.emit("plunderPreview", plPreview);
+                    socket.emit("lootPreview", plPreview);
                   } catch (JSONException ex) { ex.printStackTrace(); }
                 }
                 gameState.setUpdateState(true);
@@ -1840,19 +1840,19 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
-    // Plunder watcher overlay — shown to non-plundering players when another player is plundering
-    if (pendingPlunderBroadcast != null && !currentPlayer.getPlayerTurn().isPlunderPending()) {
+    // Loot watcher overlay — shown to non-looting players when another player is looting
+    if (pendingLootBroadcast != null && !currentPlayer.getPlayerTurn().isLootPending()) {
       try {
-        final int plBcAtkIdx = pendingPlunderBroadcast.getInt("attackerIdx");
-        final boolean plBcSuccess = pendingPlunderBroadcast.getBoolean("success");
-        final boolean plBcKingUsed = pendingPlunderBroadcast.optBoolean("kingUsed", false);
-        final int plBcKingCardId = pendingPlunderBroadcast.optInt("kingCardId", -1);
-        final int plBcDefCardId = pendingPlunderBroadcast.optInt("defCardId", -1);
-        final int plBcAtkSum = pendingPlunderBroadcast.optInt("attackSum", 0)
-            + pendingPlunderBroadcast.optInt("reservistBonus", 0);
-        final int plBcDefStr = pendingPlunderBroadcast.optInt("defStrength", 0);
-        final JSONArray plBcAtkIds = pendingPlunderBroadcast.optJSONArray("attackCardIds");
-        final JSONArray plBcOwnDefIds = pendingPlunderBroadcast.optJSONArray("ownDefCardIds");
+        final int plBcAtkIdx = pendingLootBroadcast.getInt("attackerIdx");
+        final boolean plBcSuccess = pendingLootBroadcast.getBoolean("success");
+        final boolean plBcKingUsed = pendingLootBroadcast.optBoolean("kingUsed", false);
+        final int plBcKingCardId = pendingLootBroadcast.optInt("kingCardId", -1);
+        final int plBcDefCardId = pendingLootBroadcast.optInt("defCardId", -1);
+        final int plBcAtkSum = pendingLootBroadcast.optInt("attackSum", 0)
+            + pendingLootBroadcast.optInt("reservistBonus", 0);
+        final int plBcDefStr = pendingLootBroadcast.optInt("defStrength", 0);
+        final JSONArray plBcAtkIds = pendingLootBroadcast.optJSONArray("attackCardIds");
+        final JSONArray plBcOwnDefIds = pendingLootBroadcast.optJSONArray("ownDefCardIds");
 
         Image wPlOverlay = new Image(MyGdxGame.skin, "white");
         wPlOverlay.setFillParent(true);
@@ -1869,7 +1869,7 @@ public class GameScreen extends ScreenAdapter {
         float wPlRightX = MyGdxGame.WIDTH / 2f + 10f;
 
         // Column headers
-        Label wPlAtkHdr = new Label(plAtkName + " plunders:", MyGdxGame.skin);
+        Label wPlAtkHdr = new Label(plAtkName + " loots:", MyGdxGame.skin);
         wPlAtkHdr.setColor(Color.CYAN);
         wPlAtkHdr.setPosition(wPlLeftX, wPlBotY + wPlCH + 22f);
         gameStage.addActor(wPlAtkHdr);
@@ -1916,7 +1916,7 @@ public class GameScreen extends ScreenAdapter {
         wPlDefSumLbl.setPosition(wPlRightX, wPlBotY - 22f);
         gameStage.addActor(wPlDefSumLbl);
 
-        Label wPlResultLbl = new Label(plBcSuccess ? plAtkName + " plunders!" : plAtkName + " fails!", MyGdxGame.skin);
+        Label wPlResultLbl = new Label(plBcSuccess ? plAtkName + " loots!" : plAtkName + " fails!", MyGdxGame.skin);
         wPlResultLbl.setColor(plBcSuccess ? Color.GREEN : Color.RED);
         wPlResultLbl.setPosition(MyGdxGame.WIDTH / 2f - wPlResultLbl.getPrefWidth() / 2f, wPlBotY - 44f);
         gameStage.addActor(wPlResultLbl);
@@ -2041,7 +2041,7 @@ public class GameScreen extends ScreenAdapter {
           apt.setAttackTargetIsKing(false);
           // Mark king as spent only for normal king attacks. Warlord direct attacks
           // are an additional action granted by the hero and must NOT consume the
-          // regular once-per-turn king attack/plunder.
+          // regular once-per-turn king attack/loot.
           if (apt.isKingUsed() && !apt.isPendingAttackIsWarlord()) apt.setKingUsedThisTurn(true);
           // Count this attack locally (same pattern as Warlord) so the expose-card penalty
           // check in FinishTurnButtonListener never falsely fires before the server stateUpdate arrives.
@@ -3048,12 +3048,12 @@ public class GameScreen extends ScreenAdapter {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    // Sword overlay on both harvest decks when plunder is available — added late so it sits above all cards.
+    // Sword overlay on both harvest decks when loot is available — added late so it sits above all cards.
     // Crone overlay on own king card when king attack is possible.
     if (gameState.getCurrentPlayer() == currentPlayer) {
       PlayerTurn ptGame = currentPlayer.getPlayerTurn();
 
-      if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isPlunderPending()) {
+      if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isLootPending()) {
         ArrayList<PickingDeck> swordDecks = gameState.getPickingDecks();
         for (int si = 0; si < swordDecks.size(); si++) {
           ArrayList<Card> sCards = swordDecks.get(si).getCards();
@@ -4279,8 +4279,8 @@ public class GameScreen extends ScreenAdapter {
   //   1  – ACTION: take a defense card to hand    (auto-advances after takeDefCard)
   //   2  – ACTION: select a hand card             (auto-advances in render() poll)
   //   3  – Blocking info: attack symbols
-  //   4  – ACTION: plunder a harvest deck         (auto-advances after plunderResolved)
-  //   5  – Blocking info: plunder mechanics
+  //   4  – ACTION: loot a harvest deck         (auto-advances after lootResolved)
+  //   5  – Blocking info: loot mechanics
   //   6  – Blocking info: joker card
   //   7  – ACTION: place a defense card           (auto-advances in render() poll)
   //   8  – ACTION: end your turn                  (auto-advances after finishTurn)
@@ -4296,8 +4296,8 @@ public class GameScreen extends ScreenAdapter {
   private static final int TUTORIAL_STEP_TAKE_DEF_FIRST  = 1;
   private static final int TUTORIAL_STEP_SELECT          = 2;
   private static final int TUTORIAL_STEP_INFO_SYMBOLS    = 3;
-  private static final int TUTORIAL_STEP_PLUNDER         = 4;
-  private static final int TUTORIAL_STEP_INFO_PLUNDER    = 5;
+  private static final int TUTORIAL_STEP_LOOT           = 4;
+  private static final int TUTORIAL_STEP_INFO_LOOT      = 5;
   private static final int TUTORIAL_STEP_INFO_JOKER      = 6;
   private static final int TUTORIAL_STEP_DEFENSE         = 7;
   private static final int TUTORIAL_STEP_ENDTURN         = 8;
@@ -4412,18 +4412,18 @@ public class GameScreen extends ScreenAdapter {
       + "Cards with DIFFERENT symbols cannot be combined. "
       + "Select a card first: all other hand cards of the same symbol will be combinable.\n\n"
       + "Your active symbol is locked-in on your first attack of the turn "
-      + "and stays set until you click 'End Turn' — even after a plunder resolves. "
+      + "and stays set until you click 'End Turn' — even after a loot resolves. "
       + "This means you can attack again with the same symbol before ending your turn.",
       null
     ),
-    /* 4  PLUNDER */
+    /* 4  LOOT */
     new TutorialStepDef(
-      "Plunder a harvest deck",
-      "With a card selected, tap one of the tilted card stacks in the center to plunder it."
+      "Loot a harvest deck",
+      "With a card selected, tap one of the tilted card stacks in the center to loot it."
     ),
-    /* 5  INFO_PLUNDER */
+    /* 5  INFO_LOOT */
     new TutorialStepDef(
-      "How Plundering Works",
+      "How Looting Works",
       "When you attack a harvest deck, your total attack value is compared to the hidden top card of that deck.\n\n"
       + "\u2022 If your value is HIGHER (or equal): you win and take cards from the deck.\n"
       + "\u2022 If your value is LOWER: the attack fails — your card(s) go to the discard pile and you gain nothing.\n\n"
@@ -4467,7 +4467,7 @@ public class GameScreen extends ScreenAdapter {
       + "face-down defense cards before ending your turn.\n\n"
       + "Tap 'Finish turn' — the game will ask you to choose which defense slot to expose. "
       + "The card stays in the slot but becomes visible to all players.\n\n"
-      + "If you DO attack (plunder or player attack), no card needs to be exposed.",
+      + "If you DO attack (loot or player attack), no card needs to be exposed.",
       null
     ),
     /* 11 INFO_KING */
@@ -4503,7 +4503,7 @@ public class GameScreen extends ScreenAdapter {
     new TutorialStepDef(
       "Tutorial Complete!",
       "Well done! You've completed the interactive tutorial.\n\n"
-      + "You now know how to select and combine cards, plunder decks, "
+      + "You now know how to select and combine cards, loot decks, "
       + "place defenses, expose cards, use your king, "
       + "end your turn, and attack enemies.\n\n"
       + "Feel free to keep playing or return to the menu.",
@@ -4864,7 +4864,7 @@ public class GameScreen extends ScreenAdapter {
   /**
    * Issue #167: destroy {@code count} of the given player's placed mercenaries
    * (state==1 -> state==2). Used when a boosted defense card disappears from a
-   * player's def slots due to a successful enemy attack/plunder, so the
+   * player's def slots due to a successful enemy attack/loot, so the
    * mercenaries that fought on it don't remain stuck in the in-use state.
    */
   private void destroyMercenariesForPlayer(Player p, int count) {
@@ -5038,7 +5038,7 @@ public class GameScreen extends ScreenAdapter {
             bc.addBoosted(e.getValue()[1]);
           } else {
             // Issue #167: the previously boosted card is no longer in this
-            // slot (plundered or attacked away). Destroy the owner's
+            // slot (looted or attacked away). Destroy the owner's
             // mercenaries that were placed on it so they don't stay stuck
             // in the in-use state forever.
             destroyMercenariesForPlayer(p, e.getValue()[1]);
@@ -5174,36 +5174,36 @@ public class GameScreen extends ScreenAdapter {
         pendingAttackBroadcast = null;
       }
 
-      // Sync plunder preview — restore overlay for attacker on reconnect, watcher overlay for others
-      JSONObject serverPendingPlunder = state.optJSONObject("pendingPlunder");
-      if (serverPendingPlunder != null
-          && serverPendingPlunder.optInt("attackerIdx", -1) == playerIndex
-          && !currentPlayer.getPlayerTurn().isPlunderPending()) {
-        // Restore the plunder confirmation overlay so it reappears after a page refresh
+      // Sync loot preview — restore overlay for attacker on reconnect, watcher overlay for others
+      JSONObject serverPendingLoot = state.optJSONObject("pendingLoot");
+      if (serverPendingLoot != null
+          && serverPendingLoot.optInt("attackerIdx", -1) == playerIndex
+          && !currentPlayer.getPlayerTurn().isLootPending()) {
+        // Restore the loot confirmation overlay so it reappears after a page refresh
         PlayerTurn rpt = currentPlayer.getPlayerTurn();
-        rpt.setPlunderPending(true);
-        rpt.setPendingPickingDeckIndex(serverPendingPlunder.optInt("deckIndex", 0));
-        rpt.setPlunderSuccess(serverPendingPlunder.optBoolean("success", false));
-        rpt.setKingUsed(serverPendingPlunder.optBoolean("kingUsed", false));
-        rpt.setPendingPlunderAttackSum(serverPendingPlunder.optInt("attackSum", 0));
-        rpt.setPendingPlunderDefStrength(serverPendingPlunder.optInt("defStrength", 0));
+        rpt.setLootPending(true);
+        rpt.setPendingPickingDeckIndex(serverPendingLoot.optInt("deckIndex", 0));
+        rpt.setLootSuccess(serverPendingLoot.optBoolean("success", false));
+        rpt.setKingUsed(serverPendingLoot.optBoolean("kingUsed", false));
+        rpt.setPendingLootAttackSum(serverPendingLoot.optInt("attackSum", 0));
+        rpt.setPendingLootDefStrength(serverPendingLoot.optInt("defStrength", 0));
         ArrayList<Card> rptAtkCards = new ArrayList<Card>();
-        JSONArray rptAtkIds = serverPendingPlunder.optJSONArray("attackCardIds");
+        JSONArray rptAtkIds = serverPendingLoot.optJSONArray("attackCardIds");
         if (rptAtkIds != null) {
           for (int rai = 0; rai < rptAtkIds.length(); rai++) rptAtkCards.add(Card.fromCardId(rptAtkIds.getInt(rai)));
         }
         rpt.setPendingAttackCards(rptAtkCards);
         ArrayList<Card> rptOwnDefCards = new ArrayList<Card>();
-        JSONArray rptOwnDefIds = serverPendingPlunder.optJSONArray("ownDefCardIds");
+        JSONArray rptOwnDefIds = serverPendingLoot.optJSONArray("ownDefCardIds");
         if (rptOwnDefIds != null) {
           for (int rai = 0; rai < rptOwnDefIds.length(); rai++) rptOwnDefCards.add(Card.fromCardId(rptOwnDefIds.getInt(rai)));
         }
         rpt.setPendingAttackOwnDefCards(rptOwnDefCards);
-        pendingPlunderBroadcast = null;
-      } else if (serverPendingPlunder != null && serverPendingPlunder.optInt("attackerIdx", -1) != playerIndex) {
-        pendingPlunderBroadcast = serverPendingPlunder;
+        pendingLootBroadcast = null;
+      } else if (serverPendingLoot != null && serverPendingLoot.optInt("attackerIdx", -1) != playerIndex) {
+        pendingLootBroadcast = serverPendingLoot;
       } else {
-        pendingPlunderBroadcast = null;
+        pendingLootBroadcast = null;
       }
 
       // Sync pending hero selection after king defeat (only relevant to the attacker)

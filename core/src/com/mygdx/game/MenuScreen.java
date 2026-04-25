@@ -500,7 +500,7 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
     avatarSelector.pad(8f, 12f, 8f, 12f);
     avatarSelector.add(avatarLabel).padBottom(6f).row();
-    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(60f);
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(68f);
     avatarSelector.pack();
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f),

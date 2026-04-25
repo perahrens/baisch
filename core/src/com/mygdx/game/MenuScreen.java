@@ -466,7 +466,7 @@ public class MenuScreen extends AbstractScreen {
       Color borderCol = selected ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
       Table wrapper = new Table();
       wrapper.setBackground(MyGdxGame.skin.newDrawable("white", borderCol));
-      wrapper.add(avImg).size(40f, 40f).pad(2f);
+      wrapper.add(avImg).size(88f, 88f).pad(4f);
       wrapper.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -487,7 +487,7 @@ public class MenuScreen extends AbstractScreen {
     if (!selectedIcon.isEmpty()) {
       for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
         if (AVATAR_NAMES[ai].equals(selectedIcon)) {
-          final float targetX = ai * (40f + 2f + 2f + 6f);
+          final float targetX = ai * (88f + 4f + 4f + 6f);
           avatarScroll.layout();
           avatarScroll.setScrollX(Math.max(0f, targetX - selectorMaxW / 2f));
           break;
@@ -499,7 +499,7 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
     avatarSelector.pad(8f, 12f, 8f, 12f);
     avatarSelector.add(avatarLabel).padBottom(6f).row();
-    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(68f);
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f),

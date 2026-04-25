@@ -108,7 +108,7 @@ public class MenuScreen extends AbstractScreen {
   // Cache of loaded avatar textures keyed by icon name.
   private final java.util.Map<String, Texture> avatarTextures = new java.util.HashMap<String, Texture>();
   // Known avatar names (file names without extension inside data/avatars/).
-  private static final String[] AVATAR_NAMES = {"fishnugget"};
+  private static final String[] AVATAR_NAMES = {"alien1","alien2","cat","dolphin","fishnugget","knight","lion","monkey","parrot","rat","rooster","stegosauros"};
 
   private static class OnlinePlayerInfo {
     String id;

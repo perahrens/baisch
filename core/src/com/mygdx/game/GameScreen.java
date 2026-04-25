@@ -222,8 +222,10 @@ public class GameScreen extends ScreenAdapter {
   // event right before each tap, which would otherwise zoom the card while
   // the same tap also performs the selection click — producing a confusing
   // "hover + click" feel. Desktop mice never call touchDown so this stays
-  // false and the hover-zoom keeps working there.
-  private boolean touchDetected = false;
+  // Starts true on touch devices (detected at startup via CSS media query in
+  // HtmlLauncher) so hover-zoom is permanently disabled for mobile. On desktop,
+  // starts false and is set true on the first touchDown capture event.
+  private boolean touchDetected = MyGdxGame.isTouchDevice;
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {

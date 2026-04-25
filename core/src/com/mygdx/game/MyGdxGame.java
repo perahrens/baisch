@@ -51,6 +51,13 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static boolean nativeMusicButton = false;
 
   /**
+   * True when the platform is a touch-only device (no fine hover pointer).
+   * Set by HtmlLauncher via CSS media-query detection before the first screen
+   * is shown. Used by GameScreen to immediately disable hover-zoom on mobile.
+   */
+  public static boolean isTouchDevice = false;
+
+  /**
    * Called whenever the music enabled-state changes so the platform layer can
    * update its visual music indicator (e.g. start/stop the animated GIF).
    * Set by HtmlLauncher; null on non-web platforms.

@@ -103,12 +103,20 @@ public class MenuScreen extends AbstractScreen {
   // True when the server kicked this tab because the same token opened a new tab.
   private boolean disconnectedByDuplicateTab = false;
 
+  // Avatar icon chosen on the name-entry screen, persisted across refreshes.
+  private String selectedIcon = "";
+  // Cache of loaded avatar textures keyed by icon name.
+  private final java.util.Map<String, Texture> avatarTextures = new java.util.HashMap<String, Texture>();
+  // Known avatar names (file names without extension inside data/avatars/).
+  private static final String[] AVATAR_NAMES = {"alien1","alien2","cat","dolphin","fishnugget","knight","lion","monkey","parrot","rat","rooster","stegosauros"};
+
   private static class OnlinePlayerInfo {
     String id;
     String name;
     String status;
-    OnlinePlayerInfo(String id, String name, String status) {
-      this.id = id; this.name = name; this.status = status;
+    String icon;
+    OnlinePlayerInfo(String id, String name, String status, String icon) {
+      this.id = id; this.name = name; this.status = status; this.icon = icon != null ? icon : "";
     }
   }
 
@@ -149,6 +157,7 @@ public class MenuScreen extends AbstractScreen {
       nameConfirmed = true;
     }
     showPlayersTab = MyGdxGame.playerStorage.getSavedShowPlayersTab();
+    selectedIcon = MyGdxGame.playerStorage.getSavedIcon();
     // If the player was mid-game when they refreshed, suppress the lobby flash by
     // entering reconnecting mode.  show() will display a spinner until gameState
     // arrives (or sessionNotFound clears the flag and falls back to the lobby).
@@ -363,8 +372,42 @@ public class MenuScreen extends AbstractScreen {
     reconnectElapsed = 0f;
   }
 
-  private void showNameEntryScreen() {
-    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
+  /** Lazy-loads an avatar texture from data/avatars/<name>.png; returns null if unavailable. */
+  private Texture getAvatarTexture(String name) {
+    Texture tex = avatarTextures.get(name);
+    if (tex == null) {
+      try {
+        tex = new Texture(Gdx.files.internal("data/avatars/" + name + ".png"));
+        avatarTextures.put(name, tex);
+      } catch (Exception e) {
+        // avatar file not present — skip silently
+      }
+    }
+    return tex;
+  }
+
+  /** Creates a small avatar Image (size x size) for the given icon name, or null if unavailable. */
+  private Image createAvatarImage(String iconName, float size) {
+    if (iconName == null || iconName.isEmpty()) return null;
+    Texture tex = getAvatarTexture(iconName);
+    if (tex == null) return null;
+    Image img = new Image(tex);
+    img.setSize(size, size);
+    return img;
+  }
+
+  /** Wraps a Label with an optional leading avatar icon inside a horizontal Table cell. */
+  private Table buildNameCell(Label nameLabel, String iconName) {
+    Table cell = new Table();
+    Image avatar = createAvatarImage(iconName, 22f);
+    if (avatar != null) {
+      cell.add(avatar).size(22f, 22f).padRight(5f);
+    }
+    cell.add(nameLabel);
+    return cell;
+  }
+
+  private void showNameEntryScreen() {    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
@@ -390,6 +433,7 @@ public class MenuScreen extends AbstractScreen {
               JSONObject reg = new JSONObject();
               reg.put("name", name);
               reg.put("token", MyGdxGame.playerStorage.getToken());
+              reg.put("icon", selectedIcon);
               socket.emit("registerPlayer", reg);
             } catch (JSONException e) { /* ignore */ }
             Gdx.app.postRunnable(new Runnable() {
@@ -403,6 +447,64 @@ public class MenuScreen extends AbstractScreen {
     });
 
     menuStage.addActor(enterNameButton);
+
+    // Avatar selector — shown below the name button
+    // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
+    float selectorMaxW = MyGdxGame.WIDTH - 24f;
+
+    Label avatarLabel = new Label("Choose your avatar:", MyGdxGame.skin);
+    avatarLabel.setColor(1f, 1f, 1f, 0.70f);
+
+    Table avatarRow = new Table();
+    avatarRow.pad(4f, 0f, 0f, 0f);
+    for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
+      final String avName = AVATAR_NAMES[ai];
+      Texture avTex = getAvatarTexture(avName);
+      if (avTex == null) continue;
+      Image avImg = new Image(avTex);
+      boolean selected = avName.equals(selectedIcon);
+      Color borderCol = selected ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
+      Table wrapper = new Table();
+      wrapper.setBackground(MyGdxGame.skin.newDrawable("white", borderCol));
+      wrapper.add(avImg).size(88f, 88f).pad(4f);
+      wrapper.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          selectedIcon = avName;
+          MyGdxGame.playerStorage.saveIcon(avName);
+          show();
+        }
+      });
+      avatarRow.add(wrapper).padRight(ai < AVATAR_NAMES.length - 1 ? 6f : 0f);
+    }
+
+    ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
+    avatarScroll.setScrollingDisabled(false, true); // horizontal only
+    avatarScroll.setFadeScrollBars(false);
+    avatarScroll.setOverscroll(false, false);
+
+    // Scroll to show the selected avatar
+    if (!selectedIcon.isEmpty()) {
+      for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
+        if (AVATAR_NAMES[ai].equals(selectedIcon)) {
+          final float targetX = ai * (88f + 4f + 4f + 6f);
+          avatarScroll.layout();
+          avatarScroll.setScrollX(Math.max(0f, targetX - selectorMaxW / 2f));
+          break;
+        }
+      }
+    }
+
+    Table avatarSelector = new Table(MyGdxGame.skin);
+    avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
+    avatarSelector.pad(8f, 12f, 8f, 12f);
+    avatarSelector.add(avatarLabel).padBottom(6f).row();
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
+    avatarSelector.pack();
+    avatarSelector.setPosition(
+        Math.round(cx - avatarSelector.getWidth() / 2f),
+        Math.round(0.3f * MyGdxGame.HEIGHT - avatarSelector.getHeight() - 10f));
+    menuStage.addActor(avatarSelector);
 
     // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
     // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
@@ -631,7 +733,7 @@ public class MenuScreen extends AbstractScreen {
         if (p.status.startsWith("In game")) statusL.setColor(Color.GREEN);
         else if (p.status.startsWith("In lobby")) statusL.setColor(Color.YELLOW);
         else if (p.status.startsWith("Watching")) statusL.setColor(Color.CYAN);
-        playersTable.add(nameL).padRight(40).padBottom(6f).left();
+        playersTable.add(buildNameCell(nameL, p.icon)).padRight(40).padBottom(6f).left();
         playersTable.add(statusL).padBottom(6f);
         playersTable.row();
         if (pi < snapshot.size() - 1) {
@@ -794,6 +896,7 @@ public class MenuScreen extends AbstractScreen {
           data.put("botModes", botModesArr);
           data.put("spectator", isSpectator);
           data.put("token", MyGdxGame.playerStorage.getToken());
+          data.put("icon", selectedIcon);
         } catch (JSONException e) { /* ignore */ }
         socket.emit("createSession", data);
         pendingSessionName = "";
@@ -851,6 +954,7 @@ public class MenuScreen extends AbstractScreen {
       data.put("sessionId", sessionId);
       data.put("name", menuState.getMyName());
       data.put("token", MyGdxGame.playerStorage.getToken());
+      data.put("icon", selectedIcon);
     } catch (JSONException e) { /* ignore */ }
     return data;
   }
@@ -862,6 +966,8 @@ public class MenuScreen extends AbstractScreen {
     }
     MyGdxGame.playerStorage.clearName();
     MyGdxGame.playerStorage.clearSessionId();
+    MyGdxGame.playerStorage.clearIcon();
+    selectedIcon = "";
     menuState.setMyName("");
     nameConfirmed = false;
     lobbyJoined = false;
@@ -1005,7 +1111,7 @@ public class MenuScreen extends AbstractScreen {
         statusBadge = createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
       }
 
-      loggedInUserTable.add(nameLabel).padRight(20).padBottom(6f);
+      loggedInUserTable.add(buildNameCell(nameLabel, user.getIcon())).padRight(20).padBottom(6f).left();
 
       if (sessionAllowHeroSelection) {
         boolean isOwnRow = user.getUserID().equals(menuState.getMyUserID());
@@ -1242,6 +1348,8 @@ public class MenuScreen extends AbstractScreen {
     menuStage.dispose();
     logoTexture.dispose();
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
+    for (Texture t : avatarTextures.values()) { if (t != null) t.dispose(); }
+    avatarTextures.clear();
   }
 
   public void configSocketEvents(final SocketClient socket) {
@@ -1267,6 +1375,7 @@ public class MenuScreen extends AbstractScreen {
               JSONObject autoReg = new JSONObject();
               autoReg.put("name", menuState.getMyName());
               autoReg.put("token", MyGdxGame.playerStorage.getToken());
+              autoReg.put("icon", selectedIcon);
               socket.emit("registerPlayer", autoReg);
               // Try to rejoin the session the player was in before the refresh.
               String savedSessId = MyGdxGame.playerStorage.getSavedSessionId();
@@ -1318,9 +1427,11 @@ public class MenuScreen extends AbstractScreen {
             String name   = objects.getJSONObject(i).getString("name");
             boolean isReady = objects.getJSONObject(i).getBoolean("isReady");
             String heroSel = objects.getJSONObject(i).optString("heroSelection", "None");
+            String userIcon = objects.getJSONObject(i).optString("icon", "");
             User user = new User(userID, name);
             user.setReady(isReady);
             user.setSelectedHero(heroSel);
+            user.setIcon(userIcon);
             menuState.addUser(user);
             Gdx.app.log("SocketIO", "Get users " + name + " (" + userID + ") ready=" + isReady + " hero=" + heroSel);
           }
@@ -1576,7 +1687,8 @@ public class MenuScreen extends AbstractScreen {
                 onlinePlayers.add(new OnlinePlayerInfo(
                   p.getString("id"),
                   p.getString("name"),
-                  p.getString("status")
+                  p.getString("status"),
+                  p.optString("icon", "")
                 ));
               }
             } catch (JSONException e) {

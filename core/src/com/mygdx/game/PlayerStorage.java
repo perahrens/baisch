@@ -52,6 +52,15 @@ public interface PlayerStorage {
   /** Clears the saved player name (logout). */
   void clearName();
 
+  /** Returns the last-saved avatar icon name, or an empty string if none is stored. */
+  String getSavedIcon();
+
+  /** Persists the player's chosen avatar icon name. */
+  void saveIcon(String icon);
+
+  /** Clears the saved avatar icon (logout). */
+  void clearIcon();
+
   /** No-op implementation used on desktop and as a safe default. */
   PlayerStorage NOOP = new PlayerStorage() {
     @Override public String  getToken()                          { return ""; }
@@ -65,5 +74,8 @@ public interface PlayerStorage {
     @Override public boolean getMusicEnabled()                   { return true; }
     @Override public void    saveMusicEnabled(boolean enabled)   { }
     @Override public void    clearName()                         { }
+    @Override public String  getSavedIcon()                      { return ""; }
+    @Override public void    saveIcon(String icon)               { }
+    @Override public void    clearIcon()                         { }
   };
 }

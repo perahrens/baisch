@@ -78,4 +78,19 @@ public class BrowserPlayerStorage implements PlayerStorage {
   public native void clearName() /*-{
     $wnd.localStorage.removeItem('baisch_player_name');
   }-*/;
+
+  @Override
+  public native String getSavedIcon() /*-{
+    return $wnd.localStorage.getItem('baisch_player_icon') || '';
+  }-*/;
+
+  @Override
+  public native void saveIcon(String icon) /*-{
+    if (icon) $wnd.localStorage.setItem('baisch_player_icon', icon);
+  }-*/;
+
+  @Override
+  public native void clearIcon() /*-{
+    $wnd.localStorage.removeItem('baisch_player_icon');
+  }-*/;
 }

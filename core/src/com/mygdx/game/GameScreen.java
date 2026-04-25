@@ -91,6 +91,8 @@ public class GameScreen extends ScreenAdapter {
   private Label myPlayerLabel;
   private Label roundCounter;
   private TextButton finishTurnButton;
+  // Cache of avatar textures loaded during gameplay, keyed by icon name.
+  private final Map<String, Texture> gameAvatarTextures = new HashMap<String, Texture>();
 
   // game objects
   private Player currentPlayer;
@@ -207,6 +209,7 @@ public class GameScreen extends ScreenAdapter {
   private Texture texCrone;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
+  private Texture texMenuButton;
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
@@ -715,6 +718,7 @@ public class GameScreen extends ScreenAdapter {
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
+    texMenuButton = new Texture(Gdx.files.internal("data/graphics/menu_button.png"));
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -1618,6 +1622,39 @@ public class GameScreen extends ScreenAdapter {
       }
 
       gameStage.addActor(playerLabel);
+
+      // Avatar icon next to the player label
+      String iconName = players.get(i).getIcon();
+      if (iconName != null && !iconName.isEmpty()) {
+        Texture avTex = gameAvatarTextures.get(iconName);
+        if (avTex == null) {
+          try {
+            avTex = new Texture(Gdx.files.internal("data/avatars/" + iconName + ".png"));
+            gameAvatarTextures.put(iconName, avTex);
+          } catch (Exception ignored) { }
+        }
+        if (avTex != null) {
+          final float avSize = 20f;
+          Image avImg = new Image(avTex);
+          avImg.setSize(avSize, avSize);
+          switch (visualSlot) {
+          case 0: // bottom-centre — place avatar to the left of the label
+            avImg.setPosition(playerLabel.getX() - avSize - 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
+            break;
+          case 1: // left-centre (rotated 90°) — place above the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() + playerLabel.getWidth() + 2f);
+            break;
+          case 2: // top-centre — place avatar to the right of the label
+            avImg.setPosition(playerLabel.getX() + playerLabel.getWidth() + 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
+            break;
+          case 3: // right-centre (rotated 90°) — place below the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() - avSize - 2f);
+            break;
+          default: break;
+          }
+          gameStage.addActor(avImg);
+        }
+      }
     }
 
     // Add hand count labels AFTER all player actors so they render on top
@@ -4251,10 +4288,10 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void addMenuButtonToOverlay() {
-    TextButton menuBtn = new TextButton("Menu", MyGdxGame.skin);
-    menuBtn.setSize(menuBtn.getPrefWidth() + 10, menuBtn.getPrefHeight());
-    menuBtn.setPosition(MyGdxGame.WIDTH - menuBtn.getWidth(),
-        MyGdxGame.HEIGHT - menuBtn.getHeight());
+    float btnSize = 44f;
+    Image menuBtn = new Image(texMenuButton);
+    menuBtn.setSize(btnSize, btnSize);
+    menuBtn.setPosition(MyGdxGame.WIDTH - btnSize, MyGdxGame.HEIGHT - btnSize);
     menuBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -5095,6 +5132,9 @@ public class GameScreen extends ScreenAdapter {
           isSpectator = true;
         }
 
+        // Sync avatar icon
+        p.setIcon(pj.optString("icon", ""));
+
         // Sync slot sabotage state from server-authoritative state
         for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);
         JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
@@ -5806,6 +5846,8 @@ public class GameScreen extends ScreenAdapter {
     if (plainWhiteTexture != null) plainWhiteTexture.dispose();
     if (texGameBck != null) texGameBck.dispose();
     if (texHandBck != null) texHandBck.dispose();
+    for (Texture t : gameAvatarTextures.values()) { if (t != null) t.dispose(); }
+    gameAvatarTextures.clear();
     texMercenary.dispose();
     texSabotaged.dispose();
     texHearts.dispose();
@@ -5819,6 +5861,7 @@ public class GameScreen extends ScreenAdapter {
     texCrone.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
+    texMenuButton.dispose();
   }
 
 }

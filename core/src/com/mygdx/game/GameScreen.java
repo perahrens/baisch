@@ -4341,9 +4341,35 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void zoomCard(Card card) {
-    // Scale from the bottom edge so the card grows upward, away from the hand strip.
-    card.setOriginX(card.getWidth() / 2f);
-    card.setOriginY(0);
+    float w = card.getWidth();
+    float h = card.getHeight();
+    float cx = card.getX();
+    float cy = card.getY();
+    float s = CARD_ZOOM;
+
+    // Default: scale from bottom-center (card grows upward, horizontally symmetric)
+    float originX = w / 2f;
+    float originY = 0f;
+
+    // Clamp originX so the zoomed card stays within [0, WIDTH] (horizontal edges).
+    // Left edge  = cx - originX*(s-1) >= 0       →  originX <= cx/(s-1)
+    // Right edge = cx - originX*(s-1) + w*s <= W →  originX >= (cx+w*s-W)/(s-1)
+    float W = MyGdxGame.WIDTH;
+    float maxOriginX = cx / (s - 1f);
+    float minOriginX = (cx + w * s - W) / (s - 1f);
+    originX = Math.max(minOriginX, Math.min(maxOriginX, originX));
+    originX = Math.max(0f, Math.min(w, originX));
+
+    // Clamp originY so the zoomed card stays within [0, WIDTH] (top/bottom edges).
+    // Bottom edge = cy - originY*(s-1) >= 0       →  originY <= cy/(s-1)
+    // Top edge    = cy - originY*(s-1) + h*s <= W →  originY >= (cy+h*s-W)/(s-1)
+    float maxOriginY = cy / (s - 1f);
+    float minOriginY = (cy + h * s - W) / (s - 1f);
+    originY = Math.max(minOriginY, Math.min(maxOriginY, originY));
+    originY = Math.max(0f, Math.min(h, originY));
+
+    card.setOriginX(originX);
+    card.setOriginY(originY);
     card.setScale(CARD_ZOOM);
     card.toFront();
     currentlyZoomedCard = card;
@@ -4387,32 +4413,22 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void attachPickingDeckZoom(final PickingDeck deck) {
-    final boolean[] hovering = { false };
-    final boolean[] deckZoomed = { false };
+    // Hover-only zoom for the picking deck (no ClickListener).
+    // A ClickListener on PickingDeck would cancel the touch focus of the
+    // PickingDeckListener (via LibGDX cancelTouchFocusExcept), preventing
+    // the actual game-action click from ever firing — which causes bots/
+    // players to get stuck after a plunder attempt.
     deck.addListener(new InputListener() {
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return;
         if (!nothingSelectedInHand()) return;
-        hovering[0] = true;
         setDeckScale(deck, CARD_ZOOM);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
         if (pointer != -1) return;
-        hovering[0] = false;
         setDeckScale(deck, 1f);
-        deckZoomed[0] = false;
-      }
-    });
-    deck.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (hovering[0]) return;
-        if (!nothingSelectedInHand()) return;
-        if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
-        deckZoomed[0] = !deckZoomed[0];
-        setDeckScale(deck, deckZoomed[0] ? CARD_ZOOM : 1f);
       }
     });
   }
@@ -5497,6 +5513,11 @@ public class GameScreen extends ScreenAdapter {
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
       show();
+    }
+
+    // Auto-unzoom: if the player selects a card/king in their area, clear any active zoom.
+    if (currentlyZoomedCard != null && !nothingSelectedInHand()) {
+      unzoomCard(currentlyZoomedCard);
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),

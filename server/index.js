@@ -1171,6 +1171,11 @@ io.on('connection', function(socket) {
     }
   });
 
+  // Client requests the current session list (e.g. when MenuScreen is re-created after returning from a game)
+  socket.on('requestSessionList', function() {
+    socket.emit('sessionList', getSessionList());
+  });
+
   // Manual setup phase: player submits their king and defense card choices
   socket.on('submitSetup', function(data) {
     var sess = getSession(socket.id);

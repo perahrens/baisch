@@ -166,6 +166,13 @@ public class MenuScreen extends AbstractScreen {
       reconnectElapsed = 0f;
     }
 
+    // If returning from a game (socket already connected, name already confirmed), request a
+    // fresh session list — the server only broadcasts it on socket connect or session events,
+    // so a newly created MenuScreen would otherwise show a stale/empty lobby.
+    if (nameConfirmed && existingSocketId != null && !existingSocketId.isEmpty()) {
+      socket.emit("requestSessionList", "");
+    }
+
     // create menu screen
     group = new Group();
     group.setBounds(0, 0, MyGdxGame.WIDTH, MyGdxGame.HEIGHT);

@@ -60,7 +60,7 @@ function broadcastPlayerList() {
   var list = Object.keys(connectedPlayers)
     .filter(function(sid) { return connectedPlayers[sid].name; })
     .map(function(sid) {
-      return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
+      return { id: sid, name: connectedPlayers[sid].name, icon: connectedPlayers[sid].icon || '', status: getPlayerStatus(sid) };
     });
   io.emit('playerList', list);
 }
@@ -101,8 +101,8 @@ function broadcastSessionList() {
   io.emit('sessionList', getSessionList());
 }
 
-function makeUser(id, name, token) {
-  return { id: id, name: name || 'Player', isReady: false, token: token || null };
+function makeUser(id, name, token, icon) {
+  return { id: id, name: name || 'Player', isReady: false, token: token || null, icon: icon || '' };
 }
 
 function getReadyUsers(sess) {
@@ -366,9 +366,9 @@ function botBestSuitCombo(gs, hand) {
   return best;
 }
 
-// Choose the best loot: smart multi-card combo, preferring bigger decks with larger margin.
+// Choose the best plunder: smart multi-card combo, preferring bigger decks with larger margin.
 // Returns { deckIndex, cardIds, symbol, success } or null.
-function botChooseLoot(gs, attackerIdx) {
+function botChoosePlunder(gs, attackerIdx) {
   var p = gs.players[attackerIdx];
   if (!p || !p.hand || p.hand.length === 0 || (p.pickingDeckAttacks || 0) <= 0) return null;
 
@@ -417,7 +417,7 @@ function botChooseLoot(gs, attackerIdx) {
       }
     }
   }
-  // Don't attempt loot if facing certain failure
+  // Don't attempt plunder if facing certain failure
   return (bestChoice && (bestChoice.success || bestScore > -200)) ? bestChoice : null;
 }
 
@@ -555,15 +555,15 @@ function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
   callback(false);
 }
 
-// After a loot: optionally attack a face-up defense card, then finish the turn.
-function botContinueAfterLoot(sess, gs, idx) {
-  var atkAfterLoot = botChooseDefAttack(gs, idx, false);
-  if (atkAfterLoot) {
-    gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterLoot.defenderIdx,
-                           positionId: atkAfterLoot.positionId, level: 0,
-                           attackingSymbol: atkAfterLoot.symbol, attackingSymbol2: 'none' });
+// After a plunder: optionally attack a face-up defense card, then finish the turn.
+function botContinueAfterPlunder(sess, gs, idx) {
+  var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
+  if (atkAfterPlunder) {
+    gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
+                           positionId: atkAfterPlunder.positionId, level: 0,
+                           attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
     io.to(sess.id).emit('stateUpdate', gs.serialize());
-    var captured = atkAfterLoot;
+    var captured = atkAfterPlunder;
     setTimeout(function() {
       gs.defAttackResolved(idx, captured.defenderIdx, captured.positionId,
                             0, captured.success, captured.cardIds, false, []);
@@ -690,11 +690,11 @@ function botTryJokerSacrifice(sess, gs, playerIdx) {
     }
   }
 
-  // Exception 2: save joker if it is the only way to loot a known deck
+  // Exception 2: save joker if it is the only way to plunder a known deck
   if ((p.pickingDeckAttacks || 0) > 0) {
     var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
     var hasUncoveredDeck = false;
-    var canLootWithoutJoker = false;
+    var canPlunderWithoutJoker = false;
     for (var d = 0; d < gs.pickingDecks.length; d++) {
       var deck = gs.pickingDecks[d];
       if (deck.length === 0) continue;
@@ -703,9 +703,9 @@ function botTryJokerSacrifice(sess, gs, playerIdx) {
       hasUncoveredDeck = true;
       var threshold = gs.cardStrength(topCard.id);
       var best = botBestSuitCombo(gs, nonJokerHand);
-      if (best.sum >= threshold) { canLootWithoutJoker = true; break; }
+      if (best.sum >= threshold) { canPlunderWithoutJoker = true; break; }
     }
-    if (hasUncoveredDeck && !canLootWithoutJoker) return false; // save joker for loot
+    if (hasUncoveredDeck && !canPlunderWithoutJoker) return false; // save joker for plunder
   }
 
   // Perform sacrifice
@@ -763,26 +763,26 @@ function executeBotTurn(sess) {
       return;
     }
 
-    // 5. Smart loot — multi-card, economical combo
-    var lootChoice = botChooseLoot(gs, idx);
-    if (lootChoice) {
-      gs.setLootPreview({ attackerIdx: idx, deckIndex: lootChoice.deckIndex,
-                             attackCardIds: lootChoice.cardIds,
-                             attackingSymbol: lootChoice.symbol, attackingSymbol2: 'none' });
+    // 5. Smart plunder — multi-card, economical combo
+    var plunderChoice = botChoosePlunder(gs, idx);
+    if (plunderChoice) {
+      gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
+                             attackCardIds: plunderChoice.cardIds,
+                             attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
-      var captured = lootChoice;
+      var captured = plunderChoice;
       setTimeout(function() {
-        gs.lootResolved(idx, captured.deckIndex, captured.success,
+        gs.plunderResolved(idx, captured.deckIndex, captured.success,
                            captured.cardIds, false, []);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         checkAndHandleWinner(sess);
-        // 6. After loot: optional follow-up defense attack, then finish
-        botContinueAfterLoot(sess, gs, idx);
+        // 6. After plunder: optional follow-up defense attack, then finish
+        botContinueAfterPlunder(sess, gs, idx);
       }, BOT_ACTION_DELAY);
       return;
     }
 
-    // 7. No loot: attack a face-up defense card
+    // 7. No plunder: attack a face-up defense card
     var atkChoice = botChooseDefAttack(gs, idx, false);
     if (atkChoice) {
       gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkChoice.defenderIdx,
@@ -848,7 +848,7 @@ function botWeakestCard(gs, hand) {
 // Build getUsers payload augmented with each player's current hero selection.
 function getUsersWithHeroes(sess) {
   return sess.users.map(function(u) {
-    return { id: u.id, name: u.name, isReady: u.isReady, heroSelection: sess.heroSelections[u.id] || 'None' };
+    return { id: u.id, name: u.name, isReady: u.isReady, heroSelection: sess.heroSelections[u.id] || 'None', icon: u.icon || '' };
   });
 }
 
@@ -935,8 +935,9 @@ io.on('connection', function(socket) {
 
   socket.on('registerPlayer', function(data) {
     var name = (data && data.name) ? String(data.name).slice(0, 30) : '';
+    var icon = (data && data.icon) ? String(data.icon).slice(0, 50) : '';
     var token = (data && data.token) ? String(data.token).slice(0, 64) : null;
-    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
+    if (connectedPlayers[socket.id]) { connectedPlayers[socket.id].name = name; connectedPlayers[socket.id].icon = icon; }
 
     if (token) {
       if (!tokenMap[token]) tokenMap[token] = {};
@@ -986,7 +987,8 @@ io.on('connection', function(socket) {
   socket.on('createSession', function(data) {
     leaveCurrentSession(socket); // clean up any previous session first
     var name = (data && data.name) ? String(data.name).slice(0, 30) : 'Player';
-    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
+    var icon = (data && data.icon) ? String(data.icon).slice(0, 50) : (connectedPlayers[socket.id] ? connectedPlayers[socket.id].icon || '' : '');
+    if (connectedPlayers[socket.id]) { connectedPlayers[socket.id].name = name; connectedPlayers[socket.id].icon = icon; }
     var sessionName = (data && data.sessionName) ? String(data.sessionName).slice(0, 50) : name + "'s game";
     var allowHeroSelection = (data && data.allowHeroSelection !== false);
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
@@ -1044,7 +1046,7 @@ io.on('connection', function(socket) {
       bot.playBotTurnIfNeeded(sess);
     } else {
       // Normal mode: creator joins as player.
-      sess.users.unshift(makeUser(socket.id, name, cToken));
+      sess.users.unshift(makeUser(socket.id, name, cToken, icon));
       if (cToken) {
         if (!tokenMap[cToken]) tokenMap[cToken] = {};
         tokenMap[cToken].name = name;
@@ -1068,10 +1070,11 @@ io.on('connection', function(socket) {
     leaveCurrentSession(socket); // leave any previous session first
     sess = sessions[data.sessionId]; // re-fetch — leaveCurrentSession may have deleted a different session
     var name = (data.name) ? String(data.name).slice(0, 30) : 'Player';
+    var jIcon = (data && data.icon) ? String(data.icon).slice(0, 50) : (connectedPlayers[socket.id] ? connectedPlayers[socket.id].icon || '' : '');
     var jToken = (data && data.token) ? String(data.token).slice(0, 64) : null;
-    if (connectedPlayers[socket.id]) connectedPlayers[socket.id].name = name;
+    if (connectedPlayers[socket.id]) { connectedPlayers[socket.id].name = name; connectedPlayers[socket.id].icon = jIcon; }
     var existing = sess.users.find(function(u) { return u.id === socket.id; });
-    if (!existing) sess.users.push(makeUser(socket.id, name, jToken));
+    if (!existing) sess.users.push(makeUser(socket.id, name, jToken, jIcon));
     if (jToken) {
       if (!tokenMap[jToken]) tokenMap[jToken] = {};
       tokenMap[jToken].name = name;
@@ -1216,7 +1219,7 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     // Verify by socket identity rather than trusting the client-sent currentPlayerIndex.
     // This is more robust and prevents rejection when the client sends a stale or wrong index
-    // (recurring bug: "nothing happens" after selecting the card to expose on a loot-only turn).
+    // (recurring bug: "nothing happens" after selecting the card to expose on a plunder-only turn).
     var socketPlayerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
     if (socketPlayerIdx !== sess.gameState.currentPlayerIndex) {
       console.log("finishTurn rejected: server currentPlayerIndex=" + sess.gameState.currentPlayerIndex + ", socket player=" + socketPlayerIdx + " (client sent " + data.currentPlayerIndex + ")");
@@ -1226,7 +1229,7 @@ io.on('connection', function(socket) {
     // Safety net: if no attack was made this turn and the expose-defence-card penalty
     // was not fulfilled (client did not emit exposeDefCard / exposeKingCard), auto-expose
     // the first covered card here.  Handles the edge case where the client emits finishTurn
-    // without a preceding exposeDefCard (recurring bug after the #187 loot-only-turn fix).
+    // without a preceding exposeDefCard (recurring bug after the #187 plunder-only-turn fix).
     var p = sess.gameState.players[socketPlayerIdx];
     if (p && (p.attackCount || 0) === 0 && !p.didExposeThisTurn) {
       var exposedDef = false;
@@ -1282,19 +1285,19 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  socket.on('lootPreview', function(data) {
+  socket.on('plunderPreview', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
-    sess.gameState.setLootPreview(data);
+    sess.gameState.setPlunderPreview(data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  socket.on('lootResolved', function(data) {
+  socket.on('plunderResolved', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
-    console.log("lootResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
-    sess.gameState.lootResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
-    // Auto-finish turn if attacker was eliminated (failed king-used loot)
+    console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
+    sess.gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    // Auto-finish turn if attacker was eliminated (failed king-used plunder)
     var plAttacker = sess.gameState.players[data.attackerIdx];
     if (plAttacker && plAttacker.isOut && sess.gameState.currentPlayerIndex === data.attackerIdx) {
       sess.gameState.finishTurn();

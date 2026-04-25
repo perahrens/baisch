@@ -29,6 +29,8 @@ public class Player {
 
   PlayerTurn playerTurn;
 
+  String icon = ""; // avatar icon name (e.g. "fishnugget"); empty = no avatar
+
   String selectedSymbol; // enables the selection of hand cards of the same symbol
 
   /** Tracks which defense slots (1-3) currently have a saboteur on them, mapped to the owner's player index. */
@@ -494,6 +496,14 @@ public class Player {
 
   public String getPlayerName() {
     return playerName;
+  }
+
+  public String getIcon() {
+    return icon != null ? icon : "";
+  }
+
+  public void setIcon(String icon) {
+    this.icon = icon != null ? icon : "";
   }
 
   public int getDiceNumber() {

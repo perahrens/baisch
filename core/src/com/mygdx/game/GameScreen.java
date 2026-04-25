@@ -91,6 +91,8 @@ public class GameScreen extends ScreenAdapter {
   private Label myPlayerLabel;
   private Label roundCounter;
   private TextButton finishTurnButton;
+  // Cache of avatar textures loaded during gameplay, keyed by icon name.
+  private final Map<String, Texture> gameAvatarTextures = new HashMap<String, Texture>();
 
   // game objects
   private Player currentPlayer;
@@ -1618,6 +1620,39 @@ public class GameScreen extends ScreenAdapter {
       }
 
       gameStage.addActor(playerLabel);
+
+      // Avatar icon next to the player label
+      String iconName = players.get(i).getIcon();
+      if (iconName != null && !iconName.isEmpty()) {
+        Texture avTex = gameAvatarTextures.get(iconName);
+        if (avTex == null) {
+          try {
+            avTex = new Texture(Gdx.files.internal("data/avatars/" + iconName + ".png"));
+            gameAvatarTextures.put(iconName, avTex);
+          } catch (Exception ignored) { }
+        }
+        if (avTex != null) {
+          final float avSize = 20f;
+          Image avImg = new Image(avTex);
+          avImg.setSize(avSize, avSize);
+          switch (visualSlot) {
+          case 0: // bottom-centre — place avatar to the left of the label
+            avImg.setPosition(playerLabel.getX() - avSize - 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
+            break;
+          case 1: // left-centre (rotated 90°) — place above the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() + playerLabel.getWidth() + 2f);
+            break;
+          case 2: // top-centre — place avatar to the right of the label
+            avImg.setPosition(playerLabel.getX() + playerLabel.getWidth() + 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
+            break;
+          case 3: // right-centre (rotated 90°) — place below the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() - avSize - 2f);
+            break;
+          default: break;
+          }
+          gameStage.addActor(avImg);
+        }
+      }
     }
 
     // Add hand count labels AFTER all player actors so they render on top
@@ -5095,6 +5130,9 @@ public class GameScreen extends ScreenAdapter {
           isSpectator = true;
         }
 
+        // Sync avatar icon
+        p.setIcon(pj.optString("icon", ""));
+
         // Sync slot sabotage state from server-authoritative state
         for (int sl = 1; sl <= 3; sl++) p.clearSlotSabotaged(sl);
         JSONObject sabotagedJson = pj.optJSONObject("sabotaged");
@@ -5806,6 +5844,8 @@ public class GameScreen extends ScreenAdapter {
     if (plainWhiteTexture != null) plainWhiteTexture.dispose();
     if (texGameBck != null) texGameBck.dispose();
     if (texHandBck != null) texHandBck.dispose();
+    for (Texture t : gameAvatarTextures.values()) { if (t != null) t.dispose(); }
+    gameAvatarTextures.clear();
     texMercenary.dispose();
     texSabotaged.dispose();
     texHearts.dispose();

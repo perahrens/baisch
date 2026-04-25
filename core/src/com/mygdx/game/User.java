@@ -38,5 +38,14 @@ public class User {
     this.selectedHero = selectedHero;
   }
 
+  String icon = "";
+
+  public String getIcon() {
+    return icon != null ? icon : "";
+  }
+
+  public void setIcon(String icon) {
+    this.icon = icon != null ? icon : "";
+  }
 
 }

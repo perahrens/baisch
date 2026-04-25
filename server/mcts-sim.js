@@ -11,6 +11,14 @@ function simCardStrength(cardId) {
   return idx === 1 ? 14 : idx;
 }
 
+// Strength of a card used as a DEFENCE card.
+// Jokers (id > 52) have defence strength 1; all other cards use their normal strength.
+function simDefCardStrength(cardId) {
+  if (!cardId || cardId > 52) return 1;
+  var idx = (cardId - 1) % 13 + 1;
+  return idx === 1 ? 14 : idx;
+}
+
 function simCardSuit(cardId) {
   if (cardId > 52) return 'joker';
   var si = Math.floor((cardId - 1) / 13);
@@ -126,8 +134,8 @@ function simLegalActions(sim, allowCovered) {
       var defBoost = defender.defCardsBoost[slot] || 0;
       var topCardId = defender.topDefCards[slot];
       var topBoost = topCardId ? (defender.topDefCardsBoost[slot] || 0) : 0;
-      var defThreshold = simCardStrength(defCardId) + defBoost
-        + (topCardId ? simCardStrength(topCardId) + topBoost : 0);
+      var defThreshold = simDefCardStrength(defCardId) + defBoost
+        + (topCardId ? simDefCardStrength(topCardId) + topBoost : 0);
       for (var ssi = 0; ssi < suits.length; ssi++) {
         var defCombo = simMinimalWinning(groups[suits[ssi]], defThreshold);
         if (defCombo) actions.push({ type: 'defAttack', defenderIdx: dpi, positionId: slot, cardIds: defCombo, symbol: suits[ssi] });
@@ -232,8 +240,8 @@ function simApplyAction(sim, action) {
     var defBoost = defender.defCardsBoost[action.positionId] || 0;
     var topCardId = defender.topDefCards[action.positionId];
     var topBoost = topCardId ? (defender.topDefCardsBoost[action.positionId] || 0) : 0;
-    var threshold = simCardStrength(defCardId) + defBoost
-      + (topCardId ? simCardStrength(topCardId) + topBoost : 0);
+    var threshold = simDefCardStrength(defCardId) + defBoost
+      + (topCardId ? simDefCardStrength(topCardId) + topBoost : 0);
     var atkSum = action.cardIds.reduce(function(s, id) { return s + simCardStrength(id); }, 0);
     if (atkSum > threshold) {
       // Attacker takes defense card(s)

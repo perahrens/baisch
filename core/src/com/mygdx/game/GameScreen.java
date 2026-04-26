@@ -5593,7 +5593,7 @@ public class GameScreen extends ScreenAdapter {
     // briefly backgrounded during a game-state transition).
     if (!gameState.isSetupPhase() && !isTutorial) {
       syncHeartbeatTimer += delta;
-      if (syncHeartbeatTimer >= 15f) {
+      if (syncHeartbeatTimer >= 10f) {
         syncHeartbeatTimer = 0f;
         socket.emit("requestStateSync", new JSONObject());
       }

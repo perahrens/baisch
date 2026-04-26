@@ -1711,14 +1711,14 @@ public class GameScreen extends ScreenAdapter {
           case 0: // bottom-centre — place avatar to the left of the label
             avImg.setPosition(playerLabel.getX() - avSize - 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
             break;
-          case 1: // left-centre (rotated 90°) — place above the label
-            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() + playerLabel.getWidth() + 2f);
+          case 1: // left-centre — place above the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getWidth() - avSize) / 2f, playerLabel.getY() + playerLabel.getHeight() + 2f);
             break;
           case 2: // top-centre — place avatar to the right of the label
             avImg.setPosition(playerLabel.getX() + playerLabel.getWidth() + 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
             break;
-          case 3: // right-centre (rotated 90°) — place below the label
-            avImg.setPosition(playerLabel.getX() + (playerLabel.getHeight() - avSize) / 2f, playerLabel.getY() - avSize - 2f);
+          case 3: // right-centre — place below the label
+            avImg.setPosition(playerLabel.getX() + (playerLabel.getWidth() - avSize) / 2f, playerLabel.getY() - avSize - 2f);
             break;
           default: break;
           }

@@ -188,10 +188,32 @@ function startGameForSession(sess, requesterSocketId) {
   sess.gameState = new GameState(sess.users, { startingCards: sess.startingCards, manualSetup: sess.manualSetup });
 
   // Apply lobby starting hero selections before initial gameState broadcast.
+  // Players who selected a specific hero get it directly; players who selected
+  // "Random" are assigned a unique hero from the remaining pool (shuffled).
+  var ALL_HERO_POOL = [
+    'Mercenaries', 'Marshal', 'Spy', 'Battery Tower', 'Merchant', 'Priest',
+    'Reservists', 'Banneret', 'Saboteurs', 'Fortified Tower', 'Magician', 'Warlord'
+  ];
+  var takenHeroes = {};
+  sess.users.forEach(function(u) {
+    var hero = sess.heroSelections[u.id];
+    if (hero && hero !== 'None' && hero !== 'Random') takenHeroes[hero] = true;
+  });
+  var randomPool = ALL_HERO_POOL.filter(function(h) { return !takenHeroes[h]; });
+  // Fisher-Yates shuffle
+  for (var ri = randomPool.length - 1; ri > 0; ri--) {
+    var rj = Math.floor(Math.random() * (ri + 1));
+    var tmp = randomPool[ri]; randomPool[ri] = randomPool[rj]; randomPool[rj] = tmp;
+  }
+  var randomIdx = 0;
   sess.users.forEach(function(u, idx) {
     var hero = sess.heroSelections[u.id];
-    if (hero && hero !== 'None') {
+    if (hero && hero !== 'None' && hero !== 'Random') {
       sess.gameState.heroAcquired(idx, hero);
+    } else if (hero === 'Random') {
+      if (randomIdx < randomPool.length) {
+        sess.gameState.heroAcquired(idx, randomPool[randomIdx++]);
+      }
     }
   });
 
@@ -1439,10 +1461,11 @@ io.on('connection', function(socket) {
     if (!sess) return;
     var oldHero = sess.heroSelections[socket.id] || 'None';
     sess.heroSelections[socket.id] = heroName;
-    if (oldHero !== 'None') {
+    // "Random" does not reserve a specific hero, so don't broadcast heroReserved/heroReleased for it.
+    if (oldHero !== 'None' && oldHero !== 'Random') {
       socket.to(sess.id).emit('heroReleased', { heroName: oldHero });
     }
-    if (heroName !== 'None') {
+    if (heroName !== 'None' && heroName !== 'Random') {
       socket.to(sess.id).emit('heroReserved', { heroName: heroName });
     }
   });
@@ -1458,11 +1481,11 @@ io.on('connection', function(socket) {
     var botUser = sess.users.find(function(u) { return u.id === botUserId && bot.isBot(u); });
     if (!botUser) return;
     var oldHero = sess.heroSelections[botUserId] || 'None';
-    if (oldHero !== 'None') {
+    if (oldHero !== 'None' && oldHero !== 'Random') {
       socket.to(sess.id).emit('heroReleased', { heroName: oldHero });
     }
     sess.heroSelections[botUserId] = heroName;
-    if (heroName !== 'None') {
+    if (heroName !== 'None' && heroName !== 'Random') {
       socket.to(sess.id).emit('heroReserved', { heroName: heroName });
     }
     io.to(sess.id).emit('getUsers', getUsersWithHeroes(sess));

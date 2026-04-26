@@ -197,6 +197,7 @@ public class MenuScreen extends AbstractScreen {
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
+    heroNames.add("Random");
     heroNames.add("None");
     heroNames.add("Mercenaries");
     heroNames.add("Marshal");
@@ -213,7 +214,8 @@ public class MenuScreen extends AbstractScreen {
 
     heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
     heroSelectBox.setItems(heroNames);
-    heroSelectBox.setSelected("None");
+    heroSelectBox.setSelected("Random");
+    menuState.setStartingHero("Random");
     heroSelectBox.setSize(140f, 44f);
     heroSelectBox.setPosition((MyGdxGame.WIDTH - heroSelectBox.getWidth()) / 2f, 0.21f * MyGdxGame.HEIGHT);
     heroSelectBox.addListener(new ChangeListener() {
@@ -252,11 +254,12 @@ public class MenuScreen extends AbstractScreen {
   }
 
   /**
-   * Build a dropdown item list containing "None" plus all heroes not reserved by others,
-   * always including {@code currentSelection} so the current value stays visible.
+   * Build a dropdown item list containing "Random", "None", plus all heroes not reserved by
+   * others, always including {@code currentSelection} so the current value stays visible.
    */
   private Array<String> buildHeroDropdownItems(String currentSelection) {
     Array<String> items = new Array<String>();
+    items.add("Random");
     items.add("None");
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
       String h = ALL_HERO_NAMES[i];
@@ -274,9 +277,10 @@ public class MenuScreen extends AbstractScreen {
    */
   private void refreshHeroDropdown() {
     String currentSelected = heroSelectBox.getSelected();
-    // Treat null (empty SelectBox) the same as "None" so we don't wipe startingHero.
-    if (currentSelected == null) currentSelected = "None";
+    // Treat null (empty SelectBox) the same as "Random" so we don't wipe startingHero.
+    if (currentSelected == null) currentSelected = "Random";
     Array<String> items = new Array<String>();
+    items.add("Random");
     items.add("None");
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
       if (!reservedByOthers.contains(ALL_HERO_NAMES[i])) {
@@ -285,15 +289,15 @@ public class MenuScreen extends AbstractScreen {
     }
     updatingDropdown = true;
     heroSelectBox.setItems(items);
-    // Keep the previous selection if it is still available; otherwise fall back to "None".
-    if (!currentSelected.equals("None") && !reservedByOthers.contains(currentSelected)) {
+    // Keep the previous selection if it is still available; otherwise fall back to "Random".
+    if (currentSelected.equals("Random") || currentSelected.equals("None")) {
       heroSelectBox.setSelected(currentSelected);
-    } else if (!currentSelected.equals("None")) {
-      // Hero was reserved by another player — reset.
-      heroSelectBox.setSelected("None");
-      menuState.setStartingHero("None");
+    } else if (!reservedByOthers.contains(currentSelected)) {
+      heroSelectBox.setSelected(currentSelected);
     } else {
-      heroSelectBox.setSelected("None");
+      // Hero was reserved by another player — reset to Random.
+      heroSelectBox.setSelected("Random");
+      menuState.setStartingHero("Random");
     }
     updatingDropdown = false;
   }
@@ -1448,7 +1452,7 @@ public class MenuScreen extends AbstractScreen {
             User u = menuState.getUsers().get(j);
             if (!u.getUserID().equals(menuState.getMyUserID())) {
               String h = u.getSelectedHero();
-              if (!h.equals("None")) reservedByOthers.add(h);
+              if (!h.equals("None") && !h.equals("Random")) reservedByOthers.add(h);
             }
           }
           updateScreen = true;
@@ -1720,6 +1724,8 @@ public class MenuScreen extends AbstractScreen {
               if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
+            // Notify server of our initial hero selection (default: Random).
+            socket.emit("heroSelected", menuState.getStartingHero());
             updateScreen = true;
           }
         });

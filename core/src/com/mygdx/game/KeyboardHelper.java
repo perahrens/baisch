@@ -14,11 +14,18 @@ public interface KeyboardHelper {
   /** Show the on-screen keyboard and bind it to the given TextField. */
   void showKeyboard(TextField field);
 
+  /**
+   * Show the on-screen keyboard; invoke {@code onEnter} (on the GL thread)
+   * when the user presses the Enter / Done key.
+   */
+  void showKeyboard(TextField field, Runnable onEnter);
+
   /** Hide / release the keyboard binding. */
   void hideKeyboard();
 
   KeyboardHelper NOOP = new KeyboardHelper() {
     public void showKeyboard(TextField field) {}
+    public void showKeyboard(TextField field, Runnable onEnter) {}
     public void hideKeyboard() {}
   };
 }

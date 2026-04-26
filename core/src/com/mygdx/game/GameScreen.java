@@ -192,6 +192,7 @@ public class GameScreen extends ScreenAdapter {
   private Table chatInnerTable = null;
   private int unreadChatMessages = 0;
   private Label chatBadgeLabel = null;
+  private Label logBadgeLabel = null;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -4104,13 +4105,27 @@ public class GameScreen extends ScreenAdapter {
     });
     handStage.addActor(chatIconImg);
 
-    // Unread badge — green number in top-right corner of chat icon
+    // Unread chat badge — green number centered on chat icon (50% larger font)
     Label badge = new Label(unreadChatMessages > 0 ? String.valueOf(unreadChatMessages) : "", MyGdxGame.skin);
+    badge.setFontScale(1.5f);
     badge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
     badge.setVisible(unreadChatMessages > 0);
-    badge.setPosition(chatIconX + iconBtnSize - badge.getPrefWidth() - 1f, iconBtnY + iconBtnSize - badge.getPrefHeight());
+    badge.setPosition(chatIconX + (iconBtnSize - badge.getPrefWidth()) / 2f,
+                      iconBtnY  + (iconBtnSize - badge.getPrefHeight()) / 2f);
     handStage.addActor(badge);
     chatBadgeLabel = badge;
+
+    // Unread history-log badge — green number centered on history icon
+    int unreadLog = activityLog.length() - logLastRenderedCount;
+    if (logOpen) unreadLog = 0; // don't count entries the player is currently viewing
+    Label logBadge = new Label(unreadLog > 0 ? String.valueOf(unreadLog) : "", MyGdxGame.skin);
+    logBadge.setFontScale(1.5f);
+    logBadge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
+    logBadge.setVisible(unreadLog > 0);
+    logBadge.setPosition(iconBtnX + (iconBtnSize - logBadge.getPrefWidth()) / 2f,
+                         iconBtnY + (iconBtnSize - logBadge.getPrefHeight()) / 2f);
+    handStage.addActor(logBadge);
+    logBadgeLabel = logBadge;
 
     // Action buttons (Get Hero / Sell Hero) — hero row, right edge
     float heroActionBtnY = bottomBarH + 2f;
@@ -4387,6 +4402,7 @@ public class GameScreen extends ScreenAdapter {
   private void showLogOverlay() {
     menuOpen = true;
     logOpen = true;
+    if (logBadgeLabel != null) logBadgeLabel.setVisible(false);
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4493,26 +4509,10 @@ public class GameScreen extends ScreenAdapter {
     final com.badlogic.gdx.scenes.scene2d.ui.TextField inputField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
     inputField.setMessageText("Type a message...");
-    // On mobile browsers the keyboard must be triggered by focusing a native
-    // HTML element synchronously inside a user-gesture handler (touchDown).
-    inputField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
-      @Override
-      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event,
-                               float x, float y, int pointer, int button) {
-        MyGdxGame.keyboardHelper.showKeyboard(inputField);
-        return false;
-      }
-    });
-    TextButton sendBtn = new TextButton("Send", MyGdxGame.skin);
 
-    Table inputRow = new Table();
-    inputRow.add(inputField).expandX().fillX().padRight(6f);
-    inputRow.add(sendBtn).width(90);
-    outer.add(inputRow).expandX().fillX().padBottom(6f).row();
-
-    com.badlogic.gdx.scenes.scene2d.utils.ClickListener sendAction =
-        new com.badlogic.gdx.scenes.scene2d.utils.ClickListener() {
-      @Override public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+    // Shared send action — used by the Send button AND the Enter key callback.
+    final Runnable doSend = new Runnable() {
+      @Override public void run() {
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
@@ -4526,7 +4526,29 @@ public class GameScreen extends ScreenAdapter {
         } catch (JSONException e) { e.printStackTrace(); }
       }
     };
-    sendBtn.addListener(sendAction);
+
+    // On mobile browsers, focus the hidden native input to open the keyboard.
+    // Pass doSend as the Enter callback so pressing Done/Return triggers a send.
+    inputField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event,
+                               float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(inputField, doSend);
+        return false;
+      }
+    });
+
+    TextButton sendBtn = new TextButton("Send", MyGdxGame.skin);
+    sendBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ClickListener() {
+      @Override public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+        doSend.run();
+      }
+    });
+
+    Table inputRow = new Table();
+    inputRow.add(inputField).expandX().fillX().padRight(6f);
+    inputRow.add(sendBtn).width(90);
+    outer.add(inputRow).expandX().fillX().padBottom(6f).row();
 
     TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
     backBtn.addListener(new ClickListener() {

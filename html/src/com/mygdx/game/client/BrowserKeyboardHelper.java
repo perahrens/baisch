@@ -12,6 +12,9 @@ import com.mygdx.game.KeyboardHelper;
  * (which persuades the browser to open its keyboard), and mirror every
  * keystroke back into the LibGDX TextField via an 'input' event listener.
  *
+ * Additionally, a visualViewport resize listener translates the game container
+ * upward when the keyboard appears so the text field remains visible.
+ *
  * IMPORTANT: focus() must be called synchronously inside a user-gesture
  * handler (touchstart / touchend).  LibGDX Stage dispatches touchDown from
  * the JS touchstart event chain, so this works on both iOS and Android Chrome.
@@ -20,6 +23,7 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
 
     public BrowserKeyboardHelper() {
         installHiddenInput();
+        installViewportListener();
     }
 
     /** Injects the hidden <input> into the DOM once. */
@@ -42,9 +46,38 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
         $doc.body.appendChild(inp);
     }-*/;
 
+    /**
+     * Listens to visualViewport resize events so the game container scrolls
+     * upward when the keyboard appears, keeping the active text field visible.
+     */
+    private native void installViewportListener() /*-{
+        if (!$wnd.visualViewport || $wnd._gdxViewportInstalled) return;
+        $wnd._gdxViewportInstalled = true;
+        function onViewportChange() {
+            var kbHeight = $wnd.innerHeight
+                         - $wnd.visualViewport.height
+                         - $wnd.visualViewport.offsetTop;
+            if (kbHeight < 0) kbHeight = 0;
+            var container = $doc.getElementById('embed-html');
+            if (!container) return;
+            if (kbHeight > 10) {
+                container.style.transform = 'translateY(-' + kbHeight + 'px)';
+            } else {
+                container.style.transform = '';
+            }
+        }
+        $wnd.visualViewport.addEventListener('resize', onViewportChange);
+        $wnd.visualViewport.addEventListener('scroll', onViewportChange);
+    }-*/;
+
     @Override
     public void showKeyboard(final TextField field) {
-        focusAndBind(field);
+        focusAndBind(field, null);
+    }
+
+    @Override
+    public void showKeyboard(final TextField field, final Runnable onEnter) {
+        focusAndBind(field, onEnter);
     }
 
     @Override
@@ -55,8 +88,9 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
     /**
      * Focuses the hidden input and wires an 'input' listener that mirrors
      * text back to the LibGDX TextField on every keystroke.
+     * When Enter/Done is pressed, {@code onEnter} is invoked (if non-null).
      */
-    private native void focusAndBind(TextField field) /*-{
+    private native void focusAndBind(TextField field, Runnable onEnter) /*-{
         var inp = $doc.getElementById('_gdx_kbd');
         if (!inp) return;
 
@@ -75,12 +109,15 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
         };
         inp.addEventListener('input', inp._gdxInputHandler);
 
-        // Also sync on Enter / Done key so the text is up-to-date before Send.
+        // Enter / Done key: call onEnter callback then blur (closes keyboard).
         if (inp._gdxKeyHandler) {
             inp.removeEventListener('keydown', inp._gdxKeyHandler);
         }
         inp._gdxKeyHandler = function(e) {
             if (e.key === 'Enter' || e.keyCode === 13) {
+                if (onEnter) {
+                    onEnter.@java.lang.Runnable::run()();
+                }
                 inp.blur();
             }
         };

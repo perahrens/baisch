@@ -769,7 +769,7 @@ public class GameScreen extends ScreenAdapter {
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
-    texMenuButton = new Texture(Gdx.files.internal("data/graphics/menu_button.png"));
+    texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
 
@@ -4094,19 +4094,18 @@ public class GameScreen extends ScreenAdapter {
     });
     handStage.addActor(chatIconImg);
 
-    // Action buttons (Get Hero / Sell Hero) — hero row, placed after the last hero
-    float heroRowEndX = playerHeroes.size() * (playerHeroes.isEmpty() ? 0 : playerHeroes.get(0).getWidth()) + 4f;
+    // Action buttons (Get Hero / Sell Hero) — hero row, right edge
     float heroActionBtnY = bottomBarH + 2f;
     if (sellHeroActionBtn != null && getHeroActionBtn != null) {
-      sellHeroActionBtn.setPosition(heroRowEndX, heroActionBtnY);
+      getHeroActionBtn.setPosition(MyGdxGame.WIDTH - getHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
+      sellHeroActionBtn.setPosition(getHeroActionBtn.getX() - sellHeroActionBtn.getPrefWidth() - 4f, heroActionBtnY);
       handStage.addActor(sellHeroActionBtn);
-      getHeroActionBtn.setPosition(heroRowEndX + sellHeroActionBtn.getWidth() + 4f, heroActionBtnY);
       handStage.addActor(getHeroActionBtn);
     } else if (sellHeroActionBtn != null) {
-      sellHeroActionBtn.setPosition(heroRowEndX, heroActionBtnY);
+      sellHeroActionBtn.setPosition(MyGdxGame.WIDTH - sellHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
       handStage.addActor(sellHeroActionBtn);
     } else if (getHeroActionBtn != null) {
-      getHeroActionBtn.setPosition(heroRowEndX, heroActionBtnY);
+      getHeroActionBtn.setPosition(MyGdxGame.WIDTH - getHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
       handStage.addActor(getHeroActionBtn);
     }
 

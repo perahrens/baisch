@@ -4333,15 +4333,15 @@ public class GameScreen extends ScreenAdapter {
   // ── Card zoom helpers (issue #218) ─────────────────────────────────────────
 
   private boolean nothingSelectedInHand() {
-    // Highlight only when the LOCAL player has nothing selected in their area
-    // (regardless of whose turn it is).
+    // Block hover-zoom only when the player has attack cards selected (hand, king, heroes).
+    // Def-card selection must NOT block zoom — switching between own def cards would
+    // otherwise leave the newly-hovered card un-zoomed (the reported bug).
     if (players == null || playerIndex < 0 || playerIndex >= players.size()) return true;
     Player local = players.get(playerIndex);
     if (local == null) return true;
     if (!local.getSelectedHandCards().isEmpty()) return false;
     Card king = local.getKingCard();
     if (king != null && king.isSelected()) return false;
-    if (!local.getSelectedDefCards().isEmpty()) return false;
     if (!local.getSelectedHeroes().isEmpty()) return false;
     return true;
   }

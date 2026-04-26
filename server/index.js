@@ -1322,6 +1322,11 @@ io.on('connection', function(socket) {
   socket.on('lootResolved', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
+    var socketPlayerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (socketPlayerIdx !== sess.gameState.currentPlayerIndex || data.attackerIdx !== socketPlayerIdx) {
+      console.log("lootResolved rejected: not current player (socket=" + socketPlayerIdx + " attackerIdx=" + data.attackerIdx + " current=" + sess.gameState.currentPlayerIndex + ")");
+      return;
+    }
     console.log("lootResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     sess.gameState.lootResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
     // Auto-finish turn if attacker was eliminated (failed king-used plunder)
@@ -1386,6 +1391,11 @@ io.on('connection', function(socket) {
   socket.on('exposeDefCard', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
+    var socketPlayerIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+    if (socketPlayerIdx !== sess.gameState.currentPlayerIndex || data.playerIdx !== socketPlayerIdx) {
+      console.log("exposeDefCard rejected: not current player (socket=" + socketPlayerIdx + " current=" + sess.gameState.currentPlayerIndex + ")");
+      return;
+    }
     console.log("exposeDefCard: playerIdx=" + data.playerIdx + " slot=" + data.slot);
     sess.gameState.exposeDefCard(data.playerIdx, data.slot);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());

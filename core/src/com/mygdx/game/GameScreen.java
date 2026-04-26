@@ -4493,9 +4493,14 @@ public class GameScreen extends ScreenAdapter {
     final com.badlogic.gdx.scenes.scene2d.ui.TextField inputField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
     inputField.setMessageText("Type a message...");
-    inputField.addListener(new ClickListener() {
-      @Override public void clicked(InputEvent event, float x, float y) {
-        Gdx.input.setOnscreenKeyboardVisible(true);
+    // On mobile browsers the keyboard must be triggered by focusing a native
+    // HTML element synchronously inside a user-gesture handler (touchDown).
+    inputField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event,
+                               float x, float y, int pointer, int button) {
+        MyGdxGame.keyboardHelper.showKeyboard(inputField);
+        return false;
       }
     });
     TextButton sendBtn = new TextButton("Send", MyGdxGame.skin);
@@ -4511,6 +4516,7 @@ public class GameScreen extends ScreenAdapter {
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
+        MyGdxGame.keyboardHelper.hideKeyboard();
         try {
           JSONObject msg = new JSONObject();
           String senderName = currentPlayer != null ? currentPlayer.getPlayerName() : "?";

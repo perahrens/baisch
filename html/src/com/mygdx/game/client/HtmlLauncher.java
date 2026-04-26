@@ -24,6 +24,7 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.socketInstance = socketClient;
         MyGdxGame.turnNotifier = new BrowserTurnNotifier();
         MyGdxGame.playerStorage = new BrowserPlayerStorage();
+        MyGdxGame.keyboardHelper = new BrowserKeyboardHelper();
         MyGdxGame app = new MyGdxGame();
         // Tell the core that the HTML layer owns the music button visual.
         MyGdxGame.nativeMusicButton = true;

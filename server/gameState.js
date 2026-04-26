@@ -27,6 +27,7 @@ class GameState {
     this.pendingLoot = null; // current loot preview broadcast, cleared on lootResolved
     this.setupPhase = manualSetup;
     this.setupSubmitted = {}; // { playerIdx: true } — tracks who confirmed during manual setup
+    this.firstSetupSubmitter = null; // player index of first manual-setup finisher → becomes starting player
     this.roundNumber = 1;     // incremented each time the full turn order wraps around
     this.eliminationOrder = []; // player indices in elimination order (first out = index 0)
     this.dealCards(startingCards);
@@ -111,6 +112,7 @@ class GameState {
       }
     }
 
+    if (this.firstSetupSubmitter === null) this.firstSetupSubmitter = playerIdx;
     this.setupSubmitted[playerIdx] = true;
 
     // If all players have submitted, finalise setup and start the game
@@ -120,6 +122,7 @@ class GameState {
     }
     if (allDone) {
       this.setupPhase = false;
+      this.currentPlayerIndex = this.firstSetupSubmitter; // first finisher goes first
       this.initPickingDecks();
     }
     return true;
@@ -153,6 +156,7 @@ class GameState {
       for (let j = 1; j <= 3; j++) p.defCards[j] = p.hand.pop();
       for (let j = 0; j < 2; j++) this.cemetery.push(p.hand.pop());
     }
+    this.currentPlayerIndex = Math.floor(Math.random() * this.players.length); // random starting player
   }
 
   pname(idx) {

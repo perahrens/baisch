@@ -1299,7 +1299,10 @@ public class GameScreen extends ScreenAdapter {
       gameStage.addActor(kingCard);
 
       // Issue #218: zoom on hover/tap for face-up king cards
-      if (players.get(i) == currentPlayer || !kingCard.isCovered()) {
+      // Own king uses overlay zoom so it renders above the hand strip when zoomed.
+      if (players.get(i) == currentPlayer) {
+        attachKingOverlayZoomListener(kingCard);
+      } else if (!kingCard.isCovered()) {
         attachZoomListener(kingCard);
       }
 
@@ -4401,6 +4404,33 @@ public class GameScreen extends ScreenAdapter {
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
         if (pointer != -1) return;
+        unzoomCard(card);
+      }
+    });
+  }
+
+  // Own king zoom: reparents the card to overlayStage on hover so the zoomed card
+  // renders above the hand strip. Spurious enter/exit events caused by reparenting
+  // are filtered by comparing card.getStage() to event.getStage().
+  private void attachKingOverlayZoomListener(final Card card) {
+    final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+    card.addListener(new InputListener() {
+      @Override
+      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (pointer != -1) return;
+        if (!nothingSelectedInHand()) return;
+        if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
+        card.setY(card.getY() + oy);
+        overlayStage.addActor(card);
+        zoomCard(card);
+      }
+      @Override
+      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (pointer != -1) return;
+        if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
+        if (card.getStage() != overlayStage) return; // card already back in gameStage
+        card.setY(card.getY() - oy);
+        gameStage.addActor(card);
         unzoomCard(card);
       }
     });

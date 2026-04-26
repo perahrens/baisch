@@ -555,15 +555,15 @@ function botTryKingAttackAsync(sess, gs, attackerIdx, callback) {
   callback(false);
 }
 
-// After a plunder: optionally attack a face-up defense card, then finish the turn.
-function botContinueAfterPlunder(sess, gs, idx) {
-  var atkAfterPlunder = botChooseDefAttack(gs, idx, false);
-  if (atkAfterPlunder) {
-    gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterPlunder.defenderIdx,
-                           positionId: atkAfterPlunder.positionId, level: 0,
-                           attackingSymbol: atkAfterPlunder.symbol, attackingSymbol2: 'none' });
+// After a loot: optionally attack a face-up defense card, then finish the turn.
+function botContinueAfterLoot(sess, gs, idx) {
+  var atkAfterLoot = botChooseDefAttack(gs, idx, false);
+  if (atkAfterLoot) {
+    gs.setAttackPreview({ attackerIdx: idx, defenderIdx: atkAfterLoot.defenderIdx,
+                           positionId: atkAfterLoot.positionId, level: 0,
+                           attackingSymbol: atkAfterLoot.symbol, attackingSymbol2: 'none' });
     io.to(sess.id).emit('stateUpdate', gs.serialize());
-    var captured = atkAfterPlunder;
+    var captured = atkAfterLoot;
     setTimeout(function() {
       gs.defAttackResolved(idx, captured.defenderIdx, captured.positionId,
                             0, captured.success, captured.cardIds, false, []);
@@ -766,18 +766,18 @@ function executeBotTurn(sess) {
     // 5. Smart plunder — multi-card, economical combo
     var plunderChoice = botChoosePlunder(gs, idx);
     if (plunderChoice) {
-      gs.setPlunderPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
+      gs.setLootPreview({ attackerIdx: idx, deckIndex: plunderChoice.deckIndex,
                              attackCardIds: plunderChoice.cardIds,
                              attackingSymbol: plunderChoice.symbol, attackingSymbol2: 'none' });
       io.to(sess.id).emit('stateUpdate', gs.serialize());
       var captured = plunderChoice;
       setTimeout(function() {
-        gs.plunderResolved(idx, captured.deckIndex, captured.success,
+        gs.lootResolved(idx, captured.deckIndex, captured.success,
                            captured.cardIds, false, []);
         io.to(sess.id).emit('stateUpdate', gs.serialize());
         checkAndHandleWinner(sess);
-        // 6. After plunder: optional follow-up defense attack, then finish
-        botContinueAfterPlunder(sess, gs, idx);
+        // 6. After loot: optional follow-up defense attack, then finish
+        botContinueAfterLoot(sess, gs, idx);
       }, BOT_ACTION_DELAY);
       return;
     }
@@ -1290,18 +1290,18 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  socket.on('plunderPreview', function(data) {
+  socket.on('lootPreview', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
-    sess.gameState.setPlunderPreview(data);
+    sess.gameState.setLootPreview(data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 
-  socket.on('plunderResolved', function(data) {
+  socket.on('lootResolved', function(data) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
-    console.log("plunderResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
-    sess.gameState.plunderResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
+    console.log("lootResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
+    sess.gameState.lootResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
     // Auto-finish turn if attacker was eliminated (failed king-used plunder)
     var plAttacker = sess.gameState.players[data.attackerIdx];
     if (plAttacker && plAttacker.isOut && sess.gameState.currentPlayerIndex === data.attackerIdx) {

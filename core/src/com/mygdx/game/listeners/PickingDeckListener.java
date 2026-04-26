@@ -147,7 +147,7 @@ public class PickingDeckListener extends ClickListener {
             preview.put("ownDefCardIds", ownDefIds);
             preview.put("attackingSymbol", pt.getAttackingSymbol()[0]);
             preview.put("attackingSymbol2", pt.getAttackingSymbol()[1]);
-            gameState.getSocket().emit("plunderPreview", preview);
+            gameState.getSocket().emit("lootPreview", preview);
           } catch (JSONException e) { e.printStackTrace(); }
         }
 

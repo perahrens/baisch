@@ -24,7 +24,7 @@ class GameState {
     this.log = []; // activity log: [{ text, success }, ...], max 100 entries
     this.lastMerchantReveal = null; // set during 2nd-try, cleared on finishTurn
     this.pendingAttack = null; // current attack preview broadcast, cleared on defAttackResolved
-    this.pendingPlunder = null; // current plunder preview broadcast, cleared on plunderResolved
+    this.pendingLoot = null; // current loot preview broadcast, cleared on lootResolved
     this.setupPhase = manualSetup;
     this.setupSubmitted = {}; // { playerIdx: true } — tracks who confirmed during manual setup
     this.roundNumber = 1;     // incremented each time the full turn order wraps around
@@ -159,7 +159,7 @@ class GameState {
     return (this.players[idx] && this.players[idx].name) || ('P' + idx);
   }
 
-  setPlunderPreview(data) {
+  setLootPreview(data) {
     // Immediately remove committed hand-based attack cards from attacker's hand.
     // This prevents them reappearing in hand if the player refreshes before confirming the overlay.
     const p = data.attackerIdx !== undefined ? this.players[data.attackerIdx] : null;
@@ -174,7 +174,7 @@ class GameState {
         if (i !== -1) { p.hand.splice(i, 1); lockedHandCards.push(cardId); }
       }
     }
-    this.pendingPlunder = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
+    this.pendingLoot = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
     // Persist the top card of the attacked deck as face-up so the stateUpdate
     // broadcast doesn't re-cover it for all players
     if (data.deckIndex !== undefined) {
@@ -497,14 +497,14 @@ class GameState {
     this.pushLog(`${this.pname(playerIdx)} discarded own shield(s)`, true, true);
   }
 
-  plunderResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
-    // Use cards pre-locked in setPlunderPreview if available (prevents reappearance on refresh)
-    const lockedHandCards = this.pendingPlunder ? (this.pendingPlunder._lockedHandCards || []) : [];
+  lootResolved(attackerIdx, deckIdx, success, attackCardIds, kingUsed, attackerOwnDefCardIds) {
+    // Use cards pre-locked in setLootPreview if available (prevents reappearance on refresh)
+    const lockedHandCards = this.pendingLoot ? (this.pendingLoot._lockedHandCards || []) : [];
     // Capture deck top card strength BEFORE any deck modification (for log display)
     const deck = this.pickingDecks[deckIdx];
     const topDeckCard = deck.length > 0 ? deck[deck.length - 1].id : null;
     const deckDefStrength = topDeckCard ? this.cardStrength(topDeckCard) : 0;
-    this.pendingPlunder = null;
+    this.pendingLoot = null;
     const attacker = this.players[attackerIdx];
     // NOTE: plundering does NOT increment attackCount — only real attacks (defAttack/kingAttack/warlord) do.
     const handCardsToProcess = lockedHandCards.length > 0 ? lockedHandCards : attackCardIds;
@@ -996,7 +996,7 @@ class GameState {
       log: [...this.log],
       merchantReveal: this.lastMerchantReveal || null,
       pendingAttack: this.pendingAttack || null,
-      pendingPlunder: this.pendingPlunder || null,
+      pendingLoot: this.pendingLoot || null,
       pendingHeroSelection: this.pendingHeroSelection || null,
       pendingHeroAuction: this.pendingHeroAuction || null,
       isTutorial: this.isTutorial || false,

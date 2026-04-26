@@ -1774,7 +1774,7 @@ public class GameScreen extends ScreenAdapter {
             JSONArray ownDefIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackOwnDefCards()) ownDefIdArr.put(c.getCardId());
             emitData.put("attackerOwnDefCardIds", ownDefIdArr);
-            socket.emit("plunderResolved", emitData);
+            socket.emit("lootResolved", emitData);
           } catch (JSONException e) {
             e.printStackTrace();
           }
@@ -5367,7 +5367,7 @@ public class GameScreen extends ScreenAdapter {
       }
 
       // Sync loot preview — restore overlay for attacker on reconnect, watcher overlay for others
-      JSONObject serverPendingLoot = state.optJSONObject("pendingPlunder");
+      JSONObject serverPendingLoot = state.optJSONObject("pendingLoot");
       if (serverPendingLoot != null
           && serverPendingLoot.optInt("attackerIdx", -1) == playerIndex
           && !currentPlayer.getPlayerTurn().isLootPending()) {

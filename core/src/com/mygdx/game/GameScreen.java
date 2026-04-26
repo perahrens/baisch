@@ -5,6 +5,7 @@ import com.mygdx.game.util.JSONArray;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import com.badlogic.gdx.Game;
@@ -28,6 +29,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
 import com.badlogic.gdx.utils.Array;
@@ -210,6 +212,12 @@ public class GameScreen extends ScreenAdapter {
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
   private Texture texMenuButton;
+
+  // Card zoom (issue #218)
+  private static final float CARD_ZOOM = 1.35f;
+  private Card currentlyZoomedCard = null;
+  private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
+
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
@@ -745,6 +753,15 @@ public class GameScreen extends ScreenAdapter {
     handStage.clear();
     if (!logOpen) overlayStage.clear();
 
+    // Reset card zoom state (cards are reused between show() calls; scale persists)
+    if (currentlyZoomedCard != null) {
+      currentlyZoomedCard.setScale(1f);
+      currentlyZoomedCard = null;
+    }
+    for (PickingDeck pd : gameState.getPickingDecks()) {
+      for (Card pdCard : pd.getCards()) pdCard.setScale(1f);
+    }
+
     gameStage.addActor(gameBck);
     handStage.addActor(handBck);
     handStage.addActor(handHighlight);
@@ -1126,6 +1143,15 @@ public class GameScreen extends ScreenAdapter {
       }
     }
 
+    // Attach zoom listeners to picking decks (once per PickingDeck object lifetime)
+    for (int i = 0; i < pickingDecks.size(); i++) {
+      PickingDeck deck = pickingDecks.get(i);
+      if (!deckZoomAttached.contains(deck) && !deck.getCards().isEmpty()) {
+        attachPickingDeckZoom(deck);
+        deckZoomAttached.add(deck);
+      }
+    }
+
     // draw game status of players
     for (int i = 0; i < players.size(); i++) {
       // visual slot 0 = bottom (own player), 1 = left, 2 = top, 3 = right
@@ -1272,6 +1298,14 @@ public class GameScreen extends ScreenAdapter {
 
       gameStage.addActor(kingCard);
 
+      // Issue #218: zoom on hover/tap for face-up king cards
+      // Own king uses overlay zoom so it renders above the hand strip when zoomed.
+      if (players.get(i) == currentPlayer) {
+        attachKingOverlayZoomListener(kingCard);
+      } else if (!kingCard.isCovered()) {
+        attachZoomListener(kingCard);
+      }
+
       // Issue #167: Mercenaries selection highlight on own king (top=add, bottom=remove)
       if (players.get(i) == currentPlayer && isMercenariesSelectedBy(currentPlayer)) {
         addMercenarySelectionHighlight(kingCard);
@@ -1410,6 +1444,13 @@ public class GameScreen extends ScreenAdapter {
         }
         gameStage.addActor(defCard);
 
+        // Issue #218: zoom on hover/tap for face-up def cards (non-placeholders only)
+        if (!defCard.isPlaceholder()) {
+          if (players.get(i) == currentPlayer || !defCard.isCovered()) {
+            attachZoomListener(defCard);
+          }
+        }
+
         // Issues #54, #178, #179, #180: highlight enemy def cards (and empty enemy slots
         // for Saboteurs) when the relevant attacker hero is selected.
         applyEnemyDefCardHighlight(defCard, players.get(i), currentPlayer, j);
@@ -1527,6 +1568,11 @@ public class GameScreen extends ScreenAdapter {
             topDefCard.setActive(false);
           }
           gameStage.addActor(topDefCard);
+
+          // Issue #218: zoom on hover/tap for top def cards
+          if (players.get(i) == currentPlayer || !topDefCard.isCovered()) {
+            attachZoomListener(topDefCard);
+          }
 
           // Issue #167: stacked slot — highlight the top card (the one the
           // player actually sees and clicks) when Mercenaries is selected.
@@ -4285,6 +4331,142 @@ public class GameScreen extends ScreenAdapter {
       outer.add(backBtn).width(300).height(90).padTop(8).row();
 
     overlayStage.addActor(outer);
+  }
+
+  // ── Card zoom helpers (issue #218) ─────────────────────────────────────────
+
+  private boolean nothingSelectedInHand() {
+    // Block hover-zoom only when the player has attack cards selected (hand, king, heroes).
+    // Def-card selection must NOT block zoom — switching between own def cards would
+    // otherwise leave the newly-hovered card un-zoomed (the reported bug).
+    if (players == null || playerIndex < 0 || playerIndex >= players.size()) return true;
+    Player local = players.get(playerIndex);
+    if (local == null) return true;
+    if (!local.getSelectedHandCards().isEmpty()) return false;
+    Card king = local.getKingCard();
+    if (king != null && king.isSelected()) return false;
+    if (!local.getSelectedHeroes().isEmpty()) return false;
+    return true;
+  }
+
+  private void zoomCard(Card card) {
+    float w = card.getWidth();
+    float h = card.getHeight();
+    float cx = card.getX();
+    float cy = card.getY();
+    float s = CARD_ZOOM;
+    float W = MyGdxGame.WIDTH;
+
+    // Margins keep the zoomed card a bit inside the play-area edges so it is
+    // never cut off and the bottom-player king never touches the hand strip.
+    float MARGIN_X      = 4f;
+    float MARGIN_TOP    = 4f;
+    float MARGIN_BOTTOM = 14f; // extra clearance from the hand strip below the play area
+
+    // Default: scale around the card centre, then clamp the origin so the
+    // visible (scaled) card stays within [MARGIN, W - MARGIN] on each axis.
+    // Visible left   = cx + originX*(1-s)
+    // Visible right  = cx + originX*(1-s) + w*s
+    // Constraint     left   >= MARGIN_X  ⇔  originX <= (cx - MARGIN_X)/(s-1)
+    // Constraint     right  <= W - MARGIN_X ⇔ originX >= (cx + w*s - W + MARGIN_X)/(s-1)
+    float originX = w / 2f;
+    float maxOriginX = (cx - MARGIN_X) / (s - 1f);
+    float minOriginX = (cx + w * s - W + MARGIN_X) / (s - 1f);
+    if (originX > maxOriginX) originX = maxOriginX;
+    if (originX < minOriginX) originX = minOriginX;
+
+    float originY = h / 2f;
+    float maxOriginY = (cy - MARGIN_BOTTOM) / (s - 1f);
+    float minOriginY = (cy + h * s - W + MARGIN_TOP) / (s - 1f);
+    if (originY > maxOriginY) originY = maxOriginY;
+    if (originY < minOriginY) originY = minOriginY;
+
+    card.setOriginX(originX);
+    card.setOriginY(originY);
+    card.setScale(CARD_ZOOM);
+    card.toFront();
+    currentlyZoomedCard = card;
+  }
+
+  private void unzoomCard(Card card) {
+    card.setScale(1f);
+    if (currentlyZoomedCard == card) currentlyZoomedCard = null;
+  }
+
+  private void attachZoomListener(final Card card) {
+    card.addListener(new InputListener() {
+      @Override
+      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (pointer != -1) return; // mouse hover only, not touch
+        if (!nothingSelectedInHand()) return;
+        zoomCard(card);
+      }
+      @Override
+      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (pointer != -1) return;
+        unzoomCard(card);
+      }
+    });
+  }
+
+  // Own king zoom: reparents the card to overlayStage on hover so the zoomed card
+  // renders above the hand strip. Spurious enter/exit events caused by reparenting
+  // are filtered by comparing card.getStage() to event.getStage().
+  private void attachKingOverlayZoomListener(final Card card) {
+    final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+    card.addListener(new InputListener() {
+      @Override
+      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (pointer != -1) return;
+        if (!nothingSelectedInHand()) return;
+        if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
+        card.setY(card.getY() + oy);
+        overlayStage.addActor(card);
+        zoomCard(card);
+      }
+      @Override
+      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (pointer != -1) return;
+        if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
+        if (card.getStage() != overlayStage) return; // card already back in gameStage
+        card.setY(card.getY() - oy);
+        gameStage.addActor(card);
+        unzoomCard(card);
+      }
+    });
+  }
+
+  private void attachPickingDeckZoom(final PickingDeck deck) {
+    // Hover-only zoom for the picking deck (no ClickListener).
+    // A ClickListener on PickingDeck would cancel the touch focus of the
+    // PickingDeckListener (via LibGDX cancelTouchFocusExcept), preventing
+    // the actual game-action click from ever firing — which causes bots/
+    // players to get stuck after a plunder attempt.
+    deck.addListener(new InputListener() {
+      @Override
+      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (pointer != -1) return;
+        if (!nothingSelectedInHand()) return;
+        setDeckScale(deck, CARD_ZOOM);
+      }
+      @Override
+      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (pointer != -1) return;
+        setDeckScale(deck, 1f);
+      }
+    });
+  }
+
+  private void setDeckScale(PickingDeck deck, float scale) {
+    for (Card c : deck.getCards()) {
+      c.setOriginX(c.getWidth() / 2f);
+      c.setOriginY(c.getHeight() / 2f);
+      c.setScale(scale);
+      // Do NOT call c.toFront() here: the PickingDeck actor is already added on top
+      // of the card actors in gameStage. Calling toFront() on a card would move it
+      // in front of the PickingDeck, which would block touch events from reaching
+      // the PickingDeck listener (causing looting to break and the game to get stuck).
+    }
   }
 
   private void addMenuButtonToOverlay() {

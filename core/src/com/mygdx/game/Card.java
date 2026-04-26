@@ -184,7 +184,7 @@ public class Card extends Actor {
       }
     }
 
-    batch.draw(sprite, getX(), getY(), getWidth() / 2f, getHeight() / 2f, getWidth(), getHeight(), 1, 1, rotate);
+    batch.draw(sprite, getX(), getY(), getWidth() / 2f, getHeight() / 2f, getWidth(), getHeight(), getScaleX(), getScaleY(), rotate);
   }
 
   public boolean isPlaceholder() {

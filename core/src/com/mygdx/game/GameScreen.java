@@ -198,6 +198,9 @@ public class GameScreen extends ScreenAdapter {
   // Safety-net: while waiting for others to submit setup, periodically request a state resync
   // so the screen self-heals if the final stateUpdate (setupPhase=false) was missed.
   private float setupWaitTimer = 0f;
+  // Heartbeat resync: during active gameplay, request a full state resync if no stateUpdate
+  // has been received for 30 seconds. Recovers clients that silently get out of sync.
+  private float syncHeartbeatTimer = 0f;
   private final ArrayList<Integer> setupKeepIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
@@ -277,6 +280,7 @@ public class GameScreen extends ScreenAdapter {
             }
           }
         } catch (JSONException e) { /* ignore malformed packet */ }
+        syncHeartbeatTimer = 0f;
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
@@ -5581,6 +5585,20 @@ public class GameScreen extends ScreenAdapter {
       }
     } else {
       setupWaitTimer = 0f;
+    }
+
+    // Gameplay heartbeat resync: if no stateUpdate has arrived for 30 seconds during an active
+    // game, request a full state sync from the server. This self-heals clients that silently
+    // get out of sync (e.g. a missed update due to a brief network hiccup or a tab that was
+    // briefly backgrounded during a game-state transition).
+    if (!gameState.isSetupPhase() && !isTutorial) {
+      syncHeartbeatTimer += delta;
+      if (syncHeartbeatTimer >= 30f) {
+        syncHeartbeatTimer = 0f;
+        socket.emit("requestStateSync", new JSONObject());
+      }
+    } else {
+      syncHeartbeatTimer = 0f;
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),

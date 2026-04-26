@@ -4071,8 +4071,8 @@ public class GameScreen extends ScreenAdapter {
     hudPanel.setPosition(2f, 2f);
     handStage.addActor(hudPanel);
 
-    // History and Chat icon buttons — placed immediately to the right of the HUD panel
-    float iconBtnSize = finishTurnButton.getPrefHeight();
+    // History and Chat icon buttons — same size as HUD attack/shield icons
+    float iconBtnSize = iconH;
     float iconBtnX = hudPanel.getWidth() + 6f;
     float iconBtnY = 2f;
 
@@ -4425,7 +4425,7 @@ public class GameScreen extends ScreenAdapter {
     backBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        buildMenuOverlay();
+        closeMenu();
       }
     });
       outer.add(backBtn).width(300).height(90).padTop(8).row();
@@ -4500,7 +4500,7 @@ public class GameScreen extends ScreenAdapter {
 
     TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
     backBtn.addListener(new ClickListener() {
-      @Override public void clicked(InputEvent event, float x, float y) { buildMenuOverlay(); }
+      @Override public void clicked(InputEvent event, float x, float y) { closeMenu(); }
     });
     outer.add(backBtn).width(300).height(90).padTop(4).row();
 

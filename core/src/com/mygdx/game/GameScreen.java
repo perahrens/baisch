@@ -4055,6 +4055,12 @@ public class GameScreen extends ScreenAdapter {
     float stageW = MyGdxGame.WIDTH;
     float stageH = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
 
+    // Wrap all overlay actors in a Group so we can remove them instantly on the
+    // first tap — eliminating the "frozen" appearance while the render loop catches up.
+    final com.badlogic.gdx.scenes.scene2d.Group overlayGroup =
+        new com.badlogic.gdx.scenes.scene2d.Group();
+    overlayGroup.setSize(stageW, stageH);
+
     Image bg = new Image(MyGdxGame.skin, "white");
     bg.setSize(stageW, stageH);
     bg.setPosition(0, 0);
@@ -4063,12 +4069,12 @@ public class GameScreen extends ScreenAdapter {
     // slot button click in any race condition (recurring bug: "finish turn does
     // nothing" when the user taps the expose slot button).
     bg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
-    handStage.addActor(bg);
+    overlayGroup.addActor(bg);
 
     Label prompt = new Label("No attack -- expose a defense card:", MyGdxGame.skin);
     prompt.setColor(Color.YELLOW);
     prompt.setPosition(stageW / 2f - prompt.getPrefWidth() / 2f, stageH - prompt.getPrefHeight() - 6);
-    handStage.addActor(prompt);
+    overlayGroup.addActor(prompt);
 
     float btnW = stageW / 4f;
     float btnX = 4;
@@ -4094,11 +4100,12 @@ public class GameScreen extends ScreenAdapter {
         // (recurring bug: "select card to expose, nothing happens").
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+          overlayGroup.remove(); // immediate visual feedback — don't wait for render loop
           submitExposeAndFinishTurn(finalSlot);
           return true;
         }
       });
-      handStage.addActor(slotBtn);
+      overlayGroup.addActor(slotBtn);
       buttonsAdded++;
     }
     // Fallback: if no covered slots exist, automatically cancel expose and end turn.
@@ -4114,6 +4121,8 @@ public class GameScreen extends ScreenAdapter {
         ftData.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
         socket.emit("finishTurn", ftData);
       } catch (JSONException ex) { ex.printStackTrace(); }
+    } else {
+      handStage.addActor(overlayGroup);
     }
   }
 

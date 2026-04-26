@@ -4493,6 +4493,11 @@ public class GameScreen extends ScreenAdapter {
     final com.badlogic.gdx.scenes.scene2d.ui.TextField inputField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
     inputField.setMessageText("Type a message...");
+    inputField.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        Gdx.input.setOnscreenKeyboardVisible(true);
+      }
+    });
     TextButton sendBtn = new TextButton("Send", MyGdxGame.skin);
 
     Table inputRow = new Table();

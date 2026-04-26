@@ -190,6 +190,8 @@ public class GameScreen extends ScreenAdapter {
   private final java.util.ArrayList<String[]> chatMessages = new java.util.ArrayList<String[]>(); // {"name", "text"}
   private ScrollPane chatScrollPane = null;
   private Table chatInnerTable = null;
+  private int unreadChatMessages = 0;
+  private Label chatBadgeLabel = null;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -662,6 +664,13 @@ public class GameScreen extends ScreenAdapter {
           Gdx.app.postRunnable(new Runnable() {
             @Override public void run() {
               chatMessages.add(new String[]{name, text});
+              if (!chatOpen) {
+                unreadChatMessages++;
+                if (chatBadgeLabel != null) {
+                  chatBadgeLabel.setText(String.valueOf(unreadChatMessages));
+                  chatBadgeLabel.setVisible(true);
+                }
+              }
               if (chatOpen && chatInnerTable != null) {
                 // append new message to the open overlay
                 Label lbl = new Label("[" + name + "] " + text, MyGdxGame.skin);
@@ -4085,14 +4094,23 @@ public class GameScreen extends ScreenAdapter {
     });
     handStage.addActor(historyIconImg);
 
+    final float chatIconX = iconBtnX + iconBtnSize + 4f;
     Image chatIconImg = new Image(new TextureRegionDrawable(new TextureRegion(texChatIcon)));
     chatIconImg.setSize(iconBtnSize, iconBtnSize);
-    chatIconImg.setPosition(iconBtnX + iconBtnSize + 4f, iconBtnY);
+    chatIconImg.setPosition(chatIconX, iconBtnY);
     chatIconImg.setColor(Color.WHITE);
     chatIconImg.addListener(new ClickListener() {
       @Override public void clicked(InputEvent event, float x, float y) { showChatOverlay(); }
     });
     handStage.addActor(chatIconImg);
+
+    // Unread badge — green number in top-right corner of chat icon
+    Label badge = new Label(unreadChatMessages > 0 ? String.valueOf(unreadChatMessages) : "", MyGdxGame.skin);
+    badge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
+    badge.setVisible(unreadChatMessages > 0);
+    badge.setPosition(chatIconX + iconBtnSize - badge.getPrefWidth() - 1f, iconBtnY + iconBtnSize - badge.getPrefHeight());
+    handStage.addActor(badge);
+    chatBadgeLabel = badge;
 
     // Action buttons (Get Hero / Sell Hero) — hero row, right edge
     float heroActionBtnY = bottomBarH + 2f;
@@ -4435,6 +4453,8 @@ public class GameScreen extends ScreenAdapter {
   private void showChatOverlay() {
     menuOpen = true;
     chatOpen = true;
+    unreadChatMessages = 0;
+    if (chatBadgeLabel != null) chatBadgeLabel.setVisible(false);
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");

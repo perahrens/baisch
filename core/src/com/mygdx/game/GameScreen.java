@@ -195,6 +195,9 @@ public class GameScreen extends ScreenAdapter {
   private final int[] setupSelectedDefIds = { -1, -1, -1 };
   // True after the player has clicked Confirm (waiting for others to finish)
   private boolean setupSubmitted = false;
+  // Safety-net: while waiting for others to submit setup, periodically request a state resync
+  // so the screen self-heals if the final stateUpdate (setupPhase=false) was missed.
+  private float setupWaitTimer = 0f;
   private final ArrayList<Integer> setupKeepIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
@@ -846,7 +849,23 @@ public class GameScreen extends ScreenAdapter {
     final boolean inKeepPhase = (setupSelectedKingId != -1 && _defCount == 3 && needKeepPhase);
     String statusText;
     if (setupSubmitted) {
-      statusText = "Waiting for other players...";
+      Map<Integer, Boolean> ssMap = gameState.getSetupSubmittedMap();
+      ArrayList<String> pending = new ArrayList<String>();
+      for (int i = 0; i < players.size(); i++) {
+        if (!Boolean.TRUE.equals(ssMap.get(i))) {
+          pending.add(players.get(i).getPlayerName());
+        }
+      }
+      if (pending.isEmpty()) {
+        statusText = "All ready, starting...";
+      } else {
+        StringBuilder sb = new StringBuilder("Waiting for: ");
+        for (int wi = 0; wi < pending.size(); wi++) {
+          if (wi > 0) sb.append(", ");
+          sb.append(pending.get(wi));
+        }
+        statusText = sb.toString();
+      }
     } else if (setupSelectedKingId == -1) {
       statusText = "Select your king card";
     } else if (_defCount < 3) {
@@ -5480,6 +5499,18 @@ public class GameScreen extends ScreenAdapter {
         gameState.getPickingDecks().get(1).addListener(pdl1);
       }
 
+      // 6c. Setup submitted map (which players have confirmed their manual setup)
+      JSONObject ssJson = state.optJSONObject("setupSubmitted");
+      if (ssJson != null) {
+        Map<Integer, Boolean> ssMap = new HashMap<Integer, Boolean>();
+        Iterator<String> ssKeys = ssJson.keys();
+        while (ssKeys.hasNext()) {
+          String k = ssKeys.next();
+          ssMap.put(Integer.parseInt(k), ssJson.optBoolean(k, false));
+        }
+        gameState.setSetupSubmittedMap(ssMap);
+      }
+
       // Sync round number
       int serverRound = state.optInt("roundNumber", 0);
       if (serverRound > 0) gameState.setRoundNumber(serverRound);
@@ -5537,6 +5568,19 @@ public class GameScreen extends ScreenAdapter {
     if (gameState.getUpdateState()) {
       gameState.setUpdateState(false);
       show();
+    }
+
+    // Safety net: while the local player has submitted manual setup but the game hasn't started yet,
+    // emit a requestStateSync every 4 seconds so the screen self-recovers if the final
+    // stateUpdate (setupPhase=false) was missed (e.g. tab was backgrounded on a mobile device).
+    if (gameState.isSetupPhase() && setupSubmitted) {
+      setupWaitTimer += delta;
+      if (setupWaitTimer >= 4f) {
+        setupWaitTimer = 0f;
+        socket.emit("requestStateSync", new JSONObject());
+      }
+    } else {
+      setupWaitTimer = 0f;
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 import com.mygdx.game.util.JSONArray;
 import com.mygdx.game.util.JSONException;
@@ -34,6 +35,12 @@ public class GameState {
   private boolean setupPhase = false;
   public boolean isSetupPhase() { return setupPhase; }
   public void setSetupPhase(boolean v) { setupPhase = v; }
+
+  // Which players have submitted their manual setup choices (mirrors server setupSubmitted map).
+  // Key = playerIndex, value = true when that player has confirmed.
+  private Map<Integer, Boolean> setupSubmittedMap = new HashMap<Integer, Boolean>();
+  public Map<Integer, Boolean> getSetupSubmittedMap() { return setupSubmittedMap; }
+  public void setSetupSubmittedMap(Map<Integer, Boolean> m) { setupSubmittedMap = m; }
 
   private SocketClient socket;
 

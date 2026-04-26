@@ -1744,6 +1744,7 @@ public class GameScreen extends ScreenAdapter {
       overlay.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
+          if (!pt.isLootPending()) return; // guard against double-tap before re-render
           final int deckIdx = pt.getPendingPickingDeckIndex();
           PickingDeck thisD = gameState.getPickingDecks().get(deckIdx);
           PickingDeck otherD = gameState.getPickingDecks().get(1 - deckIdx);

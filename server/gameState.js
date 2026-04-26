@@ -528,7 +528,7 @@ class GameState {
     if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     if (success) {
       attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} plundered deck ${deckIdx + 1}! (${plunderAtkSum} vs ${deckDefStrength})`, true);
+      this.pushLog(`${this.pname(attackerIdx)} looted deck ${deckIdx + 1}! (${plunderAtkSum} vs ${deckDefStrength})`, true);
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -540,7 +540,7 @@ class GameState {
       const c3 = this.pickCard(); if (c3 !== null) this.pickingDecks[deckIdx].push({ id: c3, covered: true });
     } else {
       attacker.statPlundersFailed = (attacker.statPlundersFailed || 0) + 1;
-      this.pushLog(`${this.pname(attackerIdx)} plunder on deck ${deckIdx + 1} failed (${plunderAtkSum} vs ${deckDefStrength})`, false);
+      this.pushLog(`${this.pname(attackerIdx)} loot on deck ${deckIdx + 1} failed (${plunderAtkSum} vs ${deckDefStrength})`, false);
       if (kingUsed) {
         attacker.isOut = true;
         attacker.statRoundEliminatedAt = this.roundNumber;
@@ -708,8 +708,8 @@ class GameState {
         placement: 1,
         roundsUntilOut: this.roundNumber,
         heroesReceived: winner.statHeroesReceived || 0,
-        plundersSuccess: winner.statPlundersSuccess || 0,
-        plundersFailed: winner.statPlundersFailed || 0,
+        lootsSuccess: winner.statPlundersSuccess || 0,
+        lootsFailed: winner.statPlundersFailed || 0,
         attacksSuccess: winner.statAttacksSuccess || 0,
         attacksFailed: winner.statAttacksFailed || 0,
         defeated: winner.statDefeated || 0,
@@ -728,8 +728,8 @@ class GameState {
         placement: playerResults.length + 1,
         roundsUntilOut: p.statRoundEliminatedAt || this.roundNumber,
         heroesReceived: p.statHeroesReceived || 0,
-        plundersSuccess: p.statPlundersSuccess || 0,
-        plundersFailed: p.statPlundersFailed || 0,
+        lootsSuccess: p.statPlundersSuccess || 0,
+        lootsFailed: p.statPlundersFailed || 0,
         attacksSuccess: p.statAttacksSuccess || 0,
         attacksFailed: p.statAttacksFailed || 0,
         defeated: p.statDefeated || 0,

@@ -459,17 +459,10 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    TextButton okBtn = new TextButton("OK", MyGdxGame.skin);
-    okBtn.addListener(new ClickListener() {
-      @Override public void clicked(InputEvent event, float x, float y) { doConfirm.run(); }
-    });
-
-    Table nameRow = new Table();
-    nameRow.add(nameField).width(170f).height(btnH).padRight(6f);
-    nameRow.add(okBtn).width(70f).height(btnH);
-    nameRow.pack();
-    nameRow.setPosition(cx - nameRow.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
-    menuStage.addActor(nameRow);
+    nameField.setWidth(250f);
+    nameField.setHeight(50f);
+    nameField.setPosition(cx - 125f, 0.3f * MyGdxGame.HEIGHT);
+    menuStage.addActor(nameField);
 
     // Avatar selector — shown below the name button
     // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.

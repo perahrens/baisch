@@ -49,6 +49,8 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
     /**
      * Listens to visualViewport resize events so the game container scrolls
      * upward when the keyboard appears, keeping the active text field visible.
+     * Also translates the name-entry logo and raises the canvas z-index so the
+     * text field is never covered by fixed HTML overlays.
      */
     private native void installViewportListener() /*-{
         if (!$wnd.visualViewport || $wnd._gdxViewportInstalled) return;
@@ -59,11 +61,22 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
                          - $wnd.visualViewport.offsetTop;
             if (kbHeight < 0) kbHeight = 0;
             var container = $doc.getElementById('embed-html');
-            if (!container) return;
+            var logo      = $doc.getElementById('name-entry-logo');
             if (kbHeight > 10) {
-                container.style.transform = 'translateY(-' + kbHeight + 'px)';
+                var shift = 'translateY(-' + kbHeight + 'px)';
+                if (container) {
+                    container.style.transform = shift;
+                    container.style.zIndex    = '200'; // above name-entry-logo (z-index: 100)
+                    container.style.position  = 'relative';
+                }
+                if (logo) logo.style.transform = shift;
             } else {
-                container.style.transform = '';
+                if (container) {
+                    container.style.transform = '';
+                    container.style.zIndex    = '';
+                    container.style.position  = '';
+                }
+                if (logo) logo.style.transform = '';
             }
         }
         $wnd.visualViewport.addEventListener('resize', onViewportChange);

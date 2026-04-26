@@ -4538,16 +4538,8 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    TextButton sendBtn = new TextButton("Send", MyGdxGame.skin);
-    sendBtn.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ClickListener() {
-      @Override public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
-        doSend.run();
-      }
-    });
-
     Table inputRow = new Table();
-    inputRow.add(inputField).expandX().fillX().padRight(6f);
-    inputRow.add(sendBtn).width(90);
+    inputRow.add(inputField).expandX().fillX().padLeft(40f).padRight(40f);
     outer.add(inputRow).expandX().fillX().padBottom(6f).row();
 
     TextButton backBtn = new TextButton("Back", MyGdxGame.skin);

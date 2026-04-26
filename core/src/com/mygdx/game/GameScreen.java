@@ -3649,7 +3649,7 @@ public class GameScreen extends ScreenAdapter {
 
         String boostCount = String.valueOf(handcard.getBoosted());
         Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
-        boostCountLabel.setColor(Color.GOLD);
+        boostCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
         handStage.addActor(boostCountLabel);
       }
@@ -3719,7 +3719,7 @@ public class GameScreen extends ScreenAdapter {
         BatteryTower bt = (BatteryTower) hero;
         String btCount = bt.getCharges() + "/1";
         Label btCountLabel = new Label(btCount, MyGdxGame.skin);
-        btCountLabel.setColor(Color.YELLOW);
+        btCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         btCountLabel.setPosition(hero.getX() + hero.getWidth() - btCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(btCountLabel);
       }
@@ -3783,7 +3783,7 @@ public class GameScreen extends ScreenAdapter {
         // x/8 counter label — right-aligned to the hero sprite's right edge
         String readyCount = mercenaries.countReady() + "/8";
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
-        readyCountLabel.setColor(Color.GOLD);
+        readyCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         float indicatorX = hero.getX() + hero.getWidth() - readyCountLabel.getPrefWidth();
         readyCountLabel.setPosition(indicatorX, hero.getY());
         handStage.addActor(readyCountLabel);

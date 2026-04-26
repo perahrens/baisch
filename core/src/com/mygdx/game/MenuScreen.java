@@ -1724,8 +1724,10 @@ public class MenuScreen extends AbstractScreen {
               if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
-            // Notify server of our initial hero selection (default: Random).
-            socket.emit("heroSelected", menuState.getStartingHero());
+            // Notify server of our initial hero selection only when hero selection is enabled.
+            if (sessionAllowHeroSelection) {
+              socket.emit("heroSelected", menuState.getStartingHero());
+            }
             updateScreen = true;
           }
         });

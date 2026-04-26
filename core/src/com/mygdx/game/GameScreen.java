@@ -856,6 +856,7 @@ public class GameScreen extends ScreenAdapter {
       Map<Integer, Boolean> ssMap = gameState.getSetupSubmittedMap();
       ArrayList<String> pending = new ArrayList<String>();
       for (int i = 0; i < players.size(); i++) {
+        if (i == playerIndex) continue; // we know we submitted even before server echoes it
         if (!Boolean.TRUE.equals(ssMap.get(i))) {
           pending.add(players.get(i).getPlayerName());
         }
@@ -5523,6 +5524,10 @@ public class GameScreen extends ScreenAdapter {
           ssMap.put(Integer.parseInt(k), ssJson.optBoolean(k, false));
         }
         gameState.setSetupSubmittedMap(ssMap);
+        // Re-derive local setupSubmitted from server state (handles page refresh mid-setup)
+        if (!setupSubmitted && Boolean.TRUE.equals(ssMap.get(playerIndex))) {
+          setupSubmitted = true;
+        }
       }
 
       // Sync round number

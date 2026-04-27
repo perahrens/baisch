@@ -668,7 +668,7 @@ public class GameScreen extends ScreenAdapter {
               if (!chatOpen) {
                 unreadChatMessages++;
                 if (chatBadgeLabel != null) {
-                  chatBadgeLabel.setText(String.valueOf(unreadChatMessages));
+                  chatBadgeLabel.setText(unreadChatMessages >= 100 ? "99+" : String.valueOf(unreadChatMessages));
                   chatBadgeLabel.setVisible(true);
                 }
               }
@@ -4118,7 +4118,7 @@ public class GameScreen extends ScreenAdapter {
     // Unread history-log badge — green number centered on history icon
     int unreadLog = activityLog.length() - logLastRenderedCount;
     if (logOpen) unreadLog = 0; // don't count entries the player is currently viewing
-    Label logBadge = new Label(unreadLog > 0 ? String.valueOf(unreadLog) : "", MyGdxGame.skin);
+    Label logBadge = new Label(unreadLog > 0 ? (unreadLog >= 100 ? "99+" : String.valueOf(unreadLog)) : "", MyGdxGame.skin);
     logBadge.setFontScale(1.5f);
     logBadge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
     logBadge.setVisible(unreadLog > 0);

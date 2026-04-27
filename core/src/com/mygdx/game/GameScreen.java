@@ -4578,6 +4578,11 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void zoomCard(Card card) {
+    // Unzoom the previously zoomed card before switching to a new one
+    if (currentlyZoomedCard != null && currentlyZoomedCard != card) {
+      currentlyZoomedCard.setScale(1f);
+      currentlyZoomedCard = null;
+    }
     float w = card.getWidth();
     float h = card.getHeight();
     float cx = card.getX();
@@ -4621,12 +4626,27 @@ public class GameScreen extends ScreenAdapter {
     if (currentlyZoomedCard == card) currentlyZoomedCard = null;
   }
 
+  /** Turns off zoom mode, restores any zoomed card, and resets the lens button tint. */
+  public void deactivateZoomMode() {
+    zoomModeActive = false;
+    if (currentlyZoomedCard != null) {
+      // If the king card was reparented to overlayStage for zoom, restore it first
+      float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+      if (currentlyZoomedCard.getStage() == overlayStage) {
+        currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+        gameStage.addActor(currentlyZoomedCard);
+      }
+      unzoomCard(currentlyZoomedCard);
+    }
+    if (zoomModeBtn != null) zoomModeBtn.setColor(Color.WHITE);
+  }
+
   private void attachZoomListener(final Card card) {
     card.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
         if (zoomModeActive) {
-          zoomCard(card); // tap-to-zoom in zoom mode
+          zoomCard(card); // tap/click to zoom in zoom mode
           return false;   // game action blocked via ClickListener guard
         }
         unzoomCard(card); // dismiss zoom immediately on any click/tap
@@ -4634,11 +4654,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) {
-          // Accept both mouse hover (pointer=-1) and touch swipe (pointer>=0)
-          zoomCard(card);
-          return;
-        }
+        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
         if (pointer != -1) return; // mouse hover only, not touch
         if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
@@ -4646,10 +4662,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) {
-          unzoomCard(card);
-          return;
-        }
+        if (zoomModeActive) return; // zoom persists after click in zoom mode
         if (pointer != -1) return;
         unzoomCard(card);
       }
@@ -4683,13 +4696,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) {
-          if (card.getStage() == overlayStage) return; // already zoomed in overlay
-          card.setY(card.getY() + oy);
-          overlayStage.addActor(card);
-          zoomCard(card);
-          return;
-        }
+        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
         if (pointer != -1) return;
         if (Gdx.input.isTouched()) return; // suppress during click/tap
         if (!nothingSelectedInHand()) return;
@@ -4700,14 +4707,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) {
-          if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
-          if (card.getStage() != overlayStage) return;
-          card.setY(card.getY() - oy);
-          gameStage.addActor(card);
-          unzoomCard(card);
-          return;
-        }
+        if (zoomModeActive) return; // zoom persists after click in zoom mode; deactivateZoomMode() handles cleanup
         if (pointer != -1) return;
         if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
         if (card.getStage() != overlayStage) return; // card already back in gameStage
@@ -4736,10 +4736,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) {
-          setDeckScale(deck, CARD_ZOOM);
-          return;
-        }
+        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
         if (pointer != -1) return;
         if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
@@ -4747,10 +4744,7 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) {
-          setDeckScale(deck, 1f);
-          return;
-        }
+        if (zoomModeActive) return; // zoom persists after click in zoom mode
         if (pointer != -1) return;
         setDeckScale(deck, 1f);
       }
@@ -4809,12 +4803,11 @@ public class GameScreen extends ScreenAdapter {
     zoomModeBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        zoomModeActive = !zoomModeActive;
-        if (!zoomModeActive && currentlyZoomedCard != null) {
-          unzoomCard(currentlyZoomedCard);
-        }
-        if (zoomModeBtn != null) {
-          zoomModeBtn.setColor(zoomModeActive ? Color.YELLOW : Color.WHITE);
+        if (zoomModeActive) {
+          deactivateZoomMode();
+        } else {
+          zoomModeActive = true;
+          if (zoomModeBtn != null) zoomModeBtn.setColor(Color.YELLOW);
         }
       }
     });

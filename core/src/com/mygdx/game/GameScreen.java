@@ -4618,8 +4618,14 @@ public class GameScreen extends ScreenAdapter {
   private void attachZoomListener(final Card card) {
     card.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        unzoomCard(card); // dismiss zoom immediately on any click/tap
+        return false; // do not consume — let game-action listeners still fire
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return; // mouse hover only, not touch
+        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
         zoomCard(card);
       }
@@ -4638,8 +4644,19 @@ public class GameScreen extends ScreenAdapter {
     final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
     card.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        // Dismiss overlay zoom on click/tap: restore card to gameStage if needed
+        if (card.getStage() == overlayStage) {
+          card.setY(card.getY() - oy);
+          gameStage.addActor(card);
+          unzoomCard(card);
+        }
+        return false; // do not consume
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return;
+        if (Gdx.input.isTouched()) return; // suppress during click/tap
         if (!nothingSelectedInHand()) return;
         if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
         card.setY(card.getY() + oy);
@@ -4666,8 +4683,14 @@ public class GameScreen extends ScreenAdapter {
     // players to get stuck after a plunder attempt.
     deck.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        setDeckScale(deck, 1f); // dismiss zoom immediately on click/tap
+        return false; // do not consume — let PickingDeckListener still fire
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
         if (pointer != -1) return;
+        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
         setDeckScale(deck, CARD_ZOOM);
       }

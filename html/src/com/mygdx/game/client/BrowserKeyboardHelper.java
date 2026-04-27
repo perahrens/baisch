@@ -130,8 +130,9 @@ public class BrowserKeyboardHelper implements KeyboardHelper {
             if (e.key === 'Enter' || e.keyCode === 13) {
                 if (onEnter) {
                     onEnter.@java.lang.Runnable::run()();
+                } else {
+                    inp.blur();
                 }
-                inp.blur();
             }
         };
         inp.addEventListener('keydown', inp._gdxKeyHandler);

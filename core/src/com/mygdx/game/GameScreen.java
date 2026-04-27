@@ -4510,13 +4510,16 @@ public class GameScreen extends ScreenAdapter {
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
     inputField.setMessageText("Type a message...");
 
-    // Shared send action — used by the Send button AND the Enter key callback.
-    final Runnable doSend = new Runnable() {
+    // Shared send action — used by the Enter key callback.
+    // Use a Runnable[] wrapper so the lambda can reference itself (re-shows keyboard
+    // after sending so the user can type the next message without re-tapping).
+    final Runnable[] doSendRef = { null };
+    doSendRef[0] = new Runnable() {
       @Override public void run() {
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
-        MyGdxGame.keyboardHelper.hideKeyboard();
+        MyGdxGame.keyboardHelper.showKeyboard(inputField, doSendRef[0]);
         try {
           JSONObject msg = new JSONObject();
           String senderName = currentPlayer != null ? currentPlayer.getPlayerName() : "?";
@@ -4526,6 +4529,7 @@ public class GameScreen extends ScreenAdapter {
         } catch (JSONException e) { e.printStackTrace(); }
       }
     };
+    final Runnable doSend = doSendRef[0];
 
     // On mobile browsers, focus the hidden native input to open the keyboard.
     // Pass doSend as the Enter callback so pressing Done/Return triggers a send.

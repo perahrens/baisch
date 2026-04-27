@@ -48,6 +48,7 @@ public class EnemyKingCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
     PlayerTurn pt = player.getPlayerTurn();
     if (pt.isLootPending() || pt.isAttackPending()) return;
 

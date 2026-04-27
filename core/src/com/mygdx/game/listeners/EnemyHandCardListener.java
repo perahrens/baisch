@@ -31,6 +31,7 @@ public class EnemyHandCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
     for (int i = 0; i < player.getHeroes().size(); i++) {
       if (player.getHeroes().get(i).getHeroName() == "Priest" && player.getHeroes().get(i).isSelected()) {
         Priest priest = (Priest) player.getHeroes().get(i);

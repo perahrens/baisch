@@ -56,6 +56,7 @@ public class OwnDefCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
     // Defense cards must not be interacted with when it is not the player's turn.
     if (gameState.getCurrentPlayerIndex() != playerIdx) return;
 

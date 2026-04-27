@@ -47,6 +47,7 @@ public class OwnHandCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
 
     // Warlord king swap: if own king is selected, swap it with this hand card
     // Costs 1 take + 1 put action.

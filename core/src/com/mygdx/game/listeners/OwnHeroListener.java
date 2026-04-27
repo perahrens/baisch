@@ -28,6 +28,7 @@ public class OwnHeroListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
     // Spy can be clicked even when isReady==false, as long as it has extends left (sacrifice mode)
     boolean spyExtendMode = hero.getHeroName() == "Spy" && !hero.isReady()
         && ((Spy) hero).getSpyExtends() > 0 && hero.isSelectable();

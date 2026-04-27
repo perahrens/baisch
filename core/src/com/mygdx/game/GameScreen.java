@@ -167,6 +167,7 @@ public class GameScreen extends ScreenAdapter {
   // every constructor call site. Set in show(), cleared in hide().
   private static GameScreen INSTANCE = null;
   public static GameScreen getInstance() { return INSTANCE; }
+  public boolean isZoomModeActive() { return zoomModeActive; }
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;
@@ -233,6 +234,10 @@ public class GameScreen extends ScreenAdapter {
   private static final float CARD_ZOOM = 1.35f;
   private Card currentlyZoomedCard = null;
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
+  // Zoom-mode toggle (issue #246)
+  private boolean zoomModeActive = false;
+  private Texture texZoomButton;
+  private Image zoomModeBtn;
 
 
   // New constructor for centralized state
@@ -782,6 +787,7 @@ public class GameScreen extends ScreenAdapter {
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
+    texZoomButton  = createMagnifierTexture(44);
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -4618,13 +4624,32 @@ public class GameScreen extends ScreenAdapter {
   private void attachZoomListener(final Card card) {
     card.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (zoomModeActive) {
+          zoomCard(card); // tap-to-zoom in zoom mode
+          return false;   // game action blocked via ClickListener guard
+        }
+        unzoomCard(card); // dismiss zoom immediately on any click/tap
+        return false; // do not consume — let game-action listeners still fire
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (zoomModeActive) {
+          // Accept both mouse hover (pointer=-1) and touch swipe (pointer>=0)
+          zoomCard(card);
+          return;
+        }
         if (pointer != -1) return; // mouse hover only, not touch
+        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
         zoomCard(card);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (zoomModeActive) {
+          unzoomCard(card);
+          return;
+        }
         if (pointer != -1) return;
         unzoomCard(card);
       }
@@ -4638,8 +4663,35 @@ public class GameScreen extends ScreenAdapter {
     final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
     card.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (zoomModeActive) {
+          // In zoom mode: move king to overlay and zoom on tap (if not already there)
+          if (card.getStage() != overlayStage) {
+            card.setY(card.getY() + oy);
+            overlayStage.addActor(card);
+            zoomCard(card);
+          }
+          return false; // game action blocked via ClickListener guard
+        }
+        // Normal mode: dismiss overlay zoom on click/tap
+        if (card.getStage() == overlayStage) {
+          card.setY(card.getY() - oy);
+          gameStage.addActor(card);
+          unzoomCard(card);
+        }
+        return false; // do not consume
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (zoomModeActive) {
+          if (card.getStage() == overlayStage) return; // already zoomed in overlay
+          card.setY(card.getY() + oy);
+          overlayStage.addActor(card);
+          zoomCard(card);
+          return;
+        }
         if (pointer != -1) return;
+        if (Gdx.input.isTouched()) return; // suppress during click/tap
         if (!nothingSelectedInHand()) return;
         if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
         card.setY(card.getY() + oy);
@@ -4648,6 +4700,14 @@ public class GameScreen extends ScreenAdapter {
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (zoomModeActive) {
+          if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
+          if (card.getStage() != overlayStage) return;
+          card.setY(card.getY() - oy);
+          gameStage.addActor(card);
+          unzoomCard(card);
+          return;
+        }
         if (pointer != -1) return;
         if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
         if (card.getStage() != overlayStage) return; // card already back in gameStage
@@ -4666,13 +4726,31 @@ public class GameScreen extends ScreenAdapter {
     // players to get stuck after a plunder attempt.
     deck.addListener(new InputListener() {
       @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (zoomModeActive) {
+          setDeckScale(deck, CARD_ZOOM); // tap-to-zoom in zoom mode
+          return false; // game action blocked via PickingDeckListener.clicked() guard
+        }
+        setDeckScale(deck, 1f); // dismiss zoom immediately on click/tap
+        return false; // do not consume — let PickingDeckListener still fire
+      }
+      @Override
       public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
+        if (zoomModeActive) {
+          setDeckScale(deck, CARD_ZOOM);
+          return;
+        }
         if (pointer != -1) return;
+        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
         if (!nothingSelectedInHand()) return;
         setDeckScale(deck, CARD_ZOOM);
       }
       @Override
       public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
+        if (zoomModeActive) {
+          setDeckScale(deck, 1f);
+          return;
+        }
         if (pointer != -1) return;
         setDeckScale(deck, 1f);
       }
@@ -4691,8 +4769,57 @@ public class GameScreen extends ScreenAdapter {
     }
   }
 
+  /** Creates a simple white magnifying-glass icon of the given pixel size using Pixmap. */
+  private Texture createMagnifierTexture(int size) {
+    Pixmap pm = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+    pm.setColor(0f, 0f, 0f, 0f);
+    pm.fill();
+    pm.setColor(Color.WHITE);
+    // Glass ring: center at ~38%, radius ~23%
+    int cx = Math.round(size * 0.38f);
+    int cy = Math.round(size * 0.38f);
+    int r  = Math.round(size * 0.23f);
+    // Draw 3-pixel-wide ring
+    pm.drawCircle(cx, cy, r - 1);
+    pm.drawCircle(cx, cy, r);
+    pm.drawCircle(cx, cy, r + 1);
+    // Handle: diagonal line from lower-right of circle to corner
+    int hx1 = Math.round(cx + r * 0.72f);
+    int hy1 = Math.round(cy + r * 0.72f);
+    int hx2 = size - 4;
+    int hy2 = size - 4;
+    // Draw 3-pixel-wide line by offsetting perpendicular to the diagonal
+    pm.drawLine(hx1,     hy1,     hx2,     hy2);
+    pm.drawLine(hx1 + 1, hy1,     hx2 + 1, hy2);
+    pm.drawLine(hx1,     hy1 + 1, hx2,     hy2 + 1);
+    Texture tex = new Texture(pm);
+    pm.dispose();
+    return tex;
+  }
+
   private void addMenuButtonToOverlay() {
     float btnSize = 44f;
+    float gap = 4f;
+
+    // Zoom toggle button — to the left of the menu button
+    zoomModeBtn = new Image(texZoomButton);
+    zoomModeBtn.setSize(btnSize, btnSize);
+    zoomModeBtn.setPosition(MyGdxGame.WIDTH - 2 * btnSize - gap, MyGdxGame.HEIGHT - btnSize);
+    zoomModeBtn.setColor(zoomModeActive ? Color.YELLOW : Color.WHITE);
+    zoomModeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        zoomModeActive = !zoomModeActive;
+        if (!zoomModeActive && currentlyZoomedCard != null) {
+          unzoomCard(currentlyZoomedCard);
+        }
+        if (zoomModeBtn != null) {
+          zoomModeBtn.setColor(zoomModeActive ? Color.YELLOW : Color.WHITE);
+        }
+      }
+    });
+    overlayStage.addActor(zoomModeBtn);
+
     Image menuBtn = new Image(texMenuButton);
     menuBtn.setSize(btnSize, btnSize);
     menuBtn.setPosition(MyGdxGame.WIDTH - btnSize, MyGdxGame.HEIGHT - btnSize);
@@ -6310,6 +6437,7 @@ public class GameScreen extends ScreenAdapter {
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
     texMenuButton.dispose();
+    texZoomButton.dispose();
   }
 
 }

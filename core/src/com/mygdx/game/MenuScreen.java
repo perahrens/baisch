@@ -422,42 +422,47 @@ public class MenuScreen extends AbstractScreen {
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
 
-    // A button-shaped area that opens the native text dialog on click/tap.
-    // getTextInput() is called synchronously from the DOM click event inside GWT,
-    // so the mobile keyboard always opens.
-    String label = menuState.getMyName().isEmpty() ? "Enter your name" : menuState.getMyName();
-    TextButton enterNameButton = new TextButton(label, MyGdxGame.skin);
-    enterNameButton.setSize(250f, button.getPrefHeight());
-    enterNameButton.setPosition(cx - enterNameButton.getWidth() / 2f, 0.3f * MyGdxGame.HEIGHT);
-    enterNameButton.addListener(new ClickListener() {
+    // Name entry: TextField + OK button using the JSNI keyboard helper so the
+    // mobile browser opens its native keyboard without a browser dialog popup.
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField nameField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField(menuState.getMyName(), MyGdxGame.skin);
+    nameField.setMessageText("Enter your name");
+    final float btnH = button.getPrefHeight();
+
+    final Runnable doConfirm = new Runnable() {
+      @Override public void run() {
+        String name = nameField.getText().trim();
+        if (name.isEmpty()) return;
+        MyGdxGame.keyboardHelper.hideKeyboard();
+        menuState.setMyName(name);
+        MyGdxGame.playerStorage.saveName(name);
+        nameConfirmed = true;
+        try {
+          JSONObject reg = new JSONObject();
+          reg.put("name", name);
+          reg.put("token", MyGdxGame.playerStorage.getToken());
+          reg.put("icon", selectedIcon);
+          socket.emit("registerPlayer", reg);
+        } catch (JSONException e) { /* ignore */ }
+        Gdx.app.postRunnable(new Runnable() {
+          @Override public void run() { show(); }
+        });
+      }
+    };
+
+    nameField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
       @Override
-      public void clicked(InputEvent event, float x, float y) {
-        Gdx.input.getTextInput(new com.badlogic.gdx.Input.TextInputListener() {
-          @Override
-          public void input(String text) {
-            String name = text.trim();
-            if (name.isEmpty()) return;
-            menuState.setMyName(name);
-            MyGdxGame.playerStorage.saveName(name);
-            nameConfirmed = true;
-            try {
-              JSONObject reg = new JSONObject();
-              reg.put("name", name);
-              reg.put("token", MyGdxGame.playerStorage.getToken());
-              reg.put("icon", selectedIcon);
-              socket.emit("registerPlayer", reg);
-            } catch (JSONException e) { /* ignore */ }
-            Gdx.app.postRunnable(new Runnable() {
-              @Override public void run() { show(); }
-            });
-          }
-          @Override
-          public void canceled() { /* stay on name entry screen */ }
-        }, "Baisch", menuState.getMyName(), "Enter your name");
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event,
+                               float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(nameField, doConfirm);
+        return false;
       }
     });
 
-    menuStage.addActor(enterNameButton);
+    nameField.setWidth(250f);
+    nameField.setHeight(50f);
+    nameField.setPosition(cx - 125f, 0.3f * MyGdxGame.HEIGHT);
+    menuStage.addActor(nameField);
 
     // Avatar selector — shown below the name button
     // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
@@ -1724,8 +1729,10 @@ public class MenuScreen extends AbstractScreen {
               if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
-            // Notify server of our initial hero selection (default: Random).
-            socket.emit("heroSelected", menuState.getStartingHero());
+            // Notify server of our initial hero selection only when hero selection is enabled.
+            if (sessionAllowHeroSelection) {
+              socket.emit("heroSelected", menuState.getStartingHero());
+            }
             updateScreen = true;
           }
         });

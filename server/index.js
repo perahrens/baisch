@@ -927,6 +927,14 @@ io.on('connection', function(socket) {
       return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
     }));
 
+  socket.on('chatMessage', function(data) {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    var sender = connectedPlayers[socket.id];
+    var name = sender ? sender.name : 'Unknown';
+    io.to(sess.id).emit('chatMessage', { name: name, text: (data && data.text) ? String(data.text) : '' });
+  });
+
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
     // If the player was in a running game, preserve their session slot so they

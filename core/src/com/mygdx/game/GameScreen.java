@@ -185,6 +185,14 @@ public class GameScreen extends ScreenAdapter {
   private ScrollPane logScrollPane = null;
   private Table logInnerTable = null;
   private int logLastRenderedCount = 0;
+  // Chat state
+  private boolean chatOpen = false;
+  private final java.util.ArrayList<String[]> chatMessages = new java.util.ArrayList<String[]>(); // {"name", "text"}
+  private ScrollPane chatScrollPane = null;
+  private Table chatInnerTable = null;
+  private int unreadChatMessages = 0;
+  private Label chatBadgeLabel = null;
+  private Label logBadgeLabel = null;
   // Emit Reservists count to other clients once on first render (before any stateUpdate fires)
   private boolean initialReservistsBroadcastDone = false;
 
@@ -218,6 +226,8 @@ public class GameScreen extends ScreenAdapter {
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
   private Texture texMenuButton;
+  private Texture texChatIcon;
+  private Texture texHistoryIcon;
 
   // Card zoom (issue #218)
   private static final float CARD_ZOOM = 1.35f;
@@ -644,6 +654,42 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    socket.on("chatMessage", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        if (args.length == 0) return;
+        try {
+          JSONObject data = (JSONObject) args[0];
+          final String name = data.optString("name", "?");
+          final String text = data.optString("text", "");
+          Gdx.app.postRunnable(new Runnable() {
+            @Override public void run() {
+              chatMessages.add(new String[]{name, text});
+              if (!chatOpen) {
+                unreadChatMessages++;
+                if (chatBadgeLabel != null) {
+                  chatBadgeLabel.setText(String.valueOf(unreadChatMessages));
+                  chatBadgeLabel.setVisible(true);
+                }
+              }
+              if (chatOpen && chatInnerTable != null) {
+                // append new message to the open overlay
+                Label lbl = new Label("[" + name + "] " + text, MyGdxGame.skin);
+                lbl.setWrap(true);
+                lbl.setColor(new Color(0.85f, 0.95f, 1f, 1f));
+                chatInnerTable.add(lbl).left().padBottom(4f).expandX().fillX().row();
+                chatInnerTable.pack();
+                if (chatScrollPane != null) {
+                  chatScrollPane.layout();
+                  chatScrollPane.setScrollPercentY(1f);
+                }
+              }
+            }
+          });
+        } catch (Exception e) { e.printStackTrace(); }
+      }
+    });
+
     // Initialize stages
     gameStage = new Stage();
     fitVPGame = new FitViewport(MyGdxGame.WIDTH, MyGdxGame.WIDTH);
@@ -733,7 +779,9 @@ public class GameScreen extends ScreenAdapter {
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
-    texMenuButton = new Texture(Gdx.files.internal("data/graphics/menu_button.png"));
+    texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
+    texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
+    texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -758,7 +806,7 @@ public class GameScreen extends ScreenAdapter {
 
     gameStage.clear();
     handStage.clear();
-    if (!logOpen) overlayStage.clear();
+    if (!logOpen && !chatOpen) overlayStage.clear();
 
     // Reset card zoom state (cards are reused between show() calls; scale persists)
     if (currentlyZoomedCard != null) {
@@ -814,6 +862,8 @@ public class GameScreen extends ScreenAdapter {
 
     if (menuOpen && logOpen) {
       refreshLogOverlay();
+    } else if (menuOpen && chatOpen) {
+      // chat overlay updates itself via postRunnable — nothing to rebuild here
     } else if (menuOpen) {
       buildMenuOverlay();
     } else {
@@ -3600,7 +3650,7 @@ public class GameScreen extends ScreenAdapter {
 
         String boostCount = String.valueOf(handcard.getBoosted());
         Label boostCountLabel = new Label(boostCount, MyGdxGame.skin);
-        boostCountLabel.setColor(Color.GOLD);
+        boostCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         boostCountLabel.setPosition(mercenaryImage.getX() + mercenaryImage.getWidth() / 2f, mercenaryImage.getY());
         handStage.addActor(boostCountLabel);
       }
@@ -3611,10 +3661,12 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Display all heroes of current player
+    // Bottom bar height (finish-turn button) — heroes sit just above it
+    final float bottomBarH = new TextButton("Finish turn", MyGdxGame.skin).getPrefHeight() + 2f;
     for (int j = 0; j < playerHeroes.size(); j++) {
       final Hero hero = playerHeroes.get(j);
       hero.setHand(true);
-      hero.setPosition(j * hero.getWidth(), 0);
+      hero.setPosition(j * hero.getWidth(), bottomBarH);
 
       if (hero.getHeroName() == "Priest") {
         Priest priestHero = (Priest) hero;
@@ -3643,7 +3695,7 @@ public class GameScreen extends ScreenAdapter {
       }
 
       Label heroLabel = new Label(hero.getHeroID(), MyGdxGame.skin);
-      heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, hero.getHeight());
+      heroLabel.setPosition(j * hero.getWidth() + (hero.getWidth() - heroLabel.getWidth()) / 2, bottomBarH + hero.getHeight());
       heroLabel.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -3668,7 +3720,7 @@ public class GameScreen extends ScreenAdapter {
         BatteryTower bt = (BatteryTower) hero;
         String btCount = bt.getCharges() + "/1";
         Label btCountLabel = new Label(btCount, MyGdxGame.skin);
-        btCountLabel.setColor(Color.YELLOW);
+        btCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         btCountLabel.setPosition(hero.getX() + hero.getWidth() - btCountLabel.getPrefWidth(), hero.getY());
         handStage.addActor(btCountLabel);
       }
@@ -3732,7 +3784,7 @@ public class GameScreen extends ScreenAdapter {
         // x/8 counter label — right-aligned to the hero sprite's right edge
         String readyCount = mercenaries.countReady() + "/8";
         Label readyCountLabel = new Label(readyCount, MyGdxGame.skin);
-        readyCountLabel.setColor(Color.GOLD);
+        readyCountLabel.setColor(new Color(0.1f, 0.2f, 0.8f, 1f));
         float indicatorX = hero.getX() + hero.getWidth() - readyCountLabel.getPrefWidth();
         readyCountLabel.setPosition(indicatorX, hero.getY());
         handStage.addActor(readyCountLabel);
@@ -4019,30 +4071,74 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Unified HUD panel: dark semi-transparent background, name above icons
+    // Row 3 (bottom bar): HUD panel left, icon buttons centre-left, finish-turn right
     Table hudPanel = new Table(MyGdxGame.skin);
     hudPanel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.4f)));
     hudPanel.pad(hudPad);
     hudPanel.add(myPlayerLabel).padBottom(2f).row();
     hudPanel.add(iconsRow);
     hudPanel.pack();
-    hudPanel.setPosition(
-        MyGdxGame.WIDTH - hudPanel.getWidth() - 2f,
-        finishTurnButton.getHeight() + 2f);
+    hudPanel.setPosition(2f, 2f);
     handStage.addActor(hudPanel);
 
-    // Action buttons (Get Hero / Sell Hero) — fixed position: left side, same row as HUD panel
-    float actionBtnY = finishTurnButton.getHeight() + 2f;
-    float actionBtnX = 2f;
+    // History and Chat icon buttons — same size as HUD attack/shield icons
+    float iconBtnSize = iconH;
+    float iconBtnX = hudPanel.getWidth() + 6f;
+    float iconBtnY = 2f;
+
+    Image historyIconImg = new Image(new TextureRegionDrawable(new TextureRegion(texHistoryIcon)));
+    historyIconImg.setSize(iconBtnSize, iconBtnSize);
+    historyIconImg.setPosition(iconBtnX, iconBtnY);
+    historyIconImg.setColor(Color.WHITE);
+    historyIconImg.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) { showLogOverlay(); }
+    });
+    handStage.addActor(historyIconImg);
+
+    final float chatIconX = iconBtnX + iconBtnSize + 4f;
+    Image chatIconImg = new Image(new TextureRegionDrawable(new TextureRegion(texChatIcon)));
+    chatIconImg.setSize(iconBtnSize, iconBtnSize);
+    chatIconImg.setPosition(chatIconX, iconBtnY);
+    chatIconImg.setColor(Color.WHITE);
+    chatIconImg.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) { showChatOverlay(); }
+    });
+    handStage.addActor(chatIconImg);
+
+    // Unread chat badge — green number centered on chat icon (50% larger font)
+    Label badge = new Label(unreadChatMessages > 0 ? String.valueOf(unreadChatMessages) : "", MyGdxGame.skin);
+    badge.setFontScale(1.5f);
+    badge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
+    badge.setVisible(unreadChatMessages > 0);
+    badge.setPosition(chatIconX + (iconBtnSize - badge.getPrefWidth()) / 2f,
+                      iconBtnY  + (iconBtnSize - badge.getPrefHeight()) / 2f);
+    handStage.addActor(badge);
+    chatBadgeLabel = badge;
+
+    // Unread history-log badge — green number centered on history icon
+    int unreadLog = activityLog.length() - logLastRenderedCount;
+    if (logOpen) unreadLog = 0; // don't count entries the player is currently viewing
+    Label logBadge = new Label(unreadLog > 0 ? String.valueOf(unreadLog) : "", MyGdxGame.skin);
+    logBadge.setFontScale(1.5f);
+    logBadge.setColor(new Color(0.1f, 0.9f, 0.1f, 1f));
+    logBadge.setVisible(unreadLog > 0);
+    logBadge.setPosition(iconBtnX + (iconBtnSize - logBadge.getPrefWidth()) / 2f,
+                         iconBtnY + (iconBtnSize - logBadge.getPrefHeight()) / 2f);
+    handStage.addActor(logBadge);
+    logBadgeLabel = logBadge;
+
+    // Action buttons (Get Hero / Sell Hero) — hero row, right edge
+    float heroActionBtnY = bottomBarH + 2f;
     if (sellHeroActionBtn != null && getHeroActionBtn != null) {
-      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      getHeroActionBtn.setPosition(MyGdxGame.WIDTH - getHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
+      sellHeroActionBtn.setPosition(getHeroActionBtn.getX() - sellHeroActionBtn.getPrefWidth() - 4f, heroActionBtnY);
       handStage.addActor(sellHeroActionBtn);
-      getHeroActionBtn.setPosition(actionBtnX + sellHeroActionBtn.getWidth() + 4f, actionBtnY);
       handStage.addActor(getHeroActionBtn);
     } else if (sellHeroActionBtn != null) {
-      sellHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      sellHeroActionBtn.setPosition(MyGdxGame.WIDTH - sellHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
       handStage.addActor(sellHeroActionBtn);
     } else if (getHeroActionBtn != null) {
-      getHeroActionBtn.setPosition(actionBtnX, actionBtnY);
+      getHeroActionBtn.setPosition(MyGdxGame.WIDTH - getHeroActionBtn.getPrefWidth() - 2f, heroActionBtnY);
       handStage.addActor(getHeroActionBtn);
     }
 
@@ -4205,6 +4301,7 @@ public class GameScreen extends ScreenAdapter {
 
   private void buildMenuOverlay() {
     logOpen = false;
+    chatOpen = false;
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4303,7 +4400,9 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void showLogOverlay() {
+    menuOpen = true;
     logOpen = true;
+    if (logBadgeLabel != null) logBadgeLabel.setVisible(false);
     overlayStage.clear();
 
     Image bg = new Image(MyGdxGame.skin, "white");
@@ -4359,10 +4458,99 @@ public class GameScreen extends ScreenAdapter {
     backBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        buildMenuOverlay();
+        closeMenu();
       }
     });
       outer.add(backBtn).width(300).height(90).padTop(8).row();
+
+    overlayStage.addActor(outer);
+  }
+
+  private void showChatOverlay() {
+    menuOpen = true;
+    chatOpen = true;
+    unreadChatMessages = 0;
+    if (chatBadgeLabel != null) chatBadgeLabel.setVisible(false);
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    final Table outer = new Table();
+    outer.setFillParent(true);
+    outer.top().pad(20f);
+
+    Label titleLabel = new Label("Chat", MyGdxGame.skin);
+    outer.add(titleLabel).padBottom(10).row();
+
+    final Table inner = new Table();
+    inner.top().left().pad(6f);
+    chatInnerTable = inner;
+
+    for (String[] msg : chatMessages) {
+      String displayText = "[" + msg[0] + "] " + msg[1];
+      Label lbl = new Label(displayText, MyGdxGame.skin);
+      lbl.setWrap(true);
+      lbl.setColor(new Color(0.85f, 0.95f, 1f, 1f));
+      inner.add(lbl).left().padBottom(4f).expandX().fillX().row();
+    }
+
+    ScrollPane scroll = new ScrollPane(inner, MyGdxGame.skin);
+    chatScrollPane = scroll;
+    scroll.setFadeScrollBars(false);
+    scroll.setScrollingDisabled(true, false);
+    scroll.layout();
+    scroll.setScrollPercentY(1f);
+    outer.add(scroll).expandX().fillX().expandY().fillY().padBottom(8f).row();
+
+    // Input row
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField inputField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
+    inputField.setMessageText("Type a message...");
+
+    // Shared send action — used by the Enter key callback.
+    // Use a Runnable[] wrapper so the lambda can reference itself (re-shows keyboard
+    // after sending so the user can type the next message without re-tapping).
+    final Runnable[] doSendRef = { null };
+    doSendRef[0] = new Runnable() {
+      @Override public void run() {
+        String text = inputField.getText().trim();
+        if (text.isEmpty()) return;
+        inputField.setText("");
+        MyGdxGame.keyboardHelper.showKeyboard(inputField, doSendRef[0]);
+        try {
+          JSONObject msg = new JSONObject();
+          String senderName = currentPlayer != null ? currentPlayer.getPlayerName() : "?";
+          msg.put("name", senderName);
+          msg.put("text", text);
+          socket.emit("chatMessage", msg);
+        } catch (JSONException e) { e.printStackTrace(); }
+      }
+    };
+    final Runnable doSend = doSendRef[0];
+
+    // On mobile browsers, focus the hidden native input to open the keyboard.
+    // Pass doSend as the Enter callback so pressing Done/Return triggers a send.
+    inputField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event,
+                               float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(inputField, doSend);
+        return false;
+      }
+    });
+
+    Table inputRow = new Table();
+    inputRow.add(inputField).expandX().fillX().padLeft(40f).padRight(40f);
+    outer.add(inputRow).expandX().fillX().padBottom(6f).row();
+
+    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    backBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) { closeMenu(); }
+    });
+    outer.add(backBtn).width(300).height(90).padTop(4).row();
 
     overlayStage.addActor(outer);
   }
@@ -4520,6 +4708,7 @@ public class GameScreen extends ScreenAdapter {
   private void closeMenu() {
     menuOpen = false;
     logOpen = false;
+    chatOpen = false;
     overlayStage.clear();
     addMenuButtonToOverlay();
     // render() will set the correct input processor next frame

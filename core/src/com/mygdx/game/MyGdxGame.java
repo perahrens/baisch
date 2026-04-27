@@ -20,6 +20,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static TurnNotifier turnNotifier = TurnNotifier.NOOP;
   /** Platform-supplied player identity storage. Defaults to no-op; overridden by HtmlLauncher. */
   public static PlayerStorage playerStorage = PlayerStorage.NOOP;
+  /** Platform-supplied keyboard helper for mobile browsers. Defaults to no-op; overridden by HtmlLauncher. */
+  public static KeyboardHelper keyboardHelper = KeyboardHelper.NOOP;
   public final static float HEIGHT = 800;
   public final static float WIDTH = 450;
 

@@ -231,8 +231,9 @@ public class GameScreen extends ScreenAdapter {
   private Texture texHistoryIcon;
 
   // Card zoom (issue #218)
-  private static final float CARD_ZOOM = 1.35f;
+  private static final float CARD_ZOOM = 2.0f;
   private Card currentlyZoomedCard = null;
+  private PickingDeck currentlyZoomedDeck = null;
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
   // Zoom-mode toggle (issue #246)
   private boolean zoomModeActive = false;
@@ -4580,8 +4581,19 @@ public class GameScreen extends ScreenAdapter {
   private void zoomCard(Card card) {
     // Unzoom the previously zoomed card before switching to a new one
     if (currentlyZoomedCard != null && currentlyZoomedCard != card) {
+      // King card may have been reparented to overlayStage for zoom — restore it first
+      if (currentlyZoomedCard.getStage() == overlayStage) {
+        float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+        currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+        gameStage.addActor(currentlyZoomedCard);
+      }
       currentlyZoomedCard.setScale(1f);
       currentlyZoomedCard = null;
+    }
+    // Also unzoom any currently zoomed deck
+    if (currentlyZoomedDeck != null) {
+      setDeckScale(currentlyZoomedDeck, 1f);
+      currentlyZoomedDeck = null;
     }
     float w = card.getWidth();
     float h = card.getHeight();
@@ -4626,17 +4638,21 @@ public class GameScreen extends ScreenAdapter {
     if (currentlyZoomedCard == card) currentlyZoomedCard = null;
   }
 
-  /** Turns off zoom mode, restores any zoomed card, and resets the lens button tint. */
+  /** Turns off zoom mode, restores any zoomed card/deck, and resets the lens button tint. */
   public void deactivateZoomMode() {
     zoomModeActive = false;
     if (currentlyZoomedCard != null) {
       // If the king card was reparented to overlayStage for zoom, restore it first
-      float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
       if (currentlyZoomedCard.getStage() == overlayStage) {
+        float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
         currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
         gameStage.addActor(currentlyZoomedCard);
       }
       unzoomCard(currentlyZoomedCard);
+    }
+    if (currentlyZoomedDeck != null) {
+      setDeckScale(currentlyZoomedDeck, 1f);
+      currentlyZoomedDeck = null;
     }
     if (zoomModeBtn != null) zoomModeBtn.setColor(Color.WHITE);
   }
@@ -4728,8 +4744,28 @@ public class GameScreen extends ScreenAdapter {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
         if (zoomModeActive) {
-          setDeckScale(deck, CARD_ZOOM); // tap-to-zoom in zoom mode
+          // Unzoom any previously zoomed card (king restoration handled inside zoomCard)
+          if (currentlyZoomedCard != null) {
+            if (currentlyZoomedCard.getStage() == overlayStage) {
+              float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+              currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+              gameStage.addActor(currentlyZoomedCard);
+            }
+            currentlyZoomedCard.setScale(1f);
+            currentlyZoomedCard = null;
+          }
+          // Unzoom any other zoomed deck
+          if (currentlyZoomedDeck != null && currentlyZoomedDeck != deck) {
+            setDeckScale(currentlyZoomedDeck, 1f);
+          }
+          currentlyZoomedDeck = deck;
+          setDeckScale(deck, CARD_ZOOM); // tap/click to zoom in zoom mode
           return false; // game action blocked via PickingDeckListener.clicked() guard
+        }
+        // Normal mode: dismiss zoom
+        if (currentlyZoomedDeck != null) {
+          setDeckScale(currentlyZoomedDeck, 1f);
+          currentlyZoomedDeck = null;
         }
         setDeckScale(deck, 1f); // dismiss zoom immediately on click/tap
         return false; // do not consume — let PickingDeckListener still fire

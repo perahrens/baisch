@@ -1739,6 +1739,27 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    socket.on("sessionClosed", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            MyGdxGame.playerStorage.clearSessionId();
+            reconnecting = false;
+            reconnectElapsed = 0f;
+            lobbyJoined = false;
+            timerStarted = false;
+            gameRunning = false;
+            showPlayersTab = false;
+            menuState.clearUsers();
+            reservedByOthers.clear();
+            show();
+          }
+        });
+      }
+    });
+
     socket.on("sessionNotFound", new SocketListener() {
       @Override
       public void call(Object... args) {

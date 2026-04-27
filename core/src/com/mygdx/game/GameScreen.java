@@ -231,7 +231,7 @@ public class GameScreen extends ScreenAdapter {
   private Texture texHistoryIcon;
 
   // Card zoom (issue #218)
-  private static final float CARD_ZOOM = 2.0f;
+  private static final float CARD_ZOOM = 1.7f;
   private Card currentlyZoomedCard = null;
   private PickingDeck currentlyZoomedDeck = null;
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
@@ -734,6 +734,15 @@ public class GameScreen extends ScreenAdapter {
 
     gameBck = new Image(new TextureRegionDrawable(new TextureRegion(texGameBck)));
     gameBck.setFillParent(true);
+    // Tapping empty space in the game board unzooms any card/deck (issue #246).
+    gameBck.addListener(new InputListener() {
+      @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
+        if (currentlyZoomedDeck != null) { setDeckScale(currentlyZoomedDeck, 1f); currentlyZoomedDeck = null; }
+        return false;
+      }
+    });
     gameStage.addActor(gameBck);
 
     // handBck uses a tinted white overlay on top of the photo so that the
@@ -4661,128 +4670,73 @@ public class GameScreen extends ScreenAdapter {
     card.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-        if (zoomModeActive) {
-          zoomCard(card); // tap/click to zoom in zoom mode
-          return false;   // game action blocked via ClickListener guard
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        if (card == currentlyZoomedCard) {
+          unzoomCard(card); // click same card = toggle off
+        } else {
+          zoomCard(card);
         }
-        unzoomCard(card); // dismiss zoom immediately on any click/tap
-        return false; // do not consume — let game-action listeners still fire
-      }
-      @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
-        if (pointer != -1) return; // mouse hover only, not touch
-        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
-        if (!nothingSelectedInHand()) return;
-        zoomCard(card);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) return; // zoom persists after click in zoom mode
-        if (pointer != -1) return;
-        unzoomCard(card);
+        return false;
       }
     });
   }
 
-  // Own king zoom: reparents the card to overlayStage on hover so the zoomed card
-  // renders above the hand strip. Spurious enter/exit events caused by reparenting
-  // are filtered by comparing card.getStage() to event.getStage().
+  // Own king zoom: reparents the card to overlayStage when zoomed so it renders
+  // above the hand strip. Only active in zoom mode (lens button selected).
   private void attachKingOverlayZoomListener(final Card card) {
     final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
     card.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-        if (zoomModeActive) {
-          // In zoom mode: move king to overlay and zoom on tap (if not already there)
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        if (card == currentlyZoomedCard) {
+          // Toggle off: restore from overlayStage if needed
+          if (card.getStage() == overlayStage) {
+            card.setY(card.getY() - oy);
+            gameStage.addActor(card);
+          }
+          unzoomCard(card);
+        } else {
+          // Zoom: move to overlayStage so it renders above the hand strip
           if (card.getStage() != overlayStage) {
             card.setY(card.getY() + oy);
             overlayStage.addActor(card);
-            zoomCard(card);
           }
-          return false; // game action blocked via ClickListener guard
+          zoomCard(card);
         }
-        // Normal mode: dismiss overlay zoom on click/tap
-        if (card.getStage() == overlayStage) {
-          card.setY(card.getY() - oy);
-          gameStage.addActor(card);
-          unzoomCard(card);
-        }
-        return false; // do not consume
-      }
-      @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
-        if (pointer != -1) return;
-        if (Gdx.input.isTouched()) return; // suppress during click/tap
-        if (!nothingSelectedInHand()) return;
-        if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
-        card.setY(card.getY() + oy);
-        overlayStage.addActor(card);
-        zoomCard(card);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) return; // zoom persists after click in zoom mode; deactivateZoomMode() handles cleanup
-        if (pointer != -1) return;
-        if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
-        if (card.getStage() != overlayStage) return; // card already back in gameStage
-        card.setY(card.getY() - oy);
-        gameStage.addActor(card);
-        unzoomCard(card);
+        return false;
       }
     });
   }
 
   private void attachPickingDeckZoom(final PickingDeck deck) {
-    // Hover-only zoom for the picking deck (no ClickListener).
-    // A ClickListener on PickingDeck would cancel the touch focus of the
-    // PickingDeckListener (via LibGDX cancelTouchFocusExcept), preventing
-    // the actual game-action click from ever firing — which causes bots/
-    // players to get stuck after a plunder attempt.
+    // Uses InputListener (not ClickListener) to avoid cancelling touch focus of
+    // PickingDeckListener, which would prevent looting from firing (bots get stuck).
+    // Zoom only active when lens button is selected.
     deck.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-        if (zoomModeActive) {
-          // Unzoom any previously zoomed card (king restoration handled inside zoomCard)
-          if (currentlyZoomedCard != null) {
-            if (currentlyZoomedCard.getStage() == overlayStage) {
-              float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
-              currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
-              gameStage.addActor(currentlyZoomedCard);
-            }
-            currentlyZoomedCard.setScale(1f);
-            currentlyZoomedCard = null;
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        // Clear any previously zoomed card (restoring king from overlayStage if needed)
+        if (currentlyZoomedCard != null) {
+          if (currentlyZoomedCard.getStage() == overlayStage) {
+            float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+            currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+            gameStage.addActor(currentlyZoomedCard);
           }
-          // Unzoom any other zoomed deck
-          if (currentlyZoomedDeck != null && currentlyZoomedDeck != deck) {
-            setDeckScale(currentlyZoomedDeck, 1f);
-          }
-          currentlyZoomedDeck = deck;
-          setDeckScale(deck, CARD_ZOOM); // tap/click to zoom in zoom mode
-          return false; // game action blocked via PickingDeckListener.clicked() guard
+          currentlyZoomedCard.setScale(1f);
+          currentlyZoomedCard = null;
         }
-        // Normal mode: dismiss zoom
-        if (currentlyZoomedDeck != null) {
-          setDeckScale(currentlyZoomedDeck, 1f);
+        // Toggle deck zoom
+        if (currentlyZoomedDeck == deck) {
+          setDeckScale(deck, 1f);
           currentlyZoomedDeck = null;
+        } else {
+          if (currentlyZoomedDeck != null) setDeckScale(currentlyZoomedDeck, 1f);
+          currentlyZoomedDeck = deck;
+          setDeckScale(deck, CARD_ZOOM);
         }
-        setDeckScale(deck, 1f); // dismiss zoom immediately on click/tap
         return false; // do not consume — let PickingDeckListener still fire
-      }
-      @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (zoomModeActive) return; // hover does not zoom in zoom mode — only click zooms
-        if (pointer != -1) return;
-        if (Gdx.input.isTouched()) return; // suppress during click/tap (incl. synthetic mouse events from touch)
-        if (!nothingSelectedInHand()) return;
-        setDeckScale(deck, CARD_ZOOM);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (zoomModeActive) return; // zoom persists after click in zoom mode
-        if (pointer != -1) return;
-        setDeckScale(deck, 1f);
       }
     });
   }
@@ -5953,7 +5907,7 @@ public class GameScreen extends ScreenAdapter {
     // briefly backgrounded during a game-state transition).
     if (!gameState.isSetupPhase() && !isTutorial) {
       syncHeartbeatTimer += delta;
-      if (syncHeartbeatTimer >= 10f) {
+      if (syncHeartbeatTimer >= 30f) {
         syncHeartbeatTimer = 0f;
         socket.emit("requestStateSync", new JSONObject());
       }

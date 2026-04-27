@@ -290,6 +290,34 @@ function leaveCurrentSession(socket) {
   }
   delete sess.heroSelections[socket.id];
   var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
+
+  // If the creator (users[0]) leaves before the game has started, close the lobby
+  // for everyone — the remaining players cannot start without a host.
+  if (sess.gameState === null && userIdx === 0 && sess.users.length > 1) {
+    io.to(sess.id).emit('sessionClosed', { reason: 'host_left' });
+    // Evict all remaining users from the socket room
+    sess.users.forEach(function(u) {
+      if (u.id === socket.id) return;
+      var s = io.sockets.sockets[u.id];
+      if (s) { s.leave(sess.id); }
+      delete socketToSession[u.id];
+      delete sess.heroSelections[u.id];
+    });
+    sess.spectators.forEach(function(sid) {
+      var s = io.sockets.sockets[sid];
+      if (s) { s.leave(sess.id); }
+      delete socketToSession[sid];
+    });
+    if (sess.timer) clearInterval(sess.timer);
+    delete sessions[sess.id];
+    delete socketToSession[socket.id];
+    socket.leave(sess.id);
+    console.log('Session ' + sess.id + ' closed: host ' + socket.id + ' left pre-game lobby');
+    broadcastSessionList();
+    broadcastPlayerList();
+    return;
+  }
+
   if (userIdx !== -1) sess.users.splice(userIdx, 1);
   var specIdx = sess.spectators.indexOf(socket.id);
   if (specIdx !== -1) sess.spectators.splice(specIdx, 1);

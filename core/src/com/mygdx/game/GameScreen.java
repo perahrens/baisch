@@ -1204,7 +1204,6 @@ public class GameScreen extends ScreenAdapter {
     for (int i = 0; i < pickingDecks.size(); i++) {
       ArrayList<Card> pickingCards = pickingDecks.get(i).getCards();
       for (int j = 0; j < pickingCards.size(); j++) {
-        pickingCards.get(j).setDefColor(Color.WHITE); // reset any previous highlight
         pickingCards.get(j).setX(MyGdxGame.WIDTH / 2 - pickingCards.get(j).getDefWidth() / 2
             + (2 * i - 1) * 0.8f * pickingCards.get(j).getDefWidth());
         pickingCards.get(j).setY(MyGdxGame.WIDTH / 2 - pickingCards.get(j).getDefHeight() / 2
@@ -3221,31 +3220,9 @@ public class GameScreen extends ScreenAdapter {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    // Golden highlight on looting decks when plundering is available AND a usable hand card exists.
     // Crone overlay on own king card when king attack is possible.
     if (gameState.getCurrentPlayer() == currentPlayer) {
       PlayerTurn ptGame = currentPlayer.getPlayerTurn();
-
-      if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isLootPending()) {
-        String atkSym    = ptGame.getAttackingSymbol()[0];
-        String atkSymExt = ptGame.getAttackingSymbol()[1];
-        boolean hasAttackCard = false;
-        for (Card hc : currentPlayer.getHandCards()) {
-          String sym = hc.getSymbol();
-          if ("joker".equals(sym) || "none".equals(atkSym)
-              || sym.equals(atkSym) || sym.equals(atkSymExt)) {
-            hasAttackCard = true;
-            break;
-          }
-        }
-        if (hasAttackCard) {
-          for (PickingDeck hlDeck : gameState.getPickingDecks()) {
-            for (Card c : hlDeck.getCards()) {
-              c.setDefColor(new Color(1f, 0.85f, 0.1f, 1f)); // golden tint
-            }
-          }
-        }
-      }
 
       boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
           && currentPlayer.getTopDefCards().isEmpty()
@@ -5986,6 +5963,32 @@ public class GameScreen extends ScreenAdapter {
     }
     // Show a semi-transparent green overlay when placing a defence card.
     handHighlight.setColor(0.3f, 0.8f, 0.3f, anyOwnDefSelected ? 0.45f : 0f);
+
+    // Per-frame: highlight looting decks golden when plundering is available
+    // AND the player has at least one selected hand card with a matching attack symbol.
+    if (!gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+      PlayerTurn ptDeck = currentPlayer.getPlayerTurn();
+      boolean shouldHighlight = false;
+      if (ptDeck.getPickingDeckAttacks() > 0 && !ptDeck.isLootPending()) {
+        String atkSym    = ptDeck.getAttackingSymbol()[0];
+        String atkSymExt = ptDeck.getAttackingSymbol()[1];
+        for (Card hc : currentPlayer.getHandCards()) {
+          if (hc.isSelected()) {
+            String sym = hc.getSymbol();
+            if ("joker".equals(sym) || "none".equals(atkSym)
+                || sym.equals(atkSym) || sym.equals(atkSymExt)) {
+              shouldHighlight = true;
+              break;
+            }
+          }
+        }
+      }
+      for (PickingDeck hlDeck : gameState.getPickingDecks()) {
+        for (Card c : hlDeck.getCards()) {
+          c.setDefColor(shouldHighlight ? new Color(1f, 0.85f, 0.1f, 1f) : Color.WHITE);
+        }
+      }
+    }
 
     /* Upper division (square play area) */
     Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);

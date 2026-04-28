@@ -2489,7 +2489,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Defender / watcher overlay — shown when another player has a pending attack
-    if (pendingAttackBroadcast != null && !currentPlayer.getPlayerTurn().isAttackPending()) {
+    // Suppressed while the battery defender is making their allow/deny decision (the
+    // attack cards must not be revealed to the defender before they decide).
+    if (pendingAttackBroadcast != null && !currentPlayer.getPlayerTurn().isAttackPending()
+        && pendingBatteryDefCheck == null) {
       try {
         final int bcAtkIdx = pendingAttackBroadcast.getInt("attackerIdx");
         final int bcDefIdx = pendingAttackBroadcast.getInt("defenderIdx");
@@ -2651,14 +2654,38 @@ public class GameScreen extends ScreenAdapter {
       btOverlay.setColor(0f, 0f, 0.4f, 0.7f);
       gameStage.addActor(btOverlay);
 
-      Label btTitle = new Label("Battery Tower! Incoming attack — fire?", MyGdxGame.skin);
-      btTitle.setColor(Color.YELLOW);
-      btTitle.setPosition(MyGdxGame.WIDTH / 2f - btTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.6f);
-      gameStage.addActor(btTitle);
+      // Build attack info: count of attacking cards and which slot / king is targeted.
+      // The actual card identities are NOT shown here (defender must not know them yet).
+      int btAttackCount = 0;
+      try {
+        JSONArray btAtkIds = btCheck.optJSONArray("attackCardIds");
+        if (btAtkIds != null) btAttackCount = btAtkIds.length();
+      } catch (Exception ignored) {}
+      boolean btIsKing = btCheck.optBoolean("isKing", false);
+      int btAtkIdx = btCheck.optInt("attackerIdx", -1);
+      String btAtkName = (btAtkIdx >= 0 && btAtkIdx < gameState.getPlayers().size())
+          ? gameState.getPlayers().get(btAtkIdx).getPlayerName() : "Enemy";
+      String btTargetDesc = btIsKing ? "your king" : "your defence slot " + (btCheck.optInt("positionId", 0) + 1);
+      String btInfoText = btAtkName + " attacks " + btTargetDesc + " with " + btAttackCount + " card" + (btAttackCount == 1 ? "" : "s") + ".";
 
+      Table btTable = new Table();
+      btTable.setFillParent(true);
+
+      Label btTitle = new Label("Battery Tower", MyGdxGame.skin);
+      btTitle.setColor(Color.YELLOW);
+      btTable.add(btTitle).padBottom(8f).row();
+
+      Label btInfo = new Label(btInfoText, MyGdxGame.skin);
+      btInfo.setColor(Color.WHITE);
+      btTable.add(btInfo).padBottom(6f).row();
+
+      Label btQuestion = new Label("Use your charge to fire and deny the attack?", MyGdxGame.skin);
+      btQuestion.setColor(Color.CYAN);
+      btTable.add(btQuestion).padBottom(20f).row();
+
+      Table btBtnRow = new Table();
       TextButton allowBtn = new TextButton("Allow", MyGdxGame.skin);
-      allowBtn.setWidth(MyGdxGame.WIDTH / 4f);
-      allowBtn.setPosition(MyGdxGame.WIDTH / 2f - allowBtn.getWidth() - 8f, MyGdxGame.WIDTH * 0.5f);
+      allowBtn.pad(6f, 16f, 6f, 16f);
       allowBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -2672,18 +2699,15 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      gameStage.addActor(allowBtn);
-
       TextButton denyBtn = new TextButton("Deny (Fire!)", MyGdxGame.skin);
-      denyBtn.setWidth(MyGdxGame.WIDTH / 4f);
-      denyBtn.setPosition(MyGdxGame.WIDTH / 2f + 8f, MyGdxGame.WIDTH * 0.5f);
+      denyBtn.pad(6f, 16f, 6f, 16f);
       denyBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
           // Spend the charge
           Player me = gameState.getPlayers().get(playerIndex);
           for (int i = 0; i < me.getHeroes().size(); i++) {
-            if (me.getHeroes().get(i).getHeroName() == "Battery Tower") {
+            if (me.getHeroes().get(i).getHeroName().equals("Battery Tower")) {
               ((BatteryTower) me.getHeroes().get(i)).fire();
               break;
             }
@@ -2703,7 +2727,10 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      gameStage.addActor(denyBtn);
+      btBtnRow.add(allowBtn).padRight(12f);
+      btBtnRow.add(denyBtn);
+      btTable.add(btBtnRow);
+      gameStage.addActor(btTable);
     }
 
     // Battery Tower result overlay — shown to the defender after they allow or deny
@@ -2714,31 +2741,30 @@ public class GameScreen extends ScreenAdapter {
       btResOverlay.setColor(0f, 0f, 0f, 0.6f);
       gameStage.addActor(btResOverlay);
 
+      Table btResTable = new Table();
+      btResTable.setFillParent(true);
+
       Label btResTitle = new Label("Attack cards used:", MyGdxGame.skin);
       btResTitle.setColor(Color.YELLOW);
-      btResTitle.setPosition(MyGdxGame.WIDTH / 2f - btResTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.62f);
-      gameStage.addActor(btResTitle);
+      btResTable.add(btResTitle).padBottom(12f).row();
 
       try {
         Card sampleCard = new Card();
         float cw = sampleCard.getDefWidth() * 1.5f;
         float ch = sampleCard.getDefHeight() * 1.5f;
-        float totalW = resultCards.length() * cw + (resultCards.length() - 1) * 4f;
-        float startX = MyGdxGame.WIDTH / 2f - totalW / 2f;
-        float cardY = MyGdxGame.WIDTH * 0.68f;
+        Table cardsRow = new Table();
         for (int ai = 0; ai < resultCards.length(); ai++) {
           Card rc = Card.fromCardId(resultCards.getInt(ai));
           rc.setCovered(false);
           rc.setWidth(cw);
           rc.setHeight(ch);
-          rc.setPosition(startX + ai * (cw + 4f), cardY);
-          gameStage.addActor(rc);
+          cardsRow.add(rc).size(cw, ch).padRight(ai < resultCards.length() - 1 ? 4f : 0f);
         }
+        btResTable.add(cardsRow).padBottom(16f).row();
       } catch (JSONException ignored) {}
 
       TextButton btResDismiss = new TextButton("OK", MyGdxGame.skin);
-      btResDismiss.setWidth(MyGdxGame.WIDTH / 4f);
-      btResDismiss.setPosition(MyGdxGame.WIDTH / 2f - btResDismiss.getWidth() / 2f, MyGdxGame.WIDTH * 0.5f);
+      btResDismiss.pad(6f, 24f, 6f, 24f);
       btResDismiss.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -2746,7 +2772,8 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      gameStage.addActor(btResDismiss);
+      btResTable.add(btResDismiss);
+      gameStage.addActor(btResTable);
     }
 
     // Winner overlay — shown on top of everything when a winner is determined

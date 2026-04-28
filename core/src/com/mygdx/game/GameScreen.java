@@ -802,7 +802,7 @@ public class GameScreen extends ScreenAdapter {
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
-    texZoomButton  = createMagnifierTexture(44);
+    texZoomButton  = new Texture(Gdx.files.internal("data/graphics/lens.png"));
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -4723,33 +4723,6 @@ public class GameScreen extends ScreenAdapter {
   }
 
   /** Creates a simple white magnifying-glass icon of the given pixel size using Pixmap. */
-  private Texture createMagnifierTexture(int size) {
-    Pixmap pm = new Pixmap(size, size, Pixmap.Format.RGBA8888);
-    pm.setColor(0f, 0f, 0f, 0f);
-    pm.fill();
-    pm.setColor(Color.WHITE);
-    // Glass ring: center at ~38%, radius ~23%
-    int cx = Math.round(size * 0.38f);
-    int cy = Math.round(size * 0.38f);
-    int r  = Math.round(size * 0.23f);
-    // Draw 3-pixel-wide ring
-    pm.drawCircle(cx, cy, r - 1);
-    pm.drawCircle(cx, cy, r);
-    pm.drawCircle(cx, cy, r + 1);
-    // Handle: diagonal line from lower-right of circle to corner
-    int hx1 = Math.round(cx + r * 0.72f);
-    int hy1 = Math.round(cy + r * 0.72f);
-    int hx2 = size - 4;
-    int hy2 = size - 4;
-    // Draw 3-pixel-wide line by offsetting perpendicular to the diagonal
-    pm.drawLine(hx1,     hy1,     hx2,     hy2);
-    pm.drawLine(hx1 + 1, hy1,     hx2 + 1, hy2);
-    pm.drawLine(hx1,     hy1 + 1, hx2,     hy2 + 1);
-    Texture tex = new Texture(pm);
-    pm.dispose();
-    return tex;
-  }
-
   private void addMenuButtonToOverlay() {
     float btnSize = 44f;
     float gap = 4f;

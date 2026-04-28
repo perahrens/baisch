@@ -368,7 +368,7 @@ public class Card extends Actor {
     // G = inward margin so king cards don't touch screen edges.
     // The entire formation (king + 3 def cards) is shifted toward the center by G.
     // Card spacing within the formation is unchanged (edge-to-edge, same as before).
-    final float G = defWidth;
+    final float G = 5f;
     switch (player) {
     case 0: // bottom — shift formation UP by G
       switch (position) {

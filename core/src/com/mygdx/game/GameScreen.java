@@ -225,6 +225,8 @@ public class GameScreen extends ScreenAdapter {
   private Texture texSomeSymbol;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
+  private Texture texSword;
+  private Texture texSuits;
   private Texture texMenuButton;
   private Texture texChatIcon;
   private Texture texHistoryIcon;
@@ -799,6 +801,8 @@ public class GameScreen extends ScreenAdapter {
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
+    texSword     = new Texture(Gdx.files.internal("data/skins/sword.png"));
+    texSuits     = new Texture(Gdx.files.internal("data/graphics/suits.png"));
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
@@ -3643,7 +3647,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Display all heroes of current player
     // Bottom bar height (finish-turn button) — heroes sit just above it
-    final float bottomBarH = new TextButton("Finish turn", MyGdxGame.skin).getPrefHeight() + 2f;
+    final float bottomBarH = new TextButton("End turn", MyGdxGame.skin).getPrefHeight() + 2f;
     for (int j = 0; j < playerHeroes.size(); j++) {
       final Hero hero = playerHeroes.get(j);
       hero.setHand(true);
@@ -3816,8 +3820,8 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Turn info and button
-    finishTurnButton = new TextButton("Finish turn", MyGdxGame.skin);
-    finishTurnButton.setSize(finishTurnButton.getPrefWidth() + 10, finishTurnButton.getPrefHeight());
+    finishTurnButton = new TextButton("End turn", MyGdxGame.skin);
+    finishTurnButton.setSize(finishTurnButton.getPrefWidth(), finishTurnButton.getPrefHeight());
     finishTurnButton.setPosition(MyGdxGame.WIDTH - finishTurnButton.getWidth(), 0);
     myPlayerLabel = new Label(currentPlayer.getPlayerName(), MyGdxGame.skin);
     myPlayerLabel.setColor(Color.WHITE);
@@ -3979,7 +3983,7 @@ public class GameScreen extends ScreenAdapter {
     } else if ("spades".equals(attackingSymbol)) {
       sym1Tex = texSpades;      sym1W = 512; sym1H = 512;
     } else {
-      sym1Tex = texSomeSymbol;  sym1W = 342; sym1H = 512;
+      sym1Tex = texSuits;    sym1W = 1648; sym1H = 1918;
     }
 
     Texture sym2Tex = texSomeSymbol; int sym2W = 342; int sym2H = 512;
@@ -4000,39 +4004,98 @@ public class GameScreen extends ScreenAdapter {
     final Color shieldAvailColor = new Color(0.1f, 1f, 0.1f, 1f);
     final Color shieldDimColor   = new Color(0.25f, 0.25f, 0.25f, 0.6f);
 
-    // Take-defense shield — always visible; green highlight + bright icon when available
+    // Take-defense shield — always visible; green highlight when available; tappable for info
+    final boolean fTakeShieldAvail = takeShieldAvail;
+    final boolean fPutShieldAvail  = putShieldAvail;
+    final String  fAttackSym1      = attackingSymbol;
+    final String  fAttackSym2      = attackingSymbolExt;
     Table arrowCell = new Table(MyGdxGame.skin);
     if (takeShieldAvail) {
       arrowCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
     }
     Image arrowShieldImg = new Image(new TextureRegion(texArrowDownShield,
-        0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight())) {
-      @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-    };
+        0, 0, texArrowDownShield.getWidth(), texArrowDownShield.getHeight()));
     arrowShieldImg.setColor(takeShieldAvail ? shieldAvailColor : shieldDimColor);
     arrowCell.add(arrowShieldImg).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    arrowCell.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        String body = fTakeShieldAvail
+            ? "You have a defense take action available this turn.\nSelect a defense card on the board to move it to your hand."
+            : "No defense take action available this turn.";
+        showSimpleInfoOverlay("Defense Take", body);
+        event.stop();
+      }
+    });
     iconsRow.add(arrowCell).size(iconH, iconH).padRight(2f);
 
-    // Put-defense shield — always visible
+    // Put-defense shield — always visible; tappable for info
     Table checkCell = new Table(MyGdxGame.skin);
     if (putShieldAvail) {
       checkCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
     }
     Image shieldCheckImg = new Image(new TextureRegion(texShieldCheck,
-        0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight())) {
-      @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-    };
+        0, 0, texShieldCheck.getWidth(), texShieldCheck.getHeight()));
     shieldCheckImg.setColor(putShieldAvail ? shieldAvailColor : shieldDimColor);
     checkCell.add(shieldCheckImg).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    checkCell.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        String body = fPutShieldAvail
+            ? "You have a defense put action available this turn.\nSelect a hand card and tap an empty defense slot to place it."
+            : "No defense put action available this turn.";
+        showSimpleInfoOverlay("Defense Put", body);
+        event.stop();
+      }
+    });
     iconsRow.add(checkCell).size(iconH, iconH).padRight(2f);
 
-    // Symbol slot: always iconH x iconH total.
-    // One symbol: full icon.
-    // Two symbols: both drawn at full size, sym1 shifted left by iconH/2, sym2 shifted right by iconH/2.
+    // Loot sword icon — green highlight when loot action available this turn
+    boolean lootAvail = isMyTurn && ptHand.getPickingDeckAttacks() > 0 && !ptHand.isLootPending();
+    final boolean fLootAvail = lootAvail;
+    Table swordCell = new Table(MyGdxGame.skin);
+    if (lootAvail) {
+      swordCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
+    }
+    Image swordImg = new Image(new TextureRegion(texSword, 0, 0, texSword.getWidth(), texSword.getHeight()));
+    swordImg.setColor(lootAvail ? shieldAvailColor : shieldDimColor);
+    swordCell.add(swordImg).size(iconH * 0.85f, iconH * 0.85f).pad(iconH * 0.075f);
+    swordCell.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        String body = fLootAvail
+            ? "You have a loot action available this turn.\nSelect a card in your hand then tap a lootable target on the board."
+            : "No loot action available this turn.";
+        showSimpleInfoOverlay("Loot", body);
+        event.stop();
+      }
+    });
+    iconsRow.add(swordCell).size(iconH, iconH).padRight(2f);
+
+    // Symbol slot: always iconH x iconH total; tappable for info about attacking symbol
+    Table symCell = new Table(MyGdxGame.skin);
+    if ("none".equals(attackingSymbol)) {
+      symCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
+    }
+    symCell.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        String body;
+        if ("none".equals(fAttackSym1)) {
+          body = "Your attack symbol is not yet set.\nIt will be locked to the suit of the first card you attack or loot with this turn.";
+        } else if (!"none".equals(fAttackSym2)) {
+          String s1 = fAttackSym1.substring(0, 1).toUpperCase() + fAttackSym1.substring(1);
+          String s2 = fAttackSym2.substring(0, 1).toUpperCase() + fAttackSym2.substring(1);
+          body = "Your attack symbol is " + s1 + " / " + s2 + " (Banneret).\nYou can attack with same-colour pairs.";
+        } else {
+          String s1 = fAttackSym1.substring(0, 1).toUpperCase() + fAttackSym1.substring(1);
+          body = "Your attack symbol is " + s1 + ".\nAll your attacks this turn must use " + s1 + " cards.";
+        }
+        showSimpleInfoOverlay("Attack Symbol", body);
+        event.stop();
+      }
+    });
+    // One symbol: full icon; two symbols: both drawn at full size, sym1 shifted left, sym2 right.
     // No tinting — textures display their natural colors.
     if (!hasTwoSymbols) {
       Image sym1Img = new Image(new TextureRegion(sym1Tex, 0, 0, sym1W, sym1H));
-      iconsRow.add(sym1Img).size(iconH, iconH);
+      symCell.add(sym1Img).size(iconH, iconH);
     } else {
       final float iH = iconH;
       final Texture fSym1Tex = sym1Tex; final int fSym1W = sym1W; final int fSym1H = sym1H;
@@ -4048,15 +4111,14 @@ public class GameScreen extends ScreenAdapter {
       sym2Img.setPosition(iH / 4f, 0f);
       symGroup.addActor(sym1Img);
       symGroup.addActor(sym2Img);
-      iconsRow.add(symGroup).size(iH, iH);
+      symCell.add(symGroup).size(iH, iH);
     }
+    iconsRow.add(symCell).size(iconH, iconH);
 
-    // Unified HUD panel: dark semi-transparent background, name above icons
+    // HUD panel: icons only (no name, no background shadow)
     // Row 3 (bottom bar): HUD panel left, icon buttons centre-left, finish-turn right
     Table hudPanel = new Table(MyGdxGame.skin);
-    hudPanel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.4f)));
     hudPanel.pad(hudPad);
-    hudPanel.add(myPlayerLabel).padBottom(2f).row();
     hudPanel.add(iconsRow);
     hudPanel.pack();
     hudPanel.setPosition(2f, 2f);
@@ -4231,6 +4293,41 @@ public class GameScreen extends ScreenAdapter {
     gameState.setUpdateState(true);
   }
 
+  private void showSimpleInfoOverlay(String title, String body) {
+    menuOpen = true;
+    overlayStage.clear();
+
+    Image bg = new Image(MyGdxGame.skin, "white");
+    bg.setFillParent(true);
+    bg.setColor(0, 0, 0, 0.82f);
+    overlayStage.addActor(bg);
+
+    Table outer = new Table();
+    outer.setFillParent(true);
+    outer.pad(20f);
+
+    // Content (title + body) centered vertically in the available space above the close button
+    Table content = new Table();
+    Label titleLabel = new Label(title, MyGdxGame.skin);
+    titleLabel.setColor(Color.GOLD);
+    content.add(titleLabel).padBottom(10).row();
+
+    Label bodyLabel = new Label(body, MyGdxGame.skin);
+    bodyLabel.setWrap(true);
+    bodyLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
+    content.add(bodyLabel).width(MyGdxGame.WIDTH * 0.8f).center().row();
+
+    outer.add(content).expand().center().row();
+
+    TextButton closeBtn = new TextButton("Close", MyGdxGame.skin);
+    closeBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) { closeMenu(); }
+    });
+    outer.add(closeBtn).fillX().bottom().row();
+
+    overlayStage.addActor(outer);
+  }
+
   private void showHeroInfoOverlay(String heroName) {
     menuOpen = true;
     overlayStage.clear();
@@ -4265,7 +4362,7 @@ public class GameScreen extends ScreenAdapter {
         closeMenu();
       }
     });
-    outer.add(closeBtn).width(300).height(60).padTop(8).row();
+    outer.add(closeBtn).fillX().padTop(8).row();
 
     overlayStage.addActor(outer);
   }
@@ -6402,6 +6499,8 @@ public class GameScreen extends ScreenAdapter {
     texSomeSymbol.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
+    texSword.dispose();
+    texSuits.dispose();
     texMenuButton.dispose();
     texZoomButton.dispose();
   }

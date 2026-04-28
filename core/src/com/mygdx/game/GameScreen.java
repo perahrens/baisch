@@ -2342,7 +2342,7 @@ public class GameScreen extends ScreenAdapter {
         Player defKP = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
         if (defKP != null && defKP.getKingCard() != null) {
           Card kd = Card.fromCardId(defKP.getKingCard().getCardId());
-          kd.setCovered(batteryWaiting); kd.setActive(true);
+          kd.setCovered(defKP.getKingCard().isCovered()); kd.setActive(true);
           kd.setSize(bCW, bCH);
           kd.setPosition(rightX, cBotY);
           gameStage.addActor(kd);
@@ -2354,8 +2354,8 @@ public class GameScreen extends ScreenAdapter {
         for (int di = 0; di < pendingDefViz.size(); di++) {
           Card dc = pendingDefViz.get(di);
           Card disp = Card.fromCardId(dc.getCardId());
-          // Keep defence card face-down until Battery Tower decision is made
-          disp.setCovered(batteryWaiting); disp.setActive(true);
+          // Mirror the actual card face state (face-down if covered, e.g. during battery wait)
+          disp.setCovered(dc.isCovered()); disp.setActive(true);
           disp.setSize(dW, dH);
           float dDispX = rightX + di * (dW + 4f);
           float dDispY = cBotY + (bCH - dH) / 2f;
@@ -2363,7 +2363,7 @@ public class GameScreen extends ScreenAdapter {
           gameStage.addActor(disp);
           // Per-card defender mercenary boost indicator — only shown once card is revealed
           int dcBoost = dc.getBoosted();
-          if (dcBoost > 0 && !batteryWaiting) {
+          if (dcBoost > 0 && !dc.isCovered()) {
             float iSz = dH / 3f;
             TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
             Image mImg = new Image(mReg);
@@ -2385,8 +2385,9 @@ public class GameScreen extends ScreenAdapter {
       atkSumLbl.setColor(Color.WHITE);
       atkSumLbl.setPosition(leftX, cBotY - 22f);
       gameStage.addActor(atkSumLbl);
-      // Defence sum hidden until battery tower decision (attacker cannot know the card value)
-      Label defSumLbl = new Label(batteryWaiting ? "?" : "Sum: " + defVizSum, MyGdxGame.skin);
+      // Defence sum hidden while any defence card is still face-down (attacker cannot know the value)
+      boolean anyDefCovered = !pendingDefViz.isEmpty() && pendingDefViz.get(0).isCovered();
+      Label defSumLbl = new Label(anyDefCovered ? "?" : "Sum: " + defVizSum, MyGdxGame.skin);
       defSumLbl.setColor(Color.WHITE);
       defSumLbl.setPosition(rightX, cBotY - 22f);
       gameStage.addActor(defSumLbl);
@@ -2395,7 +2396,7 @@ public class GameScreen extends ScreenAdapter {
 
       // Reservists attack boost button — shown only when not waiting for Battery Tower
       // and only when the attack is currently failing but spending reservists can flip it
-      if (!batteryWaiting) {
+      if (!anyDefCovered) {
         for (Hero resH : atkPlayer.getHeroes()) {
           if ("Reservists".equals(resH.getHeroName())) {
             final Reservists resHero = (Reservists) resH;

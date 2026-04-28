@@ -50,6 +50,7 @@ public class OwnHandCardListener extends ClickListener {
     // Clicking a hand card deactivates zoom mode (issue #246) so the player can
     // immediately select the card. Works regardless of whose turn it is.
     com.mygdx.game.GameScreen gs = com.mygdx.game.GameScreen.getInstance();
+    if (gs != null && gs.isSpectator()) return;
     if (gs != null && gs.isZoomModeActive()) {
       gs.deactivateZoomMode();
       // fall through — let the card selection proceed

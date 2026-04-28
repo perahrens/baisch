@@ -47,7 +47,7 @@ public class OwnKingCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
-    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
+    if (com.mygdx.game.GameScreen.getInstance() != null && (com.mygdx.game.GameScreen.getInstance().isSpectator() || com.mygdx.game.GameScreen.getInstance().isZoomModeActive())) return;
 
     if (player.getSelectedHeroes().size() > 0) {
       // Mercenaries in defense mode: top half of king adds a mercenary, bottom half removes one.

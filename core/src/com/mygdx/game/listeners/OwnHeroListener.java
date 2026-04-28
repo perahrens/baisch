@@ -30,6 +30,7 @@ public class OwnHeroListener extends ClickListener {
   public void clicked(InputEvent event, float x, float y) {
     // Clicking a hero in the hand area deactivates zoom mode (issue #246)
     com.mygdx.game.GameScreen gs = com.mygdx.game.GameScreen.getInstance();
+    if (gs != null && gs.isSpectator()) return;
     if (gs != null && gs.isZoomModeActive()) {
       gs.deactivateZoomMode();
       // fall through — let hero selection proceed

@@ -37,7 +37,7 @@ public class EnemyPlaceholderListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
-    if (com.mygdx.game.GameScreen.getInstance() != null && com.mygdx.game.GameScreen.getInstance().isZoomModeActive()) return;
+    if (com.mygdx.game.GameScreen.getInstance() != null && (com.mygdx.game.GameScreen.getInstance().isSpectator() || com.mygdx.game.GameScreen.getInstance().isZoomModeActive())) return;
     // Only act when Saboteurs hero is selected
     for (int si = 0; si < player.getHeroes().size(); si++) {
       if ("Saboteurs".equals(player.getHeroes().get(si).getHeroName())

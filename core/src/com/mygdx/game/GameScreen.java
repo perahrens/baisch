@@ -168,6 +168,7 @@ public class GameScreen extends ScreenAdapter {
   private static GameScreen INSTANCE = null;
   public static GameScreen getInstance() { return INSTANCE; }
   public boolean isZoomModeActive() { return zoomModeActive; }
+  public boolean isSpectator() { return isSpectator; }
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;

@@ -733,12 +733,20 @@ public class GameScreen extends ScreenAdapter {
 
     gameBck = new Image(new TextureRegionDrawable(new TextureRegion(texGameBck)));
     gameBck.setFillParent(true);
-    // Tapping empty space in the game board unzooms any card/deck (issue #246).
+    // Tapping empty space in the game board unzooms any card/deck (issue #246)
+    // and deselects any selected defense or king card.
     gameBck.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
         if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
         if (currentlyZoomedDeck != null) { setDeckScale(currentlyZoomedDeck, 1f); currentlyZoomedDeck = null; }
+        // Deselect any selected defense or king card
+        if (currentPlayer != null) {
+          for (Card c : currentPlayer.getDefCards().values()) c.setSelected(false);
+          for (Card c : currentPlayer.getTopDefCards().values()) c.setSelected(false);
+          if (currentPlayer.getKingCard() != null) currentPlayer.getKingCard().setSelected(false);
+          gameState.setUpdateState(true);
+        }
         return false;
       }
     });

@@ -222,7 +222,6 @@ public class GameScreen extends ScreenAdapter {
   private Texture texClubs;
   private Texture texSpades;
   private Texture texSomeSymbol;
-  private Texture texSword;
   private Texture texCrone;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
@@ -790,7 +789,6 @@ public class GameScreen extends ScreenAdapter {
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
     texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
-    texSword           = new Texture(Gdx.files.internal("data/skins/sword.png"));
     texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
@@ -1206,6 +1204,7 @@ public class GameScreen extends ScreenAdapter {
     for (int i = 0; i < pickingDecks.size(); i++) {
       ArrayList<Card> pickingCards = pickingDecks.get(i).getCards();
       for (int j = 0; j < pickingCards.size(); j++) {
+        pickingCards.get(j).setDefColor(Color.WHITE); // reset any previous highlight
         pickingCards.get(j).setX(MyGdxGame.WIDTH / 2 - pickingCards.get(j).getDefWidth() / 2
             + (2 * i - 1) * 0.8f * pickingCards.get(j).getDefWidth());
         pickingCards.get(j).setY(MyGdxGame.WIDTH / 2 - pickingCards.get(j).getDefHeight() / 2
@@ -3222,26 +3221,28 @@ public class GameScreen extends ScreenAdapter {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    // Sword overlay on both harvest decks when loot is available — added late so it sits above all cards.
+    // Golden highlight on looting decks when plundering is available AND a usable hand card exists.
     // Crone overlay on own king card when king attack is possible.
     if (gameState.getCurrentPlayer() == currentPlayer) {
       PlayerTurn ptGame = currentPlayer.getPlayerTurn();
 
       if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isLootPending()) {
-        ArrayList<PickingDeck> swordDecks = gameState.getPickingDecks();
-        for (int si = 0; si < swordDecks.size(); si++) {
-          ArrayList<Card> sCards = swordDecks.get(si).getCards();
-          if (!sCards.isEmpty()) {
-            Card topCard = sCards.get(sCards.size() - 1);
-            float iconSize = topCard.getDefWidth() * 0.55f;
-            float cx = topCard.getX() + topCard.getDefWidth() / 2f;
-            float cy = topCard.getY() + topCard.getDefHeight() / 2f;
-            Image swordImg = new Image(new TextureRegion(texSword, 0, 0, texSword.getWidth(), texSword.getHeight())) {
-              @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-            };
-            swordImg.setSize(iconSize, iconSize);
-            swordImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
-            gameStage.addActor(swordImg);
+        String atkSym    = ptGame.getAttackingSymbol()[0];
+        String atkSymExt = ptGame.getAttackingSymbol()[1];
+        boolean hasAttackCard = false;
+        for (Card hc : currentPlayer.getHandCards()) {
+          String sym = hc.getSymbol();
+          if ("joker".equals(sym) || "none".equals(atkSym)
+              || sym.equals(atkSym) || sym.equals(atkSymExt)) {
+            hasAttackCard = true;
+            break;
+          }
+        }
+        if (hasAttackCard) {
+          for (PickingDeck hlDeck : gameState.getPickingDecks()) {
+            for (Card c : hlDeck.getCards()) {
+              c.setDefColor(new Color(1f, 0.85f, 0.1f, 1f)); // golden tint
+            }
           }
         }
       }
@@ -6419,7 +6420,6 @@ public class GameScreen extends ScreenAdapter {
     texClubs.dispose();
     texSpades.dispose();
     texSomeSymbol.dispose();
-    texSword.dispose();
     texCrone.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();

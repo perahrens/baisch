@@ -219,6 +219,10 @@ public class Card extends Actor {
     return this.symbol;
   }
 
+  public void setDefColor(Color c) {
+    defColor = c;
+  }
+
 
   public int getStrength() {
     int strength = index;

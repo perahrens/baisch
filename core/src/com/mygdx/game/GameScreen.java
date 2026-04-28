@@ -222,7 +222,6 @@ public class GameScreen extends ScreenAdapter {
   private Texture texClubs;
   private Texture texSpades;
   private Texture texSomeSymbol;
-  private Texture texCrone;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
   private Texture texMenuButton;
@@ -789,7 +788,6 @@ public class GameScreen extends ScreenAdapter {
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
     texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
-    texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
@@ -3220,27 +3218,7 @@ public class GameScreen extends ScreenAdapter {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    // Crone overlay on own king card when king attack is possible.
-    if (gameState.getCurrentPlayer() == currentPlayer) {
-      PlayerTurn ptGame = currentPlayer.getPlayerTurn();
 
-      boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
-          && currentPlayer.getTopDefCards().isEmpty()
-          && !ptGame.isKingUsedThisTurn()
-          && !ptGame.isAttackPending();
-      if (canKingAtk && currentPlayer.getKingCard() != null) {
-        Card kc = currentPlayer.getKingCard();
-        float iconSize = kc.getDefWidth() * 0.55f;
-        float cx = kc.getX() + kc.getDefWidth() / 2f;
-        float cy = kc.getY() + kc.getDefHeight() / 2f;
-        Image croneImg = new Image(new TextureRegion(texCrone, 0, 0, texCrone.getWidth(), texCrone.getHeight())) {
-          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-        };
-        croneImg.setSize(iconSize, iconSize);
-        croneImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
-        gameStage.addActor(croneImg);
-      }
-    }
 
     // Merchant reveal overlay — shown on top while the current player decides Keep / 2nd Try
     Card merchantPendingCard = null;
@@ -5964,6 +5942,23 @@ public class GameScreen extends ScreenAdapter {
     // Show a semi-transparent green overlay when placing a defence card.
     handHighlight.setColor(0.3f, 0.8f, 0.3f, anyOwnDefSelected ? 0.45f : 0f);
 
+    // Per-frame: golden highlight king card when king attack is available; white when selected (green applied by draw()).
+    if (!gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+      PlayerTurn ptKing = currentPlayer.getPlayerTurn();
+      Card kingCard = currentPlayer.getKingCard();
+      if (kingCard != null) {
+        boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
+            && currentPlayer.getTopDefCards().isEmpty()
+            && !ptKing.isKingUsedThisTurn()
+            && !ptKing.isAttackPending();
+        if (canKingAtk && !kingCard.isSelected()) {
+          kingCard.setDefColor(new Color(1f, 0.85f, 0.1f, 1f));
+        } else {
+          kingCard.setDefColor(Color.WHITE);
+        }
+      }
+    }
+
     // Per-frame: highlight looting decks golden when plundering is available
     // AND the player has at least one selected hand card with a matching attack symbol.
     if (!gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
@@ -6423,7 +6418,6 @@ public class GameScreen extends ScreenAdapter {
     texClubs.dispose();
     texSpades.dispose();
     texSomeSymbol.dispose();
-    texCrone.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
     texMenuButton.dispose();

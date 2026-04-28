@@ -243,11 +243,18 @@ public class EnemyDefCardListener extends ClickListener {
         : new ArrayList<Card>(player.getSelectedHandCards());
     ArrayList<Card> attackOwnDefSnapshot = new ArrayList<Card>(player.getSelectedDefCards());
 
-    // Immediately reveal the targeted defense card(s)
-    primaryCard.setCovered(false);
+    // Determine if battery tower will intercept before revealing the defense card
+    BatteryTower defBt = getBatteryTower(players.get(targetPlayerIdx));
+    boolean batteryWillIntercept = socket != null && defBt != null && defBt.getCharges() > 0;
+
     Card topDefCard = (level == 0 && targetTopDefCards.containsKey(positionId))
         ? targetTopDefCards.get(positionId) : null;
-    if (topDefCard != null) topDefCard.setCovered(false);
+    // Reveal the targeted defense card(s) immediately only when no battery tower will intercept
+    // (cards will be revealed by the batteryAllowAttack handler when intercept is allowed)
+    if (!batteryWillIntercept) {
+      primaryCard.setCovered(false);
+      if (topDefCard != null) topDefCard.setCovered(false);
+    }
 
     // Compute result
     boolean success;
@@ -319,11 +326,10 @@ public class EnemyDefCardListener extends ClickListener {
     }
 
     // Only trigger the Battery Tower intercept flow when the defender actually has one with charges.
-    BatteryTower defBt = getBatteryTower(players.get(targetPlayerIdx));
-    if (socket != null && defBt != null && defBt.getCharges() > 0) {
+    if (batteryWillIntercept) {
       pt.setBatteryWaiting(true);
       emitBatteryDefenseCheck(targetPlayerIdx, positionId, level, false,
-          attackSnapshot, pt.isAttackSuccess());
+          attackSnapshot, pt.getPendingAttackMercenaryBonus(), pt.isAttackSuccess());
     }
 
     // Emit attack preview to server so the defender can see the battle in progress.
@@ -347,7 +353,7 @@ public class EnemyDefCardListener extends ClickListener {
   }
 
   void emitBatteryDefenseCheck(int targetPlayerIdx, int positionId, int level,
-      boolean isKing, ArrayList<Card> attackCards, boolean success) {
+      boolean isKing, ArrayList<Card> attackCards, int mercenaryBonus, boolean success) {
     if (socket == null) return;
     try {
       JSONObject data = new JSONObject();
@@ -357,6 +363,7 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("level", level);
       data.put("isKing", isKing);
       data.put("success", success);
+      data.put("mercenaryBonus", mercenaryBonus);
       JSONArray atkIds = new JSONArray();
       for (Card c : attackCards) atkIds.put(c.getCardId());
       data.put("attackCardIds", atkIds);

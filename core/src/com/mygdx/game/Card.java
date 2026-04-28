@@ -365,11 +365,12 @@ public class Card extends Actor {
     setHeight(defHeight);
     isSelected = false;
     positionId = position;
-    // Small margin from screen edges (kings) and gap between adjacent defense cards.
-    // G ≈ 25% of card width gives a comfortable inset without shrinking the play area.
-    final float G = defWidth * 0.25f;
+    // G = inward margin so king cards don't touch screen edges.
+    // The entire formation (king + 3 def cards) is shifted toward the center by G.
+    // Card spacing within the formation is unchanged (edge-to-edge, same as before).
+    final float G = defWidth;
     switch (player) {
-    case 0:
+    case 0: // bottom — shift formation UP by G
       switch (position) {
       case 0:
         setX((MyGdxGame.WIDTH - getWidth()) / 2);
@@ -377,14 +378,14 @@ public class Card extends Actor {
         rotate = 0;
         break;
       default:
-        setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * (getWidth() + G));
+        setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         setY(getHeight() + G);
         setY(getY() + 0.25f * level * getHeight()); // level shift
         rotate = 0;
         break;
       }
       break;
-    case 1:
+    case 1: // left — shift formation RIGHT by G
       switch (position) {
       case 0:
         setX((getHeight() - getWidth()) / 2 + G);
@@ -394,12 +395,12 @@ public class Card extends Actor {
       default:
         setX((getHeight() - getWidth()) / 2 + getHeight() + G);
         setX(getX() + 0.25f * level * getHeight()); // level shift
-        setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * (getWidth() + G));
+        setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         rotate = -90;
         break;
       }
       break;
-    case 2:
+    case 2: // top — shift formation DOWN by G
       switch (position) {
       case 0:
         setX((MyGdxGame.WIDTH - getWidth()) / 2);
@@ -407,14 +408,14 @@ public class Card extends Actor {
         rotate = 180;
         break;
       default:
-        setX((MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * (getWidth() + G));
+        setX((MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         setY(MyGdxGame.WIDTH - 2f * getHeight() - G);
         setY(getY() - 0.25f * level * getHeight()); // level shift
         rotate = 180;
         break;
       }
       break;
-    case 3:
+    case 3: // right — shift formation LEFT by G
       switch (position) {
       case 0:
         setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - getHeight() - G);
@@ -424,7 +425,7 @@ public class Card extends Actor {
       default:
         setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - 2f * getHeight() - G);
         setX(getX() - 0.25f * level * getHeight()); // level shift
-        setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * (getWidth() + G));
+        setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         rotate = 90;
         break;
       }

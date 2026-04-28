@@ -4746,10 +4746,14 @@ public class GameScreen extends ScreenAdapter {
       c.setOriginX(c.getWidth() / 2f);
       c.setOriginY(c.getHeight() / 2f);
       c.setScale(scale);
-      // Do NOT call c.toFront() here: the PickingDeck actor is already added on top
-      // of the card actors in gameStage. Calling toFront() on a card would move it
-      // in front of the PickingDeck, which would block touch events from reaching
-      // the PickingDeck listener (causing looting to break and the game to get stuck).
+      if (scale > 1f) {
+        c.toFront(); // bring above defense cards when zoomed
+      }
+    }
+    if (scale > 1f) {
+      // Keep the PickingDeck actor on top of its own cards so it still
+      // intercepts touches (required for PickingDeckListener to fire).
+      deck.toFront();
     }
   }
 

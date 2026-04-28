@@ -2337,12 +2337,12 @@ public class GameScreen extends ScreenAdapter {
         }
       }
 
-      // Defense cards (right column)
+      // Defense cards (right column) — shown face-down while waiting for Battery Tower
       if (targetIsKing) {
         Player defKP = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
         if (defKP != null && defKP.getKingCard() != null) {
           Card kd = Card.fromCardId(defKP.getKingCard().getCardId());
-          kd.setCovered(false); kd.setActive(true);
+          kd.setCovered(batteryWaiting); kd.setActive(true);
           kd.setSize(bCW, bCH);
           kd.setPosition(rightX, cBotY);
           gameStage.addActor(kd);
@@ -2354,15 +2354,16 @@ public class GameScreen extends ScreenAdapter {
         for (int di = 0; di < pendingDefViz.size(); di++) {
           Card dc = pendingDefViz.get(di);
           Card disp = Card.fromCardId(dc.getCardId());
-          disp.setCovered(false); disp.setActive(true);
+          // Keep defence card face-down until Battery Tower decision is made
+          disp.setCovered(batteryWaiting); disp.setActive(true);
           disp.setSize(dW, dH);
           float dDispX = rightX + di * (dW + 4f);
           float dDispY = cBotY + (bCH - dH) / 2f;
           disp.setPosition(dDispX, dDispY);
           gameStage.addActor(disp);
-          // Per-card defender mercenary boost indicator
+          // Per-card defender mercenary boost indicator — only shown once card is revealed
           int dcBoost = dc.getBoosted();
-          if (dcBoost > 0) {
+          if (dcBoost > 0 && !batteryWaiting) {
             float iSz = dH / 3f;
             TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
             Image mImg = new Image(mReg);
@@ -2384,7 +2385,8 @@ public class GameScreen extends ScreenAdapter {
       atkSumLbl.setColor(Color.WHITE);
       atkSumLbl.setPosition(leftX, cBotY - 22f);
       gameStage.addActor(atkSumLbl);
-      Label defSumLbl = new Label("Sum: " + defVizSum, MyGdxGame.skin);
+      // Defence sum hidden until battery tower decision (attacker cannot know the card value)
+      Label defSumLbl = new Label(batteryWaiting ? "?" : "Sum: " + defVizSum, MyGdxGame.skin);
       defSumLbl.setColor(Color.WHITE);
       defSumLbl.setPosition(rightX, cBotY - 22f);
       gameStage.addActor(defSumLbl);
@@ -2654,34 +2656,65 @@ public class GameScreen extends ScreenAdapter {
       btOverlay.setColor(0f, 0f, 0.4f, 0.7f);
       gameStage.addActor(btOverlay);
 
-      // Build attack info: count of attacking cards and which slot / king is targeted.
-      // The actual card identities are NOT shown here (defender must not know them yet).
+      // How many cards are in the attack (count only — identities are hidden from defender)
       int btAttackCount = 0;
       try {
         JSONArray btAtkIds = btCheck.optJSONArray("attackCardIds");
         if (btAtkIds != null) btAttackCount = btAtkIds.length();
       } catch (Exception ignored) {}
-      boolean btIsKing = btCheck.optBoolean("isKing", false);
-      int btAtkIdx = btCheck.optInt("attackerIdx", -1);
-      String btAtkName = (btAtkIdx >= 0 && btAtkIdx < gameState.getPlayers().size())
-          ? gameState.getPlayers().get(btAtkIdx).getPlayerName() : "Enemy";
-      String btTargetDesc = btIsKing ? "your king" : "your defence slot " + (btCheck.optInt("positionId", 0) + 1);
-      String btInfoText = btAtkName + " attacks " + btTargetDesc + " with " + btAttackCount + " card" + (btAttackCount == 1 ? "" : "s") + ".";
+      final boolean btIsKing = btCheck.optBoolean("isKing", false);
+      final int btPosId = btCheck.optInt("positionId", 0);
+
+      // Get the defender's own card that is being attacked
+      Player btMe = gameState.getPlayers().get(playerIndex);
+      final Card btDefCard = btIsKing ? btMe.getKingCard() : btMe.getDefCards().get(btPosId);
 
       Table btTable = new Table();
       btTable.setFillParent(true);
 
       Label btTitle = new Label("Battery Tower", MyGdxGame.skin);
       btTitle.setColor(Color.YELLOW);
-      btTable.add(btTitle).padBottom(8f).row();
+      btTable.add(btTitle).padBottom(14f).row();
 
-      Label btInfo = new Label(btInfoText, MyGdxGame.skin);
-      btInfo.setColor(Color.WHITE);
-      btTable.add(btInfo).padBottom(6f).row();
+      // Card visualisation row
+      Card btRefCard = new Card();
+      float btCW = btRefCard.getDefWidth() * 1.5f;
+      float btCH = btRefCard.getDefHeight() * 1.5f;
 
-      Label btQuestion = new Label("Use your charge to fire and deny the attack?", MyGdxGame.skin);
+      Table btCardsRow = new Table();
+
+      // Left column — N face-down cards (attacker's cards, identity hidden)
+      Table btAtkCol = new Table();
+      Label btAtkHdr = new Label("Attack", MyGdxGame.skin);
+      btAtkHdr.setColor(Color.CYAN);
+      btAtkCol.add(btAtkHdr).padBottom(4f).row();
+      Table btAtkCards = new Table();
+      for (int bi = 0; bi < btAttackCount; bi++) {
+        Card faceDown = new Card();
+        faceDown.setCovered(true);
+        btAtkCards.add(faceDown).size(btCW, btCH).padRight(bi < btAttackCount - 1 ? 4f : 0f);
+      }
+      btAtkCol.add(btAtkCards).row();
+      Label btAtkCount = new Label(btAttackCount + " card" + (btAttackCount == 1 ? "" : "s"), MyGdxGame.skin);
+      btAtkCount.setColor(Color.WHITE);
+      btAtkCol.add(btAtkCount).padTop(4f);
+      btCardsRow.add(btAtkCol).padRight(24f);
+
+      // Right column — the defender's own card (they know which one it is)
+      if (btDefCard != null) {
+        Table btDefCol = new Table();
+        Label btDefHdr = new Label(btIsKing ? "My King" : "My Defence", MyGdxGame.skin);
+        btDefHdr.setColor(Color.ORANGE);
+        btDefCol.add(btDefHdr).padBottom(4f).row();
+        Card btDefDisp = Card.fromCardId(btDefCard.getCardId());
+        btDefDisp.setCovered(btDefCard.isCovered());
+        btCardsRow.add(btDefCol.add(btDefDisp).size(btCW, btCH).getTable());
+      }
+      btTable.add(btCardsRow).padBottom(16f).row();
+
+      Label btQuestion = new Label("Block the attack with your Battery Tower?", MyGdxGame.skin);
       btQuestion.setColor(Color.CYAN);
-      btTable.add(btQuestion).padBottom(20f).row();
+      btTable.add(btQuestion).padBottom(16f).row();
 
       Table btBtnRow = new Table();
       TextButton allowBtn = new TextButton("Allow", MyGdxGame.skin);
@@ -2699,7 +2732,7 @@ public class GameScreen extends ScreenAdapter {
           gameState.setUpdateState(true);
         }
       });
-      TextButton denyBtn = new TextButton("Deny (Fire!)", MyGdxGame.skin);
+      TextButton denyBtn = new TextButton("Fire!", MyGdxGame.skin);
       denyBtn.pad(6f, 16f, 6f, 16f);
       denyBtn.addListener(new ClickListener() {
         @Override

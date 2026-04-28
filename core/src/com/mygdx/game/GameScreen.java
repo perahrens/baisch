@@ -5838,8 +5838,8 @@ public class GameScreen extends ScreenAdapter {
       // never set during a non-active turn, so enabling these stages is safe.
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Spectator: only overlay/menu input
-      Gdx.input.setInputProcessor(overlayStage);
+      // Spectator: overlay/menu input (includes chat, history, lens)
+      Gdx.input.setInputProcessor(menuAndGameMulti);
     }
 
     // check if gameState has changed
@@ -5943,7 +5943,7 @@ public class GameScreen extends ScreenAdapter {
     handHighlight.setColor(0.3f, 0.8f, 0.3f, anyOwnDefSelected ? 0.45f : 0f);
 
     // Per-frame: golden highlight king card when king attack is available; white when selected (green applied by draw()).
-    if (!gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+    if (!isSpectator && !gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
       PlayerTurn ptKing = currentPlayer.getPlayerTurn();
       Card kingCard = currentPlayer.getKingCard();
       if (kingCard != null) {
@@ -5961,7 +5961,7 @@ public class GameScreen extends ScreenAdapter {
 
     // Per-frame: highlight looting decks golden when plundering is available
     // AND the player has at least one selected hand card with a matching attack symbol.
-    if (!gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+    if (!isSpectator && !gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
       PlayerTurn ptDeck = currentPlayer.getPlayerTurn();
       boolean shouldHighlight = false;
       if (ptDeck.getPickingDeckAttacks() > 0 && !ptDeck.isLootPending()) {

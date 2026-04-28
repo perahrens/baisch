@@ -2704,6 +2704,7 @@ public class GameScreen extends ScreenAdapter {
       float btAH = btCH * (btAW / btCW);
       for (int bi = 0; bi < btAttackCount; bi++) {
         Card faceDown = new Card();
+        faceDown.setPlaceholder(false); // new Card() defaults to isPlaceholder=true (50% alpha) — we want full opacity
         faceDown.setCovered(true);
         faceDown.setActive(false); // red backside, not dark tint
         faceDown.setSize(btAW, btAH);

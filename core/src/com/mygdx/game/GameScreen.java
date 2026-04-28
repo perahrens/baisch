@@ -2707,7 +2707,7 @@ public class GameScreen extends ScreenAdapter {
         btDefHdr.setColor(Color.ORANGE);
         btDefCol.add(btDefHdr).padBottom(4f).row();
         Card btDefDisp = Card.fromCardId(btDefCard.getCardId());
-        btDefDisp.setCovered(btDefCard.isCovered());
+        btDefDisp.setCovered(false); // Defender always sees their own card face-up
         btCardsRow.add(btDefCol.add(btDefDisp).size(btCW, btCH).getTable());
       }
       btTable.add(btCardsRow).padBottom(16f).row();

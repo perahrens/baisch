@@ -329,7 +329,7 @@ public class EnemyDefCardListener extends ClickListener {
     if (batteryWillIntercept) {
       pt.setBatteryWaiting(true);
       emitBatteryDefenseCheck(targetPlayerIdx, positionId, level, false,
-          attackSnapshot, pt.isAttackSuccess());
+          attackSnapshot, pt.getPendingAttackMercenaryBonus(), pt.isAttackSuccess());
     }
 
     // Emit attack preview to server so the defender can see the battle in progress.
@@ -353,7 +353,7 @@ public class EnemyDefCardListener extends ClickListener {
   }
 
   void emitBatteryDefenseCheck(int targetPlayerIdx, int positionId, int level,
-      boolean isKing, ArrayList<Card> attackCards, boolean success) {
+      boolean isKing, ArrayList<Card> attackCards, int mercenaryBonus, boolean success) {
     if (socket == null) return;
     try {
       JSONObject data = new JSONObject();
@@ -363,6 +363,7 @@ public class EnemyDefCardListener extends ClickListener {
       data.put("level", level);
       data.put("isKing", isKing);
       data.put("success", success);
+      data.put("mercenaryBonus", mercenaryBonus);
       JSONArray atkIds = new JSONArray();
       for (Card c : attackCards) atkIds.put(c.getCardId());
       data.put("attackCardIds", atkIds);

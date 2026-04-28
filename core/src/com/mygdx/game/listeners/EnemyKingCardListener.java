@@ -259,6 +259,7 @@ public class EnemyKingCardListener extends ClickListener {
         data.put("level", -1);
         data.put("isKing", true);
         data.put("success", success);
+        data.put("mercenaryBonus", pt.getPendingAttackMercenaryBonus());
         JSONArray atkIds = new JSONArray();
         for (Card c : attackSnapshot) atkIds.put(c.getCardId());
         data.put("attackCardIds", atkIds);

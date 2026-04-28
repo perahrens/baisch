@@ -2304,6 +2304,22 @@ public class GameScreen extends ScreenAdapter {
         kDisp.setSize(bCW, bCH);
         kDisp.setPosition(leftX, cBotY);
         gameStage.addActor(kDisp);
+        // Merc indicator on king attack (same logic as hand-card path)
+        int kMercViz = apt.getPendingAttackMercenaryBonus();
+        if (kMercViz > 0) {
+          float iSz = bCH / 3f;
+          TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+          Image mImg = new Image(mReg);
+          mImg.setSize(iSz, iSz);
+          mImg.setPosition(leftX + bCW / 2f - iSz / 2f, cBotY + bCH / 2f - iSz / 2f);
+          mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mImg);
+          Label mLbl = new Label("+" + kMercViz, MyGdxGame.skin);
+          mLbl.setColor(Color.GOLD);
+          mLbl.setPosition(leftX + bCW / 2f - iSz / 2f + iSz + 2f, cBotY + bCH / 2f - iSz / 2f);
+          mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+          gameStage.addActor(mLbl);
+        }
       } else {
         ArrayList<Card> atkSrc = new ArrayList<Card>(apt.getPendingAttackCards());
         atkSrc.addAll(apt.getPendingAttackOwnDefCards());
@@ -2710,6 +2726,25 @@ public class GameScreen extends ScreenAdapter {
         faceDown.setSize(btAW, btAH);
         faceDown.setPosition(btLeftX + bi * (btAW + 4f), btCardBotY + (btCH - btAH) / 2f);
         gameStage.addActor(faceDown);
+      }
+      // Mercenary bonus indicator on last attack card
+      final int btMercBonus = btCheck.optInt("mercenaryBonus", 0);
+      if (btMercBonus > 0 && btAttackCount > 0) {
+        int lastBtI = btAttackCount - 1;
+        float lastBtX = btLeftX + lastBtI * (btAW + 4f);
+        float lastBtY = btCardBotY + (btCH - btAH) / 2f;
+        float iSz = btAH / 3f;
+        TextureRegion mReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+        Image mImg = new Image(mReg);
+        mImg.setSize(iSz, iSz);
+        mImg.setPosition(lastBtX + btAW / 2f - iSz / 2f, lastBtY + btAH / 2f - iSz / 2f);
+        mImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+        gameStage.addActor(mImg);
+        Label mLbl = new Label("+" + btMercBonus, MyGdxGame.skin);
+        mLbl.setColor(Color.GOLD);
+        mLbl.setPosition(lastBtX + btAW / 2f - iSz / 2f + iSz + 2f, lastBtY + btAH / 2f - iSz / 2f);
+        mLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+        gameStage.addActor(mLbl);
       }
       Label btAtkCountLbl = new Label(btAttackCount + " card" + (btAttackCount == 1 ? "" : "s"), MyGdxGame.skin);
       btAtkCountLbl.setColor(Color.WHITE);

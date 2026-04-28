@@ -167,6 +167,8 @@ public class GameScreen extends ScreenAdapter {
   // every constructor call site. Set in show(), cleared in hide().
   private static GameScreen INSTANCE = null;
   public static GameScreen getInstance() { return INSTANCE; }
+  public boolean isZoomModeActive() { return zoomModeActive; }
+  public boolean isSpectator() { return isSpectator; }
   // Tutorial mode: guided overlay steps for new players
   private boolean isTutorial = false;
   private int tutorialStep = 0;
@@ -221,8 +223,6 @@ public class GameScreen extends ScreenAdapter {
   private Texture texClubs;
   private Texture texSpades;
   private Texture texSomeSymbol;
-  private Texture texSword;
-  private Texture texCrone;
   private Texture texShieldCheck;
   private Texture texArrowDownShield;
   private Texture texMenuButton;
@@ -230,9 +230,14 @@ public class GameScreen extends ScreenAdapter {
   private Texture texHistoryIcon;
 
   // Card zoom (issue #218)
-  private static final float CARD_ZOOM = 1.35f;
+  private static final float CARD_ZOOM = 1.7f;
   private Card currentlyZoomedCard = null;
+  private PickingDeck currentlyZoomedDeck = null;
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
+  // Zoom-mode toggle (issue #246)
+  private boolean zoomModeActive = false;
+  private Texture texZoomButton;
+  private Image zoomModeBtn;
 
 
   // New constructor for centralized state
@@ -728,6 +733,23 @@ public class GameScreen extends ScreenAdapter {
 
     gameBck = new Image(new TextureRegionDrawable(new TextureRegion(texGameBck)));
     gameBck.setFillParent(true);
+    // Tapping empty space in the game board unzooms any card/deck (issue #246)
+    // and deselects any selected defense or king card.
+    gameBck.addListener(new InputListener() {
+      @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
+        if (currentlyZoomedDeck != null) { setDeckScale(currentlyZoomedDeck, 1f); currentlyZoomedDeck = null; }
+        // Deselect any selected defense or king card
+        if (currentPlayer != null) {
+          for (Card c : currentPlayer.getDefCards().values()) c.setSelected(false);
+          for (Card c : currentPlayer.getTopDefCards().values()) c.setSelected(false);
+          if (currentPlayer.getKingCard() != null) currentPlayer.getKingCard().setSelected(false);
+          gameState.setUpdateState(true);
+        }
+        return false;
+      }
+    });
     gameStage.addActor(gameBck);
 
     // handBck uses a tinted white overlay on top of the photo so that the
@@ -775,13 +797,12 @@ public class GameScreen extends ScreenAdapter {
     texClubs      = new Texture(Gdx.files.internal("data/skins/clubs.png"));
     texSpades     = new Texture(Gdx.files.internal("data/skins/spades.png"));
     texSomeSymbol = new Texture(Gdx.files.internal("data/skins/someSymbol.png"));
-    texSword           = new Texture(Gdx.files.internal("data/skins/sword.png"));
-    texCrone           = new Texture(Gdx.files.internal("data/skins/crone.png"));
     texShieldCheck     = new Texture(Gdx.files.internal("data/skins/shield-check-f.png"));
     texArrowDownShield = new Texture(Gdx.files.internal("data/skins/arrow-down-shield.png"));
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
+    texZoomButton  = new Texture(Gdx.files.internal("data/graphics/lens.png"));
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -3206,47 +3227,7 @@ public class GameScreen extends ScreenAdapter {
       } catch (JSONException e) { e.printStackTrace(); }
     }
 
-    // Sword overlay on both harvest decks when loot is available — added late so it sits above all cards.
-    // Crone overlay on own king card when king attack is possible.
-    if (gameState.getCurrentPlayer() == currentPlayer) {
-      PlayerTurn ptGame = currentPlayer.getPlayerTurn();
 
-      if (ptGame.getPickingDeckAttacks() > 0 && !ptGame.isLootPending()) {
-        ArrayList<PickingDeck> swordDecks = gameState.getPickingDecks();
-        for (int si = 0; si < swordDecks.size(); si++) {
-          ArrayList<Card> sCards = swordDecks.get(si).getCards();
-          if (!sCards.isEmpty()) {
-            Card topCard = sCards.get(sCards.size() - 1);
-            float iconSize = topCard.getDefWidth() * 0.55f;
-            float cx = topCard.getX() + topCard.getDefWidth() / 2f;
-            float cy = topCard.getY() + topCard.getDefHeight() / 2f;
-            Image swordImg = new Image(new TextureRegion(texSword, 0, 0, texSword.getWidth(), texSword.getHeight())) {
-              @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-            };
-            swordImg.setSize(iconSize, iconSize);
-            swordImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
-            gameStage.addActor(swordImg);
-          }
-        }
-      }
-
-      boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
-          && currentPlayer.getTopDefCards().isEmpty()
-          && !ptGame.isKingUsedThisTurn()
-          && !ptGame.isAttackPending();
-      if (canKingAtk && currentPlayer.getKingCard() != null) {
-        Card kc = currentPlayer.getKingCard();
-        float iconSize = kc.getDefWidth() * 0.55f;
-        float cx = kc.getX() + kc.getDefWidth() / 2f;
-        float cy = kc.getY() + kc.getDefHeight() / 2f;
-        Image croneImg = new Image(new TextureRegion(texCrone, 0, 0, texCrone.getWidth(), texCrone.getHeight())) {
-          @Override public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
-        };
-        croneImg.setSize(iconSize, iconSize);
-        croneImg.setPosition(cx - iconSize / 2f, cy - iconSize / 2f);
-        gameStage.addActor(croneImg);
-      }
-    }
 
     // Merchant reveal overlay — shown on top while the current player decides Keep / 2nd Try
     Card merchantPendingCard = null;
@@ -4572,6 +4553,22 @@ public class GameScreen extends ScreenAdapter {
   }
 
   private void zoomCard(Card card) {
+    // Unzoom the previously zoomed card before switching to a new one
+    if (currentlyZoomedCard != null && currentlyZoomedCard != card) {
+      // King card may have been reparented to overlayStage for zoom — restore it first
+      if (currentlyZoomedCard.getStage() == overlayStage) {
+        float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+        currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+        gameStage.addActor(currentlyZoomedCard);
+      }
+      currentlyZoomedCard.setScale(1f);
+      currentlyZoomedCard = null;
+    }
+    // Also unzoom any currently zoomed deck
+    if (currentlyZoomedDeck != null) {
+      setDeckScale(currentlyZoomedDeck, 1f);
+      currentlyZoomedDeck = null;
+    }
     float w = card.getWidth();
     float h = card.getHeight();
     float cx = card.getX();
@@ -4615,66 +4612,96 @@ public class GameScreen extends ScreenAdapter {
     if (currentlyZoomedCard == card) currentlyZoomedCard = null;
   }
 
+  /** Turns off zoom mode, restores any zoomed card/deck, and resets the lens button tint. */
+  public void deactivateZoomMode() {
+    zoomModeActive = false;
+    if (currentlyZoomedCard != null) {
+      // If the king card was reparented to overlayStage for zoom, restore it first
+      if (currentlyZoomedCard.getStage() == overlayStage) {
+        float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+        currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+        gameStage.addActor(currentlyZoomedCard);
+      }
+      unzoomCard(currentlyZoomedCard);
+    }
+    if (currentlyZoomedDeck != null) {
+      setDeckScale(currentlyZoomedDeck, 1f);
+      currentlyZoomedDeck = null;
+    }
+    if (zoomModeBtn != null) zoomModeBtn.setColor(Color.WHITE);
+  }
+
   private void attachZoomListener(final Card card) {
     card.addListener(new InputListener() {
       @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (pointer != -1) return; // mouse hover only, not touch
-        if (!nothingSelectedInHand()) return;
-        zoomCard(card);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (pointer != -1) return;
-        unzoomCard(card);
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        if (card == currentlyZoomedCard) {
+          unzoomCard(card); // click same card = toggle off
+        } else {
+          zoomCard(card);
+        }
+        return false;
       }
     });
   }
 
-  // Own king zoom: reparents the card to overlayStage on hover so the zoomed card
-  // renders above the hand strip. Spurious enter/exit events caused by reparenting
-  // are filtered by comparing card.getStage() to event.getStage().
+  // Own king zoom: reparents the card to overlayStage when zoomed so it renders
+  // above the hand strip. Only active in zoom mode (lens button selected).
   private void attachKingOverlayZoomListener(final Card card) {
     final float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
     card.addListener(new InputListener() {
       @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (pointer != -1) return;
-        if (!nothingSelectedInHand()) return;
-        if (card.getStage() == overlayStage) return; // already in overlay (overlayStage re-fired enter)
-        card.setY(card.getY() + oy);
-        overlayStage.addActor(card);
-        zoomCard(card);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (pointer != -1) return;
-        if (card.getStage() != event.getStage()) return; // spurious exit from reparenting
-        if (card.getStage() != overlayStage) return; // card already back in gameStage
-        card.setY(card.getY() - oy);
-        gameStage.addActor(card);
-        unzoomCard(card);
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        if (card == currentlyZoomedCard) {
+          // Toggle off: restore from overlayStage if needed
+          if (card.getStage() == overlayStage) {
+            card.setY(card.getY() - oy);
+            gameStage.addActor(card);
+          }
+          unzoomCard(card);
+        } else {
+          // Zoom: move to overlayStage so it renders above the hand strip
+          if (card.getStage() != overlayStage) {
+            card.setY(card.getY() + oy);
+            overlayStage.addActor(card);
+          }
+          zoomCard(card);
+        }
+        return false;
       }
     });
   }
 
   private void attachPickingDeckZoom(final PickingDeck deck) {
-    // Hover-only zoom for the picking deck (no ClickListener).
-    // A ClickListener on PickingDeck would cancel the touch focus of the
-    // PickingDeckListener (via LibGDX cancelTouchFocusExcept), preventing
-    // the actual game-action click from ever firing — which causes bots/
-    // players to get stuck after a plunder attempt.
+    // Uses InputListener (not ClickListener) to avoid cancelling touch focus of
+    // PickingDeckListener, which would prevent looting from firing (bots get stuck).
+    // Zoom only active when lens button is selected.
     deck.addListener(new InputListener() {
       @Override
-      public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-        if (pointer != -1) return;
-        if (!nothingSelectedInHand()) return;
-        setDeckScale(deck, CARD_ZOOM);
-      }
-      @Override
-      public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-        if (pointer != -1) return;
-        setDeckScale(deck, 1f);
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (!zoomModeActive) return false; // zoom only when lens is selected
+        // Clear any previously zoomed card (restoring king from overlayStage if needed)
+        if (currentlyZoomedCard != null) {
+          if (currentlyZoomedCard.getStage() == overlayStage) {
+            float oy = MyGdxGame.HEIGHT - MyGdxGame.WIDTH;
+            currentlyZoomedCard.setY(currentlyZoomedCard.getY() - oy);
+            gameStage.addActor(currentlyZoomedCard);
+          }
+          currentlyZoomedCard.setScale(1f);
+          currentlyZoomedCard = null;
+        }
+        // Toggle deck zoom
+        if (currentlyZoomedDeck == deck) {
+          setDeckScale(deck, 1f);
+          currentlyZoomedDeck = null;
+        } else {
+          if (currentlyZoomedDeck != null) setDeckScale(currentlyZoomedDeck, 1f);
+          currentlyZoomedDeck = deck;
+          setDeckScale(deck, CARD_ZOOM);
+        }
+        return false; // do not consume — let PickingDeckListener still fire
       }
     });
   }
@@ -4684,15 +4711,40 @@ public class GameScreen extends ScreenAdapter {
       c.setOriginX(c.getWidth() / 2f);
       c.setOriginY(c.getHeight() / 2f);
       c.setScale(scale);
-      // Do NOT call c.toFront() here: the PickingDeck actor is already added on top
-      // of the card actors in gameStage. Calling toFront() on a card would move it
-      // in front of the PickingDeck, which would block touch events from reaching
-      // the PickingDeck listener (causing looting to break and the game to get stuck).
+      if (scale > 1f) {
+        c.toFront(); // bring above defense cards when zoomed
+      }
+    }
+    if (scale > 1f) {
+      // Keep the PickingDeck actor on top of its own cards so it still
+      // intercepts touches (required for PickingDeckListener to fire).
+      deck.toFront();
     }
   }
 
+  /** Creates a simple white magnifying-glass icon of the given pixel size using Pixmap. */
   private void addMenuButtonToOverlay() {
     float btnSize = 44f;
+    float gap = 4f;
+
+    // Zoom toggle button — to the left of the menu button
+    zoomModeBtn = new Image(texZoomButton);
+    zoomModeBtn.setSize(btnSize, btnSize);
+    zoomModeBtn.setPosition(MyGdxGame.WIDTH - 2 * btnSize - gap, MyGdxGame.HEIGHT - btnSize);
+    zoomModeBtn.setColor(zoomModeActive ? Color.YELLOW : Color.WHITE);
+    zoomModeBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (zoomModeActive) {
+          deactivateZoomMode();
+        } else {
+          zoomModeActive = true;
+          if (zoomModeBtn != null) zoomModeBtn.setColor(Color.YELLOW);
+        }
+      }
+    });
+    overlayStage.addActor(zoomModeBtn);
+
     Image menuBtn = new Image(texMenuButton);
     menuBtn.setSize(btnSize, btnSize);
     menuBtn.setPosition(MyGdxGame.WIDTH - btnSize, MyGdxGame.HEIGHT - btnSize);
@@ -5768,8 +5820,8 @@ public class GameScreen extends ScreenAdapter {
       // never set during a non-active turn, so enabling these stages is safe.
       Gdx.input.setInputProcessor(menuAndGameMulti);
     } else {
-      // Spectator: only overlay/menu input
-      Gdx.input.setInputProcessor(overlayStage);
+      // Spectator: overlay/menu input (includes chat, history, lens)
+      Gdx.input.setInputProcessor(menuAndGameMulti);
     }
 
     // check if gameState has changed
@@ -5797,7 +5849,7 @@ public class GameScreen extends ScreenAdapter {
     // briefly backgrounded during a game-state transition).
     if (!gameState.isSetupPhase() && !isTutorial) {
       syncHeartbeatTimer += delta;
-      if (syncHeartbeatTimer >= 10f) {
+      if (syncHeartbeatTimer >= 30f) {
         syncHeartbeatTimer = 0f;
         socket.emit("requestStateSync", new JSONObject());
       }
@@ -5871,6 +5923,49 @@ public class GameScreen extends ScreenAdapter {
     }
     // Show a semi-transparent green overlay when placing a defence card.
     handHighlight.setColor(0.3f, 0.8f, 0.3f, anyOwnDefSelected ? 0.45f : 0f);
+
+    // Per-frame: golden highlight king card when king attack is available; white when selected (green applied by draw()).
+    if (!isSpectator && !gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+      PlayerTurn ptKing = currentPlayer.getPlayerTurn();
+      Card kingCard = currentPlayer.getKingCard();
+      if (kingCard != null) {
+        boolean canKingAtk = currentPlayer.getDefCards().isEmpty()
+            && currentPlayer.getTopDefCards().isEmpty()
+            && !ptKing.isKingUsedThisTurn()
+            && !ptKing.isAttackPending();
+        if (canKingAtk && !kingCard.isSelected()) {
+          kingCard.setDefColor(new Color(1f, 0.85f, 0.1f, 1f));
+        } else {
+          kingCard.setDefColor(Color.WHITE);
+        }
+      }
+    }
+
+    // Per-frame: highlight looting decks golden when plundering is available
+    // AND the player has at least one selected hand card with a matching attack symbol.
+    if (!isSpectator && !gameState.isSetupPhase() && gameState.getCurrentPlayer() == currentPlayer) {
+      PlayerTurn ptDeck = currentPlayer.getPlayerTurn();
+      boolean shouldHighlight = false;
+      if (ptDeck.getPickingDeckAttacks() > 0 && !ptDeck.isLootPending()) {
+        String atkSym    = ptDeck.getAttackingSymbol()[0];
+        String atkSymExt = ptDeck.getAttackingSymbol()[1];
+        for (Card hc : currentPlayer.getHandCards()) {
+          if (hc.isSelected()) {
+            String sym = hc.getSymbol();
+            if ("joker".equals(sym) || "none".equals(atkSym)
+                || sym.equals(atkSym) || sym.equals(atkSymExt)) {
+              shouldHighlight = true;
+              break;
+            }
+          }
+        }
+      }
+      for (PickingDeck hlDeck : gameState.getPickingDecks()) {
+        for (Card c : hlDeck.getCards()) {
+          c.setDefColor(shouldHighlight ? new Color(1f, 0.85f, 0.1f, 1f) : Color.WHITE);
+        }
+      }
+    }
 
     /* Upper division (square play area) */
     Gdx.gl.glViewport(offsetX, offsetY + lowerH, gamePixelW, upperH);
@@ -6305,11 +6400,10 @@ public class GameScreen extends ScreenAdapter {
     texClubs.dispose();
     texSpades.dispose();
     texSomeSymbol.dispose();
-    texSword.dispose();
-    texCrone.dispose();
     texShieldCheck.dispose();
     texArrowDownShield.dispose();
     texMenuButton.dispose();
+    texZoomButton.dispose();
   }
 
 }

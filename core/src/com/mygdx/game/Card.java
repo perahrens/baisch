@@ -219,6 +219,10 @@ public class Card extends Actor {
     return this.symbol;
   }
 
+  public void setDefColor(Color c) {
+    defColor = c;
+  }
+
 
   public int getStrength() {
     int strength = index;
@@ -365,61 +369,65 @@ public class Card extends Actor {
     setHeight(defHeight);
     isSelected = false;
     positionId = position;
+    // G = inward margin so king cards don't touch screen edges.
+    // The entire formation (king + 3 def cards) is shifted toward the center by G.
+    // Card spacing within the formation is unchanged (edge-to-edge, same as before).
+    final float G = 2f;
     switch (player) {
-    case 0:
+    case 0: // bottom — shift formation UP by G
       switch (position) {
       case 0:
         setX((MyGdxGame.WIDTH - getWidth()) / 2);
-        setY(0);
+        setY(G);
         rotate = 0;
         break;
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
-        setY(getHeight());
+        setY(getHeight() + G);
         setY(getY() + 0.25f * level * getHeight()); // level shift
         rotate = 0;
         break;
       }
       break;
-    case 1:
+    case 1: // left — shift formation RIGHT by G
       switch (position) {
       case 0:
-        setX((getHeight() - getWidth()) / 2);
+        setX((getHeight() - getWidth()) / 2 + G);
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2);
         rotate = -90;
         break;
       default:
-        setX((getHeight() - getWidth()) / 2 + getHeight());
+        setX((getHeight() - getWidth()) / 2 + getHeight() + G);
         setX(getX() + 0.25f * level * getHeight()); // level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
         rotate = -90;
         break;
       }
       break;
-    case 2:
+    case 2: // top — shift formation DOWN by G
       switch (position) {
       case 0:
         setX((MyGdxGame.WIDTH - getWidth()) / 2);
-        setY(MyGdxGame.WIDTH - getHeight());
+        setY(MyGdxGame.WIDTH - getHeight() - G);
         rotate = 180;
         break;
       default:
         setX((MyGdxGame.WIDTH - getWidth()) / 2 + (2 - position) * getWidth());
-        setY(MyGdxGame.WIDTH - 2f * getHeight());
+        setY(MyGdxGame.WIDTH - 2f * getHeight() - G);
         setY(getY() - 0.25f * level * getHeight()); // level shift
         rotate = 180;
         break;
       }
       break;
-    case 3:
+    case 3: // right — shift formation LEFT by G
       switch (position) {
       case 0:
-        setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - getHeight());
+        setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - getHeight() - G);
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2);
         rotate = 90;
         break;
       default:
-        setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - 2f * getHeight());
+        setX((getHeight() - getWidth()) / 2 + MyGdxGame.WIDTH - 2f * getHeight() - G);
         setX(getX() - 0.25f * level * getHeight()); // level shift
         setY(-(getHeight() - getWidth()) / 2 + (MyGdxGame.WIDTH - getWidth()) / 2 + (position - 2) * getWidth());
         rotate = 90;

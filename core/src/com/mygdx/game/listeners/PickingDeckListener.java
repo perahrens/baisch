@@ -30,6 +30,7 @@ public class PickingDeckListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    if (com.mygdx.game.GameScreen.getInstance() != null && (com.mygdx.game.GameScreen.getInstance().isSpectator() || com.mygdx.game.GameScreen.getInstance().isZoomModeActive())) return;
     Player currentPlayer = gameState.getCurrentPlayer();
     PlayerTurn pt = currentPlayer.getPlayerTurn();
 

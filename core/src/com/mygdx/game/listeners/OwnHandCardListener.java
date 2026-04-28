@@ -47,6 +47,14 @@ public class OwnHandCardListener extends ClickListener {
 
   @Override
   public void clicked(InputEvent event, float x, float y) {
+    // Clicking a hand card deactivates zoom mode (issue #246) so the player can
+    // immediately select the card. Works regardless of whose turn it is.
+    com.mygdx.game.GameScreen gs = com.mygdx.game.GameScreen.getInstance();
+    if (gs != null && gs.isSpectator()) return;
+    if (gs != null && gs.isZoomModeActive()) {
+      gs.deactivateZoomMode();
+      // fall through — let the card selection proceed
+    }
 
     // Warlord king swap: if own king is selected, swap it with this hand card
     // Costs 1 take + 1 put action.

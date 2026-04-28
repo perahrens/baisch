@@ -2341,8 +2341,10 @@ public class GameScreen extends ScreenAdapter {
       if (targetIsKing) {
         Player defKP = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
         if (defKP != null && defKP.getKingCard() != null) {
+          boolean kdCovered = batteryWaiting || defKP.getKingCard().isCovered();
           Card kd = Card.fromCardId(defKP.getKingCard().getCardId());
-          kd.setCovered(batteryWaiting || defKP.getKingCard().isCovered()); kd.setActive(true);
+          // covered+active shows dark tint over face; covered+inactive shows red backside
+          kd.setCovered(kdCovered); kd.setActive(!kdCovered);
           kd.setSize(bCW, bCH);
           kd.setPosition(rightX, cBotY);
           gameStage.addActor(kd);
@@ -2353,9 +2355,10 @@ public class GameScreen extends ScreenAdapter {
         float dH = bCH * (dW / bCW);
         for (int di = 0; di < pendingDefViz.size(); di++) {
           Card dc = pendingDefViz.get(di);
+          boolean dispCovered = batteryWaiting || dc.isCovered();
           Card disp = Card.fromCardId(dc.getCardId());
-          // Force face-down during battery wait; also mirror actual state if card is covered
-          disp.setCovered(batteryWaiting || dc.isCovered()); disp.setActive(true);
+          // covered+active shows dark tint over face; covered+inactive shows red backside
+          disp.setCovered(dispCovered); disp.setActive(!dispCovered);
           disp.setSize(dW, dH);
           float dDispX = rightX + di * (dW + 4f);
           float dDispY = cBotY + (bCH - dH) / 2f;

@@ -212,6 +212,9 @@ public class GameScreen extends ScreenAdapter {
   // Sequence number of the last received stateUpdate. -1 = not yet received.
   // Used to detect dropped messages and trigger immediate resync.
   private int lastStateSeq = -1;
+  // Timestamp (ms) of the last successfully received stateUpdate. 0 = none yet.
+  // Used by all clients to detect when they have gone silent and self-heal via resync.
+  private long lastStateUpdateReceivedAt = 0L;
   // Timestamp (ms) set when finishTurn is emitted; cleared when the ack stateUpdate arrives.
   // Used to measure end-to-end roundtrip latency.
   public static long finishTurnSentAt = 0L;
@@ -313,9 +316,22 @@ public class GameScreen extends ScreenAdapter {
             }
           }
         } catch (JSONException e) { /* ignore malformed packet */ }
-        // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded
-        applyStateUpdate(data);
-        gameState.setUpdateState(true);
+        // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded.
+        // Track receive time regardless of whether apply succeeds — message WAS delivered.
+        lastStateUpdateReceivedAt = System.currentTimeMillis();
+        int diagSeq = data.optInt("stateSeq", -1);
+        int diagIdx = data.optInt("currentPlayerIndex", -1);
+        Gdx.app.log("DIAG", "stateUpdate received seq=" + diagSeq + " currentPlayerIdx=" + diagIdx);
+        try {
+          applyStateUpdate(data);
+        } catch (Exception e) {
+          // A RuntimeException inside applyStateUpdate was previously silently escaping
+          // the JSONException catch, skipping setUpdateState(true) and freezing the UI.
+          Gdx.app.error("DIAG", "applyStateUpdate threw " + e.getClass().getSimpleName() + ": " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          gameState.setUpdateState(true);
+        }
         // Diagnostic: log roundtrip for finishTurn and stateSeq on every update
         long csa = data.optLong("clientSentAt", 0L);
         int seq = data.optInt("stateSeq", -1);
@@ -6152,7 +6168,12 @@ public class GameScreen extends ScreenAdapter {
         merchantRevealPlayerIdx = -1;
       }
 
-    } catch (JSONException e) { e.printStackTrace(); }
+    } catch (Exception e) {
+      // Catch all exceptions (not just JSONException) so a RuntimeException mid-apply
+      // cannot silently corrupt partial state without being logged.
+      Gdx.app.error("DIAG", "applyStateUpdate exception (" + e.getClass().getSimpleName() + "): " + e.getMessage());
+      e.printStackTrace();
+    }
   }
 
   @Override
@@ -6213,6 +6234,19 @@ public class GameScreen extends ScreenAdapter {
       long elapsed = System.currentTimeMillis() - finishTurnSentAt;
       if (elapsed > 5000L) {
         finishTurnSentAt = System.currentTimeMillis(); // reset so it fires again if still stuck
+        socket.emit("requestStateSync", new JSONObject());
+      }
+    }
+
+    // All-client idle resync: any client (not just the turn-ender) that has received at least
+    // one stateUpdate but then sees 30 s of silence during active play requests a fresh state.
+    // This is purely reactive — the timer resets on every received update so it only fires when
+    // a client is genuinely stuck (e.g. applyStateUpdate threw and the UI froze, or the
+    // stateUpdate was dropped at the network layer).
+    if (!gameState.isSetupPhase() && !isTutorial && lastStateUpdateReceivedAt > 0L) {
+      if (System.currentTimeMillis() - lastStateUpdateReceivedAt > 30000L) {
+        lastStateUpdateReceivedAt = System.currentTimeMillis(); // prevent rapid re-fire
+        Gdx.app.log("DIAG", "idle resync: no stateUpdate for 30s — requesting state");
         socket.emit("requestStateSync", new JSONObject());
       }
     }

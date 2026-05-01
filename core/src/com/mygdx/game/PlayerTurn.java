@@ -251,4 +251,10 @@ public class PlayerTurn {
   public int getCoupSwapPendingCardId() { return coupSwapPendingCardId; }
   public void setCoupSwapPendingCardId(int id) { this.coupSwapPendingCardId = id; }
 
+  // Tracks whether finishTurn has been emitted for this turn. Survives show() rebuilds;
+  // reset by applyStateUpdate when the server confirms the turn has transitioned to this player.
+  private boolean finishTurnEmitted = false;
+  public boolean isFinishTurnEmitted() { return finishTurnEmitted; }
+  public void setFinishTurnEmitted(boolean b) { this.finishTurnEmitted = b; }
+
 }

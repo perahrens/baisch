@@ -30,6 +30,7 @@ class GameState {
     this.firstSetupSubmitter = null; // player index of first manual-setup finisher → becomes starting player
     this.roundNumber = 1;     // incremented each time the full turn order wraps around
     this.eliminationOrder = []; // player indices in elimination order (first out = index 0)
+    this.stateSeq = 0;          // incremented on every serialize(); clients detect gaps
     this.dealCards(startingCards);
     if (manualSetup) {
       this.initPlayerStats(); // init combat counters without placing king/def/cemetery
@@ -1005,6 +1006,7 @@ class GameState {
       pendingHeroAuction: this.pendingHeroAuction || null,
       isTutorial: this.isTutorial || false,
       heroTutorialName: this.heroTutorialName || null,
+      stateSeq: ++this.stateSeq,
     };
   }
 

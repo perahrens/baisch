@@ -211,6 +211,9 @@ public class GameScreen extends ScreenAdapter {
   // Heartbeat resync: during active gameplay, request a full state resync if no stateUpdate
   // has been received for 30 seconds. Recovers clients that silently get out of sync.
   private float syncHeartbeatTimer = 0f;
+  // Sequence number of the last received stateUpdate. -1 = not yet received.
+  // Used to detect dropped messages and trigger immediate resync.
+  private int lastStateSeq = -1;
   private final ArrayList<Integer> setupKeepIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
@@ -298,13 +301,9 @@ public class GameScreen extends ScreenAdapter {
           }
         } catch (JSONException e) { /* ignore malformed packet */ }
         syncHeartbeatTimer = 0f;
-        Gdx.app.postRunnable(new Runnable() {
-          @Override
-          public void run() {
-            applyStateUpdate(data);
-            gameState.setUpdateState(true);
-          }
-        });
+        // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded
+        applyStateUpdate(data);
+        gameState.setUpdateState(true);
       }
     });
 
@@ -5643,7 +5642,21 @@ public class GameScreen extends ScreenAdapter {
         pendingExposeCard = false;
         // Note: turn notification is fired in the socket listener callback (not here)
         // so it works even when the tab is hidden and the render loop is paused.
+        // Reset finishTurnEmitted when the turn transitions back to this client's player.
+        if (serverCurrentIdx == playerIndex) {
+          currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
+        }
       }
+
+      // Sequence-number gap check: if we skipped a stateUpdate, request an immediate resync.
+      // With WebSocket transport this should not happen, but guards against any transient drop.
+      try {
+        int seq = state.getInt("stateSeq");
+        if (lastStateSeq >= 0 && seq != lastStateSeq + 1) {
+          socket.emit("requestStateSync", new JSONObject());
+        }
+        lastStateSeq = seq;
+      } catch (JSONException ignored) { /* server may not yet send stateSeq */ }
       // Issue #171: track the previous player index here (not only in show()) so that
       // MY_TURN_START fires correctly even when multiple stateUpdates arrive in the same
       // render frame (e.g. the bot plays and finishes its turn synchronously, sending both

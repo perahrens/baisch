@@ -18,12 +18,11 @@ public class FinishTurnButtonListener extends ClickListener {
     this.socket = socket;
   }
 
-  private boolean fired = false;
-
   @Override
   public void clicked(InputEvent event, float x, float y) {
-    if (fired) return;
-    fired = true;
+    // Guard against double-emit: flag lives on PlayerTurn so it survives show() rebuilds.
+    if (gameState.getCurrentPlayer().getPlayerTurn().isFinishTurnEmitted()) return;
+    gameState.getCurrentPlayer().getPlayerTurn().setFinishTurnEmitted(true);
     try {
       JSONObject data = new JSONObject();
       data.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
@@ -32,7 +31,6 @@ public class FinishTurnButtonListener extends ClickListener {
       e.printStackTrace();
     }
     // Do NOT call setUpdateState(true) here. The server will respond with a stateUpdate
-    // that triggers the re-render. Calling it prematurely rebuilds the button with a
-    // fresh fired=false listener before the server responds, creating a second-tap window.
+    // that triggers the re-render.
   };
 }

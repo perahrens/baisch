@@ -22,7 +22,8 @@ public class WebSocketClient implements SocketClient {
   }
 
   private native JavaScriptObject nativeCreate(String url) /*-{
-    return $wnd.io(url, { autoConnect: false });
+    // Force WebSocket transport, no fallback to polling
+    return $wnd.io(url, { autoConnect: false, transports: ['websocket'], upgrade: false });
   }-*/;
 
   @Override

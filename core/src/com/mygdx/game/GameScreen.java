@@ -209,9 +209,6 @@ public class GameScreen extends ScreenAdapter {
   // Safety-net: while waiting for others to submit setup, periodically request a state resync
   // so the screen self-heals if the final stateUpdate (setupPhase=false) was missed.
   private float setupWaitTimer = 0f;
-  // Heartbeat resync: during active gameplay, request a full state resync if no stateUpdate
-  // has been received for 30 seconds. Recovers clients that silently get out of sync.
-  private float syncHeartbeatTimer = 0f;
   // Sequence number of the last received stateUpdate. -1 = not yet received.
   // Used to detect dropped messages and trigger immediate resync.
   private int lastStateSeq = -1;
@@ -316,7 +313,6 @@ public class GameScreen extends ScreenAdapter {
             }
           }
         } catch (JSONException e) { /* ignore malformed packet */ }
-        syncHeartbeatTimer = 0f;
         // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded
         applyStateUpdate(data);
         gameState.setUpdateState(true);
@@ -5775,12 +5771,14 @@ public class GameScreen extends ScreenAdapter {
         prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
         pendingExposeCard = false;
-        // Note: turn notification is fired in the socket listener callback (not here)
-        // so it works even when the tab is hidden and the render loop is paused.
-        // Reset finishTurnEmitted when the turn transitions back to this client's player.
-        if (serverCurrentIdx == playerIndex) {
-          currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
-        }
+      }
+      // Reset finishTurnEmitted whenever the server confirms it is this player's turn.
+      // This covers both normal turn-change and the recovery case where a previous
+      // finishTurn was rejected/lost: the resync response has the same currentPlayerIndex,
+      // so prevCurrentIdx==serverCurrentIdx and the block above would not fire — without
+      // this unconditional reset the button stays permanently stuck until page refresh.
+      if (serverCurrentIdx == playerIndex) {
+        currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
       }
 
       // Sequence-number gap check: if we skipped a stateUpdate, request an immediate resync.
@@ -6201,20 +6199,6 @@ public class GameScreen extends ScreenAdapter {
       }
     } else {
       setupWaitTimer = 0f;
-    }
-
-    // Gameplay heartbeat resync: if no stateUpdate has arrived for 30 seconds during an active
-    // game, request a full state sync from the server. This self-heals clients that silently
-    // get out of sync (e.g. a missed update due to a brief network hiccup or a tab that was
-    // briefly backgrounded during a game-state transition).
-    if (!gameState.isSetupPhase() && !isTutorial) {
-      syncHeartbeatTimer += delta;
-      if (syncHeartbeatTimer >= 30f) {
-        syncHeartbeatTimer = 0f;
-        socket.emit("requestStateSync", new JSONObject());
-      }
-    } else {
-      syncHeartbeatTimer = 0f;
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),

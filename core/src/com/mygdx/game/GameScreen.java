@@ -19,6 +19,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.scenes.scene2d.utils.SpriteDrawable;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
@@ -247,6 +248,12 @@ public class GameScreen extends ScreenAdapter {
   private Texture texZoomButton;
   private Image zoomModeBtn;
 
+  // ── Hero reveal overlay (issue #257) ──────────────────────────────────────
+  // Set when any player acquires a hero; cleared when the player dismisses the overlay.
+  private String heroRevealPlayerName  = null;
+  private String heroRevealHeroName    = null;
+  private int    heroRevealDrawnCardId = -1;
+
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
@@ -363,6 +370,11 @@ public class GameScreen extends ScreenAdapter {
               String heroName = data.getString("heroName");
               if (pIdx != myPlayerIndex) {
                 gameState.applyHeroAcquired(pIdx, heroName);
+                // Trigger reveal overlay for remote player's acquisition.
+                int drawnId = data.optInt("drawnCardId", -1);
+                heroRevealPlayerName  = players.get(pIdx).getPlayerName();
+                heroRevealHeroName    = heroName;
+                heroRevealDrawnCardId = drawnId;
               }
               gameState.setUpdateState(true);
             } catch (JSONException e) {
@@ -2916,31 +2928,16 @@ public class GameScreen extends ScreenAdapter {
 
       Label hsTitle = new Label("Choose your Hero:", MyGdxGame.skin);
       hsTitle.setColor(Color.GOLD);
-      hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
+      hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.86f);
       gameStage.addActor(hsTitle);
 
-      // Layout: compute button width from the widest hero name so text never clips.
-      float maxBtnPrefW = 0f;
-      for (Hero c : choices) {
-        TextButton tb = new TextButton(c.getHeroName(), MyGdxGame.skin);
-        maxBtnPrefW = Math.max(maxBtnPrefW, tb.getPrefWidth());
-      }
-      float btnW = maxBtnPrefW + 20f;
-      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
-      numCols = Math.min(numCols, choices.size());
-      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
-      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
-      float startY  = MyGdxGame.WIDTH * 0.62f;
-      float rowH    = 0f;
-
+      // Single-column Table of hero buttons inside a vertical ScrollPane.
+      Table hsTable = new Table(MyGdxGame.skin);
+      hsTable.defaults().padBottom(6f).fillX();
+      float hsBtnW = MyGdxGame.WIDTH * 0.72f;
       for (int ci = 0; ci < choices.size(); ci++) {
         final Hero choice = choices.get(ci);
         TextButton heroBtn = new TextButton(choice.getHeroName(), MyGdxGame.skin);
-        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
-        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
-        int col = ci % numCols;
-        int row = ci / numCols;
-        heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -2971,8 +2968,19 @@ public class GameScreen extends ScreenAdapter {
             }
           }
         });
-        gameStage.addActor(heroBtn);
+        hsTable.row();
+        hsTable.add(heroBtn).width(hsBtnW);
       }
+
+      float hsScrollH = MyGdxGame.HEIGHT * 0.70f;
+      ScrollPane hsScroll = new ScrollPane(hsTable, MyGdxGame.skin);
+      hsScroll.setScrollingDisabled(true, false);
+      hsScroll.setFadeScrollBars(false);
+      hsScroll.setSize(hsBtnW, hsScrollH);
+      hsScroll.setPosition(
+          MyGdxGame.WIDTH / 2f - hsBtnW / 2f,
+          MyGdxGame.HEIGHT * 0.10f);
+      gameStage.addActor(hsScroll);
     }
 
     // King-defeat hero selection overlay — shown to the attacker when they must pick one of the
@@ -2987,30 +2995,16 @@ public class GameScreen extends ScreenAdapter {
 
       Label kdTitle = new Label("Choose a Hero from the defeated player:", MyGdxGame.skin);
       kdTitle.setColor(Color.GOLD);
-      kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.WIDTH * 0.78f);
+      kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.86f);
       gameStage.addActor(kdTitle);
 
-      float maxKdPrefW = 0f;
-      for (String n : kdOptions) {
-        TextButton tb = new TextButton(n, MyGdxGame.skin);
-        maxKdPrefW = Math.max(maxKdPrefW, tb.getPrefWidth());
-      }
-      float btnW = maxKdPrefW + 20f;
-      int numCols = Math.max(1, (int) ((MyGdxGame.WIDTH - 4f) / (btnW + 8f)));
-      numCols = Math.min(numCols, kdOptions.size());
-      float btnGapX = numCols > 1 ? (MyGdxGame.WIDTH - numCols * btnW) / (numCols - 1) : 0f;
-      float startX  = numCols > 1 ? 0f : (MyGdxGame.WIDTH - btnW) / 2f;
-      float startY  = MyGdxGame.WIDTH * 0.62f;
-      float rowH    = 0f;
-
+      // Single-column Table of hero buttons inside a vertical ScrollPane.
+      Table kdTable = new Table(MyGdxGame.skin);
+      kdTable.defaults().padBottom(6f).fillX();
+      float kdBtnW = MyGdxGame.WIDTH * 0.72f;
       for (int ci = 0; ci < kdOptions.size(); ci++) {
         final String heroName = kdOptions.get(ci);
         TextButton heroBtn = new TextButton(heroName, MyGdxGame.skin);
-        heroBtn.setSize(btnW, heroBtn.getPrefHeight());
-        if (rowH == 0f) rowH = heroBtn.getPrefHeight() + 8f;
-        int col = ci % numCols;
-        int row = ci / numCols;
-        heroBtn.setPosition(startX + col * (btnW + btnGapX), startY - row * rowH);
         heroBtn.addListener(new ClickListener() {
           @Override
           public void clicked(InputEvent event, float x, float y) {
@@ -3025,8 +3019,97 @@ public class GameScreen extends ScreenAdapter {
             gameState.setUpdateState(true);
           }
         });
-        gameStage.addActor(heroBtn);
+        kdTable.row();
+        kdTable.add(heroBtn).width(kdBtnW);
       }
+
+      float kdScrollH = MyGdxGame.HEIGHT * 0.70f;
+      ScrollPane kdScroll = new ScrollPane(kdTable, MyGdxGame.skin);
+      kdScroll.setScrollingDisabled(true, false);
+      kdScroll.setFadeScrollBars(false);
+      kdScroll.setSize(kdBtnW, kdScrollH);
+      kdScroll.setPosition(
+          MyGdxGame.WIDTH / 2f - kdBtnW / 2f,
+          MyGdxGame.HEIGHT * 0.10f);
+      gameStage.addActor(kdScroll);
+    }
+
+    // ── Hero reveal overlay (issue #257) ───────────────────────────────────
+    // Shown to every player after any hero acquisition. Dismissed with "Got it!".
+    if (heroRevealPlayerName != null && heroRevealHeroName != null) {
+      final String revealPlayer = heroRevealPlayerName;
+      final String revealHero   = heroRevealHeroName;
+      final int    revealCardId = heroRevealDrawnCardId;
+
+      Image revOv = new Image(MyGdxGame.skin, "white");
+      revOv.setFillParent(true);
+      revOv.setColor(0f, 0f, 0f, 0.82f);
+      gameStage.addActor(revOv);
+
+      // "PlayerName won a Hero!" title
+      Label revTitle = new Label(revealPlayer + " won a Hero!", MyGdxGame.skin);
+      revTitle.setColor(Color.GOLD);
+      revTitle.setPosition(
+          MyGdxGame.WIDTH / 2f - revTitle.getPrefWidth() / 2f,
+          MyGdxGame.HEIGHT * 0.70f);
+      gameStage.addActor(revTitle);
+
+      // Hero sprite — look up the hero in the game state by name.
+      int heroOwnerIdx = gameState.findHeroOwnerIndex(revealHero);
+      if (heroOwnerIdx >= 0) {
+        java.util.ArrayList<Hero> ownerHeroes = gameState.getPlayers().get(heroOwnerIdx).getHeroes();
+        for (int hi = 0; hi < ownerHeroes.size(); hi++) {
+          Hero rh = ownerHeroes.get(hi);
+          if (revealHero.equals(rh.getHeroName())) {
+            float spriteScale = 2.5f;
+            float imgW = rh.getSprite().getWidth() * spriteScale;
+            float imgH = rh.getSprite().getHeight() * spriteScale;
+            Image heroImg = new Image(new SpriteDrawable(rh.getSprite()));
+            heroImg.setSize(imgW, imgH);
+            heroImg.setPosition(
+                MyGdxGame.WIDTH / 2f - imgW / 2f,
+                MyGdxGame.HEIGHT * 0.46f);
+            gameStage.addActor(heroImg);
+            break;
+          }
+        }
+      }
+
+      // Hero name label
+      Label revHeroLabel = new Label(revealHero, MyGdxGame.skin);
+      revHeroLabel.setColor(Color.WHITE);
+      revHeroLabel.setPosition(
+          MyGdxGame.WIDTH / 2f - revHeroLabel.getPrefWidth() / 2f,
+          MyGdxGame.HEIGHT * 0.62f);
+      gameStage.addActor(revHeroLabel);
+
+      // Drawn card (if known)
+      if (revealCardId > 0) {
+        Card revCard = Card.fromCardId(revealCardId);
+        float cardScale = 1.4f;
+        revCard.setSize(revCard.getWidth() * cardScale, revCard.getHeight() * cardScale);
+        revCard.setPosition(
+            MyGdxGame.WIDTH / 2f - revCard.getWidth() / 2f,
+            MyGdxGame.HEIGHT * 0.30f);
+        gameStage.addActor(revCard);
+      }
+
+      // "Got it!" dismiss button
+      TextButton revBtn = new TextButton("Got it!", MyGdxGame.skin);
+      revBtn.pad(8f, 32f, 8f, 32f);
+      revBtn.setPosition(
+          MyGdxGame.WIDTH / 2f - revBtn.getPrefWidth() / 2f,
+          MyGdxGame.HEIGHT * 0.10f);
+      revBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          heroRevealPlayerName  = null;
+          heroRevealHeroName    = null;
+          heroRevealDrawnCardId = -1;
+          gameState.setUpdateState(true);
+        }
+      });
+      gameStage.addActor(revBtn);
     }
 
     // ── Sell Hero setup overlay ─────────────────────────────────────────────
@@ -6252,11 +6335,14 @@ public class GameScreen extends ScreenAdapter {
     Card drawnCard = gameState.getCardDeck().getCard(gameState.getCemeteryDeck());
     // Guard: if deck was empty we get a placeholder — bail out gracefully.
     if (drawnCard == null || drawnCard.isPlaceholder()) {
+      currentPlayer.getPlayerTurn().setPendingDrawnCardId(-1);
       gameState.setUpdateState(true);
       return;
     }
     int drawnIndex   = drawnCard.getIndex();
     String drawnSym  = drawnCard.getSymbol();
+    // Store drawn card ID so completeHeroAcquisition / reveal overlay can reference it.
+    currentPlayer.getPlayerTurn().setPendingDrawnCardId(drawnCard.getCardId());
     // Drawn card goes to the cemetery after its purpose is served.
     gameState.getCemeteryDeck().addCard(drawnCard);
 
@@ -6329,15 +6415,21 @@ public class GameScreen extends ScreenAdapter {
     }
     currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
     currentPlayer.getPlayerTurn().getHeroChoices().clear();
+    int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
     try {
       JSONObject emitData = new JSONObject();
       emitData.put("playerIndex", playerIndex);
       emitData.put("heroName",    hero.getHeroName());
       emitData.put("jokerCardId", currentPlayer.getPlayerTurn().getPendingJokerCardId());
+      emitData.put("drawnCardId", drawnCardId);
       socket.emit("heroAcquired", emitData);
     } catch (JSONException e) {
       e.printStackTrace();
     }
+    // Trigger reveal overlay for the local player.
+    heroRevealPlayerName = currentPlayer.getPlayerName();
+    heroRevealHeroName   = hero.getHeroName();
+    heroRevealDrawnCardId = drawnCardId;
     gameState.setUpdateState(true);
   }
 

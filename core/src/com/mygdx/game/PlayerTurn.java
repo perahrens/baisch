@@ -193,6 +193,11 @@ public class PlayerTurn {
   public int getPendingJokerCardId() { return pendingJokerCardId; }
   public void setPendingJokerCardId(int v) { this.pendingJokerCardId = v; }
 
+  // The card drawn from the deck during joker sacrifice that determined the hero (2–13, ace=1, or joker).
+  private int pendingDrawnCardId = -1;
+  public int getPendingDrawnCardId() { return pendingDrawnCardId; }
+  public void setPendingDrawnCardId(int v) { this.pendingDrawnCardId = v; }
+
   // --- Battery Tower attack interception ---
   // Set on the attacker's side while waiting for the defender to allow/deny.
   private boolean batteryWaiting = false;

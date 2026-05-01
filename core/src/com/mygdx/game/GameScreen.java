@@ -257,14 +257,20 @@ public class GameScreen extends ScreenAdapter {
 
   // New constructor for centralized state
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket) {
-    this(game, centralizedState, playerIndex, socket, "None");
+    this(game, centralizedState, playerIndex, socket, "None", "value_mapping");
   }
 
   private String startingHero = "None";
+  private String heroAssignMode = "value_mapping";
 
   public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero) {
+    this(game, centralizedState, playerIndex, socket, startingHero, "value_mapping");
+  }
+
+  public GameScreen(Game game, JSONObject centralizedState, int playerIndex, SocketClient socket, String startingHero, String heroAssignMode) {
     this.game = game;
     this.startingHero = startingHero;
+    this.heroAssignMode = (heroAssignMode != null && !heroAssignMode.isEmpty()) ? heroAssignMode : "value_mapping";
     this.socket = socket;
     // playerIndex == -1 means spectator — display from player 0's viewpoint, read-only
     this.isSpectator = (playerIndex < 0);
@@ -336,6 +342,7 @@ public class GameScreen extends ScreenAdapter {
     final Game theGame = game;
     final SocketClient theSocket = socket;
     final String theStartingHero = startingHero;
+    final String theHeroAssignMode = heroAssignMode;
     socket.on("gameState", new SocketListener() {
       @Override
       public void call(Object... args) {
@@ -347,7 +354,8 @@ public class GameScreen extends ScreenAdapter {
             try {
               int newPlayerIndex = data.getInt("playerIndex");
               JSONObject newState = data.getJSONObject("gameState");
-              theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero));
+              String newHeroAssignMode = data.optString("heroAssignMode", theHeroAssignMode);
+              theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero, newHeroAssignMode));
             } catch (Exception e) {
               e.printStackTrace();
             }
@@ -6359,41 +6367,59 @@ public class GameScreen extends ScreenAdapter {
 
     HeroesSquare hs = gameState.getHeroesSquare();
 
-    if ("joker".equals(drawnSym)) {
-      // Another joker drawn — free choice from ALL heroes (pool + already owned).
+    if ("free_selector".equals(heroAssignMode)) {
+      // Always free choice regardless of drawn card.
       triggerHeroChoice(buildHeroChoices(false, false));
-    } else if (drawnIndex == 1) {
-      // Ace: red suits (hearts/diamonds) → white heroes; black → black heroes.
-      boolean isRed = "hearts".equals(drawnSym) || "diamonds".equals(drawnSym);
-      java.util.ArrayList<Hero> choices = isRed
-          ? buildHeroChoices(true, false)
-          : buildHeroChoices(false, true);
-      if (choices.isEmpty()) choices = buildHeroChoices(false, false); // fallback
-      triggerHeroChoice(choices);
+    } else if ("color_mapping".equals(heroAssignMode)) {
+      // Color-based: joker → free choice; red suit → white heroes; black suit → black heroes.
+      if ("joker".equals(drawnSym)) {
+        triggerHeroChoice(buildHeroChoices(false, false));
+      } else {
+        boolean isRed = "hearts".equals(drawnSym) || "diamonds".equals(drawnSym);
+        java.util.ArrayList<Hero> choices = isRed
+            ? buildHeroChoices(true, false)
+            : buildHeroChoices(false, true);
+        if (choices.isEmpty()) choices = buildHeroChoices(false, false); // fallback if pool exhausted
+        triggerHeroChoice(choices);
+      }
     } else {
-      // Direct hero assignment by card index (2-13).
-      Hero hero = hs.getHeroByCardIndex(drawnIndex);
-      if (hero == null) {
-        // That hero is already owned by a player — strip it from the owner.
-        // Per issue #25 the drawing player receives NOTHING.
-        String takenName = HeroesSquare.heroNameByCardIndex(drawnIndex);
-        if (takenName != null) {
-          int ownerIdx = gameState.findHeroOwnerIndex(takenName);
-          if (ownerIdx >= 0) {
-            players.get(ownerIdx).removeHeroByName(takenName);
-            try {
-              JSONObject emitData = new JSONObject();
-              emitData.put("playerIndex", ownerIdx);
-              emitData.put("heroName", takenName);
-              socket.emit("heroLost", emitData);
-            } catch (JSONException e) {
-              e.printStackTrace();
+      // Default "value_mapping": existing behavior.
+      if ("joker".equals(drawnSym)) {
+        // Another joker drawn — free choice from ALL heroes (pool + already owned).
+        triggerHeroChoice(buildHeroChoices(false, false));
+      } else if (drawnIndex == 1) {
+        // Ace: red suits (hearts/diamonds) → white heroes; black → black heroes.
+        boolean isRed = "hearts".equals(drawnSym) || "diamonds".equals(drawnSym);
+        java.util.ArrayList<Hero> choices = isRed
+            ? buildHeroChoices(true, false)
+            : buildHeroChoices(false, true);
+        if (choices.isEmpty()) choices = buildHeroChoices(false, false); // fallback
+        triggerHeroChoice(choices);
+      } else {
+        // Direct hero assignment by card index (2-13).
+        Hero hero = hs.getHeroByCardIndex(drawnIndex);
+        if (hero == null) {
+          // That hero is already owned by a player — strip it from the owner.
+          // Per issue #25 the drawing player receives NOTHING.
+          String takenName = HeroesSquare.heroNameByCardIndex(drawnIndex);
+          if (takenName != null) {
+            int ownerIdx = gameState.findHeroOwnerIndex(takenName);
+            if (ownerIdx >= 0) {
+              players.get(ownerIdx).removeHeroByName(takenName);
+              try {
+                JSONObject emitData = new JSONObject();
+                emitData.put("playerIndex", ownerIdx);
+                emitData.put("heroName", takenName);
+                socket.emit("heroLost", emitData);
+              } catch (JSONException e) {
+                e.printStackTrace();
+              }
             }
           }
+          gameState.setUpdateState(true);
+        } else {
+          completeHeroAcquisition(hero);
         }
-        gameState.setUpdateState(true);
-      } else {
-        completeHeroAcquisition(hero);
       }
     }
   }

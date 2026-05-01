@@ -72,6 +72,8 @@ public class MenuScreen extends AbstractScreen {
   // Pending create-screen settings
   private boolean pendingManualSetup = false;
   private int pendingStartingCards = 8;
+  // How heroes are assigned when a joker is sacrificed: "value_mapping" | "color_mapping" | "free_selector"
+  private String pendingHeroAssignMode = "value_mapping";
   // Per-bot personality selections: "off" means no bot in that slot.
   // Values map to server bot mode keys: "passive", "balanced", "aggressive", "tactician", "llm".
   private String[] pendingBotModes = {"off", "off", "off", "off"};
@@ -826,6 +828,31 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setItems(cardOptions);
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
+    // ── Hero assign mode selector ────────────────────────────────────────────
+    Label heroModeLabel = new Label("Hero assignment:", MyGdxGame.skin);
+    final SelectBox<String> heroModeBox = new SelectBox<String>(MyGdxGame.skin);
+    final String[] HERO_MODE_DISPLAY = {"Card value (default)", "Card color", "Free choice"};
+    final String[] HERO_MODE_KEYS    = {"value_mapping", "color_mapping", "free_selector"};
+    Array<String> heroModeOptions = new Array<String>();
+    for (String d : HERO_MODE_DISPLAY) heroModeOptions.add(d);
+    heroModeBox.setItems(heroModeOptions);
+    // Restore from pending state
+    String heroModeDisplay = HERO_MODE_DISPLAY[0];
+    for (int ki = 0; ki < HERO_MODE_KEYS.length; ki++) {
+      if (HERO_MODE_KEYS[ki].equals(pendingHeroAssignMode)) { heroModeDisplay = HERO_MODE_DISPLAY[ki]; break; }
+    }
+    heroModeBox.setSelected(heroModeDisplay);
+    heroModeBox.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+      @Override
+      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+        String sel = heroModeBox.getSelected();
+        for (int ki = 0; ki < HERO_MODE_DISPLAY.length; ki++) {
+          if (HERO_MODE_DISPLAY[ki].equals(sel)) { pendingHeroAssignMode = HERO_MODE_KEYS[ki]; return; }
+        }
+        pendingHeroAssignMode = "value_mapping";
+      }
+    });
+
     // ── Per-bot personality selectors (Bot 1 / 2 / 3, plus Bot 4 in spectator mode) ──
     final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician", "MCTS"};
     final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician", "mcts"};
@@ -896,6 +923,11 @@ public class MenuScreen extends AbstractScreen {
         try {
           pendingStartingCards = Integer.parseInt(cardsBox.getSelected());
         } catch (NumberFormatException ex) { pendingStartingCards = 8; }
+        // Read hero assign mode from selector
+        String selHeroMode = heroModeBox.getSelected();
+        for (int ki = 0; ki < HERO_MODE_DISPLAY.length; ki++) {
+          if (HERO_MODE_DISPLAY[ki].equals(selHeroMode)) { pendingHeroAssignMode = HERO_MODE_KEYS[ki]; break; }
+        }
         // Collect non-"off" bot modes (up to 3 normally, up to 4 in spectator mode)
         int maxBots = isSpectator ? 4 : 3;
         JSONArray botModesArr = new JSONArray();
@@ -911,6 +943,7 @@ public class MenuScreen extends AbstractScreen {
           data.put("manualSetup", pendingManualSetup);
           data.put("botModes", botModesArr);
           data.put("spectator", isSpectator);
+          data.put("heroAssignMode", pendingHeroAssignMode);
           data.put("token", MyGdxGame.playerStorage.getToken());
           data.put("icon", selectedIcon);
         } catch (JSONException e) { /* ignore */ }
@@ -918,6 +951,7 @@ public class MenuScreen extends AbstractScreen {
         pendingSessionName = "";
         pendingManualSetup = false;
         pendingStartingCards = 8;
+        pendingHeroAssignMode = "value_mapping";
         pendingSpectator = false;
         pendingBotModes = new String[]{"off", "off", "off", "off"};
         inSessionCreate = false;
@@ -936,6 +970,9 @@ public class MenuScreen extends AbstractScreen {
     form.row();
     form.add(cardsLabel).left().padRight(12f).padBottom(6f);
     form.add(cardsBox).width(colW * 0.38f).left().padBottom(6f);
+    form.row();
+    form.add(heroModeLabel).left().padRight(12f).padBottom(6f);
+    form.add(heroModeBox).width(colW * 0.55f).left().padBottom(6f);
     for (int bi = 0; bi < totalBotSlots; bi++) {
       form.row();
       form.add(botLabels[bi]).left().padRight(12f).padBottom(4f);
@@ -1494,11 +1531,12 @@ public class MenuScreen extends AbstractScreen {
         try {
           final int playerIndex = data.getInt("playerIndex");
           final JSONObject gameState = data.getJSONObject("gameState");
+          final String heroAssignMode = data.optString("heroAssignMode", "value_mapping");
           Gdx.app.log("SocketIO", "Received centralized game state, playerIndex: " + playerIndex);
           Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-              game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero()));
+              game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero(), heroAssignMode));
             }
           });
         } catch (JSONException e) {

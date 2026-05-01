@@ -65,7 +65,7 @@ function broadcastPlayerList() {
   io.emit('playerList', list);
 }
 
-function createSession(name, allowHeroSelection, startingCards, manualSetup) {
+function createSession(name, allowHeroSelection, startingCards, manualSetup, heroAssignMode) {
   var id = 's' + (_nextSessionId++);
   sessions[id] = {
     id: id,
@@ -73,6 +73,7 @@ function createSession(name, allowHeroSelection, startingCards, manualSetup) {
     allowHeroSelection: allowHeroSelection !== false, // default true
     startingCards: Math.min(10, Math.max(6, parseInt(startingCards, 10) || 8)),
     manualSetup: !!manualSetup,
+    heroAssignMode: heroAssignMode || 'value_mapping', // 'value_mapping' | 'color_mapping' | 'free_selector'
     users: [],
     spectators: [],
     gameState: null,
@@ -222,7 +223,8 @@ function startGameForSession(sess, requesterSocketId) {
     if (!bot.isBot(u)) {
       io.to(u.id).emit('gameState', {
         playerIndex: idx,
-        gameState: sess.gameState.serialize()
+        gameState: sess.gameState.serialize(),
+        heroAssignMode: sess.heroAssignMode || 'value_mapping'
       });
       console.log('gameState emitted to ' + u.name + ' (' + u.id + ') as player ' + idx);
     }
@@ -1027,7 +1029,7 @@ io.on('connection', function(socket) {
             user.id = socket.id;
             socketToSession[socket.id] = sessId;
             socket.join(sessId);
-            socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize() });
+            socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize(), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
             broadcastPlayerList();
             console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to session ' + sessId + ' as player ' + playerIdx);
             return;
@@ -1052,7 +1054,10 @@ io.on('connection', function(socket) {
     var startingCards = (data && data.startingCards) ? parseInt(data.startingCards, 10) : 8;
     var manualSetup = !!(data && data.manualSetup);
     var spectatorMode = !!(data && data.spectator);
-    var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup);
+    var VALID_HERO_MODES = ['value_mapping', 'color_mapping', 'free_selector'];
+    var heroAssignMode = (data && VALID_HERO_MODES.indexOf(String(data.heroAssignMode)) !== -1)
+      ? String(data.heroAssignMode) : 'value_mapping';
+    var sess = createSession(sessionName, allowHeroSelection, startingCards, manualSetup, heroAssignMode);
     // botModes: array of personality strings, e.g. ["aggressive","passive"].
     // Falls back to legacy botCount (numeric) for backward compat.
     // Spectator mode allows up to 4 bots; normal mode allows up to 3.
@@ -1098,7 +1103,7 @@ io.on('connection', function(socket) {
         });
       }
       // Send spectator gameState to creator (playerIndex -1)
-      socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize() });
+      socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize(), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
       broadcastSessionList();
       broadcastPlayerList();
       bot.playBotTurnIfNeeded(sess);
@@ -1165,7 +1170,7 @@ io.on('connection', function(socket) {
     socketToSession[socket.id] = sess.id;
     socket.join(sess.id);
     socket.emit('sessionJoined', { sessionId: sess.id });
-    socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize() });
+    socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize(), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
   });
 
   // ── Lobby events ─────────────────────────────────────────────────────────
@@ -1473,6 +1478,8 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
     sess.gameState.heroAcquired(data.playerIndex, data.heroName);
+    // Relay to all other players so they show the hero reveal overlay.
+    socket.to(sess.id).emit('heroAcquired', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 

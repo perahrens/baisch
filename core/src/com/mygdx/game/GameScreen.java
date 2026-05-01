@@ -214,6 +214,9 @@ public class GameScreen extends ScreenAdapter {
   // Sequence number of the last received stateUpdate. -1 = not yet received.
   // Used to detect dropped messages and trigger immediate resync.
   private int lastStateSeq = -1;
+  // Timestamp (ms) set when finishTurn is emitted; cleared when the ack stateUpdate arrives.
+  // Used to measure end-to-end roundtrip latency.
+  public static long finishTurnSentAt = 0L;
   private final ArrayList<Integer> setupKeepIds = new ArrayList<Integer>();
 
   // Textures cached once to avoid leaking a new Texture on every show() call
@@ -304,6 +307,13 @@ public class GameScreen extends ScreenAdapter {
         // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded
         applyStateUpdate(data);
         gameState.setUpdateState(true);
+        // Diagnostic: log roundtrip for finishTurn and stateSeq on every update
+        long csa = data.optLong("clientSentAt", 0L);
+        int seq = data.optInt("stateSeq", -1);
+        if (csa > 0L) {
+          long rt = System.currentTimeMillis() - csa;
+          Gdx.app.log("DIAG", "finishTurn roundtrip: " + rt + "ms (seq=" + seq + ")");
+        }
       }
     });
 
@@ -5653,6 +5663,7 @@ public class GameScreen extends ScreenAdapter {
       try {
         int seq = state.getInt("stateSeq");
         if (lastStateSeq >= 0 && seq != lastStateSeq + 1) {
+          Gdx.app.log("DIAG", "stateSeq gap: expected " + (lastStateSeq + 1) + " got " + seq + " — requesting resync");
           socket.emit("requestStateSync", new JSONObject());
         }
         lastStateSeq = seq;

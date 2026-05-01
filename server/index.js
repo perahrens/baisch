@@ -1278,6 +1278,8 @@ io.on('connection', function(socket) {
   });
 
   socket.on('finishTurn', function(data) {
+    var serverReceivedAt = Date.now();
+    var clientSentAt = (data && typeof data.clientSentAt === 'number') ? data.clientSentAt : 0;
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
     // Verify by socket identity rather than trusting the client-sent currentPlayerIndex.
@@ -1312,7 +1314,12 @@ io.on('connection', function(socket) {
       }
     }
     sess.gameState.finishTurn();
-    io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
+    var serialized = sess.gameState.serialize();
+    if (clientSentAt) serialized.clientSentAt = clientSentAt;
+    var payloadBytes = JSON.stringify(serialized).length;
+    var processingMs = Date.now() - serverReceivedAt;
+    console.log('[perf] finishTurn: processing=' + processingMs + 'ms payload=' + payloadBytes + 'B seq=' + serialized.stateSeq);
+    io.to(sess.id).emit('stateUpdate', serialized);
     bot.playBotTurnIfNeeded(sess);
   });
 

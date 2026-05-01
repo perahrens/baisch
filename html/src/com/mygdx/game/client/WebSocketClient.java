@@ -19,11 +19,57 @@ public class WebSocketClient implements SocketClient {
     // autoConnect:false so the socket only connects after all listeners are
     // registered (connect() is called at end of configSocketEvents).
     jsSocket = nativeCreate(url);
+    nativeSetupDiag(jsSocket);
   }
+
+  /**
+   * Initialises window.baischDiag and wires up connect/disconnect events for
+   * transport-type logging and DevTools inspection.
+   */
+  private native void nativeSetupDiag(JavaScriptObject sock) /*-{
+    if (!$wnd.baischDiag) {
+      $wnd.baischDiag = {
+        transport: null,
+        connectedAt: null,
+        roundtrips: [],   // last 50 finishTurn roundtrips [{seq,ms,at}]
+        disconnects: [],  // last 10 disconnects [{reason,at}]
+        seqGaps: [],      // [{expected,got,at}]
+        addRoundtrip: function(seq, ms) {
+          this.roundtrips.push({ seq: seq, ms: ms, at: Date.now() });
+          if (this.roundtrips.length > 50) this.roundtrips.shift();
+        },
+        addGap: function(expected, got) {
+          this.seqGaps.push({ expected: expected, got: got, at: Date.now() });
+          console.warn('[Baisch] stateSeq gap: expected ' + expected + ' got ' + got);
+        }
+      };
+    }
+    var diag = $wnd.baischDiag;
+    sock.on('connect', function() {
+      var t = (sock.io && sock.io.engine && sock.io.engine.transport)
+              ? sock.io.engine.transport.name : 'unknown';
+      diag.transport = t;
+      diag.connectedAt = Date.now();
+      console.log('[Baisch] connected via ' + t);
+    });
+    sock.on('disconnect', function(reason) {
+      console.warn('[Baisch] disconnected: ' + reason);
+      diag.disconnects.push({ reason: reason, at: Date.now() });
+      if (diag.disconnects.length > 10) diag.disconnects.shift();
+    });
+  }-*/;
 
   private native JavaScriptObject nativeCreate(String url) /*-{
     // Force WebSocket transport, no fallback to polling
     return $wnd.io(url, { autoConnect: false, transports: ['websocket'], upgrade: false });
+  }-*/;
+
+  /** Pushes a finishTurn roundtrip measurement to window.baischDiag and logs to DevTools console. */
+  public static native void nativeRecordRoundtrip(int seq, int ms) /*-{
+    console.log('[Baisch] finishTurn roundtrip: ' + ms + 'ms (seq=' + seq + ')');
+    if ($wnd.baischDiag && $wnd.baischDiag.addRoundtrip) {
+      $wnd.baischDiag.addRoundtrip(seq, ms);
+    }
   }-*/;
 
   @Override

@@ -26,6 +26,7 @@ public class FinishTurnButtonListener extends ClickListener {
     try {
       JSONObject data = new JSONObject();
       data.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());
+      data.put("clientSentAt", System.currentTimeMillis());
       socket.emit("finishTurn", data);
     } catch (JSONException e) {
       e.printStackTrace();

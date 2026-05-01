@@ -11,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
 // IO removed (platform-specific)
+import com.mygdx.game.net.DiagListener;
 import com.mygdx.game.net.SocketClient;
 
 public class MyGdxGame extends Game implements InputProcessor {
@@ -66,6 +67,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static Runnable onNameEntryScreenActive = null;
   /** Called when leaving the name-entry screen; hides the DOM logo overlay. */
   public static Runnable onNameEntryScreenDone = null;
+  /** Called after each finishTurn roundtrip is measured; pushes to window.baischDiag. Null on non-browser platforms. */
+  public static DiagListener onRoundtripRecorded = null;
 
   /** Singleton reference — set in {@link #create()} for JSNI callbacks. */
   public static MyGdxGame INSTANCE;

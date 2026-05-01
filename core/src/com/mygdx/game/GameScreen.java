@@ -1763,26 +1763,58 @@ public class GameScreen extends ScreenAdapter {
           playerHeroes.get(j).setSelected(false);
         }
         playerHeroes.get(j).setHand(false);
-        playerHeroes.get(j).setPosition(playerLabel.getX(), playerLabel.getY());
 
+        // Hero positioning: anchored to the outer-lower corner of def card pos=1,
+        // running in a line parallel to the nearest screen edge.
+        // Heroes draw at 0.5× scale centered in actor, so visual size = actor/2.
+        // G = 2f matches the margin used in Card.setMapPosition.
+        float hW = playerHeroes.get(j).getWidth();
+        float hH = playerHeroes.get(j).getHeight();
+        final float heroGap = 2f;
         switch (visualSlot) {
         case 0:
+          // Slot 0 (bottom): def pos=1 is leftmost — left edge at (WIDTH-3*cardW)/2,
+          // bottom edge at cardH+G. Heroes run left, bottom-aligned with def cards.
+        {
+          float dcLeft   = (MyGdxGame.WIDTH - 3f * cardW) / 2f;
+          float dcBottom = cardH + 2f;
           playerHeroes.get(j).setPosition(
-              playerHeroes.get(j).getX() - playerLabel.getWidth() - j * playerHeroes.get(j).getWidth() / 3,
-              playerHeroes.get(j).getY() - playerHeroes.get(j).getHeight() / 4);
+              dcLeft - hW * 3f / 4f - j * (hW / 2f + heroGap),
+              dcBottom - hH / 4f);
+        }
           break;
         case 1:
-          playerHeroes.get(j).setPosition(playerHeroes.get(j).getX(),
-              playerHeroes.get(j).getY() + 2 * playerLabel.getHeight() + j * playerHeroes.get(j).getHeight() / 3);
+          // Slot 1 (left): def pos=1 is topmost — visual top at WIDTH/2+3*cardW/2,
+          // visual left at cardH+G. Heroes run upward, left-aligned with def cards.
+        {
+          float dcTopY  = MyGdxGame.WIDTH / 2f + 3f * cardW / 2f;
+          float dcLeftX = cardH + 2f;
+          playerHeroes.get(j).setPosition(
+              dcLeftX - hW / 4f,
+              dcTopY - hH / 4f + j * (hH / 2f + heroGap));
+        }
           break;
         case 2:
+          // Slot 2 (top): def pos=1 is rightmost — right edge at (WIDTH+3*cardW)/2,
+          // top edge at WIDTH-cardH-G. Heroes run right, top-aligned with def cards.
+        {
+          float dcRight = (MyGdxGame.WIDTH + 3f * cardW) / 2f;
+          float dcTop   = MyGdxGame.WIDTH - cardH - 2f;
           playerHeroes.get(j).setPosition(
-              playerHeroes.get(j).getX() + playerLabel.getWidth() + j * playerHeroes.get(j).getWidth() / 3,
-              MyGdxGame.WIDTH - playerHeroes.get(j).getHeight());
+              dcRight - hW / 4f + j * (hW / 2f + heroGap),
+              dcTop - hH * 3f / 4f);
+        }
           break;
         case 3:
-          playerHeroes.get(j).setPosition(MyGdxGame.WIDTH - playerHeroes.get(j).getWidth(),
-              playerHeroes.get(j).getY() - 2 * playerLabel.getHeight() - j * playerHeroes.get(j).getHeight() / 3);
+          // Slot 3 (right): def pos=1 is bottommost — visual bottom at WIDTH/2-3*cardW/2,
+          // visual right at WIDTH-cardH-G. Heroes run downward, right-aligned with def cards.
+        {
+          float dcBottom = MyGdxGame.WIDTH / 2f - 3f * cardW / 2f;
+          float dcRight  = MyGdxGame.WIDTH - cardH - 2f;
+          playerHeroes.get(j).setPosition(
+              dcRight - hW * 3f / 4f,
+              dcBottom - hH * 3f / 4f - j * (hH / 2f + heroGap));
+        }
           break;
         default:
           break;
@@ -1819,21 +1851,10 @@ public class GameScreen extends ScreenAdapter {
           final float avSize = 20f;
           Image avImg = new Image(avTex);
           avImg.setSize(avSize, avSize);
-          switch (visualSlot) {
-          case 0: // bottom-centre — place avatar to the left of the label
-            avImg.setPosition(playerLabel.getX() - avSize - 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
-            break;
-          case 1: // left-centre — place above the label
-            avImg.setPosition(playerLabel.getX() + (playerLabel.getWidth() - avSize) / 2f, playerLabel.getY() + playerLabel.getHeight() + 2f);
-            break;
-          case 2: // top-centre — place avatar to the right of the label
-            avImg.setPosition(playerLabel.getX() + playerLabel.getWidth() + 2f, playerLabel.getY() + (playerLabel.getHeight() - avSize) / 2f);
-            break;
-          case 3: // right-centre — place below the label
-            avImg.setPosition(playerLabel.getX() + (playerLabel.getWidth() - avSize) / 2f, playerLabel.getY() - avSize - 2f);
-            break;
-          default: break;
-          }
+          // Avatar always above the player name, horizontally centred on the label.
+          avImg.setPosition(
+              playerLabel.getX() + (playerLabel.getWidth() - avSize) / 2f,
+              playerLabel.getY() + playerLabel.getHeight() + 2f);
           gameStage.addActor(avImg);
         }
       }
@@ -4297,7 +4318,8 @@ public class GameScreen extends ScreenAdapter {
 
     // Symbol slot: always iconH x iconH total; tappable for info about attacking symbol
     Table symCell = new Table(MyGdxGame.skin);
-    if ("none".equals(attackingSymbol)) {
+    // Only highlight green (unset wildcard) when it is this player's turn.
+    if (isMyTurn && "none".equals(attackingSymbol)) {
       symCell.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0.45f, 0f, 0.55f)));
     }
     symCell.addListener(new ClickListener() {

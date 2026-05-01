@@ -5780,6 +5780,11 @@ public class GameScreen extends ScreenAdapter {
       if (serverCurrentIdx == playerIndex) {
         currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
       }
+      // Clear the finishTurn ack timer once the server confirms the turn has moved away from us.
+      // This is the normal success path: server accepted finishTurn and emitted stateUpdate.
+      if (serverCurrentIdx != playerIndex) {
+        finishTurnSentAt = 0L;
+      }
 
       // Sequence-number gap check: if we skipped a stateUpdate, request an immediate resync.
       // With WebSocket transport this should not happen, but guards against any transient drop.
@@ -6199,6 +6204,17 @@ public class GameScreen extends ScreenAdapter {
       }
     } else {
       setupWaitTimer = 0f;
+    }
+
+    // finishTurn ack timeout: if the server accepted finishTurn but the resulting stateUpdate
+    // was lost (client never receives it), no subsequent event will trigger the stateSeq gap
+    // detection. Poll every 5 s and re-request state until the ack arrives.
+    if (finishTurnSentAt > 0L && !gameState.isSetupPhase() && !isTutorial) {
+      long elapsed = System.currentTimeMillis() - finishTurnSentAt;
+      if (elapsed > 5000L) {
+        finishTurnSentAt = System.currentTimeMillis(); // reset so it fires again if still stuck
+        socket.emit("requestStateSync", new JSONObject());
+      }
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),

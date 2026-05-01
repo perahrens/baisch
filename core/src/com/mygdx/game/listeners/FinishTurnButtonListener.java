@@ -5,6 +5,7 @@ import com.mygdx.game.util.JSONObject;
 
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.mygdx.game.GameScreen;
 import com.mygdx.game.GameState;
 import com.mygdx.game.net.SocketClient;
 
@@ -23,6 +24,7 @@ public class FinishTurnButtonListener extends ClickListener {
     // Guard against double-emit: flag lives on PlayerTurn so it survives show() rebuilds.
     if (gameState.getCurrentPlayer().getPlayerTurn().isFinishTurnEmitted()) return;
     gameState.getCurrentPlayer().getPlayerTurn().setFinishTurnEmitted(true);
+    GameScreen.finishTurnSentAt = System.currentTimeMillis();
     try {
       JSONObject data = new JSONObject();
       data.put("currentPlayerIndex", gameState.getCurrentPlayerIndex());

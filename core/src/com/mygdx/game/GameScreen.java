@@ -310,9 +310,17 @@ public class GameScreen extends ScreenAdapter {
         // Diagnostic: log roundtrip for finishTurn and stateSeq on every update
         long csa = data.optLong("clientSentAt", 0L);
         int seq = data.optInt("stateSeq", -1);
-        if (csa > 0L && MyGdxGame.onRoundtripRecorded != null) {
+        if (csa > 0L) {
           int rt = (int)(System.currentTimeMillis() - csa);
-          MyGdxGame.onRoundtripRecorded.onRoundtrip(seq, rt);
+          if (MyGdxGame.onRoundtripRecorded != null) {
+            MyGdxGame.onRoundtripRecorded.onRoundtrip(seq, rt);
+          }
+          try {
+            JSONObject diag = new JSONObject();
+            diag.put("seq", seq);
+            diag.put("ms", rt);
+            GameScreen.this.socket.emit("diagRoundtrip", diag);
+          } catch (JSONException e) { /* never thrown */ }
         }
       }
     });

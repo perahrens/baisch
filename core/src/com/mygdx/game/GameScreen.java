@@ -310,9 +310,9 @@ public class GameScreen extends ScreenAdapter {
         // Diagnostic: log roundtrip for finishTurn and stateSeq on every update
         long csa = data.optLong("clientSentAt", 0L);
         int seq = data.optInt("stateSeq", -1);
-        if (csa > 0L) {
-          long rt = System.currentTimeMillis() - csa;
-          Gdx.app.log("DIAG", "finishTurn roundtrip: " + rt + "ms (seq=" + seq + ")");
+        if (csa > 0L && MyGdxGame.onRoundtripRecorded != null) {
+          int rt = (int)(System.currentTimeMillis() - csa);
+          MyGdxGame.onRoundtripRecorded.onRoundtrip(seq, rt);
         }
       }
     });

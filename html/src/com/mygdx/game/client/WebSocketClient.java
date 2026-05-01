@@ -64,6 +64,14 @@ public class WebSocketClient implements SocketClient {
     return $wnd.io(url, { autoConnect: false, transports: ['websocket'], upgrade: false });
   }-*/;
 
+  /** Pushes a finishTurn roundtrip measurement to window.baischDiag and logs to DevTools console. */
+  public static native void nativeRecordRoundtrip(int seq, int ms) /*-{
+    console.log('[Baisch] finishTurn roundtrip: ' + ms + 'ms (seq=' + seq + ')');
+    if ($wnd.baischDiag && $wnd.baischDiag.addRoundtrip) {
+      $wnd.baischDiag.addRoundtrip(seq, ms);
+    }
+  }-*/;
+
   @Override
   public void on(String event, final SocketListener listener) {
     nativeOn(jsSocket, event, listener);

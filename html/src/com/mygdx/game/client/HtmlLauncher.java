@@ -5,6 +5,7 @@ import com.badlogic.gdx.backends.gwt.GwtApplication;
 import com.badlogic.gdx.backends.gwt.GwtApplicationConfiguration;
 import com.google.gwt.user.client.Window;
 import com.mygdx.game.MyGdxGame;
+import com.mygdx.game.net.DiagListener;
 
 public class HtmlLauncher extends GwtApplication {
 
@@ -59,6 +60,12 @@ public class HtmlLauncher extends GwtApplication {
             @Override
             public void run() {
                 setNameEntryLogoVisible(false);
+            }
+        };
+        MyGdxGame.onRoundtripRecorded = new DiagListener() {
+            @Override
+            public void onRoundtrip(int seq, int ms) {
+                WebSocketClient.nativeRecordRoundtrip(seq, ms);
             }
         };
         installAudioUnlocker(app);

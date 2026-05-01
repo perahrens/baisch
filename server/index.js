@@ -1478,6 +1478,8 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
     sess.gameState.heroAcquired(data.playerIndex, data.heroName);
+    // Relay to all other players so they show the hero reveal overlay.
+    socket.to(sess.id).emit('heroAcquired', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 

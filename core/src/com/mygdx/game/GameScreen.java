@@ -19,7 +19,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.scenes.scene2d.utils.SpriteDrawable;
+
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.EventListener;
@@ -2924,7 +2924,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     // Hero selection overlay — shown when the local player must choose a hero
-    // (drawn card was an Ace or another Joker). Renders on top of the game board.
+    // (drawn card was an Ace or another Joker). Renders on top of everything via overlayStage.
     if (currentPlayer.getPlayerTurn().isHeroSelectionPending()) {
       final PlayerTurn hspt = currentPlayer.getPlayerTurn();
       final java.util.ArrayList<Hero> choices = hspt.getHeroChoices();
@@ -2932,12 +2932,12 @@ public class GameScreen extends ScreenAdapter {
       Image hsOverlay = new Image(MyGdxGame.skin, "white");
       hsOverlay.setFillParent(true);
       hsOverlay.setColor(0f, 0f, 0f, 0.78f);
-      gameStage.addActor(hsOverlay);
+      overlayStage.addActor(hsOverlay);
 
       Label hsTitle = new Label("Choose your Hero:", MyGdxGame.skin);
       hsTitle.setColor(Color.GOLD);
       hsTitle.setPosition(MyGdxGame.WIDTH / 2f - hsTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.86f);
-      gameStage.addActor(hsTitle);
+      overlayStage.addActor(hsTitle);
 
       // Single-column Table of hero buttons inside a vertical ScrollPane.
       Table hsTable = new Table(MyGdxGame.skin);
@@ -2988,7 +2988,7 @@ public class GameScreen extends ScreenAdapter {
       hsScroll.setPosition(
           MyGdxGame.WIDTH / 2f - hsBtnW / 2f,
           MyGdxGame.HEIGHT * 0.10f);
-      gameStage.addActor(hsScroll);
+      overlayStage.addActor(hsScroll);
     }
 
     // King-defeat hero selection overlay — shown to the attacker when they must pick one of the
@@ -2999,12 +2999,12 @@ public class GameScreen extends ScreenAdapter {
       Image kdOverlay = new Image(MyGdxGame.skin, "white");
       kdOverlay.setFillParent(true);
       kdOverlay.setColor(0f, 0f, 0f, 0.78f);
-      gameStage.addActor(kdOverlay);
+      overlayStage.addActor(kdOverlay);
 
       Label kdTitle = new Label("Choose a Hero from the defeated player:", MyGdxGame.skin);
       kdTitle.setColor(Color.GOLD);
       kdTitle.setPosition(MyGdxGame.WIDTH / 2f - kdTitle.getPrefWidth() / 2f, MyGdxGame.HEIGHT * 0.86f);
-      gameStage.addActor(kdTitle);
+      overlayStage.addActor(kdTitle);
 
       // Single-column Table of hero buttons inside a vertical ScrollPane.
       Table kdTable = new Table(MyGdxGame.skin);
@@ -3039,85 +3039,89 @@ public class GameScreen extends ScreenAdapter {
       kdScroll.setPosition(
           MyGdxGame.WIDTH / 2f - kdBtnW / 2f,
           MyGdxGame.HEIGHT * 0.10f);
-      gameStage.addActor(kdScroll);
+      overlayStage.addActor(kdScroll);
     }
 
     // ── Hero reveal overlay (issue #257) ───────────────────────────────────
     // Shown to every player after any hero acquisition. Dismissed with "Got it!".
+    // Uses overlayStage (450x800) so elements at any HEIGHT fraction are visible.
     if (heroRevealPlayerName != null && heroRevealHeroName != null) {
-      final String revealPlayer = heroRevealPlayerName;
       final String revealHero   = heroRevealHeroName;
       final int    revealCardId = heroRevealDrawnCardId;
 
+      // Dark full-screen background
       Image revOv = new Image(MyGdxGame.skin, "white");
       revOv.setFillParent(true);
-      revOv.setColor(0f, 0f, 0f, 0.82f);
-      gameStage.addActor(revOv);
+      revOv.setColor(0f, 0f, 0f, 0.85f);
+      overlayStage.addActor(revOv);
 
-      // "PlayerName won a Hero!" title
-      Label revTitle = new Label(revealPlayer + " won a Hero!", MyGdxGame.skin);
+      // Centered content table
+      Table revTable = new Table();
+      revTable.setFillParent(true);
+      revTable.center();
+
+      // Title
+      Label revTitle = new Label(heroRevealPlayerName + " won a Hero!", MyGdxGame.skin);
       revTitle.setColor(Color.GOLD);
-      revTitle.setPosition(
-          MyGdxGame.WIDTH / 2f - revTitle.getPrefWidth() / 2f,
-          MyGdxGame.HEIGHT * 0.70f);
-      gameStage.addActor(revTitle);
+      revTable.add(revTitle).padBottom(14f).row();
 
-      // Hero sprite — look up the hero in the game state by name.
+      // Hero sprite via TextureRegionDrawable (reliable in GWT)
       int heroOwnerIdx = gameState.findHeroOwnerIndex(revealHero);
       if (heroOwnerIdx >= 0) {
         java.util.ArrayList<Hero> ownerHeroes = gameState.getPlayers().get(heroOwnerIdx).getHeroes();
         for (int hi = 0; hi < ownerHeroes.size(); hi++) {
           Hero rh = ownerHeroes.get(hi);
           if (revealHero.equals(rh.getHeroName())) {
-            float spriteScale = 2.5f;
-            float imgW = rh.getSprite().getWidth() * spriteScale;
-            float imgH = rh.getSprite().getHeight() * spriteScale;
-            Image heroImg = new Image(new SpriteDrawable(rh.getSprite()));
-            heroImg.setSize(imgW, imgH);
-            heroImg.setPosition(
-                MyGdxGame.WIDTH / 2f - imgW / 2f,
-                MyGdxGame.HEIGHT * 0.46f);
-            gameStage.addActor(heroImg);
+            com.badlogic.gdx.graphics.g2d.Sprite sp = rh.getSprite();
+            if (sp != null) {
+              float imgW = sp.getWidth() * 1.5f;
+              float imgH = sp.getHeight() * 1.5f;
+              Image heroImg = new Image(
+                  new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(
+                      new com.badlogic.gdx.graphics.g2d.TextureRegion(sp))) {
+                @Override
+                public com.badlogic.gdx.scenes.scene2d.Actor hit(float x, float y, boolean touchable) { return null; }
+              };
+              heroImg.setSize(imgW, imgH);
+              revTable.add(heroImg).size(imgW, imgH).padBottom(8f).row();
+            }
             break;
           }
         }
       }
 
-      // Hero name label
+      // Hero name
       Label revHeroLabel = new Label(revealHero, MyGdxGame.skin);
       revHeroLabel.setColor(Color.WHITE);
-      revHeroLabel.setPosition(
-          MyGdxGame.WIDTH / 2f - revHeroLabel.getPrefWidth() / 2f,
-          MyGdxGame.HEIGHT * 0.62f);
-      gameStage.addActor(revHeroLabel);
+      revTable.add(revHeroLabel).padBottom(14f).row();
 
       // Drawn card (if known)
       if (revealCardId > 0) {
         Card revCard = Card.fromCardId(revealCardId);
-        float cardScale = 1.4f;
-        revCard.setSize(revCard.getWidth() * cardScale, revCard.getHeight() * cardScale);
-        revCard.setPosition(
-            MyGdxGame.WIDTH / 2f - revCard.getWidth() / 2f,
-            MyGdxGame.HEIGHT * 0.30f);
-        gameStage.addActor(revCard);
+        if (revCard != null) {
+          float cScale = 1.4f;
+          float cW = revCard.getWidth() * cScale;
+          float cH = revCard.getHeight() * cScale;
+          revCard.setSize(cW, cH);
+          revTable.add(revCard).size(cW, cH).padBottom(20f).row();
+        }
       }
 
       // "Got it!" dismiss button
       TextButton revBtn = new TextButton("Got it!", MyGdxGame.skin);
       revBtn.pad(8f, 32f, 8f, 32f);
-      revBtn.setPosition(
-          MyGdxGame.WIDTH / 2f - revBtn.getPrefWidth() / 2f,
-          MyGdxGame.HEIGHT * 0.10f);
       revBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          heroRevealPlayerName  = null;
-          heroRevealHeroName    = null;
-          heroRevealDrawnCardId = -1;
+          GameScreen.this.heroRevealPlayerName  = null;
+          GameScreen.this.heroRevealHeroName    = null;
+          GameScreen.this.heroRevealDrawnCardId = -1;
           gameState.setUpdateState(true);
         }
       });
-      gameStage.addActor(revBtn);
+      revTable.add(revBtn);
+
+      overlayStage.addActor(revTable);
     }
 
     // ── Sell Hero setup overlay ─────────────────────────────────────────────

@@ -4876,7 +4876,7 @@ public class GameScreen extends ScreenAdapter {
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
-        MyGdxGame.keyboardHelper.showKeyboard(inputField, doSendRef[0]);
+        MyGdxGame.keyboardHelper.hideKeyboard();
         try {
           JSONObject msg = new JSONObject();
           String senderName = currentPlayer != null ? currentPlayer.getPlayerName() : "?";

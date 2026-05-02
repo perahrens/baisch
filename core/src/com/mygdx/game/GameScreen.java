@@ -367,6 +367,21 @@ public class GameScreen extends ScreenAdapter {
               int newPlayerIndex = data.getInt("playerIndex");
               JSONObject newState = data.getJSONObject("gameState");
               String newHeroAssignMode = data.optString("heroAssignMode", theHeroAssignMode);
+              // Remove this screen's game-specific socket listeners before the new GameScreen
+              // registers its own. Without this, both the old and new screens would process
+              // every stateUpdate, causing double applyStateUpdate calls, stateSeq gap cascades,
+              // and extra requestStateSync emissions from the old screen's stale lastStateSeq.
+              screenDisposed = true;
+              theSocket.off("stateUpdate");
+              theSocket.off("heroAcquired");
+              theSocket.off("heroLost");
+              theSocket.off("saboteurDestroyed");
+              theSocket.off("spyFlip");
+              theSocket.off("batteryDefenseCheck");
+              theSocket.off("batteryAllowAttack");
+              theSocket.off("batteryDenyAttack");
+              theSocket.off("mercDefBoost");
+              theSocket.off("reservistsKingBoost");
               theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero, newHeroAssignMode));
             } catch (Exception e) {
               e.printStackTrace();
@@ -5803,15 +5818,23 @@ public class GameScreen extends ScreenAdapter {
       }
 
       // Sequence-number gap check: if we skipped a stateUpdate, request an immediate resync.
-      // With WebSocket transport this should not happen, but guards against any transient drop.
+      // Only triggers for FORWARD gaps (seq > lastSeq+1); same-seq responses from requestStateSync
+      // are intentional (server does not increment stateSeq for point-to-point syncs) and are safe.
       try {
         int seq = state.getInt("stateSeq");
-        if (lastStateSeq >= 0 && seq != lastStateSeq + 1) {
+        if (lastStateSeq >= 0 && seq > lastStateSeq + 1) {
           Gdx.app.log("DIAG", "stateSeq gap: expected " + (lastStateSeq + 1) + " got " + seq + " — requesting resync");
           socket.emit("requestStateSync", new JSONObject());
         }
-        lastStateSeq = seq;
+        if (seq > lastStateSeq) lastStateSeq = seq;
       } catch (JSONException ignored) { /* server may not yet send stateSeq */ }
+
+      // 0b. Apply setup phase transition EARLY — before any rebuild that might throw.
+      // If the rebuild throws, isSetupPhase() will still return the correct value so the
+      // render shows the game board (not the stuck "Waiting for..." setup screen).
+      boolean prevSetupPhase = gameState.isSetupPhase();
+      boolean newSetupPhase = state.optBoolean("setupPhase", false);
+      gameState.setSetupPhase(newSetupPhase);
       // Issue #171: track the previous player index here (not only in show()) so that
       // MY_TURN_START fires correctly even when multiple stateUpdates arrive in the same
       // render frame (e.g. the bot plays and finishes its turn synchronously, sending both
@@ -6122,11 +6145,9 @@ public class GameScreen extends ScreenAdapter {
       // 6. Winner index
       gameState.setWinnerIndex(state.optInt("winnerIndex", -1));
 
-      // 6b. Setup phase flag (manual setup)
-      boolean prevSetupPhase = gameState.isSetupPhase();
-      boolean newSetupPhase = state.optBoolean("setupPhase", false);
-      gameState.setSetupPhase(newSetupPhase);
-      // When setup phase just ended, attach picking deck listeners (deferred from deserialization)
+      // 6b. Attach picking deck listeners when setup phase just ended.
+      // (prevSetupPhase/newSetupPhase are computed and setSetupPhase() called early — see 0b above,
+      // so this block just handles the listener attachment which must happen after deck rebuild.)
       if (prevSetupPhase && !newSetupPhase && gameState.getPickingDecks().size() >= 2) {
         PickingDeckListener pdl0 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(0), gameState.getPickingDecks().get(1), 0);
         gameState.getPickingDecks().get(0).addListener(pdl0);
@@ -6242,8 +6263,9 @@ public class GameScreen extends ScreenAdapter {
     // one stateUpdate but then sees 30 s of silence during active play requests a fresh state.
     // This is purely reactive — the timer resets on every received update so it only fires when
     // a client is genuinely stuck (e.g. applyStateUpdate threw and the UI froze, or the
-    // stateUpdate was dropped at the network layer).
-    if (!gameState.isSetupPhase() && !isTutorial && lastStateUpdateReceivedAt > 0L) {
+    // stateUpdate was dropped at the network layer). Covers both setup and game phase so that
+    // the setupWaitTimer alone is not the only recovery path during manual setup.
+    if (!isTutorial && lastStateUpdateReceivedAt > 0L) {
       if (System.currentTimeMillis() - lastStateUpdateReceivedAt > 30000L) {
         lastStateUpdateReceivedAt = System.currentTimeMillis(); // prevent rapid re-fire
         Gdx.app.log("DIAG", "idle resync: no stateUpdate for 30s — requesting state");

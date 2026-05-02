@@ -6816,20 +6816,26 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void dispose() {
+    // Only unregister socket listeners if they haven't already been cleaned up by the
+    // gameState reconnect handler.  That handler sets screenDisposed=true, removes
+    // all listeners, then calls theGame.setScreen(GS2) — which triggers hide() →
+    // dispose() on this (GS1) instance.  At that point GS2's constructor has already
+    // called socket.on("stateUpdate", ...) so calling socket.off() here would silently
+    // delete GS2's listener, causing every stateUpdate to be dropped after reconnect.
+    if (!screenDisposed) {
+      // Normal disposal path (return-to-menu, page unload, etc.) — safe to clean up.
+      socket.off("stateUpdate");
+      socket.off("heroAcquired");
+      socket.off("heroLost");
+      socket.off("saboteurDestroyed");
+      socket.off("spyFlip");
+      socket.off("batteryDefenseCheck");
+      socket.off("batteryAllowAttack");
+      socket.off("batteryDenyAttack");
+      socket.off("mercDefBoost");
+      socket.off("reservistsKingBoost");
+    }
     screenDisposed = true;
-    // Remove all GameScreen-exclusive socket listeners so this instance can be GC'd.
-    // (Events also used by MenuScreen — "gameState", "returnToLobby" — are guarded
-    //  by the screenDisposed flag in their call() bodies instead.)
-    socket.off("stateUpdate");
-    socket.off("heroAcquired");
-    socket.off("heroLost");
-    socket.off("saboteurDestroyed");
-    socket.off("spyFlip");
-    socket.off("batteryDefenseCheck");
-    socket.off("batteryAllowAttack");
-    socket.off("batteryDenyAttack");
-    socket.off("mercDefBoost");
-    socket.off("reservistsKingBoost");
     gameStage.dispose();
     handStage.dispose();
     overlayStage.dispose();

@@ -16,6 +16,7 @@ import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.MyGdxGame;
 
 public class OwnDefCardListener extends ClickListener {
 
@@ -152,6 +153,7 @@ public class OwnDefCardListener extends ClickListener {
                 mercenaries.operate();
                 selectedCard.addBoosted(1);
                 emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
+                MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMercenaries);
                 gameState.setUpdateState(true);
               }
             } else {

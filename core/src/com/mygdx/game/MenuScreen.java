@@ -1536,7 +1536,14 @@ public class MenuScreen extends AbstractScreen {
           Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-              game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero(), heroAssignMode));
+              // Guard: only create a GameScreen from MenuScreen when the current screen is
+              // NOT already a GameScreen. On reconnect the server sends a gameState event,
+              // but the active GameScreen has its own handler that handles the transition.
+              // Without this guard, both MenuScreen and GameScreen would create a new
+              // GameScreen simultaneously, stripping the new screen's stateUpdate listener.
+              if (!(game.getScreen() instanceof GameScreen)) {
+                game.setScreen(new GameScreen(game, gameState, playerIndex, socket, menuState.getStartingHero(), heroAssignMode));
+              }
             }
           });
         } catch (JSONException e) {

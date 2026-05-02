@@ -363,6 +363,10 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            // Re-check: if a sibling postRunnable (from a second rapid gameState event on the
+            // same socket) already set screenDisposed=true and created a replacement screen,
+            // do not run again — that would strip the replacement screen's stateUpdate listener.
+            if (screenDisposed) return;
             try {
               int newPlayerIndex = data.getInt("playerIndex");
               JSONObject newState = data.getJSONObject("gameState");

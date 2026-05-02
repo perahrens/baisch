@@ -81,6 +81,7 @@ function createSession(name, allowHeroSelection, startingCards, manualSetup, her
     winnerHandled: false,
     timeToStart: 0,
     timer: null,
+    creatorSocketId: null, // set when the creator joins; used for host auth checks
     // lobbySlots: 4 slot configs describing what each player slot should contain.
     // Slot 0 = host (always 'player'); slots 1-3 default to 'open'.
     // Each entry: {type: 'player'|'open'|'closed'|'bot', userId?, botMode?, botUserId?}
@@ -130,7 +131,15 @@ function getSessionList() {
   return Object.values(sessions)
     .filter(function(s) { return !s.isTutorial; })
     .map(function(s) {
-      return { id: s.id, name: s.name, playerCount: s.users.length, running: s.gameState !== null };
+      var humanCount = s.users.filter(function(u) { return u.id.indexOf('bot_') !== 0; }).length
+                     + s.spectators.length;
+      var closedCount = 0;
+      if (s.lobbySlots) {
+        for (var ci = 0; ci < s.lobbySlots.length; ci++) {
+          if (s.lobbySlots[ci] && s.lobbySlots[ci].type === 'closed') closedCount++;
+        }
+      }
+      return { id: s.id, name: s.name, playerCount: humanCount, maxSlots: 4 - closedCount, running: s.gameState !== null };
     });
 }
 
@@ -147,10 +156,15 @@ function getReadyUsers(sess) {
 }
 
 function canSessionStart(sess, requesterSocketId) {
-  if (!sess || sess.gameState !== null || !sess.users.length || sess.users[0].id !== requesterSocketId) {
-    return false;
+  if (!sess || sess.gameState !== null || !sess.users.length) return false;
+  // Only the creator can start the game
+  if (sess.creatorSocketId !== requesterSocketId) return false;
+  // If creator is spectating (slot 0 = bot), game can start when ≥ 2 players/bots are ready
+  var creatorIsSpectator = sess.spectators.indexOf(requesterSocketId) !== -1;
+  if (creatorIsSpectator) {
+    return getReadyUsers(sess).length >= 2;
   }
-
+  // Normal: creator must themselves be ready, and at least 2 total ready
   var requester = sess.users.find(function(u) { return u.id === requesterSocketId; });
   return !!requester && requester.isReady && getReadyUsers(sess).length >= 2;
 }
@@ -197,8 +211,8 @@ function startCountdownForSession(sess, requesterSocketId, seconds) {
 function startGameForSession(sess, requesterSocketId) {
   if (!sess || sess.gameState !== null) return false;
 
-  // Host is the first player in lobby order.
-  if (!sess.users.length || sess.users[0].id !== requesterSocketId) {
+  // Only the session creator can start the game.
+  if (!sess.users.length || sess.creatorSocketId !== requesterSocketId) {
     return false;
   }
 
@@ -270,6 +284,15 @@ function startGameForSession(sess, requesterSocketId) {
       tokenMap[u.token].sessionId = sess.id;
     }
   });
+  // Send spectator view to any spectators (e.g. creator who set slot 0 to bot)
+  sess.spectators.forEach(function(sid) {
+    io.to(sid).emit('gameState', {
+      playerIndex: -1,
+      gameState: sess.gameState.serialize(),
+      heroAssignMode: sess.heroAssignMode || 'value_mapping'
+    });
+    console.log('gameState emitted to spectator ' + sid);
+  });
   // Auto-submit manual setup for bots using the smart card-selection strategy
   if (sess.manualSetup && sess.gameState.setupPhase) {
     sess.users.forEach(function(u, idx) {
@@ -329,9 +352,9 @@ function leaveCurrentSession(socket) {
   delete sess.heroSelections[socket.id];
   var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
 
-  // If the creator (users[0]) leaves before the game has started, close the lobby
-  // for everyone — the remaining players cannot start without a host.
-  if (sess.gameState === null && userIdx === 0 && sess.users.length > 1) {
+  // If the creator leaves before the game has started, close the lobby for everyone.
+  var isCreator = sess.creatorSocketId === socket.id;
+  if (sess.gameState === null && isCreator && (sess.users.length > 1 || sess.spectators.length > 1)) {
     io.to(sess.id).emit('sessionClosed', { reason: 'host_left' });
     // Evict all remaining users from the socket room
     sess.users.forEach(function(u) {
@@ -1154,6 +1177,7 @@ io.on('connection', function(socket) {
       var hostUser = makeUser(socket.id, name, cToken, icon);
       sess.users.unshift(hostUser);
       sess.lobbySlots[0] = {type: 'player', userId: socket.id};
+      sess.creatorSocketId = socket.id;
       if (cToken) {
         if (!tokenMap[cToken]) tokenMap[cToken] = {};
         tokenMap[cToken].name = name;
@@ -1161,7 +1185,7 @@ io.on('connection', function(socket) {
         tokenMap[cToken].sessionId = sess.id;
       }
       console.log("Session created: " + sess.id + " '" + sess.name + "' by " + name + " (heroes: " + allowHeroSelection + ", startingCards: " + sess.startingCards + ", manualSetup: " + manualSetup + ")");
-      socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup });
+      socket.emit('sessionJoined', { sessionId: sess.id, allowHeroSelection: sess.allowHeroSelection, startingCards: sess.startingCards, manualSetup: sess.manualSetup, isHost: true });
       broadcastLobbyState(sess);
       socket.emit('gameStatus', { running: false });
       broadcastSessionList();
@@ -1244,40 +1268,67 @@ io.on('connection', function(socket) {
         }
       }
     }
-    if (sess.timer && !canSessionStart(sess, sess.users[0] && sess.users[0].id)) {
+    if (sess.timer && !canSessionStart(sess, sess.creatorSocketId)) {
       cancelStartCountdown(sess, true);
     }
     broadcastLobbyState(sess);
   });
 
-  // Host configures a lobby slot (slots 1–3). Cannot change slot 0 (host) or occupied player slots.
-  // data = { slotIndex: 1|2|3, slotType: 'open'|'closed'|'bot', botMode: 'passive'|'balanced'|... }
+  // Host configures any lobby slot 0–3. Cannot change slots occupied by other human players.
+  // data = { slotIndex: 0|1|2|3, slotType: 'player'|'open'|'closed'|'bot', botMode: 'passive'|'balanced'|... }
+  // slotType 'player' is only meaningful for slot 0 (revert host back from spectator).
   socket.on('setLobbySlot', function(data) {
     var sess = getSession(socket.id);
     if (!sess || sess.gameState !== null) return;
-    // Only the host (users[0]) may configure slots
-    if (!sess.users.length || sess.users[0].id !== socket.id) return;
+    // Only the creator may configure slots
+    if (sess.creatorSocketId !== socket.id) return;
     var slotIndex = parseInt(data && data.slotIndex);
-    if (isNaN(slotIndex) || slotIndex < 1 || slotIndex > 3) return;
+    if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 3) return;
     var VALID_MODES = ['passive', 'balanced', 'aggressive', 'tactician', 'mcts'];
     var BOT_MODE_LABELS = { passive: 'Passive', balanced: 'Balanced', aggressive: 'Aggressive', tactician: 'Tactician', mcts: 'MCTS' };
     var newType = String(data.slotType || 'open');
     var newBotMode = String(data.botMode || 'balanced');
     var currentSlot = sess.lobbySlots[slotIndex];
-    // Cannot reconfigure a slot that has a real human player
-    if (currentSlot && currentSlot.type === 'player') return;
+    // Cannot reconfigure a slot occupied by a human who is not the creator
+    if (currentSlot && currentSlot.type === 'player' && currentSlot.userId !== socket.id) return;
     // Remove existing bot from this slot if any
     if (currentSlot && currentSlot.type === 'bot' && currentSlot.botUserId) {
       sess.users = sess.users.filter(function(u) { return u.id !== currentSlot.botUserId; });
       delete sess.heroSelections[currentSlot.botUserId];
     }
-    if (newType === 'bot' && VALID_MODES.indexOf(newBotMode) !== -1) {
+    if (slotIndex === 0 && (newType === 'open' || newType === 'closed')) {
+      // Slot 0 cannot be open or closed — revert to player
+      newType = 'player';
+    }
+    if (slotIndex === 0 && newType === 'player') {
+      // Revert slot 0 back to the creator being a real player
+      var specIdx0 = sess.spectators.indexOf(socket.id);
+      if (specIdx0 !== -1) sess.spectators.splice(specIdx0, 1);
+      var alreadyUser = sess.users.find(function(u) { return u.id === socket.id; });
+      if (!alreadyUser) {
+        var cp = connectedPlayers[socket.id];
+        var hostUser = makeUser(socket.id, cp ? cp.name : 'Host', null, cp ? cp.icon : '');
+        sess.users.unshift(hostUser);
+      }
+      sess.lobbySlots[0] = {type: 'player', userId: socket.id};
+      console.log("Slot 0 reverted to player (creator) in session " + sess.id);
+    } else if (newType === 'bot' && VALID_MODES.indexOf(newBotMode) !== -1) {
+      if (slotIndex === 0) {
+        // Move creator from users to spectators
+        var userIdx0 = sess.users.findIndex(function(u) { return u.id === socket.id; });
+        if (userIdx0 !== -1) sess.users.splice(userIdx0, 1);
+        if (sess.spectators.indexOf(socket.id) === -1) sess.spectators.push(socket.id);
+      }
       var botId = 'bot_' + sess.id + '_slot' + slotIndex;
       var botLabel = BOT_MODE_LABELS[newBotMode] || 'Bot';
       var botUser = makeUser(botId, 'Bot ' + slotIndex + ' (' + botLabel + ')');
       botUser.isReady = true;
       botUser.botMode = newBotMode;
-      sess.users.push(botUser);
+      if (slotIndex === 0) {
+        sess.users.unshift(botUser); // slot 0 bot is always users[0]
+      } else {
+        sess.users.push(botUser);
+      }
       sess.lobbySlots[slotIndex] = {type: 'bot', botMode: newBotMode, botUserId: botId};
       console.log("Slot " + slotIndex + " set to bot (" + newBotMode + ") in session " + sess.id);
     } else if (newType === 'closed') {

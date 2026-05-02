@@ -74,11 +74,15 @@ public class MenuScreen extends AbstractScreen {
   private int pendingStartingCards = 8;
   // How heroes are assigned when a joker is sacrificed: "value_mapping" | "color_mapping" | "free_selector"
   private String pendingHeroAssignMode = "value_mapping";
-  // Per-bot personality selections: "off" means no bot in that slot.
-  // Values map to server bot mode keys: "passive", "balanced", "aggressive", "tactician", "llm".
-  private String[] pendingBotModes = {"off", "off", "off", "off"};
-  // Whether the creator joins as a spectator (4th bot slot enabled in this mode)
-  private boolean pendingSpectator = false;
+
+  // Lobby slot configuration received from the server (4 slots: slot 0 = host).
+  // Each entry is: "player", "open", "closed", or "bot:<mode>" (e.g. "bot:balanced").
+  private String[] lobbySlotTypes  = {"player", "open", "open", "open"};
+  private String[] lobbySlotUserIds = {"", "", "", ""};
+  private String[] lobbySlotBotUserIds = {"", "", "", ""};
+  private String[] lobbySlotBotModes  = {"", "", "", ""};
+  // Whether the local player created this session (persists even if they move to spectator slot)
+  private boolean isSessionHost = false;
 
   // The session list received from the server
   private java.util.List<SessionInfo> sessionList = new java.util.ArrayList<SessionInfo>();
@@ -87,9 +91,10 @@ public class MenuScreen extends AbstractScreen {
     String id;
     String name;
     int playerCount;
+    int maxSlots;
     boolean running;
-    SessionInfo(String id, String name, int playerCount, boolean running) {
-      this.id = id; this.name = name; this.playerCount = playerCount; this.running = running;
+    SessionInfo(String id, String name, int playerCount, int maxSlots, boolean running) {
+      this.id = id; this.name = name; this.playerCount = playerCount; this.maxSlots = maxSlots; this.running = running;
     }
   }
 
@@ -631,7 +636,7 @@ public class MenuScreen extends AbstractScreen {
       for (int si = 0; si < list.size(); si++) {
         final SessionInfo s = list.get(si);
         Label nameL = new Label(s.name, MyGdxGame.skin);
-        Label countL = new Label(s.playerCount + "/4", MyGdxGame.skin);
+        Label countL = new Label(s.playerCount + "/" + s.maxSlots, MyGdxGame.skin);
         if (s.running) {
           TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
           watchBtn.addListener(new ClickListener() {
@@ -853,57 +858,7 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    // ── Per-bot personality selectors (Bot 1 / 2 / 3, plus Bot 4 in spectator mode) ──
-    final String[] BOT_DISPLAY = {"Off", "Passive", "Balanced", "Aggressive", "Tactician", "MCTS"};
-    final String[] BOT_KEYS    = {"off", "passive", "balanced", "aggressive", "tactician", "mcts"};
-    final int totalBotSlots = 4;
-    final Label[] botLabels = new Label[totalBotSlots];
-    @SuppressWarnings("unchecked")
-    final SelectBox<String>[] botBoxes = new SelectBox[totalBotSlots];
-    for (int bi = 0; bi < totalBotSlots; bi++) {
-      botLabels[bi] = new Label("Bot " + (bi + 1) + ":", MyGdxGame.skin);
-      botBoxes[bi] = new SelectBox<String>(MyGdxGame.skin);
-      Array<String> botOpts = new Array<String>();
-      for (String d : BOT_DISPLAY) botOpts.add(d);
-      botBoxes[bi].setItems(botOpts);
-      // Restore from pending state
-      String currentMode = pendingBotModes[bi];
-      String displayVal = "Off";
-      for (int ki = 0; ki < BOT_KEYS.length; ki++) {
-        if (BOT_KEYS[ki].equals(currentMode)) { displayVal = BOT_DISPLAY[ki]; break; }
-      }
-      botBoxes[bi].setSelected(displayVal);
-      // Bot 4 is read-only unless spectator mode is enabled
-      if (bi == 3 && !pendingSpectator) {
-        botBoxes[bi].setDisabled(true);
-        botLabels[bi].setColor(1f, 1f, 1f, 0.35f);
-      }
-      final int botSlot = bi;
-      botBoxes[bi].addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-        @Override
-        public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-          String sel = botBoxes[botSlot].getSelected();
-          for (int ki = 0; ki < BOT_DISPLAY.length; ki++) {
-            if (BOT_DISPLAY[ki].equals(sel)) { pendingBotModes[botSlot] = BOT_KEYS[ki]; return; }
-          }
-          pendingBotModes[botSlot] = "off";
-        }
-      });
-    }
-
     // ── Checkboxes ───────────────────────────────────────────────────────────
-    final CheckBox spectatorCheckbox = new CheckBox(" Spectator mode (watch bots only)", MyGdxGame.skin);
-    spectatorCheckbox.setChecked(pendingSpectator);
-    spectatorCheckbox.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-      @Override
-      public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-        pendingSpectator = spectatorCheckbox.isChecked();
-        // Reset Bot 4 selection when spectator is unchecked
-        if (!pendingSpectator) pendingBotModes[3] = "off";
-        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
-      }
-    });
-
     final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
     manualSetupCheckbox.setChecked(pendingManualSetup);
 
@@ -919,7 +874,6 @@ public class MenuScreen extends AbstractScreen {
             ? menuState.getMyName() + "'s game" : pendingSessionName;
         sessionAllowHeroSelection = heroCheckbox.isChecked();
         pendingManualSetup = manualSetupCheckbox.isChecked();
-        boolean isSpectator = spectatorCheckbox.isChecked();
         try {
           pendingStartingCards = Integer.parseInt(cardsBox.getSelected());
         } catch (NumberFormatException ex) { pendingStartingCards = 8; }
@@ -928,12 +882,6 @@ public class MenuScreen extends AbstractScreen {
         for (int ki = 0; ki < HERO_MODE_DISPLAY.length; ki++) {
           if (HERO_MODE_DISPLAY[ki].equals(selHeroMode)) { pendingHeroAssignMode = HERO_MODE_KEYS[ki]; break; }
         }
-        // Collect non-"off" bot modes (up to 3 normally, up to 4 in spectator mode)
-        int maxBots = isSpectator ? 4 : 3;
-        JSONArray botModesArr = new JSONArray();
-        for (int bi = 0; bi < maxBots; bi++) {
-          if (!"off".equals(pendingBotModes[bi])) botModesArr.put(pendingBotModes[bi]);
-        }
         JSONObject data = new JSONObject();
         try {
           data.put("name", menuState.getMyName());
@@ -941,8 +889,6 @@ public class MenuScreen extends AbstractScreen {
           data.put("allowHeroSelection", sessionAllowHeroSelection);
           data.put("startingCards", pendingStartingCards);
           data.put("manualSetup", pendingManualSetup);
-          data.put("botModes", botModesArr);
-          data.put("spectator", isSpectator);
           data.put("heroAssignMode", pendingHeroAssignMode);
           data.put("token", MyGdxGame.playerStorage.getToken());
           data.put("icon", selectedIcon);
@@ -952,8 +898,6 @@ public class MenuScreen extends AbstractScreen {
         pendingManualSetup = false;
         pendingStartingCards = 8;
         pendingHeroAssignMode = "value_mapping";
-        pendingSpectator = false;
-        pendingBotModes = new String[]{"off", "off", "off", "off"};
         inSessionCreate = false;
       }
     });
@@ -973,13 +917,6 @@ public class MenuScreen extends AbstractScreen {
     form.row();
     form.add(heroModeLabel).left().padRight(12f).padBottom(6f);
     form.add(heroModeBox).width(colW * 0.55f).left().padBottom(6f);
-    for (int bi = 0; bi < totalBotSlots; bi++) {
-      form.row();
-      form.add(botLabels[bi]).left().padRight(12f).padBottom(4f);
-      form.add(botBoxes[bi]).width(colW * 0.5f).left().padBottom(4f);
-    }
-    form.row();
-    form.add(spectatorCheckbox).colspan(2).left().padBottom(4f);
     form.row();
     form.add(manualSetupCheckbox).colspan(2).left().padBottom(4f);
     form.row();
@@ -1125,18 +1062,18 @@ public class MenuScreen extends AbstractScreen {
     lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
     lobbyTitle.setPosition(Math.round(cx - lobbyTitle.getPrefWidth() / 2f), Math.round(0.835f * MyGdxGame.HEIGHT));
 
-    // table with all logged in users
+    // table showing all 4 lobby slots
     Table loggedInUserTable = new Table(MyGdxGame.skin);
     loggedInUserTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
     loggedInUserTable.pad(14f, 18f, 14f, 18f);
     ArrayList<User> loggedInUsers = menuState.getUsers();
 
-    boolean isHost = !loggedInUsers.isEmpty()
-        && loggedInUsers.get(0).getUserID().equals(menuState.getMyUserID());
+    boolean isHost = isSessionHost;
+    boolean hostIsSpectator = isHost && "bot".equals(lobbySlotTypes != null && lobbySlotTypes.length > 0 ? lobbySlotTypes[0] : "player");
     int tableColumns = sessionAllowHeroSelection ? 3 : 2;
 
     Label headLine1 = new Label("Name", MyGdxGame.skin);
-    Label headLine2 = new Label("Status", MyGdxGame.skin);
+    Label headLine2 = new Label("Slot", MyGdxGame.skin);
     headLine1.setColor(1f, 1f, 1f, 0.9f);
     headLine2.setColor(1f, 1f, 1f, 0.9f);
 
@@ -1149,61 +1086,272 @@ public class MenuScreen extends AbstractScreen {
     loggedInUserTable.add(headLine2).padBottom(8f);
     loggedInUserTable.row();
 
-    for (int i = 0; i < loggedInUsers.size(); i++) {
-      User user = loggedInUsers.get(i);
-      Label nameLabel = new Label(user.getName(), MyGdxGame.skin);
+    final String[] SLOT_DISPLAY = {"Open", "Closed", "Passive Bot", "Balanced Bot", "Aggressive Bot", "Tactician Bot", "MCTS Bot"};
+    final String[] SLOT_TYPES   = {"open",  "closed",  "bot",         "bot",          "bot",            "bot",           "bot"};
+    final String[] SLOT_MODES   = {"",      "",         "passive",     "balanced",     "aggressive",     "tactician",     "mcts"};
+    // Slot-0 options: player-self + bots (cannot be open/closed)
+    final String[] SLOT0_DISPLAY = {"Player (you)", "Passive Bot", "Balanced Bot", "Aggressive Bot", "Tactician Bot", "MCTS Bot"};
+    final String[] SLOT0_TYPES   = {"player",       "bot",         "bot",          "bot",            "bot",           "bot"};
+    final String[] SLOT0_MODES   = {"",             "passive",     "balanced",     "aggressive",     "tactician",     "mcts"};
 
-      if (user.getUserID().equals(menuState.getMyUserID())) {
-        nameLabel.setColor(Color.GOLD);
-      }
+    for (int slotIdx = 0; slotIdx < 4; slotIdx++) {
+      final int si = slotIdx;
+      String slotType = (lobbySlotTypes != null && lobbySlotTypes.length > slotIdx) ? lobbySlotTypes[slotIdx] : "open";
+      String slotUserId = (lobbySlotUserIds != null && lobbySlotUserIds.length > slotIdx) ? lobbySlotUserIds[slotIdx] : "";
+      String slotBotUserId = (lobbySlotBotUserIds != null && lobbySlotBotUserIds.length > slotIdx) ? lobbySlotBotUserIds[slotIdx] : "";
+      String slotBotMode = (lobbySlotBotModes != null && lobbySlotBotModes.length > slotIdx) ? lobbySlotBotModes[slotIdx] : "";
 
-      Table statusBadge;
-      if (user.isReady()) {
-        statusBadge = createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE);
-      } else {
-        statusBadge = createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
-      }
-
-      loggedInUserTable.add(buildNameCell(nameLabel, user.getIcon())).padRight(20).padBottom(6f).left();
-
-      if (sessionAllowHeroSelection) {
-        boolean isOwnRow = user.getUserID().equals(menuState.getMyUserID());
-        boolean isBotRow = user.getUserID().startsWith("bot_");
-        if (isOwnRow) {
-          refreshHeroDropdown();
-          loggedInUserTable.add(heroSelectBox).padRight(20).padBottom(6f)
-              .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
-        } else if (isBotRow && isHost) {
-          final String botUserId = user.getUserID();
-          final String botCurrentHero = user.getSelectedHero();
-          final SelectBox<String> botHeroBox = new SelectBox<String>(MyGdxGame.skin);
-          botHeroBox.setItems(buildHeroDropdownItems(botCurrentHero));
-          botHeroBox.setSelected(botCurrentHero);
-          botHeroBox.setSize(heroSelectBox.getWidth(), heroSelectBox.getHeight());
-          botHeroBox.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-              String selected = botHeroBox.getSelected();
-              try {
-                JSONObject data = new JSONObject();
-                data.put("botUserId", botUserId);
-                data.put("heroName", selected);
-                socket.emit("setBotHeroSelection", data);
-              } catch (JSONException e) { /* ignore */ }
-            }
-          });
-          loggedInUserTable.add(botHeroBox).padRight(20).padBottom(6f)
-              .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
-        } else {
-          String heroName = user.getSelectedHero();
-          Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
-          loggedInUserTable.add(heroLbl).padRight(20).padBottom(6f);
+      // Find the matching user in menuState
+      User rowUser = null;
+      if ("player".equals(slotType) && !slotUserId.isEmpty()) {
+        for (int ui = 0; ui < loggedInUsers.size(); ui++) {
+          if (loggedInUsers.get(ui).getUserID().equals(slotUserId)) { rowUser = loggedInUsers.get(ui); break; }
+        }
+      } else if ("bot".equals(slotType) && !slotBotUserId.isEmpty()) {
+        for (int ui = 0; ui < loggedInUsers.size(); ui++) {
+          if (loggedInUsers.get(ui).getUserID().equals(slotBotUserId)) { rowUser = loggedInUsers.get(ui); break; }
         }
       }
 
-      loggedInUserTable.add(statusBadge).left().padBottom(6f);
+      // --- Determine whether to show a config dropdown for this slot ---
+      // Host can reconfigure: slot 0 (always) and slots 1-3 when not occupied by another human.
+      boolean slotOccupiedByOtherHuman = "player".equals(slotType)
+          && !slotUserId.isEmpty()
+          && !slotUserId.equals(menuState.getMyUserID());
+      boolean showHostDropdown = isHost && !slotOccupiedByOtherHuman;
+
+      if (si == 0 && showHostDropdown) {
+        // Slot 0: always a row (host playing or bot), with dropdown for host
+        // Name / hero columns
+        if ("player".equals(slotType) && rowUser != null) {
+          Label nameLabel = new Label(rowUser.getName(), MyGdxGame.skin);
+          nameLabel.setColor(Color.GOLD);
+          loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
+          if (sessionAllowHeroSelection) {
+            refreshHeroDropdown();
+            loggedInUserTable.add(heroSelectBox).padRight(10).padBottom(6f)
+                .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
+          }
+        } else if ("bot".equals(slotType) && rowUser != null) {
+          Label nameLabel = new Label(rowUser.getName(), MyGdxGame.skin);
+          nameLabel.setColor(0.6f, 0.9f, 1f, 1f);
+          loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
+          if (sessionAllowHeroSelection) {
+            final String botUserId0 = rowUser.getUserID();
+            final String botCurrentHero0 = rowUser.getSelectedHero();
+            final SelectBox<String> botHeroBox0 = new SelectBox<String>(MyGdxGame.skin);
+            botHeroBox0.setItems(buildHeroDropdownItems(botCurrentHero0));
+            botHeroBox0.setSelected(botCurrentHero0);
+            botHeroBox0.setSize(100f, heroSelectBox.getHeight());
+            botHeroBox0.addListener(new ChangeListener() {
+              @Override
+              public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                String selected = botHeroBox0.getSelected();
+                try {
+                  JSONObject data = new JSONObject();
+                  data.put("botUserId", botUserId0);
+                  data.put("heroName", selected);
+                  socket.emit("setBotHeroSelection", data);
+                } catch (JSONException e) { /* ignore */ }
+              }
+            });
+            loggedInUserTable.add(botHeroBox0).padRight(10).padBottom(6f)
+                .width(100f).height(heroSelectBox.getHeight());
+          }
+        } else {
+          // No user found yet — show placeholder in name (and hero) columns
+          Label placeholder = new Label("(you)", MyGdxGame.skin);
+          placeholder.setColor(Color.GOLD);
+          loggedInUserTable.add(placeholder).padRight(10).padBottom(6f).left();
+          if (sessionAllowHeroSelection) {
+            Label heroPlaceholder = new Label("-", MyGdxGame.skin);
+            loggedInUserTable.add(heroPlaceholder).padRight(10).padBottom(6f);
+          }
+        }
+        // Status column — dropdown to configure slot 0
+        final SelectBox<String> slot0Box = new SelectBox<String>(MyGdxGame.skin);
+        Array<String> slot0Opts = new Array<String>();
+        for (String d : SLOT0_DISPLAY) slot0Opts.add(d);
+        slot0Box.setItems(slot0Opts);
+        // Pre-select current state
+        if ("bot".equals(slotType)) {
+          String modeDisplay = "Balanced Bot";
+          for (int ki = 1; ki < SLOT0_MODES.length; ki++) {
+            if (SLOT0_MODES[ki].equals(slotBotMode)) { modeDisplay = SLOT0_DISPLAY[ki]; break; }
+          }
+          slot0Box.setSelected(modeDisplay);
+        } else {
+          slot0Box.setSelected("Player (you)");
+        }
+        slot0Box.addListener(new ChangeListener() {
+          @Override
+          public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+            String sel = slot0Box.getSelected();
+            for (int ki = 0; ki < SLOT0_DISPLAY.length; ki++) {
+              if (SLOT0_DISPLAY[ki].equals(sel)) {
+                try {
+                  JSONObject slotData = new JSONObject();
+                  slotData.put("slotIndex", 0);
+                  slotData.put("slotType", SLOT0_TYPES[ki]);
+                  if (!SLOT0_MODES[ki].isEmpty()) slotData.put("botMode", SLOT0_MODES[ki]);
+                  socket.emit("setLobbySlot", slotData);
+                } catch (JSONException e) { /* ignore */ }
+                return;
+              }
+            }
+          }
+        });
+        loggedInUserTable.add(slot0Box).padBottom(6f).width(120f).left();
+
+      } else if ("player".equals(slotType) && rowUser != null) {
+        // Human player row (non-host-configurable)
+        Label nameLabel = new Label(rowUser.getName(), MyGdxGame.skin);
+        if (rowUser.getUserID().equals(menuState.getMyUserID())) nameLabel.setColor(Color.GOLD);
+        loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
+        if (sessionAllowHeroSelection) {
+          boolean isOwnRow = rowUser.getUserID().equals(menuState.getMyUserID());
+          if (isOwnRow) {
+            refreshHeroDropdown();
+            loggedInUserTable.add(heroSelectBox).padRight(10).padBottom(6f)
+                .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
+          } else {
+            String heroName = rowUser.getSelectedHero();
+            Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
+            loggedInUserTable.add(heroLbl).padRight(10).padBottom(6f);
+          }
+        }
+        Table statusBadge = rowUser.isReady()
+            ? createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)
+            : createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
+        loggedInUserTable.add(statusBadge).left().padBottom(6f);
+
+      } else if ("bot".equals(slotType) && rowUser != null && !showHostDropdown) {
+        // Bot row, non-host view
+        Label nameLabel = new Label(rowUser.getName(), MyGdxGame.skin);
+        nameLabel.setColor(0.6f, 0.9f, 1f, 1f);
+        loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
+        if (sessionAllowHeroSelection) {
+          String heroName = rowUser.getSelectedHero();
+          Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
+          loggedInUserTable.add(heroLbl).padRight(10).padBottom(6f);
+        }
+        loggedInUserTable.add(createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)).left().padBottom(6f);
+
+      } else if (showHostDropdown && si > 0) {
+        // Slots 1-3 that the host can configure (open, closed, or bot)
+        // Build pre-select string
+        String currentDisplay = "Open";
+        if ("closed".equals(slotType)) {
+          currentDisplay = "Closed";
+        } else if ("bot".equals(slotType)) {
+          // Find bot name row for display if available, but pre-select bot mode in dropdown
+          currentDisplay = "Balanced Bot";
+          for (int ki = 2; ki < SLOT_MODES.length; ki++) {
+            if (SLOT_MODES[ki].equals(slotBotMode)) { currentDisplay = SLOT_DISPLAY[ki]; break; }
+          }
+          // Show bot name / hero in name+hero columns before the dropdown col
+          if (rowUser != null) {
+            Label nameLabel = new Label(rowUser.getName(), MyGdxGame.skin);
+            nameLabel.setColor(0.6f, 0.9f, 1f, 1f);
+            loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
+            if (sessionAllowHeroSelection) {
+              final String botUserIdN = rowUser.getUserID();
+              final String botCurrentHeroN = rowUser.getSelectedHero();
+              final SelectBox<String> botHeroBoxN = new SelectBox<String>(MyGdxGame.skin);
+              botHeroBoxN.setItems(buildHeroDropdownItems(botCurrentHeroN));
+              botHeroBoxN.setSelected(botCurrentHeroN);
+              botHeroBoxN.setSize(100f, heroSelectBox.getHeight());
+              botHeroBoxN.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                  String selected = botHeroBoxN.getSelected();
+                  try {
+                    JSONObject data = new JSONObject();
+                    data.put("botUserId", botUserIdN);
+                    data.put("heroName", selected);
+                    socket.emit("setBotHeroSelection", data);
+                  } catch (JSONException e) { /* ignore */ }
+                }
+              });
+              loggedInUserTable.add(botHeroBoxN).padRight(10).padBottom(6f)
+                  .width(100f).height(heroSelectBox.getHeight());
+            }
+            // Show config dropdown in status column only
+            final String fCurrentDisplay = currentDisplay;
+            final SelectBox<String> slotBox = new SelectBox<String>(MyGdxGame.skin);
+            Array<String> slotOpts = new Array<String>();
+            for (String d : SLOT_DISPLAY) slotOpts.add(d);
+            slotBox.setItems(slotOpts);
+            slotBox.setSelected(fCurrentDisplay);
+            slotBox.addListener(new ChangeListener() {
+              @Override
+              public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                String sel = slotBox.getSelected();
+                for (int ki = 0; ki < SLOT_DISPLAY.length; ki++) {
+                  if (SLOT_DISPLAY[ki].equals(sel)) {
+                    try {
+                      JSONObject slotData = new JSONObject();
+                      slotData.put("slotIndex", si);
+                      slotData.put("slotType", SLOT_TYPES[ki]);
+                      if (!SLOT_MODES[ki].isEmpty()) slotData.put("botMode", SLOT_MODES[ki]);
+                      socket.emit("setLobbySlot", slotData);
+                    } catch (JSONException e) { /* ignore */ }
+                    return;
+                  }
+                }
+              }
+            });
+            loggedInUserTable.add(slotBox).padBottom(6f).width(120f).left();
+            loggedInUserTable.row();
+            if (si < 3) {
+              Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
+              loggedInUserTable.add(sep).colspan(tableColumns).growX().height(1f).padTop(2f).padBottom(5f);
+              loggedInUserTable.row();
+            }
+            continue; // row already closed above
+          }
+        }
+        // open or closed slot (or bot with no rowUser): span all columns with the dropdown
+        final String fCurrentDisplay = currentDisplay;
+        final SelectBox<String> slotBox = new SelectBox<String>(MyGdxGame.skin);
+        Array<String> slotOpts = new Array<String>();
+        for (String d : SLOT_DISPLAY) slotOpts.add(d);
+        slotBox.setItems(slotOpts);
+        slotBox.setSelected(fCurrentDisplay);
+        slotBox.addListener(new ChangeListener() {
+          @Override
+          public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+            String sel = slotBox.getSelected();
+            for (int ki = 0; ki < SLOT_DISPLAY.length; ki++) {
+              if (SLOT_DISPLAY[ki].equals(sel)) {
+                try {
+                  JSONObject slotData = new JSONObject();
+                  slotData.put("slotIndex", si);
+                  slotData.put("slotType", SLOT_TYPES[ki]);
+                  if (!SLOT_MODES[ki].isEmpty()) slotData.put("botMode", SLOT_MODES[ki]);
+                  socket.emit("setLobbySlot", slotData);
+                } catch (JSONException e) { /* ignore */ }
+                return;
+              }
+            }
+          }
+        });
+        loggedInUserTable.add(slotBox).colspan(tableColumns).fillX().padBottom(6f);
+
+      } else {
+        // Non-host view of an empty/closed slot, or slot 0 placeholder not yet claimed
+        if (si == 0) {
+          Label placeholder = new Label("(waiting)", MyGdxGame.skin);
+          placeholder.setColor(1f, 1f, 1f, 0.4f);
+          loggedInUserTable.add(placeholder).colspan(tableColumns).left().padBottom(6f);
+        } else {
+          Label slotLabel = new Label("closed".equals(slotType) ? "[ Closed ]" : "[ Open ]", MyGdxGame.skin);
+          slotLabel.setColor(1f, 1f, 1f, 0.45f);
+          loggedInUserTable.add(slotLabel).colspan(tableColumns).left().padBottom(6f);
+        }
+      }
       loggedInUserTable.row();
-      if (i < loggedInUsers.size() - 1) {
+      if (slotIdx < 3) {
         Image sep = new Image(MyGdxGame.skin.newDrawable("white", new Color(1f, 1f, 1f, 0.14f)));
         loggedInUserTable.add(sep).colspan(tableColumns).growX().height(1f).padTop(2f).padBottom(5f);
         loggedInUserTable.row();
@@ -1270,14 +1418,23 @@ public class MenuScreen extends AbstractScreen {
           break;
         }
       }
-      boolean canHostStart = isHost && amReady && readyCount >= 2 && !timerStarted;
+      boolean canHostStart = isHost && readyCount >= 2 && !timerStarted
+          && (hostIsSpectator || amReady);
 
       if (isHost) {
         TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
         startGameButton.setSize(startGameButton.getPrefWidth() + 20, startGameButton.getPrefHeight());
         float buttonGap = 20f;
-        float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
-        float startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
+        float startButtonX;
+        if (hostIsSpectator) {
+          // No Ready button — center the Start button
+          startButtonX = (MyGdxGame.WIDTH - startGameButton.getWidth()) / 2f;
+        } else {
+          float readyButtonX = (MyGdxGame.WIDTH / 2f) - button.getWidth() - (buttonGap / 2f);
+          startButtonX = (MyGdxGame.WIDTH / 2f) + (buttonGap / 2f);
+          button.setPosition(readyButtonX, buttonY);
+          menuStage.addActor(button);
+        }
         startGameButton.setPosition(startButtonX, buttonY);
         startGameButton.setDisabled(!canHostStart);
         startGameButton.setTouchable(!canHostStart
@@ -1295,8 +1452,6 @@ public class MenuScreen extends AbstractScreen {
           }
         });
         menuStage.addActor(startGameButton);
-
-        button.setPosition(readyButtonX, buttonY);
       } else {
         button.setPosition((MyGdxGame.WIDTH - button.getWidth()) / 2f, buttonY);
       }
@@ -1312,7 +1467,10 @@ public class MenuScreen extends AbstractScreen {
         // No hero selection in this session — clear any stale hero from a previous session.
         menuState.setStartingHero("None");
       }
-      menuStage.addActor(button);
+      // Only show the Ready button when not a spectating host
+      if (!hostIsSpectator) {
+        menuStage.addActor(button);
+      }
     }
 
     menuStage.addActor(actionBar);
@@ -1327,6 +1485,7 @@ public class MenuScreen extends AbstractScreen {
       public void clicked(InputEvent event, float x, float y) {
         socket.emit("leaveSession", "");
         MyGdxGame.playerStorage.clearSessionId();
+        isSessionHost = false;
         lobbyJoined = false;
         timerStarted = false;
         gameRunning = false;
@@ -1674,6 +1833,7 @@ public class MenuScreen extends AbstractScreen {
             MyGdxGame.playerStorage.clearSessionId();
             reconnecting = false;
             reconnectElapsed = 0f;
+            isSessionHost = false;
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1697,6 +1857,7 @@ public class MenuScreen extends AbstractScreen {
             reconnectElapsed = 0f;
             timerStarted = false;
             gameRunning = false;
+            isSessionHost = false;
             lobbyJoined = false;
             showPlayersTab = false;
             menuState.clearUsers();
@@ -1722,6 +1883,7 @@ public class MenuScreen extends AbstractScreen {
                   o.getString("id"),
                   o.getString("name"),
                   o.getInt("playerCount"),
+                  o.optInt("maxSlots", 4),
                   o.getBoolean("running")
                 ));
               }
@@ -1772,6 +1934,7 @@ public class MenuScreen extends AbstractScreen {
               sessionAllowHeroSelection = data.optBoolean("allowHeroSelection", true);
               String sessId = data.optString("sessionId", "");
               if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
+              if (data.optBoolean("isHost", false)) isSessionHost = true;
             } catch (Exception e) { /* keep default */ }
             lobbyJoined = true;
             // Notify server of our initial hero selection only when hero selection is enabled.
@@ -1793,6 +1956,7 @@ public class MenuScreen extends AbstractScreen {
             MyGdxGame.playerStorage.clearSessionId();
             reconnecting = false;
             reconnectElapsed = 0f;
+            isSessionHost = false;
             lobbyJoined = false;
             timerStarted = false;
             gameRunning = false;
@@ -1840,6 +2004,43 @@ public class MenuScreen extends AbstractScreen {
     });
 
     // Connect only after all listeners are registered so no events are missed
+    socket.on("lobbySlots", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONArray slots = (JSONArray) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              for (int i = 0; i < Math.min(4, slots.length()); i++) {
+                JSONObject s = slots.getJSONObject(i);
+                String type = s.optString("type", "open");
+                lobbySlotTypes[i]      = type;
+                lobbySlotUserIds[i]    = s.optString("userId", "");
+                lobbySlotBotUserIds[i] = s.optString("botUserId", "");
+                lobbySlotBotModes[i]   = s.optString("botMode", "");
+              }
+            } catch (JSONException e) {
+              Gdx.app.log("SocketIO", "Error parsing lobbySlots: " + e.getMessage());
+            }
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
+    socket.on("sessionFull", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            updateScreen = true;
+          }
+        });
+      }
+    });
+
     socket.connect();
   }
 

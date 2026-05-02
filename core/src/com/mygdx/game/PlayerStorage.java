@@ -49,6 +49,12 @@ public interface PlayerStorage {
   /** Persists the music on/off preference. */
   void saveMusicEnabled(boolean enabled);
 
+  /** Returns true if in-game sound effects should play (default: true). */
+  boolean getSoundEnabled();
+
+  /** Persists the sound effects on/off preference. */
+  void saveSoundEnabled(boolean enabled);
+
   /** Clears the saved player name (logout). */
   void clearName();
 
@@ -73,6 +79,8 @@ public interface PlayerStorage {
     @Override public void    saveShowPlayersTab(boolean val)     { }
     @Override public boolean getMusicEnabled()                   { return true; }
     @Override public void    saveMusicEnabled(boolean enabled)   { }
+    @Override public boolean getSoundEnabled()                   { return true; }
+    @Override public void    saveSoundEnabled(boolean enabled)   { }
     @Override public void    clearName()                         { }
     @Override public String  getSavedIcon()                      { return ""; }
     @Override public void    saveIcon(String icon)               { }

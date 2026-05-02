@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.mygdx.game.Card;
 import com.mygdx.game.GameState;
+import com.mygdx.game.MyGdxGame;
 import com.mygdx.game.Player;
 import com.mygdx.game.heroes.Hero;
 
@@ -54,6 +55,7 @@ public class OwnPlaceholderListener extends ClickListener {
           return;
         }
         player.putDefCard(positionId, 0);
+        MyGdxGame.playGameSound(MyGdxGame.soundCardDrop);
         if (gameState.getSocket() != null && cardId > 0 && positionId >= 1 && positionId <= 3) {
           try {
             JSONObject payload = new JSONObject();

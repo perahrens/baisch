@@ -36,11 +36,11 @@ public class MyGdxGame extends Game implements InputProcessor {
   static Stage stage;
 
   // --- Sound effects ---
-  static Sound soundCardDrop    = null;
-  static Sound soundCardShuffle = null;
-  static Sound soundKingAttack  = null;
-  static Sound soundSlurp       = null;
-  static Sound soundJokerLaugh  = null;
+  public static Sound soundCardDrop    = null;
+  public static Sound soundCardShuffle = null;
+  public static Sound soundKingAttack  = null;
+  public static Sound soundSlurp       = null;
+  public static Sound soundJokerLaugh  = null;
 
   // --- Music tracks ---
   /** Menu screens (name-entry, session list, create-game). */
@@ -115,11 +115,16 @@ public class MyGdxGame extends Game implements InputProcessor {
     soundJokerLaugh  = loadSoundEffect("data/sounds/freesound_community-joker-laugh-2-98829.mp3");
   }
 
-  /** Play a one-shot sound effect (no-op if music/sound is disabled or sound is null). */
-  static void playGameSound(Sound s) {
+  /** Play a one-shot sound effect (no-op if sound effects are disabled or sound is null). */
+  public static void playGameSound(Sound s) {
     if (s == null) return;
-    if (!playerStorage.getMusicEnabled()) return;
+    if (!playerStorage.getSoundEnabled()) return;
     s.play();
+  }
+
+  /** Toggle sound effects on/off and persist the preference. */
+  static void setSoundEnabled(boolean enabled) {
+    playerStorage.saveSoundEnabled(enabled);
   }
 
   /** Switch to a new track (pass null for silence). */

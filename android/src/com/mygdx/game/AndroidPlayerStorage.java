@@ -11,6 +11,7 @@ public class AndroidPlayerStorage implements PlayerStorage {
     private static final String KEY_SESSION_ID    = "session_id";
     private static final String KEY_SHOW_PLAYERS  = "show_players_tab";
     private static final String KEY_MUSIC_ENABLED = "music_enabled";
+    private static final String KEY_SOUND_ENABLED = "sound_enabled";
     private static final String KEY_ICON          = "player_icon";
 
     private final SharedPreferences prefs;
@@ -39,6 +40,8 @@ public class AndroidPlayerStorage implements PlayerStorage {
     @Override public void    saveShowPlayersTab(boolean val)     { prefs.edit().putBoolean(KEY_SHOW_PLAYERS, val).apply(); }
     @Override public boolean getMusicEnabled()                   { return prefs.getBoolean(KEY_MUSIC_ENABLED, true); }
     @Override public void    saveMusicEnabled(boolean enabled)   { prefs.edit().putBoolean(KEY_MUSIC_ENABLED, enabled).apply(); }
+    @Override public boolean getSoundEnabled()                   { return prefs.getBoolean(KEY_SOUND_ENABLED, true); }
+    @Override public void    saveSoundEnabled(boolean enabled)   { prefs.edit().putBoolean(KEY_SOUND_ENABLED, enabled).apply(); }
     @Override public String  getSavedIcon()                      { return prefs.getString(KEY_ICON, ""); }
     @Override public void    saveIcon(String icon)               { prefs.edit().putString(KEY_ICON, icon).apply(); }
     @Override public void    clearIcon()                         { prefs.edit().remove(KEY_ICON).apply(); }

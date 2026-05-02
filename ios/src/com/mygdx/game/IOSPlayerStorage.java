@@ -14,6 +14,7 @@ public class IOSPlayerStorage implements PlayerStorage {
     private static final String KEY_SESSION_ID    = "session_id";
     private static final String KEY_SHOW_PLAYERS  = "show_players_tab";
     private static final String KEY_MUSIC_ENABLED = "music_enabled";
+    private static final String KEY_SOUND_ENABLED = "sound_enabled";
 
     private final NSUserDefaults prefs;
 
@@ -42,4 +43,6 @@ public class IOSPlayerStorage implements PlayerStorage {
     @Override public void    saveShowPlayersTab(boolean val)     { prefs.put(KEY_SHOW_PLAYERS, val);           prefs.synchronize(); }
     @Override public boolean getMusicEnabled()                   { String v = prefs.getString(KEY_MUSIC_ENABLED); if (v == null) return true; return prefs.getBoolean(KEY_MUSIC_ENABLED); }
     @Override public void    saveMusicEnabled(boolean enabled)   { prefs.put(KEY_MUSIC_ENABLED, enabled);     prefs.synchronize(); }
+    @Override public boolean getSoundEnabled()                   { String v = prefs.getString(KEY_SOUND_ENABLED); if (v == null) return true; return prefs.getBoolean(KEY_SOUND_ENABLED); }
+    @Override public void    saveSoundEnabled(boolean enabled)   { prefs.put(KEY_SOUND_ENABLED, enabled);     prefs.synchronize(); }
 }

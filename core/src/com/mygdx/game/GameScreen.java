@@ -1978,6 +1978,7 @@ public class GameScreen extends ScreenAdapter {
             JSONArray ownDefIdArr = new JSONArray();
             for (Card c : pt.getPendingAttackOwnDefCards()) ownDefIdArr.put(c.getCardId());
             emitData.put("attackerOwnDefCardIds", ownDefIdArr);
+            if (pt.isKingUsed()) MyGdxGame.playGameSound(MyGdxGame.soundKingAttack);
             socket.emit("lootResolved", emitData);
           } catch (JSONException e) {
             e.printStackTrace();
@@ -4709,6 +4710,18 @@ public class GameScreen extends ScreenAdapter {
       }
     });
     table.add(historyBtn).width(300).height(90).padBottom(5).row();
+
+    final boolean soundOn = MyGdxGame.playerStorage.getSoundEnabled();
+    final TextButton soundBtn = new TextButton(soundOn ? "Sound: ON" : "Sound: OFF", MyGdxGame.skin);
+    soundBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        boolean newVal = !MyGdxGame.playerStorage.getSoundEnabled();
+        MyGdxGame.setSoundEnabled(newVal);
+        soundBtn.setText(newVal ? "Sound: ON" : "Sound: OFF");
+      }
+    });
+    table.add(soundBtn).width(300).height(90).padBottom(5).row();
 
     if (isSpectator || (currentPlayer != null && currentPlayer.isOut())) {
       TextButton leaveBtn = new TextButton("Leave Game", MyGdxGame.skin);

@@ -131,8 +131,7 @@ function getSessionList() {
   return Object.values(sessions)
     .filter(function(s) { return !s.isTutorial; })
     .map(function(s) {
-      var humanCount = s.users.filter(function(u) { return u.id.indexOf('bot_') !== 0; }).length
-                     + s.spectators.length;
+      var humanCount = s.users.length + s.spectators.length;
       var closedCount = 0;
       if (s.lobbySlots) {
         for (var ci = 0; ci < s.lobbySlots.length; ci++) {

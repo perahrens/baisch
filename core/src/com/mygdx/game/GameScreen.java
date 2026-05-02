@@ -209,12 +209,12 @@ public class GameScreen extends ScreenAdapter {
   // Safety-net: while waiting for others to submit setup, periodically request a state resync
   // so the screen self-heals if the final stateUpdate (setupPhase=false) was missed.
   private float setupWaitTimer = 0f;
-  // Heartbeat resync: during active gameplay, request a full state resync if no stateUpdate
-  // has been received for 30 seconds. Recovers clients that silently get out of sync.
-  private float syncHeartbeatTimer = 0f;
   // Sequence number of the last received stateUpdate. -1 = not yet received.
   // Used to detect dropped messages and trigger immediate resync.
   private int lastStateSeq = -1;
+  // Timestamp (ms) of the last successfully received stateUpdate. 0 = none yet.
+  // Used by all clients to detect when they have gone silent and self-heal via resync.
+  private long lastStateUpdateReceivedAt = 0L;
   // Timestamp (ms) set when finishTurn is emitted; cleared when the ack stateUpdate arrives.
   // Used to measure end-to-end roundtrip latency.
   public static long finishTurnSentAt = 0L;
@@ -316,10 +316,22 @@ public class GameScreen extends ScreenAdapter {
             }
           }
         } catch (JSONException e) { /* ignore malformed packet */ }
-        syncHeartbeatTimer = 0f;
-        // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded
-        applyStateUpdate(data);
-        gameState.setUpdateState(true);
+        // Apply stateUpdate immediately, not via postRunnable, so updates are not deferred when tab is backgrounded.
+        // Track receive time regardless of whether apply succeeds — message WAS delivered.
+        lastStateUpdateReceivedAt = System.currentTimeMillis();
+        int diagSeq = data.optInt("stateSeq", -1);
+        int diagIdx = data.optInt("currentPlayerIndex", -1);
+        Gdx.app.log("DIAG", "stateUpdate received seq=" + diagSeq + " currentPlayerIdx=" + diagIdx);
+        try {
+          applyStateUpdate(data);
+        } catch (Exception e) {
+          // A RuntimeException inside applyStateUpdate was previously silently escaping
+          // the JSONException catch, skipping setUpdateState(true) and freezing the UI.
+          Gdx.app.error("DIAG", "applyStateUpdate threw " + e.getClass().getSimpleName() + ": " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          gameState.setUpdateState(true);
+        }
         // Diagnostic: log roundtrip for finishTurn and stateSeq on every update
         long csa = data.optLong("clientSentAt", 0L);
         int seq = data.optInt("stateSeq", -1);
@@ -351,10 +363,29 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.postRunnable(new Runnable() {
           @Override
           public void run() {
+            // Re-check: if a sibling postRunnable (from a second rapid gameState event on the
+            // same socket) already set screenDisposed=true and created a replacement screen,
+            // do not run again — that would strip the replacement screen's stateUpdate listener.
+            if (screenDisposed) return;
             try {
               int newPlayerIndex = data.getInt("playerIndex");
               JSONObject newState = data.getJSONObject("gameState");
               String newHeroAssignMode = data.optString("heroAssignMode", theHeroAssignMode);
+              // Remove this screen's game-specific socket listeners before the new GameScreen
+              // registers its own. Without this, both the old and new screens would process
+              // every stateUpdate, causing double applyStateUpdate calls, stateSeq gap cascades,
+              // and extra requestStateSync emissions from the old screen's stale lastStateSeq.
+              screenDisposed = true;
+              theSocket.off("stateUpdate");
+              theSocket.off("heroAcquired");
+              theSocket.off("heroLost");
+              theSocket.off("saboteurDestroyed");
+              theSocket.off("spyFlip");
+              theSocket.off("batteryDefenseCheck");
+              theSocket.off("batteryAllowAttack");
+              theSocket.off("batteryDenyAttack");
+              theSocket.off("mercDefBoost");
+              theSocket.off("reservistsKingBoost");
               theGame.setScreen(new GameScreen(theGame, newState, newPlayerIndex, theSocket, theStartingHero, newHeroAssignMode));
             } catch (Exception e) {
               e.printStackTrace();
@@ -5775,24 +5806,39 @@ public class GameScreen extends ScreenAdapter {
         prevPlayer.getPlayerTurn().getBatteryDeniedAttackCardIds().clear();
         prevPlayer.getPlayerTurn().setBatteryDenied(false);
         pendingExposeCard = false;
-        // Note: turn notification is fired in the socket listener callback (not here)
-        // so it works even when the tab is hidden and the render loop is paused.
-        // Reset finishTurnEmitted when the turn transitions back to this client's player.
-        if (serverCurrentIdx == playerIndex) {
-          currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
-        }
+      }
+      // Reset finishTurnEmitted whenever the server confirms it is this player's turn.
+      // This covers both normal turn-change and the recovery case where a previous
+      // finishTurn was rejected/lost: the resync response has the same currentPlayerIndex,
+      // so prevCurrentIdx==serverCurrentIdx and the block above would not fire — without
+      // this unconditional reset the button stays permanently stuck until page refresh.
+      if (serverCurrentIdx == playerIndex) {
+        currentPlayer.getPlayerTurn().setFinishTurnEmitted(false);
+      }
+      // Clear the finishTurn ack timer once the server confirms the turn has moved away from us.
+      // This is the normal success path: server accepted finishTurn and emitted stateUpdate.
+      if (serverCurrentIdx != playerIndex) {
+        finishTurnSentAt = 0L;
       }
 
       // Sequence-number gap check: if we skipped a stateUpdate, request an immediate resync.
-      // With WebSocket transport this should not happen, but guards against any transient drop.
+      // Only triggers for FORWARD gaps (seq > lastSeq+1); same-seq responses from requestStateSync
+      // are intentional (server does not increment stateSeq for point-to-point syncs) and are safe.
       try {
         int seq = state.getInt("stateSeq");
-        if (lastStateSeq >= 0 && seq != lastStateSeq + 1) {
+        if (lastStateSeq >= 0 && seq > lastStateSeq + 1) {
           Gdx.app.log("DIAG", "stateSeq gap: expected " + (lastStateSeq + 1) + " got " + seq + " — requesting resync");
           socket.emit("requestStateSync", new JSONObject());
         }
-        lastStateSeq = seq;
+        if (seq > lastStateSeq) lastStateSeq = seq;
       } catch (JSONException ignored) { /* server may not yet send stateSeq */ }
+
+      // 0b. Apply setup phase transition EARLY — before any rebuild that might throw.
+      // If the rebuild throws, isSetupPhase() will still return the correct value so the
+      // render shows the game board (not the stuck "Waiting for..." setup screen).
+      boolean prevSetupPhase = gameState.isSetupPhase();
+      boolean newSetupPhase = state.optBoolean("setupPhase", false);
+      gameState.setSetupPhase(newSetupPhase);
       // Issue #171: track the previous player index here (not only in show()) so that
       // MY_TURN_START fires correctly even when multiple stateUpdates arrive in the same
       // render frame (e.g. the bot plays and finishes its turn synchronously, sending both
@@ -6103,11 +6149,9 @@ public class GameScreen extends ScreenAdapter {
       // 6. Winner index
       gameState.setWinnerIndex(state.optInt("winnerIndex", -1));
 
-      // 6b. Setup phase flag (manual setup)
-      boolean prevSetupPhase = gameState.isSetupPhase();
-      boolean newSetupPhase = state.optBoolean("setupPhase", false);
-      gameState.setSetupPhase(newSetupPhase);
-      // When setup phase just ended, attach picking deck listeners (deferred from deserialization)
+      // 6b. Attach picking deck listeners when setup phase just ended.
+      // (prevSetupPhase/newSetupPhase are computed and setSetupPhase() called early — see 0b above,
+      // so this block just handles the listener attachment which must happen after deck rebuild.)
       if (prevSetupPhase && !newSetupPhase && gameState.getPickingDecks().size() >= 2) {
         PickingDeckListener pdl0 = new PickingDeckListener(gameState, gameState.getPickingDecks().get(0), gameState.getPickingDecks().get(1), 0);
         gameState.getPickingDecks().get(0).addListener(pdl0);
@@ -6149,7 +6193,12 @@ public class GameScreen extends ScreenAdapter {
         merchantRevealPlayerIdx = -1;
       }
 
-    } catch (JSONException e) { e.printStackTrace(); }
+    } catch (Exception e) {
+      // Catch all exceptions (not just JSONException) so a RuntimeException mid-apply
+      // cannot silently corrupt partial state without being logged.
+      Gdx.app.error("DIAG", "applyStateUpdate exception (" + e.getClass().getSimpleName() + "): " + e.getMessage());
+      e.printStackTrace();
+    }
   }
 
   @Override
@@ -6203,18 +6252,29 @@ public class GameScreen extends ScreenAdapter {
       setupWaitTimer = 0f;
     }
 
-    // Gameplay heartbeat resync: if no stateUpdate has arrived for 30 seconds during an active
-    // game, request a full state sync from the server. This self-heals clients that silently
-    // get out of sync (e.g. a missed update due to a brief network hiccup or a tab that was
-    // briefly backgrounded during a game-state transition).
-    if (!gameState.isSetupPhase() && !isTutorial) {
-      syncHeartbeatTimer += delta;
-      if (syncHeartbeatTimer >= 30f) {
-        syncHeartbeatTimer = 0f;
+    // finishTurn ack timeout: if the server accepted finishTurn but the resulting stateUpdate
+    // was lost (client never receives it), no subsequent event will trigger the stateSeq gap
+    // detection. Poll every 5 s and re-request state until the ack arrives.
+    if (finishTurnSentAt > 0L && !gameState.isSetupPhase() && !isTutorial) {
+      long elapsed = System.currentTimeMillis() - finishTurnSentAt;
+      if (elapsed > 5000L) {
+        finishTurnSentAt = System.currentTimeMillis(); // reset so it fires again if still stuck
         socket.emit("requestStateSync", new JSONObject());
       }
-    } else {
-      syncHeartbeatTimer = 0f;
+    }
+
+    // All-client idle resync: any client (not just the turn-ender) that has received at least
+    // one stateUpdate but then sees 30 s of silence during active play requests a fresh state.
+    // This is purely reactive — the timer resets on every received update so it only fires when
+    // a client is genuinely stuck (e.g. applyStateUpdate threw and the UI froze, or the
+    // stateUpdate was dropped at the network layer). Covers both setup and game phase so that
+    // the setupWaitTimer alone is not the only recovery path during manual setup.
+    if (!isTutorial && lastStateUpdateReceivedAt > 0L) {
+      if (System.currentTimeMillis() - lastStateUpdateReceivedAt > 30000L) {
+        lastStateUpdateReceivedAt = System.currentTimeMillis(); // prevent rapid re-fire
+        Gdx.app.log("DIAG", "idle resync: no stateUpdate for 30s — requesting state");
+        socket.emit("requestStateSync", new JSONObject());
+      }
     }
 
     // Tutorial step SELECT auto-advance: card selection is visual-only and doesn't trigger show(),
@@ -6756,20 +6816,26 @@ public class GameScreen extends ScreenAdapter {
 
   @Override
   public void dispose() {
+    // Only unregister socket listeners if they haven't already been cleaned up by the
+    // gameState reconnect handler.  That handler sets screenDisposed=true, removes
+    // all listeners, then calls theGame.setScreen(GS2) — which triggers hide() →
+    // dispose() on this (GS1) instance.  At that point GS2's constructor has already
+    // called socket.on("stateUpdate", ...) so calling socket.off() here would silently
+    // delete GS2's listener, causing every stateUpdate to be dropped after reconnect.
+    if (!screenDisposed) {
+      // Normal disposal path (return-to-menu, page unload, etc.) — safe to clean up.
+      socket.off("stateUpdate");
+      socket.off("heroAcquired");
+      socket.off("heroLost");
+      socket.off("saboteurDestroyed");
+      socket.off("spyFlip");
+      socket.off("batteryDefenseCheck");
+      socket.off("batteryAllowAttack");
+      socket.off("batteryDenyAttack");
+      socket.off("mercDefBoost");
+      socket.off("reservistsKingBoost");
+    }
     screenDisposed = true;
-    // Remove all GameScreen-exclusive socket listeners so this instance can be GC'd.
-    // (Events also used by MenuScreen — "gameState", "returnToLobby" — are guarded
-    //  by the screenDisposed flag in their call() bodies instead.)
-    socket.off("stateUpdate");
-    socket.off("heroAcquired");
-    socket.off("heroLost");
-    socket.off("saboteurDestroyed");
-    socket.off("spyFlip");
-    socket.off("batteryDefenseCheck");
-    socket.off("batteryAllowAttack");
-    socket.off("batteryDenyAttack");
-    socket.off("mercDefBoost");
-    socket.off("reservistsKingBoost");
     gameStage.dispose();
     handStage.dispose();
     overlayStage.dispose();

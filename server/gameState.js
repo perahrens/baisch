@@ -959,7 +959,11 @@ class GameState {
     }
   }
 
-  serialize() {
+  serialize(incSeq) {
+    // incSeq defaults to true for broadcast stateUpdates.
+    // Pass false for point-to-point sends (requestStateSync responses, gameState reconnect events)
+    // so the stateSeq is not incremented, preventing artificial gaps for other clients.
+    var seq = (incSeq === false) ? this.stateSeq : ++this.stateSeq;
     return {
       roundNumber: this.roundNumber,
       currentPlayerIndex: this.currentPlayerIndex,
@@ -1006,7 +1010,7 @@ class GameState {
       pendingHeroAuction: this.pendingHeroAuction || null,
       isTutorial: this.isTutorial || false,
       heroTutorialName: this.heroTutorialName || null,
-      stateSeq: ++this.stateSeq,
+      stateSeq: seq,
     };
   }
 

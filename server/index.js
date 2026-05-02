@@ -1029,7 +1029,7 @@ io.on('connection', function(socket) {
             user.id = socket.id;
             socketToSession[socket.id] = sessId;
             socket.join(sessId);
-            socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize(), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
+            socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize(false), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
             broadcastPlayerList();
             console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to session ' + sessId + ' as player ' + playerIdx);
             return;
@@ -1230,7 +1230,10 @@ io.on('connection', function(socket) {
   socket.on('requestStateSync', function() {
     var sess = getSession(socket.id);
     if (sess && sess.gameState) {
-      socket.emit('stateUpdate', sess.gameState.serialize());
+      // Use serialize(false) to avoid incrementing stateSeq for this point-to-point response.
+      // Broadcasting a new stateSeq here would create artificial gaps for other clients who
+      // receive the next broadcast stateUpdate (which increments seq normally).
+      socket.emit('stateUpdate', sess.gameState.serialize(false));
     }
   });
 

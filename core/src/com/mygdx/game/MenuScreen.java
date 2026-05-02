@@ -1336,7 +1336,7 @@ public class MenuScreen extends AbstractScreen {
             }
           }
         });
-        loggedInUserTable.add(slotBox).colspan(tableColumns).width(120f).padBottom(6f);
+        loggedInUserTable.add(slotBox).colspan(tableColumns).fillX().padBottom(6f);
 
       } else {
         // Non-host view of an empty/closed slot, or slot 0 placeholder not yet claimed

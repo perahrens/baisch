@@ -4,6 +4,7 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -33,6 +34,13 @@ public class MyGdxGame extends Game implements InputProcessor {
   /** Old plain uiskin — used for compact banner buttons (Skip / Next ►). */
   static Skin plainSkin;
   static Stage stage;
+
+  // --- Sound effects ---
+  static Sound soundCardDrop    = null;
+  static Sound soundCardShuffle = null;
+  static Sound soundKingAttack  = null;
+  static Sound soundSlurp       = null;
+  static Sound soundJokerLaugh  = null;
 
   // --- Music tracks ---
   /** Menu screens (name-entry, session list, create-game). */
@@ -88,6 +96,30 @@ public class MyGdxGame extends Game implements InputProcessor {
     musicShimmer  = loadTrack("data/sounds/freesound_community-desert-shimmer-24684.mp3");
     musicDrums    = loadTrack("data/sounds/tatamusic-battle-warrior-fighting-drums-478210.mp3");
     musicIntrigue = loadTrack("data/sounds/34724807-castle-of-intrigue-288660.mp3");
+  }
+
+  private static Sound loadSoundEffect(String path) {
+    try {
+      return Gdx.audio.newSound(Gdx.files.internal(path));
+    } catch (Exception e) {
+      Gdx.app.log("Audio", "Sound not found: " + path);
+      return null;
+    }
+  }
+
+  static void loadSounds() {
+    soundCardDrop    = loadSoundEffect("data/sounds/freesound_community-carddrop2-92718.mp3");
+    soundCardShuffle = loadSoundEffect("data/sounds/freesound_community-riffle-card-shuffle-104313.mp3");
+    soundKingAttack  = loadSoundEffect("data/sounds/freesound_community-middle-ages-war-crywav-14780.mp3");
+    soundSlurp       = loadSoundEffect("data/sounds/freesound_community-cartoon-slurp-37066.mp3");
+    soundJokerLaugh  = loadSoundEffect("data/sounds/freesound_community-joker-laugh-2-98829.mp3");
+  }
+
+  /** Play a one-shot sound effect (no-op if music/sound is disabled or sound is null). */
+  static void playGameSound(Sound s) {
+    if (s == null) return;
+    if (!playerStorage.getMusicEnabled()) return;
+    s.play();
   }
 
   /** Switch to a new track (pass null for silence). */
@@ -182,6 +214,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
 
     loadMusic();
+    loadSounds();
 
     connectSocket();
 
@@ -196,6 +229,11 @@ public class MyGdxGame extends Game implements InputProcessor {
     if (musicShimmer  != null) musicShimmer.dispose();
     if (musicDrums    != null) musicDrums.dispose();
     if (musicIntrigue != null) musicIntrigue.dispose();
+    if (soundCardDrop    != null) soundCardDrop.dispose();
+    if (soundCardShuffle != null) soundCardShuffle.dispose();
+    if (soundKingAttack  != null) soundKingAttack.dispose();
+    if (soundSlurp       != null) soundSlurp.dispose();
+    if (soundJokerLaugh  != null) soundJokerLaugh.dispose();
   }
 
   @Override

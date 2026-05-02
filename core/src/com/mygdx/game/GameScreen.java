@@ -324,6 +324,18 @@ public class GameScreen extends ScreenAdapter {
         Gdx.app.log("DIAG", "stateUpdate received seq=" + diagSeq + " currentPlayerIdx=" + diagIdx);
         try {
           applyStateUpdate(data);
+          // Play server-initiated sound events (all players hear these)
+          JSONArray soundEvts = data.optJSONArray("soundEvents");
+          if (soundEvts != null) {
+            for (int si = 0; si < soundEvts.length(); si++) {
+              try {
+                String key = soundEvts.getString(si);
+                if ("shuffle".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundCardShuffle);
+                else if ("slurp".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundSlurp);
+                else if ("joker_laugh".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundJokerLaugh);
+              } catch (JSONException ignored) {}
+            }
+          }
         } catch (Exception e) {
           // A RuntimeException inside applyStateUpdate was previously silently escaping
           // the JSONException catch, skipping setUpdateState(true) and freezing the UI.
@@ -2250,6 +2262,7 @@ public class GameScreen extends ScreenAdapter {
               JSONArray atkIds = new JSONArray();
               for (Card c : apt.getPendingAttackCards()) { atkIds.put(c.getCardId()); }
               emitData.put("attackCardIds", atkIds);
+              if (apt.isKingUsed()) MyGdxGame.playGameSound(MyGdxGame.soundKingAttack);
               socket.emit("kingAttackResolved", emitData);
               tutorialAdvance(TUTORIAL_STEP_KING_ATTACK);
             } catch (JSONException e) {
@@ -2286,6 +2299,7 @@ public class GameScreen extends ScreenAdapter {
               JSONArray ownDefIds = new JSONArray();
               for (Card c : apt.getPendingAttackOwnDefCards()) { ownDefIds.put(c.getCardId()); }
               emitData.put("attackerOwnDefCardIds", ownDefIds);
+              if (apt.isKingUsed()) MyGdxGame.playGameSound(MyGdxGame.soundKingAttack);
               socket.emit("defAttackResolved", emitData);
               tutorialAdvance(TUTORIAL_STEP_KING_ATTACK);
             } catch (JSONException e) {
@@ -5750,6 +5764,7 @@ public class GameScreen extends ScreenAdapter {
 
   private void emitTakeDefCard(int positionId) {
     if (socket == null) return;
+    MyGdxGame.playGameSound(MyGdxGame.soundCardDrop);
     try {
       // Issue #167: if the def cards on this slot carried mercenaries, reset
       // their boost on peer clients first so the boost label disappears once
@@ -5783,6 +5798,7 @@ public class GameScreen extends ScreenAdapter {
 
   private void emitPutDefCard(int positionId, int cardId) {
     if (socket == null) return;
+    MyGdxGame.playGameSound(MyGdxGame.soundCardDrop);
     try {
       JSONObject payload = new JSONObject();
       payload.put("playerIdx", playerIndex);

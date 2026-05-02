@@ -153,7 +153,6 @@ public class OwnDefCardListener extends ClickListener {
                 mercenaries.operate();
                 selectedCard.addBoosted(1);
                 emitBoost(selectedCard.getPositionId(), selectedCard.getBoosted());
-                MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMercenaries);
                 gameState.setUpdateState(true);
               }
             } else {

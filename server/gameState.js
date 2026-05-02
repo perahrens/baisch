@@ -287,7 +287,6 @@ class GameState {
       attacker.hand.push(cardId);
     }
     attacker.priestConversionAttempts = 0; // success burns all remaining attempts
-    this.pendingSoundEvents.push('hero_priest');
     this.pushLog(`${this.pname(attackerIdx)} (Priest) took card from ${this.pname(targetPlayerIdx)}`, true);
   }
 
@@ -350,7 +349,6 @@ class GameState {
     if (p.defCardsBoost) delete p.defCardsBoost[positionId];
     if (p.topDefCardsBoost) delete p.topDefCardsBoost[positionId];
     p.statTakeActions = (p.statTakeActions || 0) + 1;
-    if ((p.heroes || []).includes('Marshal')) this.pendingSoundEvents.push('hero_marshal');
     this.pushLog(`${this.pname(playerIdx)} took shield [${positionId}] to hand`, true, true);
   }
 
@@ -363,7 +361,6 @@ class GameState {
     p.defCardsCovered[positionId] = true; // newly placed card is always face-down
     if (p.defCardsBoost) delete p.defCardsBoost[positionId];
     p.statPutActions = (p.statPutActions || 0) + 1;
-    if ((p.heroes || []).includes('Marshal')) this.pendingSoundEvents.push('hero_marshal');
     this.pushLog(`${this.pname(playerIdx)} placed shield at [${positionId}]`, true, true);
   }
 
@@ -402,7 +399,6 @@ class GameState {
       target.kingCard = newBottomCardId;
       target.kingCovered = bottomCovered;
       attacker.magicianSpells--;
-      this.pendingSoundEvents.push('hero_magician');
       this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s king`, true);
       return;
     }
@@ -427,7 +423,6 @@ class GameState {
       target.topDefCardsCovered[positionId] = topCovered;
     }
     attacker.magicianSpells--;
-    this.pendingSoundEvents.push('hero_magician');
     this.pushLog(`${this.pname(playerIdx)} cast Magician on ${this.pname(targetPlayerIdx)}'s shield [${positionId}]`, true);
   }
 
@@ -546,7 +541,6 @@ class GameState {
       attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} looted deck ${deckIdx + 1}! (${plunderAtkSum} vs ${deckDefStrength})`, true);
       if (plunderAtkSum - deckDefStrength === 1) this.pendingSoundEvents.push('slurp');
-      if ((attackerOwnDefCardIds || []).length > 0) this.pendingSoundEvents.push('hero_banneret');
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -595,7 +589,6 @@ class GameState {
       }
       this.cemetery.push(cardId);
     }
-    if ((attackerOwnDefCardIds || []).length > 0) this.pendingSoundEvents.push('hero_banneret');
     if (kingUsed) { attacker.kingCovered = false; attacker.statKingUsed = (attacker.statKingUsed || 0) + 1; }
     // Capture defense values before the card may be removed (for log display)
     const _defCardId = defender.defCards[positionId];

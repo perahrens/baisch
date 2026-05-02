@@ -333,12 +333,6 @@ public class GameScreen extends ScreenAdapter {
                 if ("shuffle".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundCardShuffle);
                 else if ("slurp".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundSlurp);
                 else if ("joker_laugh".equals(key)) MyGdxGame.playGameSound(MyGdxGame.soundJokerLaugh);
-                else if ("hero_spy".equals(key))         MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroSpy);
-                else if ("hero_mercenaries".equals(key)) MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMercenaries);
-                else if ("hero_marshal".equals(key))     MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMarshal);
-                else if ("hero_priest".equals(key))      MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroPriest);
-                else if ("hero_banneret".equals(key))    MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroBanneret);
-                else if ("hero_magician".equals(key))    MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMagician);
               } catch (JSONException ignored) {}
             }
           }
@@ -432,6 +426,7 @@ public class GameScreen extends ScreenAdapter {
                 heroRevealPlayerName  = players.get(pIdx).getPlayerName();
                 heroRevealHeroName    = heroName;
                 heroRevealDrawnCardId = drawnId;
+                MyGdxGame.playHeroWonSound(heroName);
               }
               gameState.setUpdateState(true);
             } catch (JSONException e) {
@@ -631,8 +626,6 @@ public class GameScreen extends ScreenAdapter {
           public void run() {
             try {
               int attackerIdx = data.getInt("attackerIdx");
-              // Battery Tower fires — all players hear the explosion
-              MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroBatteryTower);
               if (attackerIdx == myPlayerIndex) {
                 int defIdx3 = data.optInt("targetPlayerIdx", -1);
                 String defName3 = (defIdx3 >= 0 && defIdx3 < gameState.getPlayers().size())
@@ -697,8 +690,6 @@ public class GameScreen extends ScreenAdapter {
                 while (c.getBoosted() > boosted) c.addBoosted(-1);
                 while (c.getBoosted() < boosted) c.addBoosted(1);
               }
-              // Mercenaries are being allocated — all players hear the fanfare
-              if (boosted > 0) MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroMercenaries);
               gameState.setUpdateState(true);
             } catch (JSONException e) {
               e.printStackTrace();
@@ -2922,7 +2913,6 @@ public class GameScreen extends ScreenAdapter {
             resp.put("isKing", btCheck.optBoolean("isKing", false));
             JSONArray atkExpIds = btCheck.optJSONArray("attackCardIds");
             if (atkExpIds != null) resp.put("attackCardIds", atkExpIds);
-            MyGdxGame.playGameSoundCapped(MyGdxGame.soundHeroBatteryTower);
             socket.emit("batteryDenyAttack", resp);
             pendingBatteryResultCards = atkExpIds;
             pendingBatteryDefCheck = null;
@@ -6585,6 +6575,7 @@ public class GameScreen extends ScreenAdapter {
     heroRevealPlayerName = currentPlayer.getPlayerName();
     heroRevealHeroName   = hero.getHeroName();
     heroRevealDrawnCardId = drawnCardId;
+    MyGdxGame.playHeroWonSound(hero.getHeroName());
     gameState.setUpdateState(true);
   }
 

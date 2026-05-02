@@ -155,6 +155,19 @@ public class MyGdxGame extends Game implements InputProcessor {
     }, 10f);
   }
 
+  /** Play the hero-won sound for the given hero name (capped at 10 s). Called for all players. */
+  public static void playHeroWonSound(String heroName) {
+    Sound s = null;
+    if ("Spy".equals(heroName))           s = soundHeroSpy;
+    else if ("Mercenaries".equals(heroName)) s = soundHeroMercenaries;
+    else if ("Marshal".equals(heroName))     s = soundHeroMarshal;
+    else if ("Priest".equals(heroName))      s = soundHeroPriest;
+    else if ("Banneret".equals(heroName))    s = soundHeroBanneret;
+    else if ("Magician".equals(heroName))    s = soundHeroMagician;
+    else if ("Battery Tower".equals(heroName)) s = soundHeroBatteryTower;
+    playGameSoundCapped(s);
+  }
+
   /** Toggle sound effects on/off and persist the preference. */
   static void setSoundEnabled(boolean enabled) {
     playerStorage.saveSoundEnabled(enabled);

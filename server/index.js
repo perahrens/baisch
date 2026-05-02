@@ -1796,7 +1796,6 @@ io.on('connection', function(socket) {
     var userIdx = sess.users.findIndex(function(u) { return u.id === socket.id; });
     if (userIdx === -1) return;
     if (!sess.gameState.spyFlip(userIdx, data.targetPlayerIdx, data.slot)) return;
-    sess.gameState.pendingSoundEvents.push('hero_spy');
     socket.to(sess.id).emit('spyFlip', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });

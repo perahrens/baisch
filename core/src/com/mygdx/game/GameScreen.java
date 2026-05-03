@@ -493,6 +493,11 @@ public class GameScreen extends ScreenAdapter {
                 heroRevealDrawnCardId = drawnId;
                 MyGdxGame.playHeroWonSound(heroName);
               }
+              // Clear any pending hero-loss overlay so the win overlay is never hidden behind it.
+              heroLossPlayerName = null;
+              heroLossHeroName = null;
+              heroLossTriggerName = null;
+              heroLossDrawnCardId = -1;
               gameState.setUpdateState(true);
             } catch (JSONException e) {
               e.printStackTrace();
@@ -526,6 +531,10 @@ public class GameScreen extends ScreenAdapter {
                   : null;
               heroLossHeroName = heroName;
               heroLossDrawnCardId = data.optInt("drawnCardId", -1);
+              // Clear any pending hero-win overlay so the loss overlay is never hidden behind it.
+              heroRevealPlayerName = null;
+              heroRevealHeroName = null;
+              heroRevealDrawnCardId = -1;
               gameState.setUpdateState(true);
             } catch (JSONException e) {
               e.printStackTrace();
@@ -6761,10 +6770,16 @@ public class GameScreen extends ScreenAdapter {
           // Per issue #25 the drawing player receives NOTHING.
           String takenName = HeroesSquare.heroNameByCardIndex(drawnIndex);
           if (takenName != null) {
-            int ownerIdx = gameState.findHeroOwnerIndex(takenName);
-            if (ownerIdx >= 0) {
-              players.get(ownerIdx).removeHeroByName(takenName);
-              heroLossPlayerName = players.get(ownerIdx).getPlayerName();
+            // Iterate directly to find owner; avoids findHeroOwnerIndex index mismatch.
+            Player ownerPlayer = null;
+            for (int oi = 0; oi < players.size(); oi++) {
+              if (players.get(oi).hasHero(takenName)) { ownerPlayer = players.get(oi); break; }
+            }
+            if (ownerPlayer != null) {
+              int ownerIdx = players.indexOf(ownerPlayer);
+              ownerPlayer.removeHeroByName(takenName);
+              heroRevealPlayerName = null; heroRevealHeroName = null; heroRevealDrawnCardId = -1;
+              heroLossPlayerName = ownerPlayer.getPlayerName();
               heroLossHeroName = takenName;
               heroLossTriggerName = currentPlayer.getPlayerName();
               heroLossDrawnCardId = drawnCard.getCardId();
@@ -6799,21 +6814,28 @@ public class GameScreen extends ScreenAdapter {
 
   /** Finalise hero acquisition: add hero to player, emit to server, trigger redraw. */
   private void completeHeroAcquisition(Hero hero) {
-    int previousOwnerIdx = gameState.findHeroOwnerIndex(hero.getHeroName());
+    // Find if any player already owns this hero by direct name search (avoids
+    // findHeroOwnerIndex index-into-internal-list vs GameScreen.players mismatch).
+    Player previousOwner = null;
+    for (int pi = 0; pi < players.size(); pi++) {
+      if (players.get(pi).hasHero(hero.getHeroName())) { previousOwner = players.get(pi); break; }
+    }
     int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
 
-    // Issue #269: if the hero is already owned by another player, that player loses it
-    // but the drawing player receives NOTHING. Mirror the direct-draw path.
-    if (previousOwnerIdx >= 0 && previousOwnerIdx < players.size()) {
-      players.get(previousOwnerIdx).removeHeroByName(hero.getHeroName());
-      heroLossPlayerName = players.get(previousOwnerIdx).getPlayerName();
+    // Issue #269: if the hero is already owned by anyone, the owner loses it
+    // but the drawing player receives NOTHING.
+    if (previousOwner != null) {
+      int ownerIdx = players.indexOf(previousOwner);
+      previousOwner.removeHeroByName(hero.getHeroName());
+      heroRevealPlayerName = null; heroRevealHeroName = null; heroRevealDrawnCardId = -1;
+      heroLossPlayerName = previousOwner.getPlayerName();
       heroLossHeroName = hero.getHeroName();
       heroLossTriggerName = currentPlayer.getPlayerName();
       heroLossDrawnCardId = drawnCardId;
       try {
         JSONObject lossData = new JSONObject();
-        lossData.put("playerIndex", previousOwnerIdx);
-        lossData.put("lostPlayerIndex", previousOwnerIdx);
+        lossData.put("playerIndex", ownerIdx);
+        lossData.put("lostPlayerIndex", ownerIdx);
         lossData.put("triggerPlayerIndex", playerIndex);
         lossData.put("heroName", hero.getHeroName());
         lossData.put("drawnCardId", drawnCardId);
@@ -6826,7 +6848,6 @@ public class GameScreen extends ScreenAdapter {
       gameState.setUpdateState(true);
       return;
     }
-
     currentPlayer.addHero(hero);
     // If the acquired hero is Reservists, immediately broadcast the count to all other clients.
     if ("Reservists".equals(hero.getHeroName())) {
@@ -6858,6 +6879,8 @@ public class GameScreen extends ScreenAdapter {
     heroRevealPlayerName = currentPlayer.getPlayerName();
     heroRevealHeroName   = hero.getHeroName();
     heroRevealDrawnCardId = drawnCardId;
+    // Clear any pending loss overlay so the win overlay is not suppressed behind it.
+    heroLossPlayerName = null; heroLossHeroName = null; heroLossTriggerName = null; heroLossDrawnCardId = -1;
     MyGdxGame.playHeroWonSound(hero.getHeroName());
     gameState.setUpdateState(true);
   }

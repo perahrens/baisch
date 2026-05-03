@@ -31,6 +31,7 @@ class GameState {
     this.roundNumber = 1;     // incremented each time the full turn order wraps around
     this.eliminationOrder = []; // player indices in elimination order (first out = index 0)
     this.stateSeq = 0;          // incremented on every serialize(); clients detect gaps
+    this.pendingSoundEvents = []; // sound keys queued for broadcast in next stateUpdate
     this.dealCards(startingCards);
     if (manualSetup) {
       this.initPlayerStats(); // init combat counters without placing king/def/cemetery
@@ -180,6 +181,10 @@ class GameState {
       }
     }
     this.pendingLoot = Object.assign({}, data, { _lockedHandCards: lockedHandCards });
+    // Joker on top of picking deck: signal all players with the joker-laugh sound
+    if (data.defCardId >= 53) {
+      this.pendingSoundEvents.push('joker_laugh');
+    }
     // Persist the top card of the attacked deck as face-up so the stateUpdate
     // broadcast doesn't re-cover it for all players
     if (data.deckIndex !== undefined) {
@@ -253,6 +258,7 @@ class GameState {
           [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
         }
         console.log('Deck empty — reshuffled cemetery (' + this.deck.length + ' cards) into deck');
+        this.pendingSoundEvents.push('shuffle');
       } else {
         return null; // both deck and cemetery are empty
       }
@@ -534,6 +540,7 @@ class GameState {
     if (success) {
       attacker.statPlundersSuccess = (attacker.statPlundersSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} looted deck ${deckIdx + 1}! (${plunderAtkSum} vs ${deckDefStrength})`, true);
+      if (plunderAtkSum - deckDefStrength === 1) this.pendingSoundEvents.push('slurp');
       // Move all cards from plundered deck into attacker's hand
       for (const c of this.pickingDecks[deckIdx]) attacker.hand.push(c.id);
       this.pickingDecks[deckIdx] = [];
@@ -595,6 +602,7 @@ class GameState {
     if (success) {
       attacker.statAttacksSuccess = (attacker.statAttacksSuccess || 0) + 1;
       this.pushLog(`${this.pname(attackerIdx)} broke ${this.pname(defenderIdx)}'s shield [${positionId}] (${atkSum} vs ${defStrength})`, true);
+      if (atkSum - defStrength === 1) this.pendingSoundEvents.push('slurp');
       // If the slot was sabotaged, clear it (saboteur destroyed when card is removed by attack)
       if (defender.sabotaged && defender.sabotaged[positionId] !== undefined) {
         delete defender.sabotaged[positionId];
@@ -964,6 +972,8 @@ class GameState {
     // Pass false for point-to-point sends (requestStateSync responses, gameState reconnect events)
     // so the stateSeq is not incremented, preventing artificial gaps for other clients.
     var seq = (incSeq === false) ? this.stateSeq : ++this.stateSeq;
+    // Drain sound events only on broadcast updates (not reconnect/resync)
+    var broadcastSounds = (incSeq !== false) ? this.pendingSoundEvents.splice(0) : [];
     return {
       roundNumber: this.roundNumber,
       currentPlayerIndex: this.currentPlayerIndex,
@@ -1011,6 +1021,7 @@ class GameState {
       isTutorial: this.isTutorial || false,
       heroTutorialName: this.heroTutorialName || null,
       stateSeq: seq,
+      soundEvents: broadcastSounds,
     };
   }
 

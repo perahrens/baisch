@@ -75,6 +75,17 @@ public class BrowserPlayerStorage implements PlayerStorage {
   }-*/;
 
   @Override
+  public native boolean getSoundEnabled() /*-{
+    var val = $wnd.localStorage.getItem('baisch_sound_enabled');
+    return val === null || val === '1';
+  }-*/;
+
+  @Override
+  public native void saveSoundEnabled(boolean enabled) /*-{
+    $wnd.localStorage.setItem('baisch_sound_enabled', enabled ? '1' : '0');
+  }-*/;
+
+  @Override
   public native void clearName() /*-{
     $wnd.localStorage.removeItem('baisch_player_name');
   }-*/;

@@ -4,6 +4,7 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -33,6 +34,24 @@ public class MyGdxGame extends Game implements InputProcessor {
   /** Old plain uiskin — used for compact banner buttons (Skip / Next ►). */
   static Skin plainSkin;
   static Stage stage;
+
+  // --- Sound effects ---
+  public static Sound soundCardDrop    = null;
+  public static Sound soundCardShuffle = null;
+  public static Sound soundKingAttack  = null;
+  public static Sound soundSlurp       = null;
+  public static Sound soundJokerLaugh  = null;
+  // Attack outcome (active player only)
+  public static Sound soundAttackSuccess   = null;
+  public static Sound soundAttackFail      = null;
+  // Hero sounds (all players)
+  public static Sound soundHeroSpy         = null;
+  public static Sound soundHeroMercenaries = null;
+  public static Sound soundHeroMarshal     = null;
+  public static Sound soundHeroPriest      = null;
+  public static Sound soundHeroBanneret    = null;
+  public static Sound soundHeroMagician    = null;
+  public static Sound soundHeroBatteryTower = null;
 
   // --- Music tracks ---
   /** Menu screens (name-entry, session list, create-game). */
@@ -88,6 +107,70 @@ public class MyGdxGame extends Game implements InputProcessor {
     musicShimmer  = loadTrack("data/sounds/freesound_community-desert-shimmer-24684.mp3");
     musicDrums    = loadTrack("data/sounds/tatamusic-battle-warrior-fighting-drums-478210.mp3");
     musicIntrigue = loadTrack("data/sounds/34724807-castle-of-intrigue-288660.mp3");
+  }
+
+  private static Sound loadSoundEffect(String path) {
+    try {
+      return Gdx.audio.newSound(Gdx.files.internal(path));
+    } catch (Exception e) {
+      Gdx.app.log("Audio", "Sound not found: " + path);
+      return null;
+    }
+  }
+
+  static void loadSounds() {
+    soundCardDrop    = loadSoundEffect("data/sounds/freesound_community-carddrop2-92718.mp3");
+    soundCardShuffle = loadSoundEffect("data/sounds/freesound_community-riffle-card-shuffle-104313.mp3");
+    soundKingAttack  = loadSoundEffect("data/sounds/freesound_community-middle-ages-war-crywav-14780.mp3");
+    soundSlurp       = loadSoundEffect("data/sounds/freesound_community-cartoon-slurp-37066.mp3");
+    soundJokerLaugh  = loadSoundEffect("data/sounds/freesound_community-joker-laugh-2-98829.mp3");
+    soundAttackSuccess    = loadSoundEffect("data/sounds/ksjsbwuil-apple-pay-success-sound-effect-481188.mp3");
+    soundAttackFail       = loadSoundEffect("data/sounds/universfield-fail-trumpet-02-383962.mp3");
+    soundHeroSpy          = loadSoundEffect("data/sounds/bentomusic-comical-style-music-of-silliness-and-goofing-around-loop-439124.mp3");
+    soundHeroMercenaries  = loadSoundEffect("data/sounds/freesound_community-medieval-fanfare-6826.mp3");
+    soundHeroMarshal      = loadSoundEffect("data/sounds/dragon-studio-horse-neigh-515279.mp3");
+    soundHeroPriest       = loadSoundEffect("data/sounds/freesound_community-sfx_spirit_gain-95855.mp3");
+    soundHeroBanneret     = loadSoundEffect("data/sounds/freesound_community-fx-comedy-marching-78276.mp3");
+    soundHeroMagician     = loadSoundEffect("data/sounds/fxprosound-magic-glitter-wand-5-248607.mp3");
+    soundHeroBatteryTower = loadSoundEffect("data/sounds/dragon-studio-loud-explosion-425457.mp3");
+  }
+
+  /** Play a one-shot sound effect (no-op if sound effects are disabled or sound is null). */
+  public static void playGameSound(Sound s) {
+    if (s == null) return;
+    if (!playerStorage.getSoundEnabled()) return;
+    s.play();
+  }
+
+  /** Play a sound and auto-stop it after 10 seconds (for hero sounds that may be long). */
+  public static void playGameSoundCapped(final Sound s) {
+    if (s == null) return;
+    if (!playerStorage.getSoundEnabled()) return;
+    final long soundId = s.play();
+    com.badlogic.gdx.utils.Timer.schedule(new com.badlogic.gdx.utils.Timer.Task() {
+      @Override
+      public void run() {
+        s.stop(soundId);
+      }
+    }, 10f);
+  }
+
+  /** Play the hero-won sound for the given hero name (capped at 10 s). Called for all players. */
+  public static void playHeroWonSound(String heroName) {
+    Sound s = null;
+    if ("Spy".equals(heroName))           s = soundHeroSpy;
+    else if ("Mercenaries".equals(heroName)) s = soundHeroMercenaries;
+    else if ("Marshal".equals(heroName))     s = soundHeroMarshal;
+    else if ("Priest".equals(heroName))      s = soundHeroPriest;
+    else if ("Banneret".equals(heroName))    s = soundHeroBanneret;
+    else if ("Magician".equals(heroName))    s = soundHeroMagician;
+    else if ("Battery Tower".equals(heroName)) s = soundHeroBatteryTower;
+    playGameSoundCapped(s);
+  }
+
+  /** Toggle sound effects on/off and persist the preference. */
+  static void setSoundEnabled(boolean enabled) {
+    playerStorage.saveSoundEnabled(enabled);
   }
 
   /** Switch to a new track (pass null for silence). */
@@ -182,6 +265,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
 
     loadMusic();
+    loadSounds();
 
     connectSocket();
 
@@ -196,6 +280,20 @@ public class MyGdxGame extends Game implements InputProcessor {
     if (musicShimmer  != null) musicShimmer.dispose();
     if (musicDrums    != null) musicDrums.dispose();
     if (musicIntrigue != null) musicIntrigue.dispose();
+    if (soundCardDrop    != null) soundCardDrop.dispose();
+    if (soundCardShuffle != null) soundCardShuffle.dispose();
+    if (soundKingAttack  != null) soundKingAttack.dispose();
+    if (soundSlurp       != null) soundSlurp.dispose();
+    if (soundJokerLaugh  != null) soundJokerLaugh.dispose();
+    if (soundAttackSuccess    != null) soundAttackSuccess.dispose();
+    if (soundAttackFail       != null) soundAttackFail.dispose();
+    if (soundHeroSpy          != null) soundHeroSpy.dispose();
+    if (soundHeroMercenaries  != null) soundHeroMercenaries.dispose();
+    if (soundHeroMarshal      != null) soundHeroMarshal.dispose();
+    if (soundHeroPriest       != null) soundHeroPriest.dispose();
+    if (soundHeroBanneret     != null) soundHeroBanneret.dispose();
+    if (soundHeroMagician     != null) soundHeroMagician.dispose();
+    if (soundHeroBatteryTower != null) soundHeroBatteryTower.dispose();
   }
 
   @Override

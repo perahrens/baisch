@@ -16,6 +16,7 @@ import com.mygdx.game.heroes.Merchant;
 import com.mygdx.game.heroes.Mercenaries;
 import com.mygdx.game.heroes.Spy;
 import com.mygdx.game.net.SocketClient;
+import com.mygdx.game.MyGdxGame;
 
 public class OwnDefCardListener extends ClickListener {
 

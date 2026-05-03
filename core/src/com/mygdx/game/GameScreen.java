@@ -856,10 +856,10 @@ public class GameScreen extends ScreenAdapter {
     inMulti.addProcessor(handStage);
     menuAndGameMulti = new InputMultiplexer();
     zoomInputProcessor = new com.badlogic.gdx.InputAdapter() {
-      public boolean scrolled(float amountX, float amountY) {
+      public boolean scrolled(int amount) {
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT)
             || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_RIGHT)) {
-          float newZoom = gameScreenZoom - (amountY * ZOOM_STEP);
+          float newZoom = gameScreenZoom - (amount * ZOOM_STEP);
           applyZoomAtScreenPoint(Gdx.input.getX(), Gdx.input.getY(), newZoom);
           return true;
         }
@@ -898,14 +898,31 @@ public class GameScreen extends ScreenAdapter {
         gamePanPointer = pointer;
         gamePanLastX = x;
         gamePanLastY = y;
-        if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
-        if (currentlyZoomedDeck != null) { setDeckScale(currentlyZoomedDeck, 1f); currentlyZoomedDeck = null; }
+        boolean changed = false;
+        if (currentlyZoomedCard != null) {
+          unzoomCard(currentlyZoomedCard);
+          changed = true;
+        }
+        if (currentlyZoomedDeck != null) {
+          setDeckScale(currentlyZoomedDeck, 1f);
+          currentlyZoomedDeck = null;
+          changed = true;
+        }
         // Deselect any selected defense or king card
         if (currentPlayer != null) {
-          for (Card c : currentPlayer.getDefCards().values()) c.setSelected(false);
-          for (Card c : currentPlayer.getTopDefCards().values()) c.setSelected(false);
-          if (currentPlayer.getKingCard() != null) currentPlayer.getKingCard().setSelected(false);
-          gameState.setUpdateState(true);
+          for (Card c : currentPlayer.getDefCards().values()) {
+            if (c.isSelected()) changed = true;
+            c.setSelected(false);
+          }
+          for (Card c : currentPlayer.getTopDefCards().values()) {
+            if (c.isSelected()) changed = true;
+            c.setSelected(false);
+          }
+          if (currentPlayer.getKingCard() != null) {
+            if (currentPlayer.getKingCard().isSelected()) changed = true;
+            currentPlayer.getKingCard().setSelected(false);
+          }
+          if (changed) gameState.setUpdateState(true);
         }
         return true;
       }

@@ -258,7 +258,10 @@ public class GameScreen extends ScreenAdapter {
   private int gamePanPointer = -1;
   private float gamePanLastX = 0f;
   private float gamePanLastY = 0f;
+  private float pinchCenterScreenX = MyGdxGame.WIDTH / 2f;
+  private float pinchCenterScreenY = MyGdxGame.WIDTH / 2f;
   private com.badlogic.gdx.input.GestureDetector gestureDetector = null;
+  private com.badlogic.gdx.InputAdapter zoomInputProcessor = null;
 
   private static float clampf(float v, float min, float max) {
     return Math.max(min, Math.min(max, v));
@@ -275,6 +278,34 @@ public class GameScreen extends ScreenAdapter {
     gameCameraCenterX -= deltaWorldX;
     gameCameraCenterY -= deltaWorldY;
     clampGameCameraCenter();
+  }
+
+  private void applyZoomAtScreenPoint(float screenX, float screenY, float newZoom) {
+    float clampedZoom = clampf(newZoom, MIN_ZOOM, MAX_ZOOM);
+    if (Math.abs(clampedZoom - gameScreenZoom) < 0.0001f) return;
+
+    com.badlogic.gdx.graphics.Camera gameCamera = gameStage.getViewport().getCamera();
+    if (!(gameCamera instanceof com.badlogic.gdx.graphics.OrthographicCamera)) {
+      gameScreenZoom = clampedZoom;
+      clampGameCameraCenter();
+      return;
+    }
+
+    com.badlogic.gdx.graphics.OrthographicCamera orthoCamera = (com.badlogic.gdx.graphics.OrthographicCamera) gameCamera;
+    orthoCamera.zoom = gameScreenZoom;
+    orthoCamera.position.set(gameCameraCenterX, gameCameraCenterY, 0f);
+    orthoCamera.update();
+
+    com.badlogic.gdx.math.Vector2 before = gameStage.screenToStageCoordinates(new com.badlogic.gdx.math.Vector2(screenX, screenY));
+    gameScreenZoom = clampedZoom;
+    clampGameCameraCenter();
+
+    orthoCamera.zoom = gameScreenZoom;
+    orthoCamera.position.set(gameCameraCenterX, gameCameraCenterY, 0f);
+    orthoCamera.update();
+
+    com.badlogic.gdx.math.Vector2 after = gameStage.screenToStageCoordinates(new com.badlogic.gdx.math.Vector2(screenX, screenY));
+    panGameCamera(after.x - before.x, after.y - before.y);
   }
 
   // ── Hero reveal overlay (issue #257) ──────────────────────────────────────
@@ -824,8 +855,20 @@ public class GameScreen extends ScreenAdapter {
     inMulti.addProcessor(gameStage);
     inMulti.addProcessor(handStage);
     menuAndGameMulti = new InputMultiplexer();
+    zoomInputProcessor = new com.badlogic.gdx.InputAdapter() {
+      public boolean scrolled(float amountX, float amountY) {
+        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT)
+            || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_RIGHT)) {
+          float newZoom = gameScreenZoom - (amountY * ZOOM_STEP);
+          applyZoomAtScreenPoint(Gdx.input.getX(), Gdx.input.getY(), newZoom);
+          return true;
+        }
+        return false;
+      }
+    };
     // Gesture detector must be in the active multiplexer and should run before stages,
     // otherwise stage listeners can consume touch events before pinch is detected.
+    menuAndGameMulti.addProcessor(zoomInputProcessor);
     menuAndGameMulti.addProcessor(overlayStage);
     menuAndGameMulti.addProcessor(gameStage);
     menuAndGameMulti.addProcessor(handStage);
@@ -881,19 +924,6 @@ public class GameScreen extends ScreenAdapter {
       }
       public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
         if (pointer == gamePanPointer) gamePanPointer = -1;
-      }
-      public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
-        // Issue #266: Handle Ctrl+scroll for desktop zoom
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT) || 
-            Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_RIGHT)) {
-          // Scroll up (negative amountY) = zoom in, scroll down (positive amountY) = zoom out
-          float newZoom = gameScreenZoom - (amountY * ZOOM_STEP);
-          newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
-          gameScreenZoom = newZoom;
-          clampGameCameraCenter();
-          return true;
-        }
-        return false;
       }
     });
     gameStage.addActor(gameBck);
@@ -966,14 +996,16 @@ public class GameScreen extends ScreenAdapter {
           float scale = distance / initialDistance;
           // Zoom in when fingers move apart (scale > 1), zoom out when moving together (scale < 1)
           float newZoom = gameScreenZoom / scale;
-          newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
-          gameScreenZoom = newZoom;
-          clampGameCameraCenter();
+          applyZoomAtScreenPoint(pinchCenterScreenX, pinchCenterScreenY, newZoom);
         }
         return true;
       }
       public boolean pinch(com.badlogic.gdx.math.Vector2 initialPointer1, com.badlogic.gdx.math.Vector2 initialPointer2, 
-                           com.badlogic.gdx.math.Vector2 pointer1, com.badlogic.gdx.math.Vector2 pointer2) { return false; }
+                           com.badlogic.gdx.math.Vector2 pointer1, com.badlogic.gdx.math.Vector2 pointer2) {
+        pinchCenterScreenX = (pointer1.x + pointer2.x) / 2f;
+        pinchCenterScreenY = (pointer1.y + pointer2.y) / 2f;
+        return false;
+      }
       public void pinchStop() { }
     });
     menuAndGameMulti.addProcessor(0, gestureDetector);

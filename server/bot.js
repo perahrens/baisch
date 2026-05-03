@@ -794,9 +794,10 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     });
 
     gs.jokerSacrifice(playerIdx, jokerId, oracleCardId);
-    gs.heroAcquired(playerIdx, heroName);
 
     if (previousOwnerIdx >= 0) {
+      // The drawing player receives nothing; only the previous owner loses the hero.
+      gs.heroLost(previousOwnerIdx, heroName);
       io.to(sess.id).emit('heroLost', {
         playerIndex: previousOwnerIdx,
         lostPlayerIndex: previousOwnerIdx,
@@ -804,6 +805,8 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
         heroName: heroName,
         drawnCardId: oracleCardId,
       });
+    } else {
+      gs.heroAcquired(playerIdx, heroName);
     }
 
     io.to(sess.id).emit('stateUpdate', gs.serialize());

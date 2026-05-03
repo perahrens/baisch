@@ -6802,23 +6802,10 @@ public class GameScreen extends ScreenAdapter {
     int previousOwnerIdx = gameState.findHeroOwnerIndex(hero.getHeroName());
     int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
 
-    currentPlayer.addHero(hero);
-    // If the acquired hero is Reservists, immediately broadcast the count to all other clients.
-    if ("Reservists".equals(hero.getHeroName())) {
-      emitReservistsKingBoost(((Reservists) hero).countReady());
-    }
-    // When Banneret is acquired mid-turn and an attack symbol is already locked,
-    // immediately extend it to the paired color so the UI updates without waiting
-    // for the server stateUpdate round-trip.
-    if ("Banneret".equals(hero.getHeroName())) {
-      String sym = currentPlayer.getPlayerTurn().getAttackingSymbol()[0];
-      if (sym != null && !"none".equals(sym) && !"joker".equals(sym)) {
-        currentPlayer.getPlayerTurn().setAttackingSymbol(sym, true);
-      }
-    }
-
-    // Issue #269: when this acquisition steals an already-owned hero, broadcast hero-loss overlay.
+    // Issue #269: if the hero is already owned by another player, that player loses it
+    // but the drawing player receives NOTHING. Mirror the direct-draw path.
     if (previousOwnerIdx >= 0 && previousOwnerIdx < players.size()) {
+      players.get(previousOwnerIdx).removeHeroByName(hero.getHeroName());
       heroLossPlayerName = players.get(previousOwnerIdx).getPlayerName();
       heroLossHeroName = hero.getHeroName();
       heroLossTriggerName = currentPlayer.getPlayerName();
@@ -6833,6 +6820,25 @@ public class GameScreen extends ScreenAdapter {
         socket.emit("heroLost", lossData);
       } catch (JSONException e) {
         e.printStackTrace();
+      }
+      currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
+      currentPlayer.getPlayerTurn().getHeroChoices().clear();
+      gameState.setUpdateState(true);
+      return;
+    }
+
+    currentPlayer.addHero(hero);
+    // If the acquired hero is Reservists, immediately broadcast the count to all other clients.
+    if ("Reservists".equals(hero.getHeroName())) {
+      emitReservistsKingBoost(((Reservists) hero).countReady());
+    }
+    // When Banneret is acquired mid-turn and an attack symbol is already locked,
+    // immediately extend it to the paired color so the UI updates without waiting
+    // for the server stateUpdate round-trip.
+    if ("Banneret".equals(hero.getHeroName())) {
+      String sym = currentPlayer.getPlayerTurn().getAttackingSymbol()[0];
+      if (sym != null && !"none".equals(sym) && !"joker".equals(sym)) {
+        currentPlayer.getPlayerTurn().setAttackingSymbol(sym, true);
       }
     }
 

@@ -2246,8 +2246,12 @@ public class GameScreen extends ScreenAdapter {
                   > pt.getPendingLootDefStrength();
           if (canFlipLoot) {
             TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+            resBtn.getLabel().setWrap(false);
+            resBtn.pad(6f, 14f, 6f, 14f);
             resBtn.pack();
-            resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+            float lootMinBtnW = Math.min(MyGdxGame.WIDTH - 24f, 340f);
+            resBtn.setSize(Math.max(resBtn.getPrefWidth(), lootMinBtnW), resBtn.getPrefHeight());
+            resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, plBotY - 96f);
             resBtn.addListener(new ClickListener() {
               @Override
               public void clicked(InputEvent event, float x, float y) {
@@ -2727,8 +2731,12 @@ public class GameScreen extends ScreenAdapter {
                 && (atkBase + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
             if (canFlipAttack) {
               TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+              resBtn.getLabel().setWrap(false);
+              resBtn.pad(6f, 14f, 6f, 14f);
               resBtn.pack();
-              resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+              float atkMinBtnW = Math.min(MyGdxGame.WIDTH - 24f, 340f);
+              resBtn.setSize(Math.max(resBtn.getPrefWidth(), atkMinBtnW), resBtn.getPrefHeight());
+              resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, cBotY - 96f);
               resBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {

@@ -271,8 +271,13 @@ function simApplyAction(sim, action) {
     // pass: expose first covered defense card to enable future attacks
     var exposed = false;
     for (var slot = 1; slot <= 3 && !exposed; slot++) {
-      if (p.defCards[slot] != null && p.defCardsCovered[slot] !== false) {
-        p.defCardsCovered[slot] = false;
+      var hasTop = p.topDefCards && p.topDefCards[slot] != null;
+      var hasDef = p.defCards && p.defCards[slot] != null;
+      var topCovered = hasTop && p.topDefCardsCovered[slot] !== false;
+      var defCovered = hasDef && p.defCardsCovered[slot] !== false;
+      if (topCovered || defCovered) {
+        if (hasDef) p.defCardsCovered[slot] = false;
+        if (hasTop) p.topDefCardsCovered[slot] = false;
         exposed = true;
       }
     }

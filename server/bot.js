@@ -603,7 +603,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     if (!attackedPlayer && p) {
       var exposed = false;
       for (var slot = 1; slot <= 3; slot++) {
-        if (p.defCards[slot] != null && p.defCardsCovered && p.defCardsCovered[slot] !== false) {
+        var hasTop = p.topDefCards && p.topDefCards[slot] != null;
+        var hasDef = p.defCards && p.defCards[slot] != null;
+        var topCovered = hasTop && (!p.topDefCardsCovered || p.topDefCardsCovered[slot] !== false);
+        var defCovered = hasDef && (!p.defCardsCovered || p.defCardsCovered[slot] !== false);
+        if (topCovered || defCovered) {
           gs.exposeDefCard(idx, slot);
           io.to(sess.id).emit('stateUpdate', gs.serialize());
           exposed = true;

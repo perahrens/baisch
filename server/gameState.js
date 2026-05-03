@@ -354,6 +354,10 @@ class GameState {
 
   putDefCard(playerIdx, positionId, cardId) {
     const p = this.players[playerIdx];
+    if (p.sabotaged && p.sabotaged[positionId] !== undefined) {
+      this.pushLog(`${this.pname(playerIdx)} tried to place shield at blocked slot [${positionId}]`, false, true);
+      return false;
+    }
     const i = p.hand.indexOf(cardId);
     if (i !== -1) p.hand.splice(i, 1);
     p.defCards[positionId] = cardId;
@@ -362,10 +366,15 @@ class GameState {
     if (p.defCardsBoost) delete p.defCardsBoost[positionId];
     p.statPutActions = (p.statPutActions || 0) + 1;
     this.pushLog(`${this.pname(playerIdx)} placed shield at [${positionId}]`, true, true);
+    return true;
   }
 
   putTopDefCard(playerIdx, positionId, cardId) {
     const p = this.players[playerIdx];
+    if (p.sabotaged && p.sabotaged[positionId] !== undefined) {
+      this.pushLog(`${this.pname(playerIdx)} tried to fortify blocked slot [${positionId}]`, false, true);
+      return false;
+    }
     const i = p.hand.indexOf(cardId);
     if (i !== -1) p.hand.splice(i, 1);
     p.topDefCards[positionId] = cardId;
@@ -373,6 +382,7 @@ class GameState {
     p.topDefCardsCovered[positionId] = true; // newly stacked card is face-down
     if (p.topDefCardsBoost) delete p.topDefCardsBoost[positionId];
     this.pushLog(`${this.pname(playerIdx)} fortified shield at [${positionId}]`, true, true);
+    return true;
   }
 
   magicianSwap(playerIdx, targetPlayerIdx, positionId, newBottomCardId, bottomCovered, newTopCardId, topCovered) {

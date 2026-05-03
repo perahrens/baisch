@@ -801,6 +801,7 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var nonJokerHand = p.hand.filter(function(id) { return id <= 52; });
     for (var slot = 1; slot <= 3; slot++) {
       if (putActionsLeft <= 0) break;
+      if (p.sabotaged && p.sabotaged[slot] !== undefined) continue;
       if (p.defCards[slot] == null && nonJokerHand.length > 1) {
         var chosen = null;
         var chosenStr = strategy === 'strongest' ? -1 : 9999;
@@ -810,9 +811,11 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
           if (better) { chosenStr = s; chosen = nonJokerHand[i]; }
         }
         if (chosen !== null) {
-          gs.putDefCard(playerIdx, slot, chosen);
-          nonJokerHand.splice(nonJokerHand.indexOf(chosen), 1);
-          putActionsLeft--;
+          var placed = gs.putDefCard(playerIdx, slot, chosen);
+          if (placed !== false) {
+            nonJokerHand.splice(nonJokerHand.indexOf(chosen), 1);
+            putActionsLeft--;
+          }
         }
       }
     }

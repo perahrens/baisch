@@ -94,10 +94,21 @@ public class Saboteurs extends Hero {
   }
 
   public void destroy() {
+    // Prefer destroying an actively deployed saboteur.
     for (int i = 0; i < saboteurStates.length; i++) {
       if (saboteurStates[i] == 1) {
         saboteurStates[i] = 2;
-        break;
+        isReady = isAvailable();
+        return;
+      }
+    }
+    // Race-safe fallback: if a state sync cleared active markers before this destroy event,
+    // consume one ready saboteur so destroyed count still stays correct.
+    for (int i = 0; i < saboteurStates.length; i++) {
+      if (saboteurStates[i] == 0) {
+        saboteurStates[i] = 2;
+        isReady = isAvailable();
+        return;
       }
     }
   }

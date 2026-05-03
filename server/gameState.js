@@ -960,6 +960,15 @@ class GameState {
     target.statHeroesReceived = (target.statHeroesReceived || 0) + 1;
     // Give an immediate charge when Battery Tower is acquired
     if (heroName === 'Battery Tower') target.batteryTowerCharges = 1;
+    // When Banneret is acquired mid-turn and an attack symbol is already locked,
+    // immediately extend it to the paired color (hearts<->diamonds, clubs<->spades).
+    if (heroName === 'Banneret' && target.attackingSymbol && target.attackingSymbol !== 'none') {
+      const sym = target.attackingSymbol;
+      if (sym === 'hearts') target.attackingSymbol2 = 'diamonds';
+      else if (sym === 'diamonds') target.attackingSymbol2 = 'hearts';
+      else if (sym === 'spades') target.attackingSymbol2 = 'clubs';
+      else if (sym === 'clubs') target.attackingSymbol2 = 'spades';
+    }
     this.pushLog(`${this.pname(playerIdx)} acquired hero: ${heroName}`, true, true);
   }
 

@@ -6714,6 +6714,15 @@ public class GameScreen extends ScreenAdapter {
     if ("Reservists".equals(hero.getHeroName())) {
       emitReservistsKingBoost(((Reservists) hero).countReady());
     }
+    // When Banneret is acquired mid-turn and an attack symbol is already locked,
+    // immediately extend it to the paired color so the UI updates without waiting
+    // for the server stateUpdate round-trip.
+    if ("Banneret".equals(hero.getHeroName())) {
+      String sym = currentPlayer.getPlayerTurn().getAttackingSymbol()[0];
+      if (sym != null && !"none".equals(sym) && !"joker".equals(sym)) {
+        currentPlayer.getPlayerTurn().setAttackingSymbol(sym, true);
+      }
+    }
     currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
     currentPlayer.getPlayerTurn().getHeroChoices().clear();
     int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();

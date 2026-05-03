@@ -19,13 +19,18 @@ public abstract class AbstractScreen implements Screen {
 
   protected void drawFullScreenTexture(Texture texture) {
     if (texture == null) return;
+    int w = Gdx.graphics.getWidth();
+    int h = Gdx.graphics.getHeight();
+    // Reset viewport to full physical canvas — FitViewport from the previous
+    // frame may have left glViewport set to the letterbox area, which would
+    // clip both glClear and this draw to that smaller rectangle.
+    Gdx.gl.glViewport(0, 0, w, h);
     if (fullScreenBatch == null) fullScreenBatch = new SpriteBatch();
     if (fullScreenCamera == null) fullScreenCamera = new OrthographicCamera();
-
-    fullScreenCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    fullScreenCamera.setToOrtho(false, w, h);
     fullScreenBatch.setProjectionMatrix(fullScreenCamera.combined);
     fullScreenBatch.begin();
-    fullScreenBatch.draw(texture, 0f, 0f, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    fullScreenBatch.draw(texture, 0f, 0f, w, h);
     fullScreenBatch.end();
   }
 

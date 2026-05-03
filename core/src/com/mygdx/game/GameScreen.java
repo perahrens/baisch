@@ -1651,19 +1651,29 @@ public class GameScreen extends ScreenAdapter {
         if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
-          boolean isEnemySabotagedSlot = players.get(i) != currentPlayer;
-          float sabotagedScale = isEnemySabotagedSlot ? 1.5f : 1.0f;
+          float sabotagedScale = 2.0f;
+          float sabotagedWidth = (sabotagedImage.getWidth() / 5f) * sabotagedScale;
+          float sabotagedHeight = (sabotagedImage.getHeight() / 5f) * sabotagedScale;
+          Image sabotagedBadge = new Image(plainWhiteTexture);
+          sabotagedBadge.setColor(1f, 0.55f, 0f, 0.9f);
           sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
-              (sabotagedImage.getWidth() / 5f) * sabotagedScale,
-              (sabotagedImage.getHeight() / 5f) * sabotagedScale);
-          if (isEnemySabotagedSlot) sabotagedImage.setColor(Color.ORANGE);
+            sabotagedWidth,
+            sabotagedHeight);
+          sabotagedBadge.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
+            sabotagedWidth * 1.15f,
+            sabotagedHeight * 1.15f);
           sabotagedImage.setPosition(defCard.getX(), defCard.getY());
           sabotagedImage.setX(sabotagedImage.getX() + defCard.getWidth() / 2f - sabotagedImage.getWidth() / 2f);
           sabotagedImage.setY(sabotagedImage.getY() + defCard.getHeight() / 2f - sabotagedImage.getHeight() / 2f);
+          sabotagedBadge.setPosition(defCard.getX(), defCard.getY());
+          sabotagedBadge.setX(sabotagedBadge.getX() + defCard.getWidth() / 2f - sabotagedBadge.getWidth() / 2f);
+          sabotagedBadge.setY(sabotagedBadge.getY() + defCard.getHeight() / 2f - sabotagedBadge.getHeight() / 2f);
+          sabotagedBadge.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
           removeAllListeners(sabotagedImage);
           sabotagedImageListener = new SabotagedImageListener(gameState, defCard, currentPlayer,
               players.get(i), j, playerIndex, socket);
           sabotagedImage.addListener(sabotagedImageListener);
+          gameStage.addActor(sabotagedBadge);
           gameStage.addActor(sabotagedImage);
         }
 

@@ -3333,12 +3333,6 @@ public class GameScreen extends ScreenAdapter {
       lossTitle.setColor(Color.RED);
       lossTable.add(lossTitle).padBottom(10f).row();
 
-      if (heroLossTriggerName != null && !heroLossTriggerName.isEmpty()) {
-        Label lossBy = new Label("Triggered by " + heroLossTriggerName, MyGdxGame.skin);
-        lossBy.setColor(Color.LIGHT_GRAY);
-        lossTable.add(lossBy).padBottom(8f).row();
-      }
-
       Label lossHeroLabel = new Label(lostHero, MyGdxGame.skin);
       lossHeroLabel.setColor(Color.WHITE);
       lossTable.add(lossHeroLabel).padBottom(14f).row();

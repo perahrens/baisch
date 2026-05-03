@@ -2246,8 +2246,12 @@ public class GameScreen extends ScreenAdapter {
                   > pt.getPendingLootDefStrength();
           if (canFlipLoot) {
             TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+            resBtn.getLabel().setWrap(false);
+            resBtn.pad(6f, 14f, 6f, 14f);
             resBtn.pack();
-            resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+            float lootMinBtnW = Math.min(MyGdxGame.WIDTH - 24f, 340f);
+            resBtn.setSize(Math.max(resBtn.getPrefWidth(), lootMinBtnW), resBtn.getPrefHeight());
+            resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, plBotY - 96f);
             resBtn.addListener(new ClickListener() {
               @Override
               public void clicked(InputEvent event, float x, float y) {
@@ -2545,10 +2549,9 @@ public class GameScreen extends ScreenAdapter {
       int defVizSum = 0;
       ArrayList<Card> pendingDefViz = apt.getPendingAttackDefCards();
       if (targetIsKing) {
-        Player defKingPlayer = gameState.getPlayers().get(apt.getAttackTargetPlayerIdx());
-        if (defKingPlayer != null && defKingPlayer.getKingCard() != null) {
-          defVizSum = defKingPlayer.getKingCard().getStrength();
-        }
+        // Use stored pendingAttackDefStr (includes Reservists boost) so the overlay
+        // sum matches the actual defense value used in the success check.
+        defVizSum = apt.getPendingAttackDefStr();
       } else {
         for (Card dc : pendingDefViz) defVizSum += "joker".equals(dc.getSymbol()) ? 1 : dc.getStrength();
       }
@@ -2636,6 +2639,23 @@ public class GameScreen extends ScreenAdapter {
           kd.setSize(bCW, bCH);
           kd.setPosition(rightX, cBotY);
           gameStage.addActor(kd);
+          // Reservists defense boost indicator on the king card
+          int kingBaseStr = "joker".equals(defKP.getKingCard().getSymbol()) ? 1 : defKP.getKingCard().getStrength();
+          int defKingResBoost = apt.getPendingAttackDefStr() - kingBaseStr;
+          if (defKingResBoost > 0) {
+            float iSz = bCH / 3f;
+            TextureRegion rReg = new TextureRegion(texMercenary, 0, 0, 512, 512);
+            Image rImg = new Image(rReg);
+            rImg.setSize(iSz, iSz);
+            rImg.setPosition(rightX + bCW / 2f - iSz / 2f, cBotY + bCH / 2f - iSz / 2f);
+            rImg.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(rImg);
+            Label rLbl = new Label("+" + defKingResBoost, MyGdxGame.skin);
+            rLbl.setColor(Color.GOLD);
+            rLbl.setPosition(rightX + bCW / 2f - iSz / 2f + iSz + 2f, cBotY + bCH / 2f - iSz / 2f);
+            rLbl.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            gameStage.addActor(rLbl);
+          }
         }
       } else {
         int nD = Math.max(1, pendingDefViz.size());
@@ -2711,8 +2731,12 @@ public class GameScreen extends ScreenAdapter {
                 && (atkBase + apt.getPendingAttackMercenaryBonus() + apt.getReservistAttackBonus() + resHero.countReady()) > defStrCheck;
             if (canFlipAttack) {
               TextButton resBtn = new TextButton("Reservists +1  (" + resHero.countReady() + " left)", MyGdxGame.skin);
+              resBtn.getLabel().setWrap(false);
+              resBtn.pad(6f, 14f, 6f, 14f);
               resBtn.pack();
-              resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, MyGdxGame.WIDTH * 0.42f);
+              float atkMinBtnW = Math.min(MyGdxGame.WIDTH - 24f, 340f);
+              resBtn.setSize(Math.max(resBtn.getPrefWidth(), atkMinBtnW), resBtn.getPrefHeight());
+              resBtn.setPosition(MyGdxGame.WIDTH / 2f - resBtn.getWidth() / 2f, cBotY - 96f);
               resBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {

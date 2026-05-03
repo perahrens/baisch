@@ -1506,6 +1506,7 @@ public class MenuScreen extends AbstractScreen {
     // System.out.println("render menu screen");
     Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    drawFullScreenTexture(menuBgTexture);
 
     // Auto-escape from stuck reconnect state after timeout.
     if (reconnecting) {

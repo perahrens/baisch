@@ -802,6 +802,8 @@ public class GameScreen extends ScreenAdapter {
     inMulti.addProcessor(gameStage);
     inMulti.addProcessor(handStage);
     menuAndGameMulti = new InputMultiplexer();
+    // Gesture detector must be in the active multiplexer and should run before stages,
+    // otherwise stage listeners can consume touch events before pinch is detected.
     menuAndGameMulti.addProcessor(overlayStage);
     menuAndGameMulti.addProcessor(gameStage);
     menuAndGameMulti.addProcessor(handStage);
@@ -931,7 +933,7 @@ public class GameScreen extends ScreenAdapter {
                            com.badlogic.gdx.math.Vector2 pointer1, com.badlogic.gdx.math.Vector2 pointer2) { return false; }
       public void pinchStop() { }
     });
-    inMulti.addProcessor(gestureDetector);
+    menuAndGameMulti.addProcessor(0, gestureDetector);
 
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
@@ -971,6 +973,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     gameStage.addActor(gameBck);
+    gameStage.setScrollFocus(gameBck);
     handStage.addActor(handBck);
     handStage.addActor(handHighlight);
 

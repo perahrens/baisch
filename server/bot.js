@@ -789,8 +789,23 @@ module.exports = function createBotAI(io, checkAndHandleWinner) {
     var heroName = botHeroNameFromOracleCard(gs, oracleCardId);
     if (!heroName) return false;
 
+    var previousOwnerIdx = gs.players.findIndex(function(pp) {
+      return (pp.heroes || []).indexOf(heroName) !== -1;
+    });
+
     gs.jokerSacrifice(playerIdx, jokerId, oracleCardId);
     gs.heroAcquired(playerIdx, heroName);
+
+    if (previousOwnerIdx >= 0) {
+      io.to(sess.id).emit('heroLost', {
+        playerIndex: previousOwnerIdx,
+        lostPlayerIndex: previousOwnerIdx,
+        triggerPlayerIndex: playerIdx,
+        heroName: heroName,
+        drawnCardId: oracleCardId,
+      });
+    }
+
     io.to(sess.id).emit('stateUpdate', gs.serialize());
     return true;
   }

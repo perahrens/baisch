@@ -309,11 +309,15 @@ public class GameScreen extends ScreenAdapter {
     panGameCamera(after.x - before.x, after.y - before.y);
   }
 
-  // ── Hero reveal overlay (issue #257) ──────────────────────────────────────
-  // Set when any player acquires a hero; cleared when the player dismisses the overlay.
-  private String heroRevealPlayerName  = null;
-  private String heroRevealHeroName    = null;
-  private int    heroRevealDrawnCardId = -1;
+  // ── Hero reveal/loss overlays (issues #257 / #269) ───────────────────────
+  // Set when any player acquires or loses a hero; cleared when the player dismisses the overlay.
+  private String heroRevealPlayerName   = null;
+  private String heroRevealHeroName     = null;
+  private int    heroRevealDrawnCardId  = -1;
+  private String heroLossPlayerName     = null;
+  private String heroLossHeroName       = null;
+  private String heroLossTriggerName    = null;
+  private int    heroLossDrawnCardId    = -1;
 
 
   // New constructor for centralized state
@@ -498,8 +502,8 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
-    // A joker draw landed on a hero that was already owned — the owner loses the hero.
-    // Per issue #25: the drawing player gets nothing; the previous owner loses the hero.
+    // A joker/hero draw landed on a hero that was already owned — the owner loses the hero.
+    // Issue #269: show a global hero-loss overlay to all players.
     socket.on("heroLost", new SocketListener() {
       @Override
       public void call(Object... args) {
@@ -508,11 +512,20 @@ public class GameScreen extends ScreenAdapter {
           @Override
           public void run() {
             try {
-              int pIdx = data.getInt("playerIndex");
+              int pIdx = data.optInt("lostPlayerIndex", data.optInt("playerIndex", -1));
               String heroName = data.getString("heroName");
               if (pIdx >= 0 && pIdx < players.size()) {
                 players.get(pIdx).removeHeroByName(heroName);
+                heroLossPlayerName = players.get(pIdx).getPlayerName();
+              } else {
+                heroLossPlayerName = "A player";
               }
+              int triggerIdx = data.optInt("triggerPlayerIndex", -1);
+              heroLossTriggerName = (triggerIdx >= 0 && triggerIdx < players.size())
+                  ? players.get(triggerIdx).getPlayerName()
+                  : null;
+              heroLossHeroName = heroName;
+              heroLossDrawnCardId = data.optInt("drawnCardId", -1);
               gameState.setUpdateState(true);
             } catch (JSONException e) {
               e.printStackTrace();
@@ -3301,10 +3314,62 @@ public class GameScreen extends ScreenAdapter {
       overlayStage.addActor(kdScroll);
     }
 
-    // ── Hero reveal overlay (issue #257) ───────────────────────────────────
-    // Shown to every player after any hero acquisition. Dismissed with "Got it!".
-    // Uses overlayStage (450x800) so elements at any HEIGHT fraction are visible.
-    if (heroRevealPlayerName != null && heroRevealHeroName != null) {
+    // ── Hero loss/reveal overlays (issues #269 / #257) ─────────────────────
+    // Hero-loss overlay is prioritized when both events happen in quick succession.
+    if (heroLossPlayerName != null && heroLossHeroName != null) {
+      final String lostHero = heroLossHeroName;
+      final int lostCardId = heroLossDrawnCardId;
+
+      Image lossOv = new Image(MyGdxGame.skin, "white");
+      lossOv.setFillParent(true);
+      lossOv.setColor(0f, 0f, 0f, 0.88f);
+      overlayStage.addActor(lossOv);
+
+      Table lossTable = new Table();
+      lossTable.setFillParent(true);
+      lossTable.center();
+
+      Label lossTitle = new Label(heroLossPlayerName + " lost a Hero!", MyGdxGame.skin);
+      lossTitle.setColor(Color.RED);
+      lossTable.add(lossTitle).padBottom(10f).row();
+
+      if (heroLossTriggerName != null && !heroLossTriggerName.isEmpty()) {
+        Label lossBy = new Label("Triggered by " + heroLossTriggerName, MyGdxGame.skin);
+        lossBy.setColor(Color.LIGHT_GRAY);
+        lossTable.add(lossBy).padBottom(8f).row();
+      }
+
+      Label lossHeroLabel = new Label(lostHero, MyGdxGame.skin);
+      lossHeroLabel.setColor(Color.WHITE);
+      lossTable.add(lossHeroLabel).padBottom(14f).row();
+
+      if (lostCardId > 0) {
+        Card lossCard = Card.fromCardId(lostCardId);
+        if (lossCard != null) {
+          float cScale = 1.4f;
+          float cW = lossCard.getWidth() * cScale;
+          float cH = lossCard.getHeight() * cScale;
+          lossCard.setSize(cW, cH);
+          lossTable.add(lossCard).size(cW, cH).padBottom(20f).row();
+        }
+      }
+
+      TextButton lossBtn = new TextButton("Got it!", MyGdxGame.skin);
+      lossBtn.pad(8f, 32f, 8f, 32f);
+      lossBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          GameScreen.this.heroLossPlayerName = null;
+          GameScreen.this.heroLossHeroName = null;
+          GameScreen.this.heroLossTriggerName = null;
+          GameScreen.this.heroLossDrawnCardId = -1;
+          gameState.setUpdateState(true);
+        }
+      });
+      lossTable.add(lossBtn);
+
+      overlayStage.addActor(lossTable);
+    } else if (heroRevealPlayerName != null && heroRevealHeroName != null) {
       final String revealHero   = heroRevealHeroName;
       final int    revealCardId = heroRevealDrawnCardId;
 
@@ -6705,10 +6770,17 @@ public class GameScreen extends ScreenAdapter {
             int ownerIdx = gameState.findHeroOwnerIndex(takenName);
             if (ownerIdx >= 0) {
               players.get(ownerIdx).removeHeroByName(takenName);
+              heroLossPlayerName = players.get(ownerIdx).getPlayerName();
+              heroLossHeroName = takenName;
+              heroLossTriggerName = currentPlayer.getPlayerName();
+              heroLossDrawnCardId = drawnCard.getCardId();
               try {
                 JSONObject emitData = new JSONObject();
                 emitData.put("playerIndex", ownerIdx);
+                emitData.put("lostPlayerIndex", ownerIdx);
+                emitData.put("triggerPlayerIndex", playerIndex);
                 emitData.put("heroName", takenName);
+                emitData.put("drawnCardId", drawnCard.getCardId());
                 socket.emit("heroLost", emitData);
               } catch (JSONException e) {
                 e.printStackTrace();
@@ -6733,6 +6805,9 @@ public class GameScreen extends ScreenAdapter {
 
   /** Finalise hero acquisition: add hero to player, emit to server, trigger redraw. */
   private void completeHeroAcquisition(Hero hero) {
+    int previousOwnerIdx = gameState.findHeroOwnerIndex(hero.getHeroName());
+    int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
+
     currentPlayer.addHero(hero);
     // If the acquired hero is Reservists, immediately broadcast the count to all other clients.
     if ("Reservists".equals(hero.getHeroName())) {
@@ -6747,9 +6822,28 @@ public class GameScreen extends ScreenAdapter {
         currentPlayer.getPlayerTurn().setAttackingSymbol(sym, true);
       }
     }
+
+    // Issue #269: when this acquisition steals an already-owned hero, broadcast hero-loss overlay.
+    if (previousOwnerIdx >= 0 && previousOwnerIdx < players.size()) {
+      heroLossPlayerName = players.get(previousOwnerIdx).getPlayerName();
+      heroLossHeroName = hero.getHeroName();
+      heroLossTriggerName = currentPlayer.getPlayerName();
+      heroLossDrawnCardId = drawnCardId;
+      try {
+        JSONObject lossData = new JSONObject();
+        lossData.put("playerIndex", previousOwnerIdx);
+        lossData.put("lostPlayerIndex", previousOwnerIdx);
+        lossData.put("triggerPlayerIndex", playerIndex);
+        lossData.put("heroName", hero.getHeroName());
+        lossData.put("drawnCardId", drawnCardId);
+        socket.emit("heroLost", lossData);
+      } catch (JSONException e) {
+        e.printStackTrace();
+      }
+    }
+
     currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
     currentPlayer.getPlayerTurn().getHeroChoices().clear();
-    int drawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
     try {
       JSONObject emitData = new JSONObject();
       emitData.put("playerIndex", playerIndex);

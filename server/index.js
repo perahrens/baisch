@@ -1639,6 +1639,8 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("heroLost: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
     sess.gameState.heroLost(data.playerIndex, data.heroName);
+    // Relay to all other players so everyone sees the hero-loss overlay.
+    socket.to(sess.id).emit('heroLost', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 

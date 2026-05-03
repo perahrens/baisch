@@ -248,12 +248,34 @@ public class GameScreen extends ScreenAdapter {
   private Texture texZoomButton;
   private Image zoomModeBtn;
 
-  // Gesture-based zoom for game screen (issue #266)
-  private float gameScreenZoom = 1.0f; // Current zoom level (1.0 = fully zoomed out)
-  private static final float MIN_ZOOM = 0.8f; // Minimum zoom level
-  private static final float MAX_ZOOM = 3.0f; // Maximum zoom level
-  private static final float ZOOM_STEP = 0.1f; // Zoom increment per gesture event
+  // Gesture-based zoom/pan for game screen (issue #266)
+  private float gameScreenZoom = 1.0f; // 1.0f = full board (max zoomed out)
+  private static final float MIN_ZOOM = 0.35f; // Most zoomed-in level
+  private static final float MAX_ZOOM = 1.0f;  // Never allow further zoom-out than default view
+  private static final float ZOOM_STEP = 0.1f; // Zoom increment per wheel event
+  private float gameCameraCenterX = MyGdxGame.WIDTH / 2f;
+  private float gameCameraCenterY = MyGdxGame.WIDTH / 2f;
+  private int gamePanPointer = -1;
+  private float gamePanLastX = 0f;
+  private float gamePanLastY = 0f;
   private com.badlogic.gdx.input.GestureDetector gestureDetector = null;
+
+  private static float clampf(float v, float min, float max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  private void clampGameCameraCenter() {
+    float halfView = (MyGdxGame.WIDTH * gameScreenZoom) / 2f;
+    gameCameraCenterX = clampf(gameCameraCenterX, halfView, MyGdxGame.WIDTH - halfView);
+    gameCameraCenterY = clampf(gameCameraCenterY, halfView, MyGdxGame.WIDTH - halfView);
+  }
+
+  private void panGameCamera(float deltaWorldX, float deltaWorldY) {
+    if (gameScreenZoom >= MAX_ZOOM) return;
+    gameCameraCenterX -= deltaWorldX;
+    gameCameraCenterY -= deltaWorldY;
+    clampGameCameraCenter();
+  }
 
   // ── Hero reveal overlay (issue #257) ──────────────────────────────────────
   // Set when any player acquires a hero; cleared when the player dismisses the overlay.
@@ -830,6 +852,9 @@ public class GameScreen extends ScreenAdapter {
     gameBck.addListener(new InputListener() {
       @Override
       public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        gamePanPointer = pointer;
+        gamePanLastX = x;
+        gamePanLastY = y;
         if (currentlyZoomedCard != null) unzoomCard(currentlyZoomedCard);
         if (currentlyZoomedDeck != null) { setDeckScale(currentlyZoomedDeck, 1f); currentlyZoomedDeck = null; }
         // Deselect any selected defense or king card
@@ -841,6 +866,22 @@ public class GameScreen extends ScreenAdapter {
         }
         return false;
       }
+      public void touchDragged(InputEvent event, float x, float y, int pointer) {
+        if (pointer != gamePanPointer) return;
+        if (gameScreenZoom >= MAX_ZOOM) {
+          gamePanLastX = x;
+          gamePanLastY = y;
+          return;
+        }
+        float dx = x - gamePanLastX;
+        float dy = y - gamePanLastY;
+        panGameCamera(dx, dy);
+        gamePanLastX = x;
+        gamePanLastY = y;
+      }
+      public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
+        if (pointer == gamePanPointer) gamePanPointer = -1;
+      }
       public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
         // Issue #266: Handle Ctrl+scroll for desktop zoom
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT) || 
@@ -849,6 +890,7 @@ public class GameScreen extends ScreenAdapter {
           float newZoom = gameScreenZoom - (amountY * ZOOM_STEP);
           newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
           gameScreenZoom = newZoom;
+          clampGameCameraCenter();
           return true;
         }
         return false;
@@ -926,6 +968,7 @@ public class GameScreen extends ScreenAdapter {
           float newZoom = gameScreenZoom / scale;
           newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
           gameScreenZoom = newZoom;
+          clampGameCameraCenter();
         }
         return true;
       }
@@ -952,6 +995,9 @@ public class GameScreen extends ScreenAdapter {
 
     // Issue #266: Reset gesture zoom to default when screen is shown
     gameScreenZoom = 1.0f;
+    gameCameraCenterX = MyGdxGame.WIDTH / 2f;
+    gameCameraCenterY = MyGdxGame.WIDTH / 2f;
+    gamePanPointer = -1;
 
     players = gameState.getPlayers();
     // Spectators always follow the player whose turn it currently is.
@@ -6495,6 +6541,8 @@ public class GameScreen extends ScreenAdapter {
     if (gameCamera != null && gameCamera instanceof com.badlogic.gdx.graphics.OrthographicCamera) {
       com.badlogic.gdx.graphics.OrthographicCamera orthoCamera = (com.badlogic.gdx.graphics.OrthographicCamera) gameCamera;
       orthoCamera.zoom = gameScreenZoom;
+      clampGameCameraCenter();
+      orthoCamera.position.set(gameCameraCenterX, gameCameraCenterY, 0f);
       orthoCamera.update();
     }
     

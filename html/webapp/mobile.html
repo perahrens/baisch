@@ -196,34 +196,17 @@
         e.preventDefault();
       }, { passive: false });
 
-      // GWT's canvas only listens to mouse events. Forward touch events as
-      // mouse events so the game is controllable on mobile.
-      function forwardTouchAsMouseEvents(canvas) {
-        function relay(mouseType, touch) {
-          canvas.dispatchEvent(new MouseEvent(mouseType, {
-            bubbles: true, cancelable: true, view: window,
-            clientX: touch.clientX, clientY: touch.clientY
-          }));
-        }
-        canvas.addEventListener('touchstart', function(e) {
-          e.preventDefault(); relay('mousedown', e.changedTouches[0]);
-        }, { passive: false });
-        canvas.addEventListener('touchmove', function(e) {
-          e.preventDefault(); relay('mousemove', e.changedTouches[0]);
-        }, { passive: false });
-        canvas.addEventListener('touchend', function(e) {
-          e.preventDefault(); relay('mouseup', e.changedTouches[0]);
-        }, { passive: false });
-      }
-
-      // Poll until GWT creates the canvas, then attach touch handlers.
+      // Poll until GWT creates the canvas, then disable browser gesture handling
+      // so LibGDX receives the real touch stream for drag and pinch.
       (function waitForCanvas() {
         var canvas = document.querySelector('#embed-html canvas');
         if (canvas) {
-          // Prevent the browser from handling touch gestures (scroll, zoom)
-          // on the canvas itself — the game handles all touch input.
           canvas.style.touchAction = 'none';
-          forwardTouchAsMouseEvents(canvas);
+          ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(type) {
+            canvas.addEventListener(type, function(e) {
+              e.preventDefault();
+            }, { passive: false });
+          });
           return;
         }
         setTimeout(waitForCanvas, 200);

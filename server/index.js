@@ -1628,6 +1628,11 @@ io.on('connection', function(socket) {
     var sess = getSession(socket.id);
     if (!sess || !sess.gameState) return;
     console.log("heroAcquired: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
+    // Guard: if the hero is already owned by any player, acquiring player gets nothing.
+    var alreadyOwned = sess.gameState.players.some(function(p) {
+      return (p.heroes || []).indexOf(data.heroName) !== -1;
+    });
+    if (alreadyOwned) return;
     sess.gameState.heroAcquired(data.playerIndex, data.heroName);
     // Relay to all other players so they show the hero reveal overlay.
     socket.to(sess.id).emit('heroAcquired', data);
@@ -1639,6 +1644,8 @@ io.on('connection', function(socket) {
     if (!sess || !sess.gameState) return;
     console.log("heroLost: playerIndex=" + data.playerIndex + " heroName=" + data.heroName);
     sess.gameState.heroLost(data.playerIndex, data.heroName);
+    // Relay to all other players so everyone sees the hero-loss overlay.
+    socket.to(sess.id).emit('heroLost', data);
     io.to(sess.id).emit('stateUpdate', sess.gameState.serialize());
   });
 

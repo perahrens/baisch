@@ -658,13 +658,12 @@ public class Player {
   }
 
   public boolean hasHero(String heroName) {
-    boolean hasHero = false;
     for (int i = 0; i < heroes.size(); i++) {
-      if (heroes.get(i).getHeroName() == heroName) {
-        hasHero = true;
+      if (heroName.equals(heroes.get(i).getHeroName())) {
+        return true;
       }
     }
-    return hasHero;
+    return false;
   }
 
   // Synced Reservists ready count — updated via socket event from the owning client.

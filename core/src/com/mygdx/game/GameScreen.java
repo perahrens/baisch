@@ -3235,24 +3235,35 @@ public class GameScreen extends ScreenAdapter {
             if (consumed != null) {
               completeHeroAcquisition(consumed);
             } else {
-              // Hero is already owned — strip it from the owner and transfer it.
-              int ownerIdx = gameState.findHeroOwnerIndex(heroName);
-              if (ownerIdx >= 0) {
-                Hero stripped = players.get(ownerIdx).removeHeroByName(heroName);
-                if (stripped != null) {
-                  // Emit heroAcquired BEFORE heroLost so other clients can
-                  // still find the hero in the old owner's list inside
-                  // applyHeroAcquired and transfer it without it disappearing.
-                  completeHeroAcquisition(stripped);
-                  try {
-                    JSONObject emitData = new JSONObject();
-                    emitData.put("playerIndex", ownerIdx);
-                    emitData.put("heroName", heroName);
-                    socket.emit("heroLost", emitData);
-                  } catch (JSONException e) {
-                    e.printStackTrace();
-                  }
+              // Hero is already owned — the owner loses it and the drawing player gets NOTHING.
+              Player ownerPlayer = null;
+              for (int oi = 0; oi < players.size(); oi++) {
+                if (players.get(oi).hasHero(heroName)) { ownerPlayer = players.get(oi); break; }
+              }
+              if (ownerPlayer != null) {
+                int ownerIdx = players.indexOf(ownerPlayer);
+                ownerPlayer.removeHeroByName(heroName);
+                heroRevealPlayerName = null;
+                heroRevealHeroName = null;
+                heroRevealDrawnCardId = -1;
+                heroLossPlayerName = ownerPlayer.getPlayerName();
+                heroLossHeroName = heroName;
+                heroLossTriggerName = currentPlayer.getPlayerName();
+                heroLossDrawnCardId = currentPlayer.getPlayerTurn().getPendingDrawnCardId();
+                currentPlayer.getPlayerTurn().setHeroSelectionPending(false);
+                currentPlayer.getPlayerTurn().getHeroChoices().clear();
+                try {
+                  JSONObject emitData = new JSONObject();
+                  emitData.put("playerIndex", ownerIdx);
+                  emitData.put("lostPlayerIndex", ownerIdx);
+                  emitData.put("triggerPlayerIndex", playerIndex);
+                  emitData.put("heroName", heroName);
+                  emitData.put("drawnCardId", currentPlayer.getPlayerTurn().getPendingDrawnCardId());
+                  socket.emit("heroLost", emitData);
+                } catch (JSONException e) {
+                  e.printStackTrace();
                 }
+                gameState.setUpdateState(true);
               }
             }
           }

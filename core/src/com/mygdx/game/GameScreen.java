@@ -253,6 +253,8 @@ public class GameScreen extends ScreenAdapter {
   private static final float MIN_ZOOM = 0.35f; // Most zoomed-in level
   private static final float MAX_ZOOM = 1.0f;  // Never allow further zoom-out than default view
   private static final float ZOOM_STEP = 0.1f; // Zoom increment per wheel event
+  private static final float PINCH_ZOOM_SENSITIVITY = 0.65f;
+  private static final float PAN_DAMPING = 0.85f;
   private float gameCameraCenterX = MyGdxGame.WIDTH / 2f;
   private float gameCameraCenterY = MyGdxGame.WIDTH / 2f;
   private int gamePanPointer = -1;
@@ -260,6 +262,7 @@ public class GameScreen extends ScreenAdapter {
   private float gamePanLastY = 0f;
   private float pinchCenterScreenX = MyGdxGame.WIDTH / 2f;
   private float pinchCenterScreenY = MyGdxGame.WIDTH / 2f;
+  private float pinchLastDistance = -1f;
   private com.badlogic.gdx.input.GestureDetector gestureDetector = null;
   private com.badlogic.gdx.InputAdapter zoomInputProcessor = null;
 
@@ -859,7 +862,7 @@ public class GameScreen extends ScreenAdapter {
       public boolean scrolled(int amount) {
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT)
             || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_RIGHT)) {
-          float newZoom = gameScreenZoom - (amount * ZOOM_STEP);
+          float newZoom = gameScreenZoom + (amount * ZOOM_STEP);
           applyZoomAtScreenPoint(Gdx.input.getX(), Gdx.input.getY(), newZoom);
           return true;
         }
@@ -933,8 +936,8 @@ public class GameScreen extends ScreenAdapter {
           gamePanLastY = y;
           return;
         }
-        float dx = x - gamePanLastX;
-        float dy = y - gamePanLastY;
+        float dx = (x - gamePanLastX) * PAN_DAMPING;
+        float dy = (y - gamePanLastY) * PAN_DAMPING;
         panGameCamera(dx, dy);
         gamePanLastX = x;
         gamePanLastY = y;
@@ -1009,11 +1012,16 @@ public class GameScreen extends ScreenAdapter {
       public boolean panStop(float x, float y, int pointer, int button) { return false; }
       public boolean zoom(float initialDistance, float distance) {
         // Pinch gesture: zoom in/out based on distance change
-        if (initialDistance > 0) {
-          float scale = distance / initialDistance;
-          // Zoom in when fingers move apart (scale > 1), zoom out when moving together (scale < 1)
-          float newZoom = gameScreenZoom / scale;
+        if (distance > 0) {
+          if (pinchLastDistance <= 0f) {
+            pinchLastDistance = (initialDistance > 0f) ? initialDistance : distance;
+          }
+          float scale = distance / pinchLastDistance;
+          float adjustedScale = (float) Math.pow(scale, PINCH_ZOOM_SENSITIVITY);
+          // Incremental zoom yields much smoother, fine-grained pinch behavior.
+          float newZoom = gameScreenZoom / adjustedScale;
           applyZoomAtScreenPoint(pinchCenterScreenX, pinchCenterScreenY, newZoom);
+          pinchLastDistance = distance;
         }
         return true;
       }
@@ -1023,7 +1031,7 @@ public class GameScreen extends ScreenAdapter {
         pinchCenterScreenY = (pointer1.y + pointer2.y) / 2f;
         return false;
       }
-      public void pinchStop() { }
+      public void pinchStop() { pinchLastDistance = -1f; }
     });
     menuAndGameMulti.addProcessor(0, gestureDetector);
 

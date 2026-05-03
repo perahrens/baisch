@@ -245,8 +245,6 @@ public class GameScreen extends ScreenAdapter {
   private final HashSet<PickingDeck> deckZoomAttached = new HashSet<PickingDeck>();
   // Zoom-mode toggle (issue #246)
   private boolean zoomModeActive = false;
-  private Texture texZoomButton;
-  private Image zoomModeBtn;
 
   // Gesture-based zoom/pan for game screen (issue #266)
   private float gameScreenZoom = 1.0f; // 1.0f = full board (max zoomed out)
@@ -1000,7 +998,6 @@ public class GameScreen extends ScreenAdapter {
     texMenuButton = new Texture(Gdx.files.internal("data/graphics/options.png"));
     texChatIcon    = new Texture(Gdx.files.internal("data/graphics/chat.png"));
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
-    texZoomButton  = new Texture(Gdx.files.internal("data/graphics/lens.png"));
 
     // Issue #266: Initialize gesture detector for pinch zoom on the game screen
     gestureDetector = new com.badlogic.gdx.input.GestureDetector(new com.badlogic.gdx.input.GestureDetector.GestureListener() {
@@ -5202,7 +5199,6 @@ public class GameScreen extends ScreenAdapter {
       setDeckScale(currentlyZoomedDeck, 1f);
       currentlyZoomedDeck = null;
     }
-    if (zoomModeBtn != null) zoomModeBtn.setColor(Color.WHITE);
   }
 
   private void attachZoomListener(final Card card) {
@@ -5301,27 +5297,9 @@ public class GameScreen extends ScreenAdapter {
     float btnSize = 44f;
     float gap = 4f;
 
-    // Zoom toggle button — to the left of the menu button
-    zoomModeBtn = new Image(texZoomButton);
-    zoomModeBtn.setSize(btnSize, btnSize);
-    zoomModeBtn.setPosition(MyGdxGame.WIDTH - 2 * btnSize - gap, MyGdxGame.HEIGHT - btnSize);
-    zoomModeBtn.setColor(zoomModeActive ? Color.YELLOW : Color.WHITE);
-    zoomModeBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (zoomModeActive) {
-          deactivateZoomMode();
-        } else {
-          zoomModeActive = true;
-          if (zoomModeBtn != null) zoomModeBtn.setColor(Color.YELLOW);
-        }
-      }
-    });
-    overlayStage.addActor(zoomModeBtn);
-
     Image menuBtn = new Image(texMenuButton);
     menuBtn.setSize(btnSize, btnSize);
-    menuBtn.setPosition(MyGdxGame.WIDTH - btnSize, MyGdxGame.HEIGHT - btnSize);
+    menuBtn.setPosition(MyGdxGame.WIDTH - btnSize - gap, MyGdxGame.HEIGHT - btnSize);
     menuBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -7070,7 +7048,6 @@ public class GameScreen extends ScreenAdapter {
     texSword.dispose();
     texSuits.dispose();
     texMenuButton.dispose();
-    texZoomButton.dispose();
   }
 
 }

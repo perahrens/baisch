@@ -203,8 +203,14 @@
                 evt.stopPropagation();
                 evt.target.style.cursor = '';
               }
-              document.getElementById('embed-html').addEventListener('mousedown', handleMouseDown, false);
-              document.getElementById('embed-html').addEventListener('mouseup', handleMouseUp, false);
+              var embedHtml = document.getElementById('embed-html');
+              embedHtml.addEventListener('mousedown', handleMouseDown, false);
+              embedHtml.addEventListener('mouseup', handleMouseUp, false);
+              embedHtml.addEventListener('wheel', function(evt) {
+                if (evt.ctrlKey) {
+                  evt.preventDefault();
+                }
+              }, { passive: false });
 
               // Remove the loading overlay once GWT creates the canvas,
               // but always show it for at least 1.4 s so the stagger animation plays.

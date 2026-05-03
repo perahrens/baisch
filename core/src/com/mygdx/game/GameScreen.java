@@ -864,7 +864,7 @@ public class GameScreen extends ScreenAdapter {
           if (currentPlayer.getKingCard() != null) currentPlayer.getKingCard().setSelected(false);
           gameState.setUpdateState(true);
         }
-        return false;
+        return true;
       }
       public void touchDragged(InputEvent event, float x, float y, int pointer) {
         if (pointer != gamePanPointer) return;

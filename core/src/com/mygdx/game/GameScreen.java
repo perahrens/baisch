@@ -1651,8 +1651,12 @@ public class GameScreen extends ScreenAdapter {
         if (players.get(i).isSlotSabotaged(j)) {
           TextureRegion sabotagedRegion = new TextureRegion(texSabotaged, 0, 0, 64, 64);
           Image sabotagedImage = new Image(sabotagedRegion);
+          boolean isEnemySabotagedSlot = players.get(i) != currentPlayer;
+          float sabotagedScale = isEnemySabotagedSlot ? 1.5f : 1.0f;
           sabotagedImage.setBounds(sabotagedImage.getX(), sabotagedImage.getY(),
-              sabotagedImage.getWidth() / 5f, sabotagedImage.getHeight() / 5f);
+              (sabotagedImage.getWidth() / 5f) * sabotagedScale,
+              (sabotagedImage.getHeight() / 5f) * sabotagedScale);
+          if (isEnemySabotagedSlot) sabotagedImage.setColor(Color.ORANGE);
           sabotagedImage.setPosition(defCard.getX(), defCard.getY());
           sabotagedImage.setX(sabotagedImage.getX() + defCard.getWidth() / 2f - sabotagedImage.getWidth() / 2f);
           sabotagedImage.setY(sabotagedImage.getY() + defCard.getHeight() / 2f - sabotagedImage.getHeight() / 2f);

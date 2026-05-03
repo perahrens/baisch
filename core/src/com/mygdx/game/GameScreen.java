@@ -248,6 +248,13 @@ public class GameScreen extends ScreenAdapter {
   private Texture texZoomButton;
   private Image zoomModeBtn;
 
+  // Gesture-based zoom for game screen (issue #266)
+  private float gameScreenZoom = 1.0f; // Current zoom level (1.0 = fully zoomed out)
+  private static final float MIN_ZOOM = 0.8f; // Minimum zoom level
+  private static final float MAX_ZOOM = 3.0f; // Maximum zoom level
+  private static final float ZOOM_STEP = 0.1f; // Zoom increment per gesture event
+  private com.badlogic.gdx.input.GestureDetector gestureDetector = null;
+
   // ── Hero reveal overlay (issue #257) ──────────────────────────────────────
   // Set when any player acquires a hero; cleared when the player dismisses the overlay.
   private String heroRevealPlayerName  = null;
@@ -832,6 +839,18 @@ public class GameScreen extends ScreenAdapter {
         }
         return false;
       }
+      public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
+        // Issue #266: Handle Ctrl+scroll for desktop zoom
+        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT) || 
+            Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_RIGHT)) {
+          // Scroll up (negative amountY) = zoom in, scroll down (positive amountY) = zoom out
+          float newZoom = gameScreenZoom - (amountY * ZOOM_STEP);
+          newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+          gameScreenZoom = newZoom;
+          return true;
+        }
+        return false;
+      }
     });
     gameStage.addActor(gameBck);
 
@@ -889,6 +908,31 @@ public class GameScreen extends ScreenAdapter {
     texHistoryIcon = new Texture(Gdx.files.internal("data/graphics/history.png"));
     texZoomButton  = new Texture(Gdx.files.internal("data/graphics/lens.png"));
 
+    // Issue #266: Initialize gesture detector for pinch zoom on the game screen
+    gestureDetector = new com.badlogic.gdx.input.GestureDetector(new com.badlogic.gdx.input.GestureDetector.GestureListener() {
+      public boolean touchDown(float x, float y, int pointer, int button) { return false; }
+      public boolean tap(float x, float y, int count, int button) { return false; }
+      public boolean longPress(float x, float y) { return false; }
+      public boolean fling(float velocityX, float velocityY, int button) { return false; }
+      public boolean pan(float x, float y, float deltaX, float deltaY) { return false; }
+      public boolean panStop(float x, float y, int pointer, int button) { return false; }
+      public boolean zoom(float initialDistance, float distance) {
+        // Pinch gesture: zoom in/out based on distance change
+        if (initialDistance > 0) {
+          float scale = distance / initialDistance;
+          // Zoom in when fingers move apart (scale > 1), zoom out when moving together (scale < 1)
+          float newZoom = gameScreenZoom / scale;
+          newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+          gameScreenZoom = newZoom;
+        }
+        return true;
+      }
+      public boolean pinch(com.badlogic.gdx.math.Vector2 initialPointer1, com.badlogic.gdx.math.Vector2 initialPointer2, 
+                           com.badlogic.gdx.math.Vector2 pointer1, com.badlogic.gdx.math.Vector2 pointer2) { return false; }
+      public void pinchStop() { }
+    });
+    inMulti.addProcessor(gestureDetector);
+
     // Request authoritative state from server. This handles the case where the browser
     // tab was inactive during game initialization: requestAnimationFrame is paused for
     // inactive tabs, so postRunnable tasks (including this constructor) are deferred.
@@ -903,6 +947,9 @@ public class GameScreen extends ScreenAdapter {
     INSTANCE = this;
     MyGdxGame.setMusicTrack(null); // no music during the game
     if (MyGdxGame.onGameScreenActive != null) MyGdxGame.onGameScreenActive.run();
+
+    // Issue #266: Reset gesture zoom to default when screen is shown
+    gameScreenZoom = 1.0f;
 
     players = gameState.getPlayers();
     // Spectators always follow the player whose turn it currently is.
@@ -6439,6 +6486,15 @@ public class GameScreen extends ScreenAdapter {
     gameStage.getViewport().update(gamePixelW, upperH, true);
     gameStage.getViewport().setScreenBounds(offsetX, offsetY + lowerH, gamePixelW, upperH);
     gameStage.getViewport().apply();
+    
+    // Issue #266: Apply gesture zoom to the game board camera
+    com.badlogic.gdx.graphics.Camera gameCamera = gameStage.getViewport().getCamera();
+    if (gameCamera != null && gameCamera instanceof com.badlogic.gdx.graphics.OrthographicCamera) {
+      com.badlogic.gdx.graphics.OrthographicCamera orthoCamera = (com.badlogic.gdx.graphics.OrthographicCamera) gameCamera;
+      orthoCamera.zoom = gameScreenZoom;
+      orthoCamera.update();
+    }
+    
     gameStage.act(delta);
     gameStage.draw();
 

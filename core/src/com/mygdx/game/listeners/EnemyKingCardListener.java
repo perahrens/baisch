@@ -180,6 +180,8 @@ public class EnemyKingCardListener extends ClickListener {
       attackSum = 0;
       for (Card c : player.getSelectedHandCards()) attackSum += c.getStrength();
     }
+    // Read mercenary bonus before success check so it is included in the result
+    int mercBonus = pt.getMercenaryAttackBonus();
     int defStr = "joker".equals(kingCard.getSymbol()) ? 1 : kingCard.getStrength();
     // Defending player's ready reservists automatically boost king defence strength
     for (Hero h : defender.getHeroes()) {
@@ -188,7 +190,7 @@ public class EnemyKingCardListener extends ClickListener {
         break;
       }
     }
-    boolean success = attackSum > defStr;
+    boolean success = (attackSum + mercBonus) > defStr;
 
     // Reveal the defender's king — only if no Battery Tower intercept will happen
     if (socket == null) {
@@ -212,7 +214,8 @@ public class EnemyKingCardListener extends ClickListener {
     pt.setPendingAttackDefStr(defStr);
 
     // Consume mercenary attack bonus immediately when attack is committed
-    int mercBonus = pt.getMercenaryAttackBonus();
+    // Save snapshot so overlay can display the bonus (same as EnemyDefCardListener).
+    pt.setPendingAttackMercenaryBonus(mercBonus);
     if (mercBonus > 0) {
       for (Hero h : player.getHeroes()) {
         if (h.getHeroName() == "Mercenaries") {

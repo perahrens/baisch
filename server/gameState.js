@@ -696,11 +696,12 @@ class GameState {
     if (!p) return;
     if (!p.defCardsCovered) p.defCardsCovered = {};
     if (!p.topDefCardsCovered) p.topDefCardsCovered = {};
-    // Expose the top card first if present (it sits on the regular card)
+    // Issue #265: For a fortified slot, expose BOTH cards during no-attack penalty.
+    if (p.defCards[slot] !== undefined) {
+      p.defCardsCovered[slot] = false;
+    }
     if (p.topDefCards[slot] !== undefined) {
       p.topDefCardsCovered[slot] = false;
-    } else if (p.defCards[slot] !== undefined) {
-      p.defCardsCovered[slot] = false;
     }
     p.didExposeThisTurn = true;
     this.pushLog(`${this.pname(playerIdx)} exposed slot ${slot} (no attack)`, false, true);

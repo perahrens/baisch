@@ -78,6 +78,8 @@ public class MyGdxGame extends Game implements InputProcessor {
    * Set by HtmlLauncher; null on non-web platforms.
    */
   public static Runnable onMusicUiUpdate = null;
+  /** Called whenever language button visuals should refresh (browser DOM). */
+  public static Runnable onLanguageUiUpdate = null;
   /** Called when the game-play screen becomes active; hides the native music button. */
   public static Runnable onGameScreenActive = null;
   /** Called when a menu/stats screen becomes active; shows the native music button again. */
@@ -241,6 +243,15 @@ public class MyGdxGame extends Game implements InputProcessor {
     if (INSTANCE != null) {
       com.badlogic.gdx.Screen scr = INSTANCE.getScreen();
       if (scr instanceof MenuScreen) ((MenuScreen) scr).show();
+    }
+  }
+
+  /** Called from the HTML language button (via JSNI) when the user picks a language. */
+  public static void handleLanguageButtonClick(String languageCode) {
+    Localization.setLanguage(languageCode);
+    if (INSTANCE != null) {
+      com.badlogic.gdx.Screen scr = INSTANCE.getScreen();
+      if (scr != null) scr.show();
     }
   }
 

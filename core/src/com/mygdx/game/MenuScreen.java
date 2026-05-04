@@ -141,8 +141,13 @@ public class MenuScreen extends AbstractScreen {
 
   // Set to true while refreshing dropdown items programmatically to suppress spurious heroSelected emits.
   private boolean updatingDropdown = false;
+  private static final String HERO_RANDOM = "Random";
+  private static final String HERO_NONE = "None";
   private Texture languageEnIcon;
   private Texture languageDeIcon;
+  private Texture languageRuIcon;
+  private Texture languageNoIcon;
+  private Texture languageItIcon;
 
   private String t(String key) {
     return Localization.tr(key);
@@ -153,8 +158,25 @@ public class MenuScreen extends AbstractScreen {
   }
 
   private String heroLabel(String canonicalHeroName) {
-    if ("None".equals(canonicalHeroName)) return "-";
+    if (HERO_NONE.equals(canonicalHeroName)) return "-";
     return Localization.heroName(canonicalHeroName);
+  }
+
+  private String heroOptionLabel(String canonical) {
+    if (HERO_RANDOM.equals(canonical)) return t("menu.hero.random");
+    if (HERO_NONE.equals(canonical)) return t("menu.hero.none");
+    return heroLabel(canonical);
+  }
+
+  private String canonicalHeroFromOption(String optionLabel) {
+    if (optionLabel == null) return HERO_RANDOM;
+    if (optionLabel.equals(t("menu.hero.random"))) return HERO_RANDOM;
+    if (optionLabel.equals(t("menu.hero.none"))) return HERO_NONE;
+    for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
+      String canonical = ALL_HERO_NAMES[i];
+      if (optionLabel.equals(heroLabel(canonical))) return canonical;
+    }
+    return HERO_RANDOM;
   }
 
   public MenuScreen(final Game game, final SocketClient socket) {
@@ -222,32 +244,32 @@ public class MenuScreen extends AbstractScreen {
 
     // Starting hero selector (for testing)
     Array<String> heroNames = new Array<String>();
-    heroNames.add("Random");
-    heroNames.add("None");
-    heroNames.add("Mercenaries");
-    heroNames.add("Marshal");
-    heroNames.add("Spy");
-    heroNames.add("Battery Tower");
-    heroNames.add("Merchant");
-    heroNames.add("Priest");
-    heroNames.add("Reservists");
-    heroNames.add("Banneret");
-    heroNames.add("Saboteurs");
-    heroNames.add("Fortified Tower");
-    heroNames.add("Magician");
-    heroNames.add("Warlord");
+    heroNames.add(heroOptionLabel(HERO_RANDOM));
+    heroNames.add(heroOptionLabel(HERO_NONE));
+    heroNames.add(heroOptionLabel("Mercenaries"));
+    heroNames.add(heroOptionLabel("Marshal"));
+    heroNames.add(heroOptionLabel("Spy"));
+    heroNames.add(heroOptionLabel("Battery Tower"));
+    heroNames.add(heroOptionLabel("Merchant"));
+    heroNames.add(heroOptionLabel("Priest"));
+    heroNames.add(heroOptionLabel("Reservists"));
+    heroNames.add(heroOptionLabel("Banneret"));
+    heroNames.add(heroOptionLabel("Saboteurs"));
+    heroNames.add(heroOptionLabel("Fortified Tower"));
+    heroNames.add(heroOptionLabel("Magician"));
+    heroNames.add(heroOptionLabel("Warlord"));
 
     heroSelectBox = new SelectBox<String>(MyGdxGame.skin);
     heroSelectBox.setItems(heroNames);
-    heroSelectBox.setSelected("Random");
-    menuState.setStartingHero("Random");
+    heroSelectBox.setSelected(heroOptionLabel(HERO_RANDOM));
+    menuState.setStartingHero(HERO_RANDOM);
     heroSelectBox.setSize(140f, 44f);
     heroSelectBox.setPosition((MyGdxGame.WIDTH - heroSelectBox.getWidth()) / 2f, 0.21f * MyGdxGame.HEIGHT);
     heroSelectBox.addListener(new ChangeListener() {
       @Override
       public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
         if (updatingDropdown) return;
-        String selected = heroSelectBox.getSelected();
+        String selected = canonicalHeroFromOption(heroSelectBox.getSelected());
         menuState.setStartingHero(selected);
         socket.emit("heroSelected", selected);
       }
@@ -284,12 +306,12 @@ public class MenuScreen extends AbstractScreen {
    */
   private Array<String> buildHeroDropdownItems(String currentSelection) {
     Array<String> items = new Array<String>();
-    items.add("Random");
-    items.add("None");
+    items.add(heroOptionLabel(HERO_RANDOM));
+    items.add(heroOptionLabel(HERO_NONE));
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
       String h = ALL_HERO_NAMES[i];
       if (!reservedByOthers.contains(h) || h.equals(currentSelection)) {
-        items.add(h);
+        items.add(heroOptionLabel(h));
       }
     }
     return items;
@@ -301,28 +323,28 @@ public class MenuScreen extends AbstractScreen {
    * taken by someone else it is reset to "None".
    */
   private void refreshHeroDropdown() {
-    String currentSelected = heroSelectBox.getSelected();
+    String currentSelected = canonicalHeroFromOption(heroSelectBox.getSelected());
     // Treat null (empty SelectBox) the same as "Random" so we don't wipe startingHero.
-    if (currentSelected == null) currentSelected = "Random";
+    if (currentSelected == null) currentSelected = HERO_RANDOM;
     Array<String> items = new Array<String>();
-    items.add("Random");
-    items.add("None");
+    items.add(heroOptionLabel(HERO_RANDOM));
+    items.add(heroOptionLabel(HERO_NONE));
     for (int i = 0; i < ALL_HERO_NAMES.length; i++) {
       if (!reservedByOthers.contains(ALL_HERO_NAMES[i])) {
-        items.add(ALL_HERO_NAMES[i]);
+        items.add(heroOptionLabel(ALL_HERO_NAMES[i]));
       }
     }
     updatingDropdown = true;
     heroSelectBox.setItems(items);
     // Keep the previous selection if it is still available; otherwise fall back to "Random".
-    if (currentSelected.equals("Random") || currentSelected.equals("None")) {
-      heroSelectBox.setSelected(currentSelected);
+    if (currentSelected.equals(HERO_RANDOM) || currentSelected.equals(HERO_NONE)) {
+      heroSelectBox.setSelected(heroOptionLabel(currentSelected));
     } else if (!reservedByOthers.contains(currentSelected)) {
-      heroSelectBox.setSelected(currentSelected);
+      heroSelectBox.setSelected(heroOptionLabel(currentSelected));
     } else {
       // Hero was reserved by another player — reset to Random.
-      heroSelectBox.setSelected("Random");
-      menuState.setStartingHero("Random");
+      heroSelectBox.setSelected(heroOptionLabel(HERO_RANDOM));
+      menuState.setStartingHero(HERO_RANDOM);
     }
     updatingDropdown = false;
   }
@@ -357,7 +379,11 @@ public class MenuScreen extends AbstractScreen {
       if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showLobbyScreen();
     }
-    addLanguageButtons(menuStage);
+    if (MyGdxGame.nativeMusicButton) {
+      if (MyGdxGame.onLanguageUiUpdate != null) MyGdxGame.onLanguageUiUpdate.run();
+    } else {
+      addLanguageButtons(menuStage);
+    }
   }
 
   /** Returns the icon texture for the given language code, or null if unavailable. */
@@ -374,24 +400,41 @@ public class MenuScreen extends AbstractScreen {
         catch (Exception ignored) {}
       }
       return languageDeIcon;
+    } else if (Localization.RU.equals(lang)) {
+      if (languageRuIcon == null) {
+        try { languageRuIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_ru.png")); }
+        catch (Exception ignored) {}
+      }
+      return languageRuIcon;
+    } else if (Localization.NO.equals(lang)) {
+      if (languageNoIcon == null) {
+        try { languageNoIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_no.png")); }
+        catch (Exception ignored) {}
+      }
+      return languageNoIcon;
+    } else if (Localization.IT.equals(lang)) {
+      if (languageItIcon == null) {
+        try { languageItIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_it.png")); }
+        catch (Exception ignored) {}
+      }
+      return languageItIcon;
     }
     return null;
   }
 
   private void addLanguageButtons(final Stage stage) {
     // Supported languages in display order — extend this list to add more languages.
-    final String[] langs = { Localization.EN, Localization.DE };
-    final String[] langLabels = { "EN", "DE" };
+    final String[] langs = { Localization.EN, Localization.DE, Localization.RU, Localization.NO, Localization.IT };
+    final String[] langLabels = { "EN", "DE", "RU", "NO", "IT" };
 
     float iconW = 48f;
     float iconH = 32f;
     float gap = 6f;
-    float rightMargin = MyGdxGame.nativeMusicButton ? 6f : 10f;
-    float musicW = MyGdxGame.nativeMusicButton ? 54f
-        : new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin).getPrefWidth() + 20f;
+    float rightMargin = 10f;
+    float musicW = new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin).getPrefWidth() + 20f;
     float musicX = MyGdxGame.WIDTH - musicW - rightMargin;
     float btnX   = musicX - iconW - gap;
-    float btnY   = MyGdxGame.HEIGHT - iconH - (MyGdxGame.nativeMusicButton ? 16f : 10f);
+    float btnY   = MyGdxGame.HEIGHT - iconH - 10f;
 
     // ── Build the current-language button ──────────────────────────────────────
     final String currentLang = Localization.getLanguage();
@@ -436,8 +479,8 @@ public class MenuScreen extends AbstractScreen {
     }
 
     popup.pack();
-    // Position the popup just above the language button
-    popup.setPosition(btnX, btnY + iconH + 4f);
+    // Position the popup below the language button
+    popup.setPosition(btnX, btnY - popup.getHeight() - 4f);
 
     langBtn.addListener(new ClickListener() {
       @Override
@@ -1283,12 +1326,12 @@ public class MenuScreen extends AbstractScreen {
             final String botCurrentHero0 = rowUser.getSelectedHero();
             final SelectBox<String> botHeroBox0 = new SelectBox<String>(MyGdxGame.skin);
             botHeroBox0.setItems(buildHeroDropdownItems(botCurrentHero0));
-            botHeroBox0.setSelected(botCurrentHero0);
+            botHeroBox0.setSelected(heroOptionLabel(botCurrentHero0));
             botHeroBox0.setSize(100f, heroSelectBox.getHeight());
             botHeroBox0.addListener(new ChangeListener() {
               @Override
               public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                String selected = botHeroBox0.getSelected();
+                String selected = canonicalHeroFromOption(botHeroBox0.getSelected());
                 try {
                   JSONObject data = new JSONObject();
                   data.put("botUserId", botUserId0);
@@ -1401,12 +1444,12 @@ public class MenuScreen extends AbstractScreen {
               final String botCurrentHeroN = rowUser.getSelectedHero();
               final SelectBox<String> botHeroBoxN = new SelectBox<String>(MyGdxGame.skin);
               botHeroBoxN.setItems(buildHeroDropdownItems(botCurrentHeroN));
-              botHeroBoxN.setSelected(botCurrentHeroN);
+              botHeroBoxN.setSelected(heroOptionLabel(botCurrentHeroN));
               botHeroBoxN.setSize(100f, heroSelectBox.getHeight());
               botHeroBoxN.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                  String selected = botHeroBoxN.getSelected();
+                  String selected = canonicalHeroFromOption(botHeroBoxN.getSelected());
                   try {
                     JSONObject data = new JSONObject();
                     data.put("botUserId", botUserIdN);
@@ -1705,6 +1748,9 @@ public class MenuScreen extends AbstractScreen {
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
     if (languageEnIcon != null) { languageEnIcon.dispose(); languageEnIcon = null; }
     if (languageDeIcon != null) { languageDeIcon.dispose(); languageDeIcon = null; }
+    if (languageRuIcon != null) { languageRuIcon.dispose(); languageRuIcon = null; }
+    if (languageNoIcon != null) { languageNoIcon.dispose(); languageNoIcon = null; }
+    if (languageItIcon != null) { languageItIcon.dispose(); languageItIcon = null; }
     for (Texture t : avatarTextures.values()) { if (t != null) t.dispose(); }
     avatarTextures.clear();
   }

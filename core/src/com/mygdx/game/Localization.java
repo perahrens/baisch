@@ -13,6 +13,9 @@ public final class Localization {
 
   public static final String EN = "en";
   public static final String DE = "de";
+  public static final String RU = "ru";
+  public static final String NO = "no";
+  public static final String IT = "it";
 
   private static final String BASE_BUNDLE_PATH = "data/i18n/menu";
 
@@ -40,6 +43,9 @@ public final class Localization {
     bundle = loadBundle(normalized);
     if (persist) {
       MyGdxGame.playerStorage.saveLanguage(currentLanguage);
+    }
+    if (MyGdxGame.onLanguageUiUpdate != null) {
+      MyGdxGame.onLanguageUiUpdate.run();
     }
   }
 
@@ -91,6 +97,9 @@ public final class Localization {
   private static String normalizeLanguage(String languageCode) {
     if (languageCode == null) return EN;
     String lc = languageCode.trim().toLowerCase();
+    if (RU.equals(lc)) return RU;
+    if (NO.equals(lc)) return NO;
+    if (IT.equals(lc)) return IT;
     if (DE.equals(lc)) return DE;
     return EN;
   }

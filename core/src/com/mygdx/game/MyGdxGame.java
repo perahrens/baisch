@@ -292,8 +292,8 @@ public class MyGdxGame extends Game implements InputProcessor {
     labelDefault.font = activeFont;
     Label.LabelStyle labelBg = skin.get("bg", Label.LabelStyle.class);
     labelBg.font = activeFont;
-    Label.LabelStyle labelTitle = skin.get("title", Label.LabelStyle.class);
-    labelTitle.font = activeFont;
+    // NOTE: "title" LabelStyle intentionally not touched — it always uses the decorative
+    // font-title-export.fnt which already contains only Latin characters used in tab headers.
 
     TextButton.TextButtonStyle textButton = skin.get("default", TextButton.TextButtonStyle.class);
     textButton.font = activeFont;

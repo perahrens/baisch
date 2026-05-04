@@ -42,12 +42,14 @@ public class HtmlLauncher extends GwtApplication {
             @Override
             public void run() {
                 setMusicButtonVisible(false);
+                setViewportBackgroundMode(false);
             }
         };
         MyGdxGame.onMenuScreenActive = new Runnable() {
             @Override
             public void run() {
                 setMusicButtonVisible(true);
+                setViewportBackgroundMode(true);
             }
         };
         MyGdxGame.onNameEntryScreenActive = new Runnable() {
@@ -190,6 +192,21 @@ public class HtmlLauncher extends GwtApplication {
     private static native void setMusicButtonVisible(boolean visible) /*-{
         var img = $doc.getElementById('baisch-music-img');
         if (img) img.style.display = visible ? 'block' : 'none';
+    }-*/;
+
+    /**
+     * Keeps the browser letterbox around the canvas visually aligned with the
+     * active screen: darkmoon cover for menus, neutral gradient for gameplay.
+     */
+    private static native void setViewportBackgroundMode(boolean menuActive) /*-{
+        var body = $doc.body;
+        if (!body) return;
+
+        if (menuActive) {
+            body.style.background = "#000 url('assets/data/graphics/bg_darkmoon.jpg') center center / cover no-repeat";
+        } else {
+            body.style.background = 'radial-gradient(ellipse at center, #3a3a3a 0%, #000000 100%)';
+        }
     }-*/;
 
     /** Shows or hides the name-entry logo overlay (crisp HTML BAISCH title + suits). */

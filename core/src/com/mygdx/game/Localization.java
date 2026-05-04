@@ -41,6 +41,7 @@ public final class Localization {
     String normalized = normalizeLanguage(languageCode);
     currentLanguage = normalized;
     bundle = loadBundle(normalized);
+    MyGdxGame.applyLanguageFont();
     if (persist) {
       MyGdxGame.playerStorage.saveLanguage(currentLanguage);
     }

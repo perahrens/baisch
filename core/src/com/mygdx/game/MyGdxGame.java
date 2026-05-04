@@ -7,9 +7,18 @@ import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageTextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
 
 // IO removed (platform-specific)
 import com.mygdx.game.net.DiagListener;
@@ -31,6 +40,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   private SpriteBatch batch;
 
   static Skin skin;
+  private static BitmapFont defaultUiFont;
+  private static BitmapFont ruUiFont;
   /** Old plain uiskin — used for compact banner buttons (Skip / Next ►). */
   static Skin plainSkin;
   static Stage stage;
@@ -255,6 +266,62 @@ public class MyGdxGame extends Game implements InputProcessor {
     }
   }
 
+  /**
+   * Swap UI fonts when RU is active so only Russian uses the Cyrillic bitmap font.
+   */
+  public static void applyLanguageFont() {
+    if (skin == null) return;
+
+    if (defaultUiFont == null) {
+      defaultUiFont = skin.getFont("font");
+    }
+
+    if (ruUiFont == null) {
+      try {
+        ruUiFont = new BitmapFont(Gdx.files.internal("data/skins/rusty-robot/font-export-ru.fnt"));
+      } catch (Exception ex) {
+        Gdx.app.log("Font", "RU font unavailable, falling back to default: " + ex.getMessage());
+        ruUiFont = null;
+      }
+    }
+
+    boolean useRuFont = Localization.RU.equals(Localization.getLanguage()) && ruUiFont != null;
+    BitmapFont activeFont = useRuFont ? ruUiFont : defaultUiFont;
+
+    Label.LabelStyle labelDefault = skin.get("default", Label.LabelStyle.class);
+    labelDefault.font = activeFont;
+    Label.LabelStyle labelBg = skin.get("bg", Label.LabelStyle.class);
+    labelBg.font = activeFont;
+    Label.LabelStyle labelTitle = skin.get("title", Label.LabelStyle.class);
+    labelTitle.font = activeFont;
+
+    TextButton.TextButtonStyle textButton = skin.get("default", TextButton.TextButtonStyle.class);
+    textButton.font = activeFont;
+    ImageTextButton.ImageTextButtonStyle imageTextButton = skin.get("default", ImageTextButton.ImageTextButtonStyle.class);
+    imageTextButton.font = activeFont;
+
+    CheckBox.CheckBoxStyle checkbox = skin.get("default", CheckBox.CheckBoxStyle.class);
+    checkbox.font = activeFont;
+    CheckBox.CheckBoxStyle radio = skin.get("radio", CheckBox.CheckBoxStyle.class);
+    radio.font = activeFont;
+
+    List.ListStyle list = skin.get("default", List.ListStyle.class);
+    list.font = activeFont;
+    SelectBox.SelectBoxStyle selectBox = skin.get("default", SelectBox.SelectBoxStyle.class);
+    selectBox.font = activeFont;
+    TextField.TextFieldStyle textField = skin.get("default", TextField.TextFieldStyle.class);
+    textField.font = activeFont;
+
+    Window.WindowStyle windowDefault = skin.get("default", Window.WindowStyle.class);
+    windowDefault.titleFont = activeFont;
+    Window.WindowStyle windowEmpty = skin.get("empty", Window.WindowStyle.class);
+    windowEmpty.titleFont = activeFont;
+    Window.WindowStyle windowDialog = skin.get("dialog", Window.WindowStyle.class);
+    windowDialog.titleFont = activeFont;
+    Window.WindowStyle windowEmptyBg = skin.get("empty-bg", Window.WindowStyle.class);
+    windowEmptyBg.titleFont = activeFont;
+  }
+
   @Override
   public void create() {
     INSTANCE = this;
@@ -269,6 +336,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     plainSkin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
     Localization.init(playerStorage.getLanguage());
+    applyLanguageFont();
 
     // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
     // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the
@@ -307,6 +375,7 @@ public class MyGdxGame extends Game implements InputProcessor {
     if (soundHeroBanneret     != null) soundHeroBanneret.dispose();
     if (soundHeroMagician     != null) soundHeroMagician.dispose();
     if (soundHeroBatteryTower != null) soundHeroBatteryTower.dispose();
+    if (ruUiFont != null) ruUiFont.dispose();
   }
 
   @Override

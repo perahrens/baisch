@@ -360,83 +360,108 @@ public class MenuScreen extends AbstractScreen {
     addLanguageButtons(menuStage);
   }
 
+  /** Returns the icon texture for the given language code, or null if unavailable. */
+  private Texture getLanguageIcon(String lang) {
+    if (Localization.EN.equals(lang)) {
+      if (languageEnIcon == null) {
+        try { languageEnIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_en.png")); }
+        catch (Exception ignored) {}
+      }
+      return languageEnIcon;
+    } else if (Localization.DE.equals(lang)) {
+      if (languageDeIcon == null) {
+        try { languageDeIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_de.png")); }
+        catch (Exception ignored) {}
+      }
+      return languageDeIcon;
+    }
+    return null;
+  }
+
   private void addLanguageButtons(final Stage stage) {
-    final String current = Localization.getLanguage();
-    if (languageEnIcon == null) {
-      try { languageEnIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_en.png")); }
-      catch (Exception ignored) { languageEnIcon = null; }
-    }
-    if (languageDeIcon == null) {
-      try { languageDeIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_de.png")); }
-      catch (Exception ignored) { languageDeIcon = null; }
-    }
-
-    final Actor enActor;
-    final Actor deActor;
-    if (languageEnIcon != null) {
-      ImageButton enBtn = new ImageButton(new TextureRegionDrawable(new TextureRegion(languageEnIcon)));
-      enActor = enBtn;
-    } else {
-      TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
-      enActor = enBtn;
-    }
-
-    if (languageDeIcon != null) {
-      ImageButton deBtn = new ImageButton(new TextureRegionDrawable(new TextureRegion(languageDeIcon)));
-      deActor = deBtn;
-    } else {
-      TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
-      deActor = deBtn;
-    }
+    // Supported languages in display order — extend this list to add more languages.
+    final String[] langs = { Localization.EN, Localization.DE };
+    final String[] langLabels = { "EN", "DE" };
 
     float iconW = 48f;
     float iconH = 32f;
     float gap = 6f;
     float rightMargin = MyGdxGame.nativeMusicButton ? 6f : 10f;
-    float musicW;
-    float musicH;
-    if (MyGdxGame.nativeMusicButton) {
-      musicW = 54f;
-      musicH = 54f;
+    float musicW = MyGdxGame.nativeMusicButton ? 54f
+        : new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin).getPrefWidth() + 20f;
+    float musicX = MyGdxGame.WIDTH - musicW - rightMargin;
+    float btnX   = musicX - iconW - gap;
+    float btnY   = MyGdxGame.HEIGHT - iconH - (MyGdxGame.nativeMusicButton ? 16f : 10f);
+
+    // ── Build the current-language button ──────────────────────────────────────
+    final String currentLang = Localization.getLanguage();
+    Texture curTex = getLanguageIcon(currentLang);
+    final Actor langBtn;
+    if (curTex != null) {
+      langBtn = new ImageButton(new TextureRegionDrawable(new TextureRegion(curTex)));
     } else {
-      TextButton probe = new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin);
-      musicW = probe.getPrefWidth() + 20f;
-      musicH = probe.getPrefHeight() + 10f;
+      // Fallback: text label showing the current language code
+      langBtn = new TextButton(currentLang.toUpperCase(), MyGdxGame.skin);
+    }
+    langBtn.setSize(iconW, iconH);
+    langBtn.setPosition(btnX, btnY);
+
+    // ── Popup picker (shown when the button is tapped) ─────────────────────────
+    final Table popup = new Table(MyGdxGame.skin);
+    popup.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0.15f, 0.15f, 0.15f, 0.95f)));
+    popup.pad(4f);
+    popup.setVisible(false);
+
+    for (int i = 0; i < langs.length; i++) {
+      final String lang = langs[i];
+      final String label = langLabels[i];
+      if (lang.equals(currentLang)) continue; // skip currently active language
+
+      Texture tex = getLanguageIcon(lang);
+      final Actor option;
+      if (tex != null) {
+        option = new ImageButton(new TextureRegionDrawable(new TextureRegion(tex)));
+      } else {
+        option = new TextButton(label, MyGdxGame.skin);
+      }
+      option.setSize(iconW, iconH);
+      popup.add(option).size(iconW, iconH).pad(2f).row();
+      option.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+          Localization.setLanguage(lang);
+          show(); // rebuild the screen with the new language
+        }
+      });
     }
 
-    float musicX = MyGdxGame.WIDTH - musicW - rightMargin;
-    float y = MyGdxGame.HEIGHT - iconH - (MyGdxGame.nativeMusicButton ? 16f : 10f);
+    popup.pack();
+    // Position the popup just above the language button
+    popup.setPosition(btnX, btnY + iconH + 4f);
 
-    enActor.setSize(iconW, iconH);
-    deActor.setSize(iconW, iconH);
-    deActor.setPosition(musicX - iconW - gap, y);
-    enActor.setPosition(musicX - (2f * iconW) - (2f * gap), y);
-
-    enActor.setColor(Localization.EN.equals(current) ? Color.GOLD : Color.WHITE);
-    deActor.setColor(Localization.DE.equals(current) ? Color.GOLD : Color.WHITE);
-
-    enActor.addListener(new ClickListener() {
+    langBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
-        if (!Localization.EN.equals(Localization.getLanguage())) {
-          Localization.setLanguage(Localization.EN);
-          show();
-        }
+        popup.setVisible(!popup.isVisible());
       }
     });
 
-    deActor.addListener(new ClickListener() {
+    // Clicking anywhere outside the popup or the button closes it
+    stage.addListener(new InputListener() {
       @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (!Localization.DE.equals(Localization.getLanguage())) {
-          Localization.setLanguage(Localization.DE);
-          show();
-        }
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (!popup.isVisible()) return false;
+        boolean inPopup = x >= popup.getX() && x <= popup.getX() + popup.getWidth()
+                       && y >= popup.getY() && y <= popup.getY() + popup.getHeight();
+        boolean inBtn   = x >= langBtn.getX() && x <= langBtn.getX() + langBtn.getWidth()
+                       && y >= langBtn.getY() && y <= langBtn.getY() + langBtn.getHeight();
+        if (!inPopup && !inBtn) popup.setVisible(false);
+        return false;
       }
     });
 
-    stage.addActor(enActor);
-    stage.addActor(deActor);
+    stage.addActor(langBtn);
+    stage.addActor(popup);
   }
 
   private void showDuplicateTabScreen() {

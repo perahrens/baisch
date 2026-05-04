@@ -107,7 +107,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     Table heroTable = new Table();
     heroTable.top();
     for (final String heroName : HERO_NAMES) {
-      TextButton btn = new TextButton(heroName, MyGdxGame.skin);
+      TextButton btn = new TextButton(Localization.heroName(heroName), MyGdxGame.skin);
       btn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {

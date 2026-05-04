@@ -76,6 +76,18 @@ public final class Localization {
     }
   }
 
+  public static String heroName(String canonicalHeroName) {
+    if (canonicalHeroName == null || canonicalHeroName.isEmpty()) return "";
+    String key = "hero." + canonicalHeroName.replace(' ', '_');
+    String translated = tr(key);
+    return key.equals(translated) ? canonicalHeroName : translated;
+  }
+
+  public static boolean hasKey(String key) {
+    String value = tr(key);
+    return !key.equals(value);
+  }
+
   private static String normalizeLanguage(String languageCode) {
     if (languageCode == null) return EN;
     String lc = languageCode.trim().toLowerCase();

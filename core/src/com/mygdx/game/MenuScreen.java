@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
@@ -24,8 +25,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
@@ -138,6 +141,8 @@ public class MenuScreen extends AbstractScreen {
 
   // Set to true while refreshing dropdown items programmatically to suppress spurious heroSelected emits.
   private boolean updatingDropdown = false;
+  private Texture languageEnIcon;
+  private Texture languageDeIcon;
 
   private String t(String key) {
     return Localization.tr(key);
@@ -145,6 +150,11 @@ public class MenuScreen extends AbstractScreen {
 
   private String t(String key, Object... args) {
     return Localization.tr(key, args);
+  }
+
+  private String heroLabel(String canonicalHeroName) {
+    if ("None".equals(canonicalHeroName)) return "-";
+    return Localization.heroName(canonicalHeroName);
   }
 
   public MenuScreen(final Game game, final SocketClient socket) {
@@ -352,25 +362,60 @@ public class MenuScreen extends AbstractScreen {
 
   private void addLanguageButtons(final Stage stage) {
     final String current = Localization.getLanguage();
-    final TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
-    final TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
+    if (languageEnIcon == null) {
+      try { languageEnIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_en.png")); }
+      catch (Exception ignored) { languageEnIcon = null; }
+    }
+    if (languageDeIcon == null) {
+      try { languageDeIcon = new Texture(Gdx.files.internal("data/graphics/ui/lang_de.png")); }
+      catch (Exception ignored) { languageDeIcon = null; }
+    }
 
-    enBtn.setColor(Localization.EN.equals(current) ? Color.GOLD : Color.WHITE);
-    deBtn.setColor(Localization.DE.equals(current) ? Color.GOLD : Color.WHITE);
+    final Actor enActor;
+    final Actor deActor;
+    if (languageEnIcon != null) {
+      ImageButton enBtn = new ImageButton(new TextureRegionDrawable(new TextureRegion(languageEnIcon)));
+      enActor = enBtn;
+    } else {
+      TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
+      enActor = enBtn;
+    }
 
-    float y = MyGdxGame.HEIGHT - enBtn.getPrefHeight() - 10f;
-    float w = 56f;
-    float h = enBtn.getPrefHeight() + 6f;
+    if (languageDeIcon != null) {
+      ImageButton deBtn = new ImageButton(new TextureRegionDrawable(new TextureRegion(languageDeIcon)));
+      deActor = deBtn;
+    } else {
+      TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
+      deActor = deBtn;
+    }
+
+    float iconW = 48f;
+    float iconH = 32f;
     float gap = 6f;
-    float totalW = (2f * w) + gap;
-    float leftX = (MyGdxGame.WIDTH - totalW) / 2f;
+    float rightMargin = MyGdxGame.nativeMusicButton ? 6f : 10f;
+    float musicW;
+    float musicH;
+    if (MyGdxGame.nativeMusicButton) {
+      musicW = 54f;
+      musicH = 54f;
+    } else {
+      TextButton probe = new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin);
+      musicW = probe.getPrefWidth() + 20f;
+      musicH = probe.getPrefHeight() + 10f;
+    }
 
-    enBtn.setSize(w, h);
-    deBtn.setSize(w, h);
-    enBtn.setPosition(leftX, y);
-    deBtn.setPosition(leftX + w + gap, y);
+    float musicX = MyGdxGame.WIDTH - musicW - rightMargin;
+    float y = MyGdxGame.HEIGHT - iconH - (MyGdxGame.nativeMusicButton ? 16f : 10f);
 
-    enBtn.addListener(new ClickListener() {
+    enActor.setSize(iconW, iconH);
+    deActor.setSize(iconW, iconH);
+    deActor.setPosition(musicX - iconW - gap, y);
+    enActor.setPosition(musicX - (2f * iconW) - (2f * gap), y);
+
+    enActor.setColor(Localization.EN.equals(current) ? Color.GOLD : Color.WHITE);
+    deActor.setColor(Localization.DE.equals(current) ? Color.GOLD : Color.WHITE);
+
+    enActor.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         if (!Localization.EN.equals(Localization.getLanguage())) {
@@ -380,7 +425,7 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    deBtn.addListener(new ClickListener() {
+    deActor.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         if (!Localization.DE.equals(Localization.getLanguage())) {
@@ -390,8 +435,8 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    stage.addActor(enBtn);
-    stage.addActor(deBtn);
+    stage.addActor(enActor);
+    stage.addActor(deActor);
   }
 
   private void showDuplicateTabScreen() {
@@ -1288,7 +1333,7 @@ public class MenuScreen extends AbstractScreen {
                 .width(heroSelectBox.getWidth()).height(heroSelectBox.getHeight());
           } else {
             String heroName = rowUser.getSelectedHero();
-            Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
+            Label heroLbl = new Label(heroLabel(heroName), MyGdxGame.skin);
             loggedInUserTable.add(heroLbl).padRight(10).padBottom(6f);
           }
         }
@@ -1304,7 +1349,7 @@ public class MenuScreen extends AbstractScreen {
         loggedInUserTable.add(buildNameCell(nameLabel, rowUser.getIcon())).padRight(10).padBottom(6f).left();
         if (sessionAllowHeroSelection) {
           String heroName = rowUser.getSelectedHero();
-          Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
+          Label heroLbl = new Label(heroLabel(heroName), MyGdxGame.skin);
           loggedInUserTable.add(heroLbl).padRight(10).padBottom(6f);
         }
         loggedInUserTable.add(createStatusBadge(t("menu.status.ready"), new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)).left().padBottom(6f);
@@ -1633,6 +1678,8 @@ public class MenuScreen extends AbstractScreen {
     menuStage.dispose();
     logoTexture.dispose();
     if (menuBgTexture != null) { menuBgTexture.dispose(); menuBgTexture = null; }
+    if (languageEnIcon != null) { languageEnIcon.dispose(); languageEnIcon = null; }
+    if (languageDeIcon != null) { languageDeIcon.dispose(); languageDeIcon = null; }
     for (Texture t : avatarTextures.values()) { if (t != null) t.dispose(); }
     avatarTextures.clear();
   }

@@ -82,7 +82,7 @@ public class HeroTutorialScreen extends AbstractScreen {
     root.add(langRow).padBottom(10f).row();
 
     // Hero name
-    Label title = new Label(heroName, MyGdxGame.skin, "default");
+    Label title = new Label(Localization.heroName(heroName), MyGdxGame.skin, "default");
     title.setColor(Color.GOLD);
     root.add(title).padBottom(4f).row();
 

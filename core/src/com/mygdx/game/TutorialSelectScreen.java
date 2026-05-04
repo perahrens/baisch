@@ -118,6 +118,7 @@ public class TutorialSelectScreen extends AbstractScreen {
   @Override
   public void show() {
     if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
+    build();
     Gdx.input.setInputProcessor(stage);
   }
 

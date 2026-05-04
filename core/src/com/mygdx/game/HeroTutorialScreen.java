@@ -39,6 +39,14 @@ public class HeroTutorialScreen extends AbstractScreen {
     buildPage();
   }
 
+  private String t(String key) {
+    return Localization.tr(key);
+  }
+
+  private String t(String key, Object... args) {
+    return Localization.tr(key, args);
+  }
+
   private void buildPage() {
     stage.clear();
 
@@ -46,13 +54,40 @@ public class HeroTutorialScreen extends AbstractScreen {
     root.setFillParent(true);
     root.top().pad(20f);
 
+    Table langRow = new Table();
+    final TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
+    final TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
+    enBtn.setColor(Localization.EN.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
+    deBtn.setColor(Localization.DE.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
+    enBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.EN.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.EN);
+          buildPage();
+        }
+      }
+    });
+    deBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.DE.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.DE);
+          buildPage();
+        }
+      }
+    });
+    langRow.add(enBtn).width(64f).padRight(6f);
+    langRow.add(deBtn).width(64f);
+    root.add(langRow).padBottom(10f).row();
+
     // Hero name
     Label title = new Label(heroName, MyGdxGame.skin, "default");
     title.setColor(Color.GOLD);
     root.add(title).padBottom(4f).row();
 
     // Page indicator
-    Label pageIndicator = new Label("Step " + (page + 1) + " / " + pages.length, MyGdxGame.skin, "default");
+    Label pageIndicator = new Label(t("heroTutorial.step", page + 1, pages.length), MyGdxGame.skin, "default");
     pageIndicator.setColor(new Color(0.7f, 0.7f, 0.7f, 1f));
     root.add(pageIndicator).padBottom(18f).row();
 
@@ -64,7 +99,7 @@ public class HeroTutorialScreen extends AbstractScreen {
     // Navigation buttons row
     Table nav = new Table();
     if (page > 0) {
-      TextButton prevBtn = new TextButton("◄ Prev", MyGdxGame.skin);
+      TextButton prevBtn = new TextButton("◄ " + t("heroTutorial.prev"), MyGdxGame.skin);
       prevBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -75,7 +110,7 @@ public class HeroTutorialScreen extends AbstractScreen {
       nav.add(prevBtn).width(130f).height(46f).padRight(10f);
     }
     if (page < pages.length - 1) {
-      TextButton nextBtn = new TextButton("Next ►", MyGdxGame.skin);
+      TextButton nextBtn = new TextButton(t("heroTutorial.next") + " ►", MyGdxGame.skin);
       nextBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -85,7 +120,7 @@ public class HeroTutorialScreen extends AbstractScreen {
       });
       nav.add(nextBtn).width(130f).height(46f);
     } else {
-      TextButton doneBtn = new TextButton("Done ✓", MyGdxGame.skin);
+      TextButton doneBtn = new TextButton(t("heroTutorial.done") + " ✓", MyGdxGame.skin);
       doneBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -97,7 +132,7 @@ public class HeroTutorialScreen extends AbstractScreen {
     root.add(nav).padBottom(16f).row();
 
     // Back to tutorial list
-    TextButton backBtn = new TextButton("Back to Tutorials", MyGdxGame.skin);
+    TextButton backBtn = new TextButton(t("heroTutorial.backToTutorials"), MyGdxGame.skin);
     backBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {

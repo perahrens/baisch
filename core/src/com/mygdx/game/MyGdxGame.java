@@ -257,6 +257,8 @@ public class MyGdxGame extends Game implements InputProcessor {
     skin = new Skin(Gdx.files.internal("data/skins/rusty-robot/rusty-robot-ui.json"));
     plainSkin = new Skin(Gdx.files.internal("data/skins/uiskin.json"));
 
+    Localization.init(playerStorage.getLanguage());
+
     // Apply Linear filter to the atlas for sharper rendering on HiDPI screens.
     // gameBck/handBck in GameScreen use a standalone Pixmap texture (not the
     // atlas "white" region) so they are unaffected by this filter.

@@ -41,7 +41,12 @@ public class TutorialSelectScreen extends AbstractScreen {
     build();
   }
 
+  private String t(String key) {
+    return Localization.tr(key);
+  }
+
   private void build() {
+    stage.clear();
     if (bgTexture != null) {
       Image bg = new Image(bgTexture);
       bg.setFillParent(true);
@@ -51,13 +56,40 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.setFillParent(true);
     root.top().pad(20f);
 
+    Table langRow = new Table();
+    final TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
+    final TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
+    enBtn.setColor(Localization.EN.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
+    deBtn.setColor(Localization.DE.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
+    enBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.EN.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.EN);
+          build();
+        }
+      }
+    });
+    deBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.DE.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.DE);
+          build();
+        }
+      }
+    });
+    langRow.add(enBtn).width(64f).padRight(6f);
+    langRow.add(deBtn).width(64f);
+    root.add(langRow).padBottom(12f).row();
+
     // Title
-    Label title = new Label("Choose a Tutorial", MyGdxGame.skin, "default");
+    Label title = new Label(t("tutorial.chooseTitle"), MyGdxGame.skin, "default");
     title.setColor(Color.GOLD);
     root.add(title).padBottom(16f).row();
 
     // Basic tutorial button
-    TextButton basicBtn = new TextButton("► Basic Rules", MyGdxGame.skin);
+    TextButton basicBtn = new TextButton("► " + t("tutorial.basicRules"), MyGdxGame.skin);
     basicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -67,7 +99,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.add(basicBtn).width(340f).height(90f).padBottom(24f).row();
 
     // Section label
-    Label heroLabel = new Label("Hero Tutorials", MyGdxGame.skin, "default");
+    Label heroLabel = new Label(t("tutorial.heroTutorials"), MyGdxGame.skin, "default");
     heroLabel.setColor(new Color(0.8f, 0.8f, 0.8f, 1f));
     root.add(heroLabel).padBottom(10f).row();
 
@@ -99,7 +131,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.add(scroll).width(360f).height(420f).row();
 
     // Back button
-    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    TextButton backBtn = new TextButton(t("tutorial.back"), MyGdxGame.skin);
     backBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {

@@ -139,6 +139,14 @@ public class MenuScreen extends AbstractScreen {
   // Set to true while refreshing dropdown items programmatically to suppress spurious heroSelected emits.
   private boolean updatingDropdown = false;
 
+  private String t(String key) {
+    return Localization.tr(key);
+  }
+
+  private String t(String key, Object... args) {
+    return Localization.tr(key, args);
+  }
+
   public MenuScreen(final Game game, final SocketClient socket) {
     super(game);
 
@@ -189,7 +197,7 @@ public class MenuScreen extends AbstractScreen {
     logoRegion = new TextureRegion(logoTexture, 0, 0, 394, 271);
     logoImage = new Image(logoRegion);
 
-    button = new TextButton("Ready", MyGdxGame.skin);
+    button = new TextButton(t("menu.ready"), MyGdxGame.skin);
 
     button.setSize(button.getPrefWidth() + 20, button.getPrefHeight());
 
@@ -339,6 +347,51 @@ public class MenuScreen extends AbstractScreen {
       if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showLobbyScreen();
     }
+    addLanguageButtons(menuStage);
+  }
+
+  private void addLanguageButtons(final Stage stage) {
+    final String current = Localization.getLanguage();
+    final TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
+    final TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
+
+    enBtn.setColor(Localization.EN.equals(current) ? Color.GOLD : Color.WHITE);
+    deBtn.setColor(Localization.DE.equals(current) ? Color.GOLD : Color.WHITE);
+
+    float y = MyGdxGame.HEIGHT - enBtn.getPrefHeight() - 10f;
+    float w = 56f;
+    float h = enBtn.getPrefHeight() + 6f;
+    float gap = 6f;
+    float totalW = (2f * w) + gap;
+    float leftX = (MyGdxGame.WIDTH - totalW) / 2f;
+
+    enBtn.setSize(w, h);
+    deBtn.setSize(w, h);
+    enBtn.setPosition(leftX, y);
+    deBtn.setPosition(leftX + w + gap, y);
+
+    enBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.EN.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.EN);
+          show();
+        }
+      }
+    });
+
+    deBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (!Localization.DE.equals(Localization.getLanguage())) {
+          Localization.setLanguage(Localization.DE);
+          show();
+        }
+      }
+    });
+
+    stage.addActor(enBtn);
+    stage.addActor(deBtn);
   }
 
   private void showDuplicateTabScreen() {
@@ -347,8 +400,8 @@ public class MenuScreen extends AbstractScreen {
     panel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.38f)));
     panel.pad(28f, 36f, 28f, 36f);
     Label msg = new Label(
-        "This game was opened in another browser tab.\nThis tab is no longer active.",
-        MyGdxGame.skin);
+      t("menu.duplicateTab.line1") + "\n" + t("menu.duplicateTab.line2"),
+      MyGdxGame.skin);
     panel.add(msg);
     panel.pack();
     panel.setPosition(
@@ -363,8 +416,8 @@ public class MenuScreen extends AbstractScreen {
     Table panel = new Table(MyGdxGame.skin);
     panel.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.38f)));
     panel.pad(28f, 36f, 28f, 36f);
-    Label msg = new Label("Reconnecting...", MyGdxGame.skin);
-    TextButton returnBtn = new TextButton("Return to Lobby", MyGdxGame.skin);
+    Label msg = new Label(t("menu.reconnecting"), MyGdxGame.skin);
+    TextButton returnBtn = new TextButton(t("menu.returnLobby"), MyGdxGame.skin);
     returnBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -433,7 +486,7 @@ public class MenuScreen extends AbstractScreen {
     // mobile browser opens its native keyboard without a browser dialog popup.
     final com.badlogic.gdx.scenes.scene2d.ui.TextField nameField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField(menuState.getMyName(), MyGdxGame.skin);
-    nameField.setMessageText("Enter your name");
+    nameField.setMessageText(t("menu.namePlaceholder"));
     final float btnH = button.getPrefHeight();
 
     final Runnable doConfirm = new Runnable() {
@@ -475,7 +528,7 @@ public class MenuScreen extends AbstractScreen {
     // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
     float selectorMaxW = MyGdxGame.WIDTH - 24f;
 
-    Label avatarLabel = new Label("Choose your avatar:", MyGdxGame.skin);
+    Label avatarLabel = new Label(t("menu.avatarChoose"), MyGdxGame.skin);
     avatarLabel.setColor(1f, 1f, 1f, 0.70f);
 
     Table avatarRow = new Table();
@@ -532,7 +585,7 @@ public class MenuScreen extends AbstractScreen {
     // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
     // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
     // so the two elements don't visually overlap.
-    Label subtitle = new Label("A card game for 2-4 players", MyGdxGame.skin);
+    Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
@@ -556,8 +609,8 @@ public class MenuScreen extends AbstractScreen {
     final Color INACTIVE_COLOR = new Color(1f, 1f, 1f, 0.35f);
     final Color UNDERLINE_COLOR = new Color(0.98f, 0.80f, 0.25f, 1f); // warm gold
 
-    Label gamesTab   = new Label("Games",   MyGdxGame.skin, "title");
-    Label playersTab = new Label("Players", MyGdxGame.skin, "title");
+    Label gamesTab   = new Label(t("menu.tab.games"),   MyGdxGame.skin, "title");
+    Label playersTab = new Label(t("menu.tab.players"), MyGdxGame.skin, "title");
     // Use linear filter on title font for smooth downscale rendering
     MyGdxGame.skin.getFont("title").getRegion().getTexture()
         .setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear,
@@ -619,8 +672,8 @@ public class MenuScreen extends AbstractScreen {
       sessTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
       sessTable.pad(14f, 18f, 14f, 18f);
 
-      Label h1 = new Label("Name", MyGdxGame.skin);
-      Label h2 = new Label("Players", MyGdxGame.skin);
+      Label h1 = new Label(t("common.name"), MyGdxGame.skin);
+      Label h2 = new Label(t("common.players"), MyGdxGame.skin);
       Label h3 = new Label("", MyGdxGame.skin);
       h1.setColor(1f, 1f, 1f, 0.9f);
       h2.setColor(1f, 1f, 1f, 0.9f);
@@ -638,7 +691,7 @@ public class MenuScreen extends AbstractScreen {
         Label nameL = new Label(s.name, MyGdxGame.skin);
         Label countL = new Label(s.playerCount + "/" + s.maxSlots, MyGdxGame.skin);
         if (s.running) {
-          TextButton watchBtn = new TextButton("Watch", MyGdxGame.skin);
+          TextButton watchBtn = new TextButton(t("menu.watch"), MyGdxGame.skin);
           watchBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -649,7 +702,7 @@ public class MenuScreen extends AbstractScreen {
           sessTable.add(countL).padRight(40).padBottom(6f);
           sessTable.add(watchBtn).padBottom(6f);
         } else {
-          TextButton joinBtn = new TextButton("Join", MyGdxGame.skin);
+          TextButton joinBtn = new TextButton(t("menu.join"), MyGdxGame.skin);
           joinBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -669,7 +722,7 @@ public class MenuScreen extends AbstractScreen {
       }
 
       if (list.isEmpty()) {
-        Label empty = new Label("No games available", MyGdxGame.skin);
+        Label empty = new Label(t("menu.noGames"), MyGdxGame.skin);
         empty.setColor(0.6f, 0.6f, 0.6f, 1f);
         sessTable.add(empty).colspan(3);
         sessTable.row();
@@ -696,7 +749,7 @@ public class MenuScreen extends AbstractScreen {
       float btnW = (MyGdxGame.WIDTH - 2 * margin - 2 * gap) / 3f;
       float btnY = spBtnY;
 
-      TextButton rulesBtn = new TextButton("Rules", MyGdxGame.skin);
+      TextButton rulesBtn = new TextButton(t("menu.rules"), MyGdxGame.skin);
       rulesBtn.setSize(btnW, btnH);
       rulesBtn.setPosition(margin, btnY);
       rulesBtn.addListener(new ClickListener() {
@@ -705,7 +758,7 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
-      TextButton tutorialBtn = new TextButton("Tutorial", MyGdxGame.skin);
+      TextButton tutorialBtn = new TextButton(t("menu.tutorial"), MyGdxGame.skin);
       tutorialBtn.setSize(btnW, btnH);
       tutorialBtn.setPosition(margin + btnW + gap, btnY);
       tutorialBtn.addListener(new ClickListener() {
@@ -715,7 +768,7 @@ public class MenuScreen extends AbstractScreen {
         }
       });
 
-      TextButton createBtn = new TextButton("New game", MyGdxGame.skin);
+      TextButton createBtn = new TextButton(t("menu.newGame"), MyGdxGame.skin);
       createBtn.setSize(btnW, btnH);
       createBtn.setPosition(margin + 2 * (btnW + gap), btnY);
       createBtn.addListener(new ClickListener() {
@@ -735,8 +788,8 @@ public class MenuScreen extends AbstractScreen {
       playersTable.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.35f)));
       playersTable.pad(14f, 18f, 14f, 18f);
 
-      Label ph1 = new Label("Name", MyGdxGame.skin);
-      Label ph2 = new Label("Status", MyGdxGame.skin);
+      Label ph1 = new Label(t("common.name"), MyGdxGame.skin);
+      Label ph2 = new Label(t("common.status"), MyGdxGame.skin);
       ph1.setColor(1f, 1f, 1f, 0.9f);
       ph2.setColor(1f, 1f, 1f, 0.9f);
       playersTable.add(ph1).padRight(40).padBottom(8f).left();
@@ -767,7 +820,7 @@ public class MenuScreen extends AbstractScreen {
       }
 
       if (snapshot.isEmpty()) {
-        Label empty = new Label("No players online", MyGdxGame.skin);
+        Label empty = new Label(t("menu.noPlayers"), MyGdxGame.skin);
         empty.setColor(0.6f, 0.6f, 0.6f, 1f);
         playersTable.add(empty).colspan(2);
         playersTable.row();
@@ -789,7 +842,7 @@ public class MenuScreen extends AbstractScreen {
     float cx = MyGdxGame.WIDTH / 2f;
 
     // ── Back button (top-left) ───────────────────────────────────────────────
-    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
     backBtn.pack();
     backBtn.setPosition(10, MyGdxGame.HEIGHT - backBtn.getHeight() - 10);
     backBtn.addListener(new ClickListener() {
@@ -802,12 +855,12 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(backBtn);
 
     // ── Title ────────────────────────────────────────────────────────────────
-    Label title = new Label("New game", MyGdxGame.skin);
+    Label title = new Label(t("menu.newGame"), MyGdxGame.skin);
     title.setFontScale(1.3f);
     title.pack();
 
     // ── Game name button ─────────────────────────────────────────────────────
-    final String nameDisplay = pendingSessionName.isEmpty() ? "Set name (optional)" : pendingSessionName;
+    final String nameDisplay = pendingSessionName.isEmpty() ? t("menu.setup.setNameOptional") : pendingSessionName;
     final TextButton gameNameBtn = new TextButton(nameDisplay, MyGdxGame.skin);
     gameNameBtn.addListener(new ClickListener() {
       @Override
@@ -821,12 +874,12 @@ public class MenuScreen extends AbstractScreen {
             });
           }
           @Override public void canceled() { /* keep current name */ }
-        }, "New game", pendingSessionName, "Enter game name (optional)");
+        }, t("menu.setup.enterGameNameTitle"), pendingSessionName, t("menu.setup.enterGameNamePrompt"));
       }
     });
 
     // ── Starting cards selector ──────────────────────────────────────────────
-    Label cardsLabel = new Label("Starting cards:", MyGdxGame.skin);
+    Label cardsLabel = new Label(t("menu.setup.startingCards"), MyGdxGame.skin);
     final SelectBox<String> cardsBox = new SelectBox<String>(MyGdxGame.skin);
     Array<String> cardOptions = new Array<String>();
     for (int n = 6; n <= 10; n++) cardOptions.add(String.valueOf(n));
@@ -834,9 +887,13 @@ public class MenuScreen extends AbstractScreen {
     cardsBox.setSelected(String.valueOf(pendingStartingCards));
 
     // ── Hero assign mode selector ────────────────────────────────────────────
-    Label heroModeLabel = new Label("Hero assignment:", MyGdxGame.skin);
+    Label heroModeLabel = new Label(t("menu.setup.heroAssignment"), MyGdxGame.skin);
     final SelectBox<String> heroModeBox = new SelectBox<String>(MyGdxGame.skin);
-    final String[] HERO_MODE_DISPLAY = {"Card value (default)", "Card color", "Free choice"};
+    final String[] HERO_MODE_DISPLAY = {
+      t("menu.setup.heroAssign.cardValue"),
+      t("menu.setup.heroAssign.cardColor"),
+      t("menu.setup.heroAssign.freeChoice")
+    };
     final String[] HERO_MODE_KEYS    = {"value_mapping", "color_mapping", "free_selector"};
     Array<String> heroModeOptions = new Array<String>();
     for (String d : HERO_MODE_DISPLAY) heroModeOptions.add(d);
@@ -859,19 +916,19 @@ public class MenuScreen extends AbstractScreen {
     });
 
     // ── Checkboxes ───────────────────────────────────────────────────────────
-    final CheckBox manualSetupCheckbox = new CheckBox(" Manual setup", MyGdxGame.skin);
+    final CheckBox manualSetupCheckbox = new CheckBox(" " + t("menu.setup.manualSetup"), MyGdxGame.skin);
     manualSetupCheckbox.setChecked(pendingManualSetup);
 
-    final CheckBox heroCheckbox = new CheckBox(" Allow starting hero", MyGdxGame.skin);
+    final CheckBox heroCheckbox = new CheckBox(" " + t("menu.setup.allowStartingHero"), MyGdxGame.skin);
     heroCheckbox.setChecked(sessionAllowHeroSelection);
 
     // ── Create button ────────────────────────────────────────────────────────
-    final TextButton confirmCreateBtn = new TextButton("Create", MyGdxGame.skin);
+    final TextButton confirmCreateBtn = new TextButton(t("common.create"), MyGdxGame.skin);
     confirmCreateBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
         String sessionName = pendingSessionName.isEmpty()
-            ? menuState.getMyName() + "'s game" : pendingSessionName;
+          ? t("menu.setup.defaultSessionName", menuState.getMyName()) : pendingSessionName;
         sessionAllowHeroSelection = heroCheckbox.isChecked();
         pendingManualSetup = manualSetupCheckbox.isChecked();
         try {
@@ -973,7 +1030,7 @@ public class MenuScreen extends AbstractScreen {
 
   /** Adds a small "Log out" button to the bottom-right of the given stage. */
   private void addLogoutButton(final Stage stage) {
-    TextButton logoutBtn = new TextButton("Log out", MyGdxGame.skin);
+    TextButton logoutBtn = new TextButton(t("menu.logOut"), MyGdxGame.skin);
     logoutBtn.pack();
     logoutBtn.setSize(logoutBtn.getPrefWidth() + 10, logoutBtn.getPrefHeight() + 6);
     logoutBtn.setPosition(MyGdxGame.WIDTH - logoutBtn.getWidth(), 0);
@@ -995,7 +1052,7 @@ public class MenuScreen extends AbstractScreen {
     // On the web platform the HTML/GWT layer injects an animated GIF button instead.
     if (MyGdxGame.nativeMusicButton) return;
     final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
-    final TextButton musicBtn = new TextButton(enabled ? "Music ON" : "Music OFF", MyGdxGame.skin);
+    final TextButton musicBtn = new TextButton(enabled ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin);
     musicBtn.pack();
     musicBtn.setSize(musicBtn.getPrefWidth() + 20, musicBtn.getPrefHeight() + 10);
     musicBtn.setPosition(MyGdxGame.WIDTH - musicBtn.getWidth() - 10,
@@ -1056,7 +1113,7 @@ public class MenuScreen extends AbstractScreen {
     actionBar.setPosition(cx - actionBar.getWidth() / 2f, buttonY - 10f);
     actionBar.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
 
-    Label lobbyTitle = new Label("Game lobby", MyGdxGame.skin);
+    Label lobbyTitle = new Label(t("menu.lobbyTitle"), MyGdxGame.skin);
     float lobbyTitleScale = 1.35f;
     lobbyTitle.setFontScale(lobbyTitleScale);
     lobbyTitle.setColor(1f, 1f, 1f, 0.98f);
@@ -1072,25 +1129,40 @@ public class MenuScreen extends AbstractScreen {
     boolean hostIsSpectator = isHost && "bot".equals(lobbySlotTypes != null && lobbySlotTypes.length > 0 ? lobbySlotTypes[0] : "player");
     int tableColumns = sessionAllowHeroSelection ? 3 : 2;
 
-    Label headLine1 = new Label("Name", MyGdxGame.skin);
-    Label headLine2 = new Label("Slot", MyGdxGame.skin);
+    Label headLine1 = new Label(t("common.name"), MyGdxGame.skin);
+    Label headLine2 = new Label(t("menu.slot"), MyGdxGame.skin);
     headLine1.setColor(1f, 1f, 1f, 0.9f);
     headLine2.setColor(1f, 1f, 1f, 0.9f);
 
     loggedInUserTable.add(headLine1).padRight(20).padBottom(8f);
     if (sessionAllowHeroSelection) {
-      Label headHero = new Label("Hero", MyGdxGame.skin);
+      Label headHero = new Label(t("common.hero"), MyGdxGame.skin);
       headHero.setColor(1f, 1f, 1f, 0.9f);
       loggedInUserTable.add(headHero).padRight(20).padBottom(8f);
     }
     loggedInUserTable.add(headLine2).padBottom(8f);
     loggedInUserTable.row();
 
-    final String[] SLOT_DISPLAY = {"Open", "Closed", "Passive Bot", "Balanced Bot", "Aggressive Bot", "Tactician Bot", "MCTS Bot"};
+    final String[] SLOT_DISPLAY = {
+      t("menu.slot.open"),
+      t("menu.slot.closed"),
+      t("menu.bot.passive"),
+      t("menu.bot.balanced"),
+      t("menu.bot.aggressive"),
+      t("menu.bot.tactician"),
+      t("menu.bot.mcts")
+    };
     final String[] SLOT_TYPES   = {"open",  "closed",  "bot",         "bot",          "bot",            "bot",           "bot"};
     final String[] SLOT_MODES   = {"",      "",         "passive",     "balanced",     "aggressive",     "tactician",     "mcts"};
     // Slot-0 options: player-self + bots (cannot be open/closed)
-    final String[] SLOT0_DISPLAY = {"Player (you)", "Passive Bot", "Balanced Bot", "Aggressive Bot", "Tactician Bot", "MCTS Bot"};
+    final String[] SLOT0_DISPLAY = {
+      t("menu.slot.playerYou"),
+      t("menu.bot.passive"),
+      t("menu.bot.balanced"),
+      t("menu.bot.aggressive"),
+      t("menu.bot.tactician"),
+      t("menu.bot.mcts")
+    };
     final String[] SLOT0_TYPES   = {"player",       "bot",         "bot",          "bot",            "bot",           "bot"};
     final String[] SLOT0_MODES   = {"",             "passive",     "balanced",     "aggressive",     "tactician",     "mcts"};
 
@@ -1160,7 +1232,7 @@ public class MenuScreen extends AbstractScreen {
           }
         } else {
           // No user found yet — show placeholder in name (and hero) columns
-          Label placeholder = new Label("(you)", MyGdxGame.skin);
+          Label placeholder = new Label(t("menu.slot.playerYou"), MyGdxGame.skin);
           placeholder.setColor(Color.GOLD);
           loggedInUserTable.add(placeholder).padRight(10).padBottom(6f).left();
           if (sessionAllowHeroSelection) {
@@ -1175,13 +1247,13 @@ public class MenuScreen extends AbstractScreen {
         slot0Box.setItems(slot0Opts);
         // Pre-select current state
         if ("bot".equals(slotType)) {
-          String modeDisplay = "Balanced Bot";
+          String modeDisplay = t("menu.bot.balanced");
           for (int ki = 1; ki < SLOT0_MODES.length; ki++) {
             if (SLOT0_MODES[ki].equals(slotBotMode)) { modeDisplay = SLOT0_DISPLAY[ki]; break; }
           }
           slot0Box.setSelected(modeDisplay);
         } else {
-          slot0Box.setSelected("Player (you)");
+          slot0Box.setSelected(t("menu.slot.playerYou"));
         }
         slot0Box.addListener(new ChangeListener() {
           @Override
@@ -1221,8 +1293,8 @@ public class MenuScreen extends AbstractScreen {
           }
         }
         Table statusBadge = rowUser.isReady()
-            ? createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)
-            : createStatusBadge("WAIT", new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
+            ? createStatusBadge(t("menu.status.ready"), new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)
+            : createStatusBadge(t("menu.status.wait"), new Color(0.64f, 0.14f, 0.14f, 1f), new Color(1f, 0.94f, 0.94f, 1f));
         loggedInUserTable.add(statusBadge).left().padBottom(6f);
 
       } else if ("bot".equals(slotType) && rowUser != null && !showHostDropdown) {
@@ -1235,17 +1307,17 @@ public class MenuScreen extends AbstractScreen {
           Label heroLbl = new Label("None".equals(heroName) ? "-" : heroName, MyGdxGame.skin);
           loggedInUserTable.add(heroLbl).padRight(10).padBottom(6f);
         }
-        loggedInUserTable.add(createStatusBadge("READY", new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)).left().padBottom(6f);
+        loggedInUserTable.add(createStatusBadge(t("menu.status.ready"), new Color(0.14f, 0.56f, 0.24f, 1f), Color.WHITE)).left().padBottom(6f);
 
       } else if (showHostDropdown && si > 0) {
         // Slots 1-3 that the host can configure (open, closed, or bot)
         // Build pre-select string
-        String currentDisplay = "Open";
+        String currentDisplay = t("menu.slot.open");
         if ("closed".equals(slotType)) {
-          currentDisplay = "Closed";
+          currentDisplay = t("menu.slot.closed");
         } else if ("bot".equals(slotType)) {
           // Find bot name row for display if available, but pre-select bot mode in dropdown
-          currentDisplay = "Balanced Bot";
+          currentDisplay = t("menu.bot.balanced");
           for (int ki = 2; ki < SLOT_MODES.length; ki++) {
             if (SLOT_MODES[ki].equals(slotBotMode)) { currentDisplay = SLOT_DISPLAY[ki]; break; }
           }
@@ -1341,11 +1413,11 @@ public class MenuScreen extends AbstractScreen {
       } else {
         // Non-host view of an empty/closed slot, or slot 0 placeholder not yet claimed
         if (si == 0) {
-          Label placeholder = new Label("(waiting)", MyGdxGame.skin);
+          Label placeholder = new Label(t("menu.slot.waiting"), MyGdxGame.skin);
           placeholder.setColor(1f, 1f, 1f, 0.4f);
           loggedInUserTable.add(placeholder).colspan(tableColumns).left().padBottom(6f);
         } else {
-          Label slotLabel = new Label("closed".equals(slotType) ? "[ Closed ]" : "[ Open ]", MyGdxGame.skin);
+          Label slotLabel = new Label("closed".equals(slotType) ? t("menu.slot.closedBracket") : t("menu.slot.openBracket"), MyGdxGame.skin);
           slotLabel.setColor(1f, 1f, 1f, 0.45f);
           loggedInUserTable.add(slotLabel).colspan(tableColumns).left().padBottom(6f);
         }
@@ -1384,12 +1456,12 @@ public class MenuScreen extends AbstractScreen {
 
     if (gameRunning) {
       // A game is already in progress — show status and offer spectating
-      Label gameRunningLabel = new Label("Game in progress", MyGdxGame.skin);
+      Label gameRunningLabel = new Label(t("menu.gameInProgress"), MyGdxGame.skin);
       gameRunningLabel.setColor(Color.YELLOW);
       gameRunningLabel.setPosition(cx - gameRunningLabel.getWidth() / 2f, 0.11f * MyGdxGame.HEIGHT + 46f);
       menuStage.addActor(gameRunningLabel);
 
-      TextButton watchButton = new TextButton("Watch game", MyGdxGame.skin);
+      TextButton watchButton = new TextButton(t("menu.watchGame"), MyGdxGame.skin);
       watchButton.setSize(button.getPrefWidth(), button.getPrefHeight());
       watchButton.setPosition((MyGdxGame.WIDTH - watchButton.getWidth()) / 2f, 0.1f * MyGdxGame.HEIGHT);
       watchButton.addListener(new ClickListener() {
@@ -1406,7 +1478,7 @@ public class MenuScreen extends AbstractScreen {
     for (int i = 0; i < loggedInUsers.size(); i++) {
       if (loggedInUsers.get(i).isReady()) readyCount++;
     }
-    Label lobbyStatus = new Label("Ready players: " + readyCount + " / " + loggedInUsers.size(), MyGdxGame.skin);
+    Label lobbyStatus = new Label(t("menu.readyPlayers", readyCount, loggedInUsers.size()), MyGdxGame.skin);
     lobbyStatus.setPosition(0.05f * MyGdxGame.WIDTH, 0.01f * MyGdxGame.HEIGHT);
     menuStage.addActor(lobbyStatus);
 
@@ -1422,7 +1494,7 @@ public class MenuScreen extends AbstractScreen {
           && (hostIsSpectator || amReady);
 
       if (isHost) {
-        TextButton startGameButton = new TextButton("Start game", MyGdxGame.skin);
+        TextButton startGameButton = new TextButton(t("menu.startGame"), MyGdxGame.skin);
         startGameButton.setSize(startGameButton.getPrefWidth() + 20, startGameButton.getPrefHeight());
         float buttonGap = 20f;
         float startButtonX;
@@ -1457,7 +1529,7 @@ public class MenuScreen extends AbstractScreen {
       }
 
       if (timerStarted) {
-        Label countdownLabel = new Label("Starting in " + menuState.getTimeToStart() + "...", MyGdxGame.skin);
+        Label countdownLabel = new Label(t("menu.startingIn", menuState.getTimeToStart()), MyGdxGame.skin);
         countdownLabel.setColor(Color.YELLOW);
         countdownLabel.setPosition(cx - countdownLabel.getWidth() / 2f, buttonY + button.getHeight() + 14f);
         menuStage.addActor(countdownLabel);
@@ -1478,7 +1550,7 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(loggedInUserTable);
 
     // Leave session — returns to session list
-    TextButton leaveBtn = new TextButton("Leave", MyGdxGame.skin);
+    TextButton leaveBtn = new TextButton(t("menu.leave"), MyGdxGame.skin);
     leaveBtn.setPosition(10, MyGdxGame.HEIGHT - leaveBtn.getHeight() - 10);
     leaveBtn.addListener(new ClickListener() {
       @Override

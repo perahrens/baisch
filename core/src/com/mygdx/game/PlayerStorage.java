@@ -55,6 +55,12 @@ public interface PlayerStorage {
   /** Persists the sound effects on/off preference. */
   void saveSoundEnabled(boolean enabled);
 
+  /** Returns the currently selected UI language code (default: en). */
+  String getLanguage();
+
+  /** Persists the selected UI language code (supported: en, de). */
+  void saveLanguage(String languageCode);
+
   /** Clears the saved player name (logout). */
   void clearName();
 
@@ -81,6 +87,8 @@ public interface PlayerStorage {
     @Override public void    saveMusicEnabled(boolean enabled)   { }
     @Override public boolean getSoundEnabled()                   { return true; }
     @Override public void    saveSoundEnabled(boolean enabled)   { }
+    @Override public String  getLanguage()                       { return "en"; }
+    @Override public void    saveLanguage(String languageCode)   { }
     @Override public void    clearName()                         { }
     @Override public String  getSavedIcon()                      { return ""; }
     @Override public void    saveIcon(String icon)               { }

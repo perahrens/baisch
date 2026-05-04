@@ -5672,6 +5672,103 @@ public class GameScreen extends ScreenAdapter {
     ),
   };
 
+  private static final TutorialStepDef[] TUTORIAL_STEPS_DE = {
+    new TutorialStepDef(
+      "Willkommen bei Baisch!",
+      "Dieses interaktive Tutorial fuehrt dich durch eine echte Partie gegen einen Bot.\n\n"
+      + "Folge den Hinweisen oben auf dem Bildschirm. "
+      + "Das Tutorial geht automatisch weiter, sobald du die geforderte Aktion abgeschlossen hast.",
+      "Los geht's!"
+    ),
+    new TutorialStepDef(
+      "Nimm eine Verteidigungskarte auf",
+      "Tippe auf einen belegten Verteidigungsslot, um diese Karte zurueck auf deine Hand zu nehmen."
+    ),
+    new TutorialStepDef(
+      "Waehle eine Handkarte",
+      "Tippe unten auf eine beliebige Karte, um sie auszuwaehlen. Die Karte wird hervorgehoben."
+    ),
+    new TutorialStepDef(
+      "Angriffssymbole",
+      "Jede Karte hat ein Angriffssymbol: \u2665 Herzen, \u2666 Karo, \u2663 Kreuz oder \u2660 Pik.\n\n"
+      + "Mehrere Karten mit DEMSELBEN Symbol koennen in einem Angriff kombiniert werden - ihre Werte addieren sich.\n\n"
+      + "Karten mit UNTERSCHIEDLICHEN Symbolen koennen nicht kombiniert werden.\n\n"
+      + "Dein Angriffssymbol wird beim ersten Angriff des Zuges festgelegt und bleibt aktiv, bis du den Zug beendest.",
+      null
+    ),
+    new TutorialStepDef(
+      "Pluendere einen Erntestapel",
+      "Mit einer ausgewaehlten Karte kannst du auf einen schraegen Kartenstapel in der Mitte tippen, um ihn zu pluendern."
+    ),
+    new TutorialStepDef(
+      "So funktioniert Pluendern",
+      "Beim Angriff auf einen Erntestapel wird dein gesamter Angriffswert mit der verdeckten obersten Karte dieses Stapels verglichen.\n\n"
+      + "\u2022 Ist dein Wert HOEHER oder GLEICH: Du gewinnst und nimmst Karten aus dem Stapel.\n"
+      + "\u2022 Ist dein Wert NIEDRIGER: Der Angriff scheitert und deine Karten landen auf dem Friedhof.\n\n"
+      + "Je hoeher dein Angriffswert, desto besser sind deine Chancen. Kombiniere gleichfarbige Karten und ziele moeglichst nah an 15 heran.",
+      null
+    ),
+    new TutorialStepDef(
+      "Die Joker-Karte",
+      "Der Joker ist eine besondere Wildcard.\n\n"
+      + "\u2022 Im Angriff hat er praktisch immer den hoechsten Wert.\n"
+      + "\u2022 In der Verteidigung ist er mit Staerke 1 sehr schwach.\n"
+      + "\u2022 Du kannst einen Joker vom Blatt auf den Friedhof ziehen, um ihn fuer einen Helden einzutauschen.\n\n"
+      + "Der Joker passt in jede Angriffskombination.",
+      null
+    ),
+    new TutorialStepDef(
+      "Lege eine Verteidigungskarte",
+      "Waehle eine Handkarte aus und tippe dann auf einen leeren Schildslot unter deinem Koenig."
+    ),
+    new TutorialStepDef(
+      "Beende deinen Zug",
+      "Du bist fuer diesen Zug fertig - tippe auf den Button 'Zug beenden'."
+    ),
+    new TutorialStepDef(
+      "Der Bot spielt...",
+      "Warte, bis der Bot seinen Zug beendet hat. Danach geht das Tutorial automatisch weiter."
+    ),
+    new TutorialStepDef(
+      "Decke eine Verteidigung auf",
+      "Wenn du in einem Zug KEINEN Angriff ausgefuehrt hast, musst du vor dem Beenden eine deiner verdeckten Verteidigungskarten aufdecken.\n\n"
+      + "Nach einem Angriff oder einer Pluenderung ist das nicht noetig.",
+      null
+    ),
+    new TutorialStepDef(
+      "Die Koenigskarte",
+      "Dein Koenig ist die einzelne Karte unter deinen Verteidigungsslots. Er ist deine wichtigste Karte.\n\n"
+      + "Um mit ihm anzugreifen, duerfen zuerst keine Verteidigungskarten mehr in deinen Slots liegen. Danach kannst du ihn mit einer Handkarte tauschen und mit dem alten Koenig angreifen.",
+      null
+    ),
+    new TutorialStepDef(
+      "Wirf alle Verteidigungskarten ab",
+      "Ziehe nacheinander jede Verteidigungskarte auf den Friedhof, bis alle Slots leer sind."
+    ),
+    new TutorialStepDef(
+      "Tausche deinen Koenig",
+      "Tippe auf deinen Koenig und danach auf eine Handkarte, um diese als neuen Koenig zu setzen."
+    ),
+    new TutorialStepDef(
+      "Greife mit deinem Koenig an!",
+      "Waehle deinen alten Koenig auf der Hand und tippe dann auf einen gegnerischen Verteidigungsslot, um anzugreifen."
+    ),
+    new TutorialStepDef(
+      "Tutorial abgeschlossen!",
+      "Gut gemacht! Du hast das interaktive Tutorial abgeschlossen.\n\n"
+      + "Du weisst jetzt, wie man Karten auswaehlt und kombiniert, Stapel pluendert, Verteidigungen legt, Karten aufdeckt, den Koenig benutzt und Gegner angreift.\n\n"
+      + "Du kannst weiterspielen oder ins Menue zurueckkehren.",
+      null
+    ),
+  };
+
+  private TutorialStepDef[] getTutorialSteps() {
+    if (Localization.DE.equals(Localization.getLanguage())) {
+      return TUTORIAL_STEPS_DE;
+    }
+    return TUTORIAL_STEPS;
+  }
+
   /** Called at action points to advance the tutorial if the player just completed the expected step. */
   private void tutorialAdvance(int fromStep) {
     if (!isTutorial || tutorialStep != fromStep) return;
@@ -5681,7 +5778,8 @@ public class GameScreen extends ScreenAdapter {
 
   private void buildTutorialOverlay() {
     if (tutorialStep < 0 || tutorialStep >= TUTORIAL_TOTAL_STEPS) return;
-    if (TUTORIAL_STEPS[tutorialStep].blocking) {
+    TutorialStepDef[] tutorialSteps = getTutorialSteps();
+    if (tutorialSteps[tutorialStep].blocking) {
       buildBlockingTutorialOverlay();
     } else {
       buildGuidanceBanner();
@@ -5690,7 +5788,7 @@ public class GameScreen extends ScreenAdapter {
 
   /** Full-screen blocking overlay for info/intro/complete steps. */
   private void buildBlockingTutorialOverlay() {
-    TutorialStepDef step = TUTORIAL_STEPS[tutorialStep];
+    TutorialStepDef step = getTutorialSteps()[tutorialStep];
 
     Image bg = new Image(MyGdxGame.skin, "white");
     bg.setFillParent(true);
@@ -5735,7 +5833,7 @@ public class GameScreen extends ScreenAdapter {
       outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
       final int nextStep = tutorialStep + 1;
-      String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
+      String btnLabel = step.buttonLabel != null ? step.buttonLabel : t("game.gotIt");
       TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
       gotItBtn.addListener(new ClickListener() {
         @Override public void clicked(InputEvent event, float x, float y) {
@@ -5764,7 +5862,7 @@ public class GameScreen extends ScreenAdapter {
 
   /** Non-blocking guidance banner at the top of the screen for interactive steps. */
   private void buildGuidanceBanner() {
-    TutorialStepDef step = TUTORIAL_STEPS[tutorialStep];
+    TutorialStepDef step = getTutorialSteps()[tutorialStep];
 
     float bannerH = 88f;
     float bannerY = MyGdxGame.HEIGHT - bannerH - 2f;
@@ -5780,7 +5878,7 @@ public class GameScreen extends ScreenAdapter {
     banner.setPosition(0, bannerY);
     banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
-    String headerText = "Step " + (tutorialStep + 1) + "/" + TUTORIAL_TOTAL_STEPS + "  " + step.bannerTitle;
+    String headerText = t("game.step", tutorialStep + 1, TUTORIAL_TOTAL_STEPS) + "  " + step.bannerTitle;
     Label headerLbl = new Label(headerText, MyGdxGame.skin);
     headerLbl.setColor(Color.GOLD);
     headerLbl.setWrap(true);
@@ -5841,7 +5939,7 @@ public class GameScreen extends ScreenAdapter {
     outer.setFillParent(true);
     outer.center().pad(20f);
 
-    Label heroLbl = new Label(heroTutorialName + " Tutorial", MyGdxGame.skin);
+    Label heroLbl = new Label(Localization.heroName(heroTutorialName) + " - " + t("menu.tutorial"), MyGdxGame.skin);
     heroLbl.setColor(1f, 1f, 1f, 0.5f);
     outer.add(heroLbl).padBottom(2).row();
 
@@ -5880,7 +5978,7 @@ public class GameScreen extends ScreenAdapter {
       });
       outer.add(keepBtn).width(keepBtn.getPrefWidth() + 20).height(keepBtn.getPrefHeight()).row();
     } else {
-      String btnLabel = step.buttonLabel != null ? step.buttonLabel : "Got it!";
+      String btnLabel = step.buttonLabel != null ? step.buttonLabel : t("game.gotIt");
       TextButton gotItBtn = new TextButton(btnLabel, MyGdxGame.skin);
       gotItBtn.addListener(new ClickListener() {
         @Override public void clicked(InputEvent event, float x, float y) {
@@ -5921,7 +6019,7 @@ public class GameScreen extends ScreenAdapter {
     banner.top().left().padTop(6f).padLeft(10f).padRight(10f);
 
     int total = heroTutorialSteps.length;
-    String headerText = "Step " + (heroTutorialStep + 1) + "/" + total + "  " + step.bannerTitle;
+    String headerText = t("game.step", heroTutorialStep + 1, total) + "  " + step.bannerTitle;
     Label headerLbl = new Label(headerText, MyGdxGame.skin);
     headerLbl.setColor(Color.GOLD);
     headerLbl.setWrap(true);

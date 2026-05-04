@@ -56,33 +56,6 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.setFillParent(true);
     root.top().pad(20f);
 
-    Table langRow = new Table();
-    final TextButton enBtn = new TextButton("EN", MyGdxGame.skin);
-    final TextButton deBtn = new TextButton("DE", MyGdxGame.skin);
-    enBtn.setColor(Localization.EN.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
-    deBtn.setColor(Localization.DE.equals(Localization.getLanguage()) ? Color.GOLD : Color.WHITE);
-    enBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (!Localization.EN.equals(Localization.getLanguage())) {
-          Localization.setLanguage(Localization.EN);
-          build();
-        }
-      }
-    });
-    deBtn.addListener(new ClickListener() {
-      @Override
-      public void clicked(InputEvent event, float x, float y) {
-        if (!Localization.DE.equals(Localization.getLanguage())) {
-          Localization.setLanguage(Localization.DE);
-          build();
-        }
-      }
-    });
-    langRow.add(enBtn).width(64f).padRight(6f);
-    langRow.add(deBtn).width(64f);
-    root.add(langRow).padBottom(12f).row();
-
     // Title
     Label title = new Label(t("tutorial.chooseTitle"), MyGdxGame.skin, "default");
     title.setColor(Color.GOLD);
@@ -111,8 +84,7 @@ public class TutorialSelectScreen extends AbstractScreen {
       btn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          // Issue #171: launch an interactive bot game scenario for this hero
-          // (replaces the prior text-only HeroTutorialScreen).
+          // Issue #171: launch an interactive bot game scenario for this hero.
           try {
             JSONObject payload = new JSONObject();
             payload.put("heroName", heroName);
@@ -145,6 +117,7 @@ public class TutorialSelectScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     Gdx.input.setInputProcessor(stage);
   }
 

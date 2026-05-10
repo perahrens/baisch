@@ -95,6 +95,8 @@ public class MyGdxGame extends Game implements InputProcessor {
   public static Runnable onGameScreenActive = null;
   /** Called when a menu/stats screen becomes active; shows the native music button again. */
   public static Runnable onMenuScreenActive = null;
+  /** Called from MenuScreen.show() to refresh the DOM account/avatar button visibility. */
+  public static Runnable onAccountUiUpdate = null;
   /** Called when the name-entry screen is shown; reveals the DOM logo overlay. */
   public static Runnable onNameEntryScreenActive = null;
   /** Called when leaving the name-entry screen; hides the DOM logo overlay. */
@@ -254,6 +256,14 @@ public class MyGdxGame extends Game implements InputProcessor {
     if (INSTANCE != null) {
       com.badlogic.gdx.Screen scr = INSTANCE.getScreen();
       if (scr instanceof MenuScreen) ((MenuScreen) scr).show();
+    }
+  }
+
+  /** Called from the HTML account/avatar DOM button when the player taps "Log out". */
+  public static void handleLogoutButtonClick() {
+    if (INSTANCE != null) {
+      com.badlogic.gdx.Screen scr = INSTANCE.getScreen();
+      if (scr instanceof MenuScreen) ((MenuScreen) scr).triggerLogout();
     }
   }
 

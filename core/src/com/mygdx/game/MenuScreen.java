@@ -119,6 +119,11 @@ public class MenuScreen extends AbstractScreen {
   private final java.util.Map<String, Texture> avatarTextures = new java.util.HashMap<String, Texture>();
   // Known avatar names (file names without extension inside data/avatars/).
   private static final String[] AVATAR_NAMES = {"alien1","alien2","cat","dolphin","fishnugget","knight","lion","monkey","parrot","rat","rooster","stegosauros"};
+  // Size of the top-right account/avatar button (pixels in logical coords).
+  private static final float ACCOUNT_BTN_SIZE = 42f;
+  // True during show() calls where addTopRightButtons() has been called.
+  // Used by addLanguageButtons() to shift the language picker further left.
+  private boolean accountBtnAdded = false;
 
   private static class OnlinePlayerInfo {
     String id;
@@ -354,6 +359,7 @@ public class MenuScreen extends AbstractScreen {
     if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
     heroSelectBox.hideList();
     menuStage.clear();
+    accountBtnAdded = false;
     if (menuBgTexture == null) menuBgTexture = new Texture(Gdx.files.internal("data/graphics/bg_darkmoon.jpg"));
     Image menuBg = new Image(menuBgTexture);
     menuBg.setFillParent(true);
@@ -381,6 +387,7 @@ public class MenuScreen extends AbstractScreen {
     }
     if (MyGdxGame.nativeMusicButton) {
       if (MyGdxGame.onLanguageUiUpdate != null) MyGdxGame.onLanguageUiUpdate.run();
+      if (MyGdxGame.onAccountUiUpdate  != null) MyGdxGame.onAccountUiUpdate.run();
     } else {
       addLanguageButtons(menuStage);
     }
@@ -432,7 +439,10 @@ public class MenuScreen extends AbstractScreen {
     float gap = 6f;
     float rightMargin = 10f;
     float musicW = new TextButton(MyGdxGame.playerStorage.getMusicEnabled() ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin).getPrefWidth() + 20f;
-    float musicX = MyGdxGame.WIDTH - musicW - rightMargin;
+    // When the account button is present (logged-in screens), the music button has been
+    // shifted left by (ACCOUNT_BTN_SIZE + gap). Match that offset here.
+    float accountOffset = accountBtnAdded ? (ACCOUNT_BTN_SIZE + gap) : 0f;
+    float musicX = MyGdxGame.WIDTH - musicW - rightMargin - accountOffset;
     float btnX   = musicX - iconW - gap;
     float btnY   = MyGdxGame.HEIGHT - iconH - 10f;
 
@@ -605,7 +615,7 @@ public class MenuScreen extends AbstractScreen {
     final Runnable doConfirm = new Runnable() {
       @Override public void run() {
         String name = nameField.getText().trim();
-        if (name.isEmpty()) return;
+        if (name.isEmpty() || selectedIcon.isEmpty()) return;
         MyGdxGame.keyboardHelper.hideKeyboard();
         menuState.setMyName(name);
         MyGdxGame.playerStorage.saveName(name);
@@ -632,39 +642,70 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    // ── Login button — enabled state driven by act() every frame so it reacts
+    // correctly regardless of whether text arrives via keyTyped or setText().
+    final TextButton loginBtn = new TextButton(t("menu.login"), MyGdxGame.skin) {
+      @Override public void act(float delta) {
+        super.act(delta);
+        boolean ok = !nameField.getText().trim().isEmpty() && !selectedIcon.isEmpty();
+        setDisabled(!ok);
+        getLabel().setColor(ok ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
+      }
+    };
+    loginBtn.pack();
+    loginBtn.setSize(loginBtn.getPrefWidth() + 40f, loginBtn.getPrefHeight() + 20f);
+    loginBtn.addListener(new ClickListener() {
+      @Override
+      public void clicked(InputEvent event, float x, float y) {
+        if (loginBtn.isDisabled()) return;
+        doConfirm.run();
+      }
+    });
+
     nameField.setWidth(250f);
     nameField.setHeight(50f);
-    nameField.setPosition(cx - 125f, 0.3f * MyGdxGame.HEIGHT);
-    menuStage.addActor(nameField);
+    // Position is set after avatarSelector is packed (bottom-up layout below).
 
-    // Avatar selector — shown below the name button
+    // Avatar selector — shown below the name field.
     // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
+    // Clicking an avatar updates the selection in-place WITHOUT rebuilding the screen,
+    // so any text the player has typed into the name field is preserved.
     float selectorMaxW = MyGdxGame.WIDTH - 24f;
 
     Label avatarLabel = new Label(t("menu.avatarChoose"), MyGdxGame.skin);
     avatarLabel.setColor(1f, 1f, 1f, 0.70f);
 
+    final Table[] avatarWrappers = new Table[AVATAR_NAMES.length];
     Table avatarRow = new Table();
     avatarRow.pad(4f, 0f, 0f, 0f);
     for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
       final String avName = AVATAR_NAMES[ai];
+      final int avIdx = ai;
       Texture avTex = getAvatarTexture(avName);
       if (avTex == null) continue;
       Image avImg = new Image(avTex);
       boolean selected = avName.equals(selectedIcon);
       Color borderCol = selected ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
-      Table wrapper = new Table();
+      final Table wrapper = new Table();
       wrapper.setBackground(MyGdxGame.skin.newDrawable("white", borderCol));
       wrapper.add(avImg).size(88f, 88f).pad(4f);
+      avatarWrappers[avIdx] = wrapper;
       wrapper.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
           selectedIcon = avName;
           MyGdxGame.playerStorage.saveIcon(avName);
-          show();
+          // Update avatar border highlights without rebuilding the whole screen.
+          for (int j = 0; j < AVATAR_NAMES.length; j++) {
+            if (avatarWrappers[j] == null) continue;
+            boolean sel = AVATAR_NAMES[j].equals(selectedIcon);
+            Color c = sel ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
+            avatarWrappers[j].setBackground(MyGdxGame.skin.newDrawable("white", c));
+          }
+          // loginBtn state is updated automatically via act() override.
         }
       });
-      avatarRow.add(wrapper).padRight(ai < AVATAR_NAMES.length - 1 ? 6f : 0f);
+      avatarRow.add(wrapper).padRight(avIdx < AVATAR_NAMES.length - 1 ? 6f : 0f);
     }
 
     ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
@@ -690,20 +731,34 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.add(avatarLabel).padBottom(6f).row();
     avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
-    avatarSelector.setPosition(
-        Math.round(cx - avatarSelector.getWidth() / 2f),
-        Math.round(0.3f * MyGdxGame.HEIGHT - avatarSelector.getHeight() - 10f));
-    menuStage.addActor(avatarSelector);
 
-    // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
-    // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
-    // so the two elements don't visually overlap.
+    // ── Bottom-up layout: loginBtn → avatarSelector → nameField ────────────
+    // Building upward from a fixed bottom margin guarantees no overlap.
+    final float bMargin = 16f;
+    final float elemGap = 10f;
+    float loginY   = bMargin;
+    float avatarY  = loginY  + loginBtn.getHeight()     + elemGap;
+    float nameY    = avatarY + avatarSelector.getHeight() + elemGap;
+
+    loginBtn.setPosition(
+        Math.round(cx - loginBtn.getWidth() / 2f), Math.round(loginY));
+    avatarSelector.setPosition(
+        Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
+    nameField.setPosition(
+        Math.round(cx - nameField.getWidth() / 2f), Math.round(nameY));
+
+    menuStage.addActor(nameField);
+    menuStage.addActor(avatarSelector);
+    menuStage.addActor(loginBtn);
+
+    // Subtitle — the DOM overlay (BAISCH + suits) occupies the upper half;
+    // position this label just above the name field.
     Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(0.42f * MyGdxGame.HEIGHT));
+        Math.round(nameY + nameField.getHeight() + 12f));
     menuStage.addActor(subtitle);
 
 
@@ -945,8 +1000,7 @@ public class MenuScreen extends AbstractScreen {
 
     }
 
-    addMusicToggleButton(menuStage);
-    addLogoutButton(menuStage);
+    addTopRightButtons(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -1103,8 +1157,7 @@ public class MenuScreen extends AbstractScreen {
         Math.round(formY));
     menuStage.addActor(form);
 
-    addMusicToggleButton(menuStage);
-    addLogoutButton(menuStage);
+    addTopRightButtons(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 
@@ -1141,6 +1194,13 @@ public class MenuScreen extends AbstractScreen {
     show();
   }
 
+  /** Called from the DOM account-button dropdown on the web platform. */
+  public void triggerLogout() {
+    Gdx.app.postRunnable(new Runnable() {
+      @Override public void run() { logout(); }
+    });
+  }
+
   /** Adds a small "Log out" button to the bottom-right of the given stage. */
   private void addLogoutButton(final Stage stage) {
     TextButton logoutBtn = new TextButton(t("menu.logOut"), MyGdxGame.skin);
@@ -1154,6 +1214,110 @@ public class MenuScreen extends AbstractScreen {
       }
     });
     stage.addActor(logoutBtn);
+  }
+
+  /**
+   * Adds the account/avatar button (top-right corner) plus the music toggle button
+   * (shifted left to make room). The account button opens a small dropdown that
+   * contains at least a Logout option. Call this instead of addMusicToggleButton +
+   * addLogoutButton on screens where the user is logged in.
+   */
+  private void addTopRightButtons(final Stage stage) {
+    // On web the DOM overlay handles the account button; skip LibGDX drawing.
+    if (MyGdxGame.nativeMusicButton) return;
+    accountBtnAdded = true;
+    final float btnSize = ACCOUNT_BTN_SIZE;
+    final float rMargin = 10f;
+    final float gap     = 6f;
+    final float topY    = MyGdxGame.HEIGHT - btnSize - 10f;
+
+    // ── Account / avatar button ──────────────────────────────────────────────
+    final Table accountBtn = new Table();
+    accountBtn.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0.85f, 0.85f, 0.85f, 0.30f)));
+    accountBtn.pad(2f);
+    Texture avTex = (selectedIcon == null || selectedIcon.isEmpty()) ? null : getAvatarTexture(selectedIcon);
+    if (avTex != null) {
+      Image avImg = new Image(avTex);
+      accountBtn.add(avImg).size(btnSize - 4f, btnSize - 4f);
+    } else {
+      // Fallback: first letter of the player name
+      String initial = menuState.getMyName().isEmpty() ? "?" : String.valueOf(menuState.getMyName().charAt(0)).toUpperCase();
+      Label initLbl = new Label(initial, MyGdxGame.skin);
+      accountBtn.add(initLbl).size(btnSize - 4f, btnSize - 4f);
+    }
+    accountBtn.setSize(btnSize, btnSize);
+    accountBtn.setPosition(MyGdxGame.WIDTH - btnSize - rMargin, topY);
+
+    // ── Dropdown ─────────────────────────────────────────────────────────────
+    final Table dropdown = new Table(MyGdxGame.skin);
+    dropdown.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0.12f, 0.12f, 0.12f, 0.96f)));
+    dropdown.pad(4f);
+    TextButton logoutItem = new TextButton(t("menu.logOut"), MyGdxGame.skin);
+    logoutItem.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        dropdown.setVisible(false);
+        logout();
+      }
+    });
+    dropdown.add(logoutItem).fillX().pad(2f);
+    dropdown.pack();
+    dropdown.setPosition(MyGdxGame.WIDTH - dropdown.getWidth() - rMargin, topY - dropdown.getHeight() - 4f);
+    dropdown.setVisible(false);
+
+    accountBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        dropdown.setVisible(!dropdown.isVisible());
+      }
+    });
+
+    // Close dropdown when tapping outside it
+    stage.addListener(new InputListener() {
+      @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+        if (!dropdown.isVisible()) return false;
+        boolean inDrop = x >= dropdown.getX() && x <= dropdown.getX() + dropdown.getWidth()
+                      && y >= dropdown.getY() && y <= dropdown.getY() + dropdown.getHeight();
+        boolean inBtn  = x >= accountBtn.getX() && x <= accountBtn.getX() + accountBtn.getWidth()
+                      && y >= accountBtn.getY() && y <= accountBtn.getY() + accountBtn.getHeight();
+        if (!inDrop && !inBtn) dropdown.setVisible(false);
+        return false;
+      }
+    });
+
+    stage.addActor(accountBtn);
+    stage.addActor(dropdown);
+
+    // ── Music toggle (shifted left to make room for the account button) ───────
+    if (!MyGdxGame.nativeMusicButton) {
+      final boolean enabled = MyGdxGame.playerStorage.getMusicEnabled();
+      final TextButton musicBtn = new TextButton(enabled ? t("menu.musicOn") : t("menu.musicOff"), MyGdxGame.skin);
+      musicBtn.pack();
+      float musicW = musicBtn.getPrefWidth() + 20f;
+      float musicH = musicBtn.getPrefHeight() + 10f;
+      musicBtn.setSize(musicW, musicH);
+      musicBtn.setPosition(MyGdxGame.WIDTH - btnSize - rMargin - gap - musicW,
+                           MyGdxGame.HEIGHT - musicH - 10f);
+      musicBtn.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          MyGdxGame.setMusicEnabled(!MyGdxGame.playerStorage.getMusicEnabled());
+          show();
+        }
+      });
+      stage.addActor(musicBtn);
+
+      if (!MyGdxGame.musicStarted) {
+        stage.addCaptureListener(new InputListener() {
+          @Override
+          public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+            if (!isChildOf(event.getTarget(), musicBtn)) {
+              MyGdxGame.ensureMusicStarted();
+            }
+            stage.removeCaptureListener(this);
+            return false;
+          }
+        });
+      }
+    }
   }
 
   /**
@@ -1681,8 +1845,7 @@ public class MenuScreen extends AbstractScreen {
     });
     menuStage.addActor(leaveBtn);
 
-    addMusicToggleButton(menuStage);
-    addLogoutButton(menuStage);
+    addTopRightButtons(menuStage);
     Gdx.input.setInputProcessor(menuStage);
   }
 

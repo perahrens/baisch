@@ -841,6 +841,36 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    socket.on("chatHistory", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        if (args.length == 0) return;
+        try {
+          final JSONArray history = (JSONArray) args[0];
+          Gdx.app.postRunnable(new Runnable() {
+            @Override public void run() {
+              chatMessages.clear();
+              for (int hi = 0; hi < history.length(); hi++) {
+                try {
+                  JSONObject m = history.getJSONObject(hi);
+                  chatMessages.add(new String[]{ m.optString("name", "?"), m.optString("text", "") });
+                } catch (JSONException ignore) {}
+              }
+              // If the chat panel is currently open, rebuild it so history shows immediately.
+              if (chatOpen) {
+                showChatOverlay();
+              }
+            }
+          });
+        } catch (Exception e) { e.printStackTrace(); }
+      }
+    });
+
+    // Request chat history from the server now that the chatHistory listener is registered.
+    // (The server pushes chatHistory at reconnect time, but GameScreen may not exist yet
+    // when that push arrives — so we pull it explicitly here to guarantee delivery.)
+    socket.emit("requestChatHistory", null);
+
     socket.on("chatMessage", new SocketListener() {
       @Override
       public void call(Object... args) {

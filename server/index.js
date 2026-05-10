@@ -412,7 +412,7 @@ function leaveCurrentSession(socket) {
 }
 
 // Grace period before a disconnected lobby player is evicted (milliseconds).
-var LOBBY_DISCONNECT_GRACE_MS = 30000;
+var LOBBY_DISCONNECT_GRACE_MS = 60 * 60 * 1000; // 1 hour
 
 // Evict a player from a pre-game lobby after their reconnect grace period expires.
 // Called by the per-token timeout set in the disconnect handler.

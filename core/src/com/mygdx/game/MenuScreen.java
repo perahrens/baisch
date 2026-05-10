@@ -2127,6 +2127,10 @@ public class MenuScreen extends AbstractScreen {
               if (!sessId.isEmpty()) MyGdxGame.playerStorage.saveSessionId(sessId);
               if (data.optBoolean("isHost", false)) isSessionHost = true;
             } catch (Exception e) { /* keep default */ }
+            // Clear the reconnecting spinner if we were reconnecting to a lobby
+            // (not a running game — those go via gameState, not sessionJoined).
+            reconnecting = false;
+            reconnectElapsed = 0f;
             lobbyJoined = true;
             // Notify server of our initial hero selection only when hero selection is enabled.
             if (sessionAllowHeroSelection) {

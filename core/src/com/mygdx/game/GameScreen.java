@@ -866,6 +866,11 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    // Request chat history from the server now that the chatHistory listener is registered.
+    // (The server pushes chatHistory at reconnect time, but GameScreen may not exist yet
+    // when that push arrives — so we pull it explicitly here to guarantee delivery.)
+    socket.emit("requestChatHistory");
+
     socket.on("chatMessage", new SocketListener() {
       @Override
       public void call(Object... args) {

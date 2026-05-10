@@ -1108,6 +1108,12 @@ io.on('connection', function(socket) {
     io.to(sess.id).emit('chatMessage', { name: name, text: text });
   });
 
+  socket.on('requestChatHistory', function() {
+    var sess = getSession(socket.id);
+    if (!sess) return;
+    socket.emit('chatHistory', sess.chatHistory || []);
+  });
+
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
     // If the player was in a session (running game OR pre-game lobby) and has a

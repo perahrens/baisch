@@ -645,7 +645,7 @@ public class MenuScreen extends AbstractScreen {
     // ── Login button (centered below avatar selector — positioned after it is built) ───
     final TextButton loginBtn = new TextButton(t("menu.login"), MyGdxGame.skin);
     loginBtn.pack();
-    loginBtn.setSize(loginBtn.getPrefWidth() + 16f, 50f);
+    loginBtn.setSize(loginBtn.getPrefWidth() + 40f, loginBtn.getPrefHeight() + 20f);
     final boolean initNameOk = !menuState.getMyName().isEmpty();
     final boolean initIconOk = !selectedIcon.isEmpty();
     loginBtn.setDisabled(!(initNameOk && initIconOk));
@@ -747,10 +747,10 @@ public class MenuScreen extends AbstractScreen {
         Math.round(0.3f * MyGdxGame.HEIGHT - avatarSelector.getHeight() - 10f));
     menuStage.addActor(avatarSelector);
 
-    // Login button: centered below avatar selector
+    // Login button: centered below avatar selector, clamped so it stays on screen
     loginBtn.setPosition(
         Math.round(cx - loginBtn.getWidth() / 2f),
-        Math.round(avatarSelector.getY() - loginBtn.getHeight() - 10f));
+        Math.max(6f, Math.round(avatarSelector.getY() - loginBtn.getHeight() - 10f)));
     menuStage.addActor(loginBtn);
 
     // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;

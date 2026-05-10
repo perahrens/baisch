@@ -1672,6 +1672,10 @@ io.on('connection', function(socket) {
       console.log("lootResolved rejected: not current player (socket=" + socketPlayerIdx + " attackerIdx=" + data.attackerIdx + " current=" + sess.gameState.currentPlayerIndex + ")");
       return;
     }
+    if (!sess.gameState.pendingLoot) {
+      console.log("lootResolved ignored: no pending loot (duplicate emit)");
+      return;
+    }
     console.log("lootResolved: attackerIdx=" + data.attackerIdx + " deckIndex=" + data.deckIndex + " success=" + data.success);
     sess.gameState.lootResolved(data.attackerIdx, data.deckIndex, data.success, data.attackCardIds || [], data.kingUsed || false, data.attackerOwnDefCardIds || []);
     // Auto-finish turn if attacker was eliminated (failed king-used plunder)

@@ -33,6 +33,7 @@ public class HtmlLauncher extends GwtApplication {
         // Inject the animated GIF music button into the DOM and wire up callbacks.
         installMusicButton(app);
         installLanguageButton(app);
+        installAccountButton(app);
         // Register the UI-update callback so setMusicEnabled() keeps the GIF in sync.
         MyGdxGame.onMusicUiUpdate = new Runnable() {
             @Override
@@ -46,11 +47,18 @@ public class HtmlLauncher extends GwtApplication {
                 refreshLanguageButton(Localization.getLanguage());
             }
         };
+        MyGdxGame.onAccountUiUpdate = new Runnable() {
+            @Override
+            public void run() {
+                refreshAccountButton();
+            }
+        };
         MyGdxGame.onGameScreenActive = new Runnable() {
             @Override
             public void run() {
                 setMusicButtonVisible(false);
                 setLanguageButtonVisible(false);
+                setAccountButtonVisible(false);
                 setViewportBackgroundMode(false);
             }
         };
@@ -155,7 +163,7 @@ public class HtmlLauncher extends GwtApplication {
         img.id  = 'baisch-music-img';
         img.src = '/music.gif';
         img.style.cssText =
-            'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
+            'position:fixed;top:6px;right:66px;width:' + SIZE + ';height:' + SIZE + ';' +
             'cursor:pointer;z-index:9999;border-radius:50%;display:block;';
 
         $doc.body.appendChild(img);
@@ -210,7 +218,7 @@ public class HtmlLauncher extends GwtApplication {
         var holder = $doc.createElement('div');
         holder.id = 'baisch-lang-holder';
         holder.style.cssText =
-            'position:fixed;top:6px;right:66px;z-index:9999;display:block;';
+            'position:fixed;top:6px;right:126px;z-index:9999;display:block;';
 
         var btn = $doc.createElement('img');
         btn.id = 'baisch-lang-btn';
@@ -300,6 +308,94 @@ public class HtmlLauncher extends GwtApplication {
         holder.style.display = visible ? 'block' : 'none';
         var popup = $doc.getElementById('baisch-lang-popup');
         if (popup) popup.style.display = 'none';
+    }-*/;
+
+    /**
+     * Injects a fixed-position account/avatar button (top-right, same slot that the music
+     * button previously occupied). Tapping it opens a small dropdown with a Logout option.
+     * The button is shown/hidden by refreshAccountButton() which reads localStorage.
+     */
+    private static native void installAccountButton(MyGdxGame app) /*-{
+        var SIZE = '54px';
+        var btn = $doc.createElement('div');
+        btn.id  = 'baisch-account-btn';
+        btn.style.cssText =
+            'position:fixed;top:6px;right:6px;width:' + SIZE + ';height:' + SIZE + ';' +
+            'cursor:pointer;z-index:9999;border-radius:50%;display:none;' +
+            'background:rgba(80,80,80,0.5);overflow:hidden;box-sizing:border-box;';
+
+        var img = $doc.createElement('img');
+        img.id = 'baisch-account-img';
+        img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;';
+        btn.appendChild(img);
+
+        var dropdown = $doc.createElement('div');
+        dropdown.id = 'baisch-account-dropdown';
+        dropdown.style.cssText =
+            'position:fixed;top:66px;right:6px;display:none;' +
+            'background:rgba(20,20,20,0.96);border:1px solid rgba(255,255,255,0.25);' +
+            'border-radius:4px;padding:4px;z-index:10000;min-width:110px;';
+
+        var logoutItem = $doc.createElement('div');
+        logoutItem.style.cssText =
+            'padding:8px 14px;color:white;cursor:pointer;white-space:nowrap;' +
+            'font-family:sans-serif;font-size:14px;border-radius:3px;';
+        logoutItem.textContent = 'Log out';
+        logoutItem.addEventListener('mouseover', function() {
+            logoutItem.style.background = 'rgba(255,255,255,0.12)';
+        });
+        logoutItem.addEventListener('mouseout', function() {
+            logoutItem.style.background = '';
+        });
+        logoutItem.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            dropdown.style.display = 'none';
+            @com.mygdx.game.MyGdxGame::handleLogoutButtonClick()();
+        });
+        dropdown.appendChild(logoutItem);
+
+        $doc.body.appendChild(btn);
+        $doc.body.appendChild(dropdown);
+
+        btn.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            dropdown.style.display =
+                (dropdown.style.display === 'none' || dropdown.style.display === '') ? 'block' : 'none';
+        });
+
+        $doc.addEventListener('click', function() {
+            dropdown.style.display = 'none';
+        }, true);
+
+        $wnd._baischRefreshAccountBtn = function() {
+            var icon = $wnd.localStorage.getItem('baisch_player_icon') || '';
+            var name = $wnd.localStorage.getItem('baisch_player_name') || '';
+            if (icon && name) {
+                btn.style.display = 'block';
+                img.src = '/assets/data/avatars/' + icon + '.png';
+            } else {
+                btn.style.display = 'none';
+                dropdown.style.display = 'none';
+            }
+        };
+    }-*/;
+
+    /** Refreshes the account button visibility and avatar image from localStorage. */
+    private static native void refreshAccountButton() /*-{
+        if ($wnd._baischRefreshAccountBtn) $wnd._baischRefreshAccountBtn();
+    }-*/;
+
+    /** Shows or hides the DOM account button (and always closes its dropdown). */
+    private static native void setAccountButtonVisible(boolean visible) /*-{
+        var btn      = $doc.getElementById('baisch-account-btn');
+        var dropdown = $doc.getElementById('baisch-account-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        if (!btn) return;
+        if (visible) {
+            if ($wnd._baischRefreshAccountBtn) $wnd._baischRefreshAccountBtn();
+        } else {
+            btn.style.display = 'none';
+        }
     }-*/;
 
     /**

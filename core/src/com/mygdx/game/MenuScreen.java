@@ -387,6 +387,7 @@ public class MenuScreen extends AbstractScreen {
     }
     if (MyGdxGame.nativeMusicButton) {
       if (MyGdxGame.onLanguageUiUpdate != null) MyGdxGame.onLanguageUiUpdate.run();
+      if (MyGdxGame.onAccountUiUpdate  != null) MyGdxGame.onAccountUiUpdate.run();
     } else {
       addLanguageButtons(menuStage);
     }
@@ -641,11 +642,10 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    // ── Login button (to the right of name field) ────────────────────────────
+    // ── Login button (centered below avatar selector — positioned after it is built) ───
     final TextButton loginBtn = new TextButton(t("menu.login"), MyGdxGame.skin);
     loginBtn.pack();
     loginBtn.setSize(loginBtn.getPrefWidth() + 16f, 50f);
-    loginBtn.setPosition(cx + 125f + 8f, 0.3f * MyGdxGame.HEIGHT);
     final boolean initNameOk = !menuState.getMyName().isEmpty();
     final boolean initIconOk = !selectedIcon.isEmpty();
     loginBtn.setDisabled(!(initNameOk && initIconOk));
@@ -657,7 +657,6 @@ public class MenuScreen extends AbstractScreen {
         doConfirm.run();
       }
     });
-    menuStage.addActor(loginBtn);
 
     // Update login button whenever the player types in the name field.
     nameField.setTextFieldListener(new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldListener() {
@@ -747,6 +746,12 @@ public class MenuScreen extends AbstractScreen {
         Math.round(cx - avatarSelector.getWidth() / 2f),
         Math.round(0.3f * MyGdxGame.HEIGHT - avatarSelector.getHeight() - 10f));
     menuStage.addActor(avatarSelector);
+
+    // Login button: centered below avatar selector
+    loginBtn.setPosition(
+        Math.round(cx - loginBtn.getWidth() / 2f),
+        Math.round(avatarSelector.getY() - loginBtn.getHeight() - 10f));
+    menuStage.addActor(loginBtn);
 
     // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
     // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
@@ -1192,6 +1197,13 @@ public class MenuScreen extends AbstractScreen {
     show();
   }
 
+  /** Called from the DOM account-button dropdown on the web platform. */
+  public void triggerLogout() {
+    Gdx.app.postRunnable(new Runnable() {
+      @Override public void run() { logout(); }
+    });
+  }
+
   /** Adds a small "Log out" button to the bottom-right of the given stage. */
   private void addLogoutButton(final Stage stage) {
     TextButton logoutBtn = new TextButton(t("menu.logOut"), MyGdxGame.skin);
@@ -1214,6 +1226,8 @@ public class MenuScreen extends AbstractScreen {
    * addLogoutButton on screens where the user is logged in.
    */
   private void addTopRightButtons(final Stage stage) {
+    // On web the DOM overlay handles the account button; skip LibGDX drawing.
+    if (MyGdxGame.nativeMusicButton) return;
     accountBtnAdded = true;
     final float btnSize = ACCOUNT_BTN_SIZE;
     final float rMargin = 10f;

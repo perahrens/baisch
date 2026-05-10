@@ -1330,6 +1330,11 @@ io.on('connection', function(socket) {
     var sess = sessions[data.sessionId];
     if (!sess) { socket.emit('sessionNotFound'); return; }
     if (sess.gameState !== null) { socket.emit('gameStatus', { running: true }); return; }
+    // If the socket is already a member of this session (e.g. reconnected via
+    // registerPlayer just before this joinSession arrived), silently ignore —
+    // the player is already in the lobby and a leaveCurrentSession call here
+    // would destroy the session if they are the host.
+    if (socketToSession[socket.id] === data.sessionId) return;
     // Reject if no open slots remain
     var openSlotIdx = -1;
     for (var si = 1; si <= 3; si++) {

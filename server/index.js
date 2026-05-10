@@ -411,6 +411,76 @@ function leaveCurrentSession(socket) {
   broadcastPlayerList();
 }
 
+// Grace period before a disconnected lobby player is evicted (milliseconds).
+var LOBBY_DISCONNECT_GRACE_MS = 30000;
+
+// Evict a player from a pre-game lobby after their reconnect grace period expires.
+// Called by the per-token timeout set in the disconnect handler.
+function evictDisconnectedLobbyPlayer(sessId, token) {
+  var sess = sessions[sessId];
+  if (!sess || sess.gameState !== null) return; // session gone or game already started
+
+  var user = sess.users.find(function(u) { return u.token === token; });
+  if (!user) return; // player already reconnected and re-assigned
+
+  var userId = user.id;
+  var isCreator = sess.creatorSocketId === userId;
+
+  // Remove the user from the session.
+  delete sess.heroSelections[userId];
+  var userIdx = sess.users.indexOf(user);
+  if (userIdx !== -1) sess.users.splice(userIdx, 1);
+
+  // Reset their lobby slot.
+  if (sess.lobbySlots) {
+    for (var lsi = 0; lsi <= 3; lsi++) {
+      if (sess.lobbySlots[lsi] && sess.lobbySlots[lsi].userId === userId) {
+        sess.lobbySlots[lsi] = lsi === 0 ? {type: 'player'} : {type: 'open'};
+        break;
+      }
+    }
+  }
+
+  // Clear stale token session info.
+  if (tokenMap[token]) {
+    delete tokenMap[token].sessionId;
+    delete tokenMap[token].playerIdx;
+  }
+
+  if (isCreator && (sess.users.length > 0 || sess.spectators.length > 0)) {
+    // Creator's grace period expired — close the session for everyone.
+    io.to(sess.id).emit('sessionClosed', { reason: 'host_left' });
+    sess.users.forEach(function(u) {
+      var s = io.sockets.sockets[u.id];
+      if (s) { s.leave(sess.id); }
+      delete socketToSession[u.id];
+      delete sess.heroSelections[u.id];
+      if (u.token && tokenMap[u.token]) {
+        delete tokenMap[u.token].sessionId;
+        delete tokenMap[u.token].playerIdx;
+      }
+    });
+    sess.spectators.forEach(function(sid) {
+      var s = io.sockets.sockets[sid];
+      if (s) { s.leave(sess.id); }
+      delete socketToSession[sid];
+    });
+    if (sess.timer) clearInterval(sess.timer);
+    delete sessions[sessId];
+    console.log('Session ' + sessId + ' closed: host grace period expired (token ' + token.slice(0, 8) + '...)');
+  } else if (sess.users.length === 0 && sess.spectators.length === 0) {
+    if (sess.timer) clearInterval(sess.timer);
+    delete sessions[sessId];
+    console.log('Session ' + sessId + ' deleted (empty after grace period)');
+  } else {
+    broadcastLobbyState(sess);
+    console.log('Session ' + sessId + ': non-host grace period expired (token ' + token.slice(0, 8) + '...), slot freed');
+  }
+
+  broadcastSessionList();
+  broadcastPlayerList();
+}
+
 var PORT = process.env.PORT || 8082;
 server.listen(PORT, function() {
   console.log("Server is now running on port " + PORT);
@@ -1034,19 +1104,32 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     console.log("User Disconnected: " + socket.id);
-    // If the player was in a running game, preserve their session slot so they
-    // can reconnect transparently (same game, same player index).
+    // If the player was in a session (running game OR pre-game lobby) and has a
+    // reconnect token, preserve their slot so they can transparently rejoin.
     var sess = getSession(socket.id);
-    if (sess && sess.gameState !== null) {
-      var token = findTokenBySocketId(socket.id);
-      if (token) {
-        tokenMap[token].socketId = null;
-        delete socketToSession[socket.id];
-        delete connectedPlayers[socket.id];
-        broadcastPlayerList();
+    var token = findTokenBySocketId(socket.id);
+    if (sess && token) {
+      tokenMap[token].socketId = null;
+      delete socketToSession[socket.id];
+      delete connectedPlayers[socket.id];
+      broadcastPlayerList();
+      if (sess.gameState !== null) {
+        // Running game: slot preserved indefinitely until reconnect.
         console.log('Player with token ' + token.slice(0, 8) + '... went offline — slot preserved in session ' + sess.id);
-        return;
+      } else {
+        // Pre-game lobby: preserve with a grace-period timer, then evict.
+        console.log('Player with token ' + token.slice(0, 8) + '... went offline in lobby ' + sess.id + ' — slot preserved for 30s');
+        if (!sess._disconnectTimers) sess._disconnectTimers = {};
+        clearTimeout(sess._disconnectTimers[token]);
+        var capturedSessId = sess.id;
+        var capturedToken = token;
+        sess._disconnectTimers[token] = setTimeout(function() {
+          evictDisconnectedLobbyPlayer(capturedSessId, capturedToken);
+          var s2 = sessions[capturedSessId];
+          if (s2 && s2._disconnectTimers) delete s2._disconnectTimers[capturedToken];
+        }, LOBBY_DISCONNECT_GRACE_MS);
       }
+      return;
     }
     delete connectedPlayers[socket.id];
     leaveCurrentSession(socket);
@@ -1084,12 +1167,13 @@ io.on('connection', function(socket) {
       tokenMap[token].name = name;
       tokenMap[token].socketId = socket.id;
 
-      // Reconnect player to an active game if their token still has a live session slot.
+      // Reconnect player to an active session (running game OR pre-game lobby).
       var sessId = tokenMap[token].sessionId;
       var playerIdx = tokenMap[token].playerIdx;
-      if (sessId !== undefined && playerIdx !== undefined) {
+      if (sessId !== undefined) {
         var sess = sessions[sessId];
-        if (sess && sess.gameState !== null) {
+        if (sess && sess.gameState !== null && playerIdx !== undefined) {
+          // ── Running game reconnect ──────────────────────────────────────
           var user = sess.users.find(function(u) { return u.token === token; });
           if (user) {
             delete socketToSession[user.id]; // remove stale old-socket entry
@@ -1101,8 +1185,57 @@ io.on('connection', function(socket) {
             console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to session ' + sessId + ' as player ' + playerIdx);
             return;
           }
+        } else if (sess && sess.gameState === null) {
+          // ── Pre-game lobby reconnect ────────────────────────────────────
+          var lobbyUser = sess.users.find(function(u) { return u.token === token; });
+          if (lobbyUser) {
+            // Cancel the eviction grace-period timer for this player.
+            if (sess._disconnectTimers && sess._disconnectTimers[token]) {
+              clearTimeout(sess._disconnectTimers[token]);
+              delete sess._disconnectTimers[token];
+            }
+            var oldSocketId = lobbyUser.id;
+            delete socketToSession[oldSocketId];
+            lobbyUser.id = socket.id;
+            socketToSession[socket.id] = sessId;
+            // Restore host status if this player created the session.
+            if (sess.creatorSocketId === oldSocketId) {
+              sess.creatorSocketId = socket.id;
+            }
+            // Update lobbySlots userId reference.
+            if (sess.lobbySlots) {
+              for (var lsi = 0; lsi <= 3; lsi++) {
+                if (sess.lobbySlots[lsi] && sess.lobbySlots[lsi].userId === oldSocketId) {
+                  sess.lobbySlots[lsi].userId = socket.id;
+                  break;
+                }
+              }
+            }
+            socket.join(sessId);
+            var isHost = sess.creatorSocketId === socket.id;
+            socket.emit('sessionJoined', {
+              sessionId: sessId,
+              allowHeroSelection: sess.allowHeroSelection,
+              startingCards: sess.startingCards,
+              manualSetup: sess.manualSetup,
+              isHost: isHost
+            });
+            socket.emit('gameStatus', { running: false });
+            // Re-send hero reservations made by other players.
+            Object.keys(sess.heroSelections).forEach(function(sid) {
+              var h = sess.heroSelections[sid];
+              if (h && h !== 'None' && sid !== socket.id) {
+                socket.emit('heroReserved', { heroName: h });
+              }
+            });
+            sendLobbyStateToSocket(sess, socket);
+            broadcastLobbyState(sess);
+            broadcastPlayerList();
+            console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to lobby ' + sessId + (isHost ? ' as host' : ''));
+            return;
+          }
         }
-        // Session no longer exists or game not running — clear stale token session info.
+        // Session no longer exists or player not found — clear stale token session info.
         delete tokenMap[token].sessionId;
         delete tokenMap[token].playerIdx;
       }

@@ -86,6 +86,20 @@ public class BrowserPlayerStorage implements PlayerStorage {
   }-*/;
 
   @Override
+  public native String getLanguage() /*-{
+    var value = $wnd.localStorage.getItem('baisch_language');
+    if (!value) return 'en';
+    value = value.toLowerCase();
+    return value === 'de' ? 'de' : 'en';
+  }-*/;
+
+  @Override
+  public native void saveLanguage(String languageCode) /*-{
+    var value = (languageCode || 'en').toLowerCase();
+    $wnd.localStorage.setItem('baisch_language', value === 'de' ? 'de' : 'en');
+  }-*/;
+
+  @Override
   public native void clearName() /*-{
     $wnd.localStorage.removeItem('baisch_player_name');
   }-*/;

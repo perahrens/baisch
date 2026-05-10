@@ -50,6 +50,10 @@ public class StatsScreen extends AbstractScreen {
     this.log    = (log != null) ? log : new JSONArray();
   }
 
+  private String t(String key) {
+    return Localization.tr(key);
+  }
+
   @Override
   public void show() {
     if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
@@ -68,16 +72,16 @@ public class StatsScreen extends AbstractScreen {
     final float cx = MyGdxGame.WIDTH / 2f;
 
     // Title
-    Label title = new Label("Game Statistics", MyGdxGame.skin);
+    Label title = new Label(t("stats.title"), MyGdxGame.skin);
     title.pack();
     title.setPosition(Math.round(cx - title.getWidth() / 2f),
         Math.round(0.91f * MyGdxGame.HEIGHT));
     stage.addActor(title);
 
     // ── Tab bar ──────────────────────────────────────────────────────────────
-    Label generalTab = new Label("General", MyGdxGame.skin);
-    Label playersTab = new Label("Players", MyGdxGame.skin);
-    Label historyTab = new Label("History", MyGdxGame.skin);
+    Label generalTab = new Label(t("stats.tab.general"), MyGdxGame.skin);
+    Label playersTab = new Label(t("stats.tab.players"), MyGdxGame.skin);
+    Label historyTab = new Label(t("stats.tab.history"), MyGdxGame.skin);
     generalTab.pack();
     playersTab.pack();
     historyTab.pack();
@@ -149,7 +153,7 @@ public class StatsScreen extends AbstractScreen {
     }
 
     // ── Return to Lobby button ───────────────────────────────────────────────
-    TextButton returnBtn = new TextButton("Return to Lobby", MyGdxGame.skin);
+    TextButton returnBtn = new TextButton(t("menu.returnLobby"), MyGdxGame.skin);
     returnBtn.setSize(returnBtn.getPrefWidth() + 20, returnBtn.getPrefHeight());
     float btnRowY = Math.round(0.055f * MyGdxGame.HEIGHT);
     if (activeTab == 2) {
@@ -175,7 +179,7 @@ public class StatsScreen extends AbstractScreen {
     table.setBackground(MyGdxGame.skin.newDrawable("white", ROW_BG_COLOR));
     table.pad(18f, 22f, 18f, 22f);
 
-    Label roundsLabel = new Label("Rounds played", MyGdxGame.skin);
+    Label roundsLabel = new Label(t("stats.roundsPlayed"), MyGdxGame.skin);
     Label roundsValue = new Label(String.valueOf(rounds), MyGdxGame.skin);
     roundsLabel.setColor(HEADER_COLOR);
     roundsValue.setColor(HEADER_COLOR);
@@ -211,14 +215,14 @@ public class StatsScreen extends AbstractScreen {
     // Header row
     Color hc = HEADER_COLOR;
     addCell(table, "#",        colPlace,    hc, false);
-    addCell(table, "Name",     colName,     hc, true);
-    addCell(table, "Rounds",   colRounds,   hc, false);
-    addCell(table, "Loots", colPlund,    hc, false);
-    addCell(table, "Attacks",  colAtk,      hc, false);
-    addCell(table, "Defeated", colDefeated, hc, false);
-    addCell(table, "King",     colKing,     hc, false);
+    addCell(table, t("common.name"),     colName,     hc, true);
+    addCell(table, t("stats.col.rounds"),   colRounds,   hc, false);
+    addCell(table, t("stats.col.loots"), colPlund,    hc, false);
+    addCell(table, t("stats.col.attacks"),  colAtk,      hc, false);
+    addCell(table, t("stats.col.defeated"), colDefeated, hc, false);
+    addCell(table, t("stats.col.king"),     colKing,     hc, false);
     addCell(table, "T/P",      colMobilise, hc, false);
-    addCell(table, "Heroes",   colHero,     hc, false);
+    addCell(table, t("stats.col.heroes"),   colHero,     hc, false);
     table.row();
 
     // Header separator
@@ -239,7 +243,7 @@ public class StatsScreen extends AbstractScreen {
     table.row();
 
     if (players == null || players.length() == 0) {
-      Label empty = new Label("No data available", MyGdxGame.skin);
+      Label empty = new Label(t("stats.noData"), MyGdxGame.skin);
       empty.setColor(INACTIVE_COLOR);
       table.add(empty).colspan(6).padTop(8f);
       table.row();
@@ -314,7 +318,7 @@ public class StatsScreen extends AbstractScreen {
     inner.top().left().pad(6f);
 
     if (log.length() == 0) {
-      Label empty = new Label("No history yet.", MyGdxGame.skin);
+      Label empty = new Label(t("stats.noHistory"), MyGdxGame.skin);
       empty.setColor(INACTIVE_COLOR);
       inner.add(empty).row();
     } else {
@@ -354,7 +358,7 @@ public class StatsScreen extends AbstractScreen {
 
     // "Copy log" button — copies all history entries to the system clipboard
     // Placed to the left of the centred Return to Lobby button (which sits right of centre)
-    TextButton copyBtn = new TextButton("Copy log", MyGdxGame.skin);
+    TextButton copyBtn = new TextButton(t("stats.copyLog"), MyGdxGame.skin);
     copyBtn.setSize(copyBtn.getPrefWidth() + 20, copyBtn.getPrefHeight());
     copyBtn.setPosition(Math.round(cx - copyBtn.getWidth() - 6f),
         Math.round(0.055f * MyGdxGame.HEIGHT));

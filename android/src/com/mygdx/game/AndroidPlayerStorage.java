@@ -13,6 +13,7 @@ public class AndroidPlayerStorage implements PlayerStorage {
     private static final String KEY_MUSIC_ENABLED = "music_enabled";
     private static final String KEY_SOUND_ENABLED = "sound_enabled";
     private static final String KEY_ICON          = "player_icon";
+    private static final String KEY_LANGUAGE      = "language";
 
     private final SharedPreferences prefs;
 
@@ -42,6 +43,8 @@ public class AndroidPlayerStorage implements PlayerStorage {
     @Override public void    saveMusicEnabled(boolean enabled)   { prefs.edit().putBoolean(KEY_MUSIC_ENABLED, enabled).apply(); }
     @Override public boolean getSoundEnabled()                   { return prefs.getBoolean(KEY_SOUND_ENABLED, true); }
     @Override public void    saveSoundEnabled(boolean enabled)   { prefs.edit().putBoolean(KEY_SOUND_ENABLED, enabled).apply(); }
+    @Override public String  getLanguage()                       { String val = prefs.getString(KEY_LANGUAGE, "en"); return "de".equals(val) ? "de" : "en"; }
+    @Override public void    saveLanguage(String languageCode)   { prefs.edit().putString(KEY_LANGUAGE, "de".equals(languageCode) ? "de" : "en").apply(); }
     @Override public String  getSavedIcon()                      { return prefs.getString(KEY_ICON, ""); }
     @Override public void    saveIcon(String icon)               { prefs.edit().putString(KEY_ICON, icon).apply(); }
     @Override public void    clearIcon()                         { prefs.edit().remove(KEY_ICON).apply(); }

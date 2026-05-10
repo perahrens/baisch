@@ -15,6 +15,8 @@ public class IOSPlayerStorage implements PlayerStorage {
     private static final String KEY_SHOW_PLAYERS  = "show_players_tab";
     private static final String KEY_MUSIC_ENABLED = "music_enabled";
     private static final String KEY_SOUND_ENABLED = "sound_enabled";
+    private static final String KEY_ICON          = "player_icon";
+    private static final String KEY_LANGUAGE      = "language";
 
     private final NSUserDefaults prefs;
 
@@ -45,4 +47,9 @@ public class IOSPlayerStorage implements PlayerStorage {
     @Override public void    saveMusicEnabled(boolean enabled)   { prefs.put(KEY_MUSIC_ENABLED, enabled);     prefs.synchronize(); }
     @Override public boolean getSoundEnabled()                   { String v = prefs.getString(KEY_SOUND_ENABLED); if (v == null) return true; return prefs.getBoolean(KEY_SOUND_ENABLED); }
     @Override public void    saveSoundEnabled(boolean enabled)   { prefs.put(KEY_SOUND_ENABLED, enabled);     prefs.synchronize(); }
+    @Override public String  getLanguage()                       { String v = prefs.getString(KEY_LANGUAGE); if (v == null) return "en"; return "de".equals(v) ? "de" : "en"; }
+    @Override public void    saveLanguage(String languageCode)   { prefs.put(KEY_LANGUAGE, "de".equals(languageCode) ? "de" : "en"); prefs.synchronize(); }
+    @Override public String  getSavedIcon()                      { String v = prefs.getString(KEY_ICON); return v != null ? v : ""; }
+    @Override public void    saveIcon(String icon)               { prefs.put(KEY_ICON, icon); prefs.synchronize(); }
+    @Override public void    clearIcon()                         { prefs.remove(KEY_ICON); prefs.synchronize(); }
 }

@@ -4,6 +4,7 @@ import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.backends.gwt.GwtApplication;
 import com.badlogic.gdx.backends.gwt.GwtApplicationConfiguration;
 import com.google.gwt.user.client.Window;
+import com.mygdx.game.Localization;
 import com.mygdx.game.MyGdxGame;
 import com.mygdx.game.net.DiagListener;
 
@@ -31,6 +32,7 @@ public class HtmlLauncher extends GwtApplication {
         MyGdxGame.nativeMusicButton = true;
         // Inject the animated GIF music button into the DOM and wire up callbacks.
         installMusicButton(app);
+        installLanguageButton(app);
         // Register the UI-update callback so setMusicEnabled() keeps the GIF in sync.
         MyGdxGame.onMusicUiUpdate = new Runnable() {
             @Override
@@ -38,10 +40,17 @@ public class HtmlLauncher extends GwtApplication {
                 refreshMusicButton(MyGdxGame.playerStorage.getMusicEnabled());
             }
         };
+        MyGdxGame.onLanguageUiUpdate = new Runnable() {
+            @Override
+            public void run() {
+                refreshLanguageButton(Localization.getLanguage());
+            }
+        };
         MyGdxGame.onGameScreenActive = new Runnable() {
             @Override
             public void run() {
                 setMusicButtonVisible(false);
+                setLanguageButtonVisible(false);
                 setViewportBackgroundMode(false);
             }
         };
@@ -49,6 +58,8 @@ public class HtmlLauncher extends GwtApplication {
             @Override
             public void run() {
                 setMusicButtonVisible(true);
+                setLanguageButtonVisible(true);
+                refreshLanguageButton(Localization.getLanguage());
                 setViewportBackgroundMode(true);
             }
         };
@@ -183,15 +194,112 @@ public class HtmlLauncher extends GwtApplication {
         });
     }-*/;
 
+    /**
+     * Injects a fixed-position language button next to the music button.
+     * Clicking opens a small downward popup with other language flags.
+     */
+    private static native void installLanguageButton(MyGdxGame app) /*-{
+        var langs = [
+            { code: 'en', src: '/assets/data/graphics/ui/lang_en.png', label: 'EN' },
+            { code: 'de', src: '/assets/data/graphics/ui/lang_de.png', label: 'DE' },
+            { code: 'ru', src: '/assets/data/graphics/ui/lang_ru.png', label: 'RU' },
+            { code: 'no', src: '/assets/data/graphics/ui/lang_no.png', label: 'NO' },
+            { code: 'it', src: '/assets/data/graphics/ui/lang_it.png', label: 'IT' }
+        ];
+
+        var holder = $doc.createElement('div');
+        holder.id = 'baisch-lang-holder';
+        holder.style.cssText =
+            'position:fixed;top:6px;right:66px;z-index:9999;display:block;';
+
+        var btn = $doc.createElement('img');
+        btn.id = 'baisch-lang-btn';
+        btn.style.cssText =
+            'width:48px;height:32px;cursor:pointer;display:block;border-radius:2px;';
+
+        var popup = $doc.createElement('div');
+        popup.id = 'baisch-lang-popup';
+        popup.style.cssText =
+            'position:absolute;top:36px;right:0;display:none;padding:4px;background:rgba(20,20,20,0.95);' +
+            'border:1px solid rgba(255,255,255,0.25);border-radius:4px;';
+
+        holder.appendChild(btn);
+        holder.appendChild(popup);
+        $doc.body.appendChild(holder);
+
+        function langByCode(code) {
+            for (var i = 0; i < langs.length; i++) if (langs[i].code === code) return langs[i];
+            return langs[0];
+        }
+
+        function setButtonLanguage(code) {
+            var lang = langByCode(code || 'en');
+            btn.src = lang.src;
+            btn.alt = lang.label;
+        }
+
+        function rebuildPopup(currentCode) {
+            popup.innerHTML = '';
+            for (var i = 0; i < langs.length; i++) {
+                var lang = langs[i];
+                if (lang.code === currentCode) continue;
+                var opt = $doc.createElement('img');
+                opt.src = lang.src;
+                opt.alt = lang.label;
+                opt.style.cssText = 'width:48px;height:32px;display:block;cursor:pointer;margin:2px 0;border-radius:2px;';
+                (function(code) {
+                    opt.addEventListener('click', function(ev) {
+                        ev.stopPropagation();
+                        popup.style.display = 'none';
+                        @com.mygdx.game.MyGdxGame::handleLanguageButtonClick(Ljava/lang/String;)(code);
+                    });
+                })(lang.code);
+                popup.appendChild(opt);
+            }
+        }
+
+        $wnd._baischSetLangBtn = function(code) {
+            var current = code || ($wnd.localStorage.getItem('baisch_language') || 'en');
+            setButtonLanguage(current);
+            rebuildPopup(current);
+        };
+
+        btn.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            popup.style.display = (popup.style.display === 'none' || popup.style.display === '') ? 'block' : 'none';
+        });
+
+        $doc.addEventListener('click', function() {
+            popup.style.display = 'none';
+        }, true);
+
+        var initialLang = $wnd.localStorage.getItem('baisch_language') || 'en';
+        $wnd._baischSetLangBtn(initialLang);
+    }-*/;
+
     /** Called from the onMusicUiUpdate Runnable to keep the GIF in sync with Java state. */
     private static native void refreshMusicButton(boolean enabled) /*-{
         if ($wnd._baischSetMusicBtn) $wnd._baischSetMusicBtn(enabled);
+    }-*/;
+
+    /** Called from Java whenever language state changes. */
+    private static native void refreshLanguageButton(String languageCode) /*-{
+        if ($wnd._baischSetLangBtn) $wnd._baischSetLangBtn(languageCode);
     }-*/;
 
     /** Shows or hides the DOM music button when switching between game and menu screens. */
     private static native void setMusicButtonVisible(boolean visible) /*-{
         var img = $doc.getElementById('baisch-music-img');
         if (img) img.style.display = visible ? 'block' : 'none';
+    }-*/;
+
+    /** Shows or hides the DOM language button. */
+    private static native void setLanguageButtonVisible(boolean visible) /*-{
+        var holder = $doc.getElementById('baisch-lang-holder');
+        if (!holder) return;
+        holder.style.display = visible ? 'block' : 'none';
+        var popup = $doc.getElementById('baisch-lang-popup');
+        if (popup) popup.style.display = 'none';
     }-*/;
 
     /**

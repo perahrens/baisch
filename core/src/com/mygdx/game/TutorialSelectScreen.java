@@ -41,7 +41,12 @@ public class TutorialSelectScreen extends AbstractScreen {
     build();
   }
 
+  private String t(String key) {
+    return Localization.tr(key);
+  }
+
   private void build() {
+    stage.clear();
     if (bgTexture != null) {
       Image bg = new Image(bgTexture);
       bg.setFillParent(true);
@@ -52,12 +57,12 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.top().pad(20f);
 
     // Title
-    Label title = new Label("Choose a Tutorial", MyGdxGame.skin, "default");
+    Label title = new Label(t("tutorial.chooseTitle"), MyGdxGame.skin, "default");
     title.setColor(Color.GOLD);
     root.add(title).padBottom(16f).row();
 
     // Basic tutorial button
-    TextButton basicBtn = new TextButton("► Basic Rules", MyGdxGame.skin);
+    TextButton basicBtn = new TextButton("► " + t("tutorial.basicRules"), MyGdxGame.skin);
     basicBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -67,7 +72,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.add(basicBtn).width(340f).height(90f).padBottom(24f).row();
 
     // Section label
-    Label heroLabel = new Label("Hero Tutorials", MyGdxGame.skin, "default");
+    Label heroLabel = new Label(t("tutorial.heroTutorials"), MyGdxGame.skin, "default");
     heroLabel.setColor(new Color(0.8f, 0.8f, 0.8f, 1f));
     root.add(heroLabel).padBottom(10f).row();
 
@@ -75,12 +80,11 @@ public class TutorialSelectScreen extends AbstractScreen {
     Table heroTable = new Table();
     heroTable.top();
     for (final String heroName : HERO_NAMES) {
-      TextButton btn = new TextButton(heroName, MyGdxGame.skin);
+      TextButton btn = new TextButton(Localization.heroName(heroName), MyGdxGame.skin);
       btn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-          // Issue #171: launch an interactive bot game scenario for this hero
-          // (replaces the prior text-only HeroTutorialScreen).
+          // Issue #171: launch an interactive bot game scenario for this hero.
           try {
             JSONObject payload = new JSONObject();
             payload.put("heroName", heroName);
@@ -99,7 +103,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     root.add(scroll).width(360f).height(420f).row();
 
     // Back button
-    TextButton backBtn = new TextButton("Back", MyGdxGame.skin);
+    TextButton backBtn = new TextButton(t("tutorial.back"), MyGdxGame.skin);
     backBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -113,6 +117,8 @@ public class TutorialSelectScreen extends AbstractScreen {
 
   @Override
   public void show() {
+    if (MyGdxGame.onMenuScreenActive != null) MyGdxGame.onMenuScreenActive.run();
+    build();
     Gdx.input.setInputProcessor(stage);
   }
 
@@ -121,6 +127,7 @@ public class TutorialSelectScreen extends AbstractScreen {
     Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     drawFullScreenTexture(bgTexture);
+    stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
     stage.act(delta);
     stage.draw();
   }

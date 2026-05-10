@@ -90,7 +90,8 @@ function createSession(name, allowHeroSelection, startingCards, manualSetup, her
       {type: 'open'},
       {type: 'open'},
       {type: 'open'}
-    ]
+    ],
+    chatHistory: [] // persisted chat messages, capped at 200, replayed to reconnecting players
   };
   return sessions[id];
 }
@@ -1099,7 +1100,12 @@ io.on('connection', function(socket) {
     if (!sess) return;
     var sender = connectedPlayers[socket.id];
     var name = sender ? sender.name : 'Unknown';
-    io.to(sess.id).emit('chatMessage', { name: name, text: (data && data.text) ? String(data.text) : '' });
+    var text = (data && data.text) ? String(data.text) : '';
+    // Persist in session so reconnecting players receive the full history.
+    if (!sess.chatHistory) sess.chatHistory = [];
+    sess.chatHistory.push({ name: name, text: text });
+    if (sess.chatHistory.length > 200) sess.chatHistory.shift(); // cap at 200
+    io.to(sess.id).emit('chatMessage', { name: name, text: text });
   });
 
   socket.on('disconnect', function() {
@@ -1181,6 +1187,7 @@ io.on('connection', function(socket) {
             socketToSession[socket.id] = sessId;
             socket.join(sessId);
             socket.emit('gameState', { playerIndex: playerIdx, gameState: sess.gameState.serialize(false), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
+            socket.emit('chatHistory', sess.chatHistory || []);
             broadcastPlayerList();
             console.log('Reconnected ' + name + ' (token ' + token.slice(0, 8) + '...) to session ' + sessId + ' as player ' + playerIdx);
             return;
@@ -1388,6 +1395,7 @@ io.on('connection', function(socket) {
     socket.join(sess.id);
     socket.emit('sessionJoined', { sessionId: sess.id });
     socket.emit('gameState', { playerIndex: -1, gameState: sess.gameState.serialize(), heroAssignMode: sess.heroAssignMode || 'value_mapping' });
+    socket.emit('chatHistory', sess.chatHistory || []);
   });
 
   // ── Lobby events ─────────────────────────────────────────────────────────

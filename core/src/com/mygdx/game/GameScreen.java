@@ -841,6 +841,31 @@ public class GameScreen extends ScreenAdapter {
       }
     });
 
+    socket.on("chatHistory", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        if (args.length == 0) return;
+        try {
+          final org.json.JSONArray history = (org.json.JSONArray) args[0];
+          Gdx.app.postRunnable(new Runnable() {
+            @Override public void run() {
+              chatMessages.clear();
+              for (int hi = 0; hi < history.length(); hi++) {
+                try {
+                  org.json.JSONObject m = history.getJSONObject(hi);
+                  chatMessages.add(new String[]{ m.optString("name", "?"), m.optString("text", "") });
+                } catch (org.json.JSONException ignore) {}
+              }
+              // If the chat panel is currently open, rebuild it so history shows immediately.
+              if (chatOpen) {
+                showChatOverlay();
+              }
+            }
+          });
+        } catch (Exception e) { e.printStackTrace(); }
+      }
+    });
+
     socket.on("chatMessage", new SocketListener() {
       @Override
       public void call(Object... args) {

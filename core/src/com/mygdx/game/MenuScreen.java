@@ -615,7 +615,7 @@ public class MenuScreen extends AbstractScreen {
     final Runnable doConfirm = new Runnable() {
       @Override public void run() {
         String name = nameField.getText().trim();
-        if (name.isEmpty()) return;
+        if (name.isEmpty() || selectedIcon.isEmpty()) return;
         MyGdxGame.keyboardHelper.hideKeyboard();
         menuState.setMyName(name);
         MyGdxGame.playerStorage.saveName(name);
@@ -642,14 +642,18 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    // ── Login button (centered below avatar selector — positioned after it is built) ───
-    final TextButton loginBtn = new TextButton(t("menu.login"), MyGdxGame.skin);
+    // ── Login button — enabled state driven by act() every frame so it reacts
+    // correctly regardless of whether text arrives via keyTyped or setText().
+    final TextButton loginBtn = new TextButton(t("menu.login"), MyGdxGame.skin) {
+      @Override public void act(float delta) {
+        super.act(delta);
+        boolean ok = !nameField.getText().trim().isEmpty() && !selectedIcon.isEmpty();
+        setDisabled(!ok);
+        getLabel().setColor(ok ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
+      }
+    };
     loginBtn.pack();
     loginBtn.setSize(loginBtn.getPrefWidth() + 40f, loginBtn.getPrefHeight() + 20f);
-    final boolean initNameOk = !menuState.getMyName().isEmpty();
-    final boolean initIconOk = !selectedIcon.isEmpty();
-    loginBtn.setDisabled(!(initNameOk && initIconOk));
-    loginBtn.getLabel().setColor(initNameOk && initIconOk ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
     loginBtn.addListener(new ClickListener() {
       @Override
       public void clicked(InputEvent event, float x, float y) {
@@ -658,21 +662,9 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    // Update login button whenever the player types in the name field.
-    nameField.setTextFieldListener(new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldListener() {
-      @Override
-      public void keyTyped(com.badlogic.gdx.scenes.scene2d.ui.TextField textField, char c) {
-        boolean nameOk = !textField.getText().trim().isEmpty();
-        boolean iconOk = !selectedIcon.isEmpty();
-        loginBtn.setDisabled(!(nameOk && iconOk));
-        loginBtn.getLabel().setColor(nameOk && iconOk ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
-      }
-    });
-
     nameField.setWidth(250f);
     nameField.setHeight(50f);
-    nameField.setPosition(cx - 125f, 0.3f * MyGdxGame.HEIGHT);
-    menuStage.addActor(nameField);
+    // Position is set after avatarSelector is packed (bottom-up layout below).
 
     // Avatar selector — shown below the name field.
     // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
@@ -710,10 +702,7 @@ public class MenuScreen extends AbstractScreen {
             Color c = sel ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
             avatarWrappers[j].setBackground(MyGdxGame.skin.newDrawable("white", c));
           }
-          // Enable login button if name is also set.
-          boolean nameOk = !nameField.getText().trim().isEmpty();
-          loginBtn.setDisabled(!nameOk);
-          loginBtn.getLabel().setColor(nameOk ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
+          // loginBtn state is updated automatically via act() override.
         }
       });
       avatarRow.add(wrapper).padRight(avIdx < AVATAR_NAMES.length - 1 ? 6f : 0f);
@@ -742,26 +731,34 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.add(avatarLabel).padBottom(6f).row();
     avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
-    avatarSelector.setPosition(
-        Math.round(cx - avatarSelector.getWidth() / 2f),
-        Math.round(0.3f * MyGdxGame.HEIGHT - avatarSelector.getHeight() - 10f));
-    menuStage.addActor(avatarSelector);
 
-    // Login button: centered below avatar selector, clamped so it stays on screen
+    // ── Bottom-up layout: loginBtn → avatarSelector → nameField ────────────
+    // Building upward from a fixed bottom margin guarantees no overlap.
+    final float bMargin = 16f;
+    final float elemGap = 10f;
+    float loginY   = bMargin;
+    float avatarY  = loginY  + loginBtn.getHeight()     + elemGap;
+    float nameY    = avatarY + avatarSelector.getHeight() + elemGap;
+
     loginBtn.setPosition(
-        Math.round(cx - loginBtn.getWidth() / 2f),
-        Math.max(6f, Math.round(avatarSelector.getY() - loginBtn.getHeight() - 10f)));
+        Math.round(cx - loginBtn.getWidth() / 2f), Math.round(loginY));
+    avatarSelector.setPosition(
+        Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
+    nameField.setPosition(
+        Math.round(cx - nameField.getWidth() / 2f), Math.round(nameY));
+
+    menuStage.addActor(nameField);
+    menuStage.addActor(avatarSelector);
     menuStage.addActor(loginBtn);
 
-    // Subtitle below logo — the DOM overlay (BAISCH + suits) occupies the upper half;
-    // position this label well above the Enter-your-name button (at 0.3f * HEIGHT)
-    // so the two elements don't visually overlap.
+    // Subtitle — the DOM overlay (BAISCH + suits) occupies the upper half;
+    // position this label just above the name field.
     Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
     subtitle.setPosition(
         Math.round(cx - subtitle.getWidth() / 2f),
-        Math.round(0.42f * MyGdxGame.HEIGHT));
+        Math.round(nameY + nameField.getHeight() + 12f));
     menuStage.addActor(subtitle);
 
 

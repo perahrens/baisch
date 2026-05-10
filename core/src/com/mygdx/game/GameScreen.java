@@ -145,6 +145,10 @@ public class GameScreen extends ScreenAdapter {
   private JSONObject pendingAttackBroadcast = null;
   // Loot preview broadcast: set from stateUpdate when another player has a pending loot
   private JSONObject pendingLootBroadcast = null;
+  // Set to true after the local player emits lootResolved; prevents a stale stateUpdate (that
+  // still carries pendingLoot) from incorrectly re-showing the loot overlay before the server
+  // confirms the loot is done.  Cleared when stateUpdate arrives with pendingLoot == null.
+  private boolean lootResolvedSent = false;
   // Pending hero selection after a successful king defeat (attacker must choose one hero)
   private java.util.ArrayList<String> pendingKingDefeatHeroOptions = null;
   // Hero auction: server-authoritative state (non-null when auction is in progress)
@@ -2180,6 +2184,7 @@ public class GameScreen extends ScreenAdapter {
             MyGdxGame.playGameSound(lootSuccess ? MyGdxGame.soundAttackSuccess : MyGdxGame.soundAttackFail);
             if (pt.isKingUsed()) MyGdxGame.playGameSound(MyGdxGame.soundKingAttack);
             socket.emit("lootResolved", emitData);
+            lootResolvedSent = true;
           } catch (JSONException e) {
             e.printStackTrace();
           }
@@ -6434,7 +6439,12 @@ public class GameScreen extends ScreenAdapter {
 
         // Restore per-turn client counters from server-authoritative state so they survive page refresh
         if (p == currentPlayer) {
-          p.getPlayerTurn().setPickingDeckAttacks(pj.optInt("pickingDeckAttacks", 1));
+          // RACE-SAFE: a stale stateUpdate can arrive after the client already spent the loot
+          // attack (decremented pickingDeckAttacks to 0).  Take MIN(server, local) while it is
+          // still this player's turn so the stale value cannot reset the counter back to 1.
+          int serverPDA = pj.optInt("pickingDeckAttacks", 1);
+          int localPDA = p.getPlayerTurn().getPickingDeckAttacks();
+          p.getPlayerTurn().setPickingDeckAttacks(isThisPlayersTurn ? Math.min(serverPDA, localPDA) : serverPDA);
           p.getPlayerTurn().setAttackingSymbolDirect(
               pj.optString("attackingSymbol", "none"),
               pj.optString("attackingSymbol2", "none"));
@@ -6472,7 +6482,8 @@ public class GameScreen extends ScreenAdapter {
       JSONObject serverPendingLoot = state.optJSONObject("pendingLoot");
       if (serverPendingLoot != null
           && serverPendingLoot.optInt("attackerIdx", -1) == playerIndex
-          && !currentPlayer.getPlayerTurn().isLootPending()) {
+          && !currentPlayer.getPlayerTurn().isLootPending()
+          && !lootResolvedSent) {
         // Restore the loot confirmation overlay so it reappears after a page refresh
         PlayerTurn rpt = currentPlayer.getPlayerTurn();
         rpt.setLootPending(true);
@@ -6498,6 +6509,8 @@ public class GameScreen extends ScreenAdapter {
         pendingLootBroadcast = serverPendingLoot;
       } else {
         pendingLootBroadcast = null;
+        // Server has no pending loot — safe to clear the guard flag so future loots work normally.
+        lootResolvedSent = false;
       }
 
       // Sync pending hero selection after king defeat (only relevant to the attacker)

@@ -17,6 +17,7 @@ public class IOSPlayerStorage implements PlayerStorage {
     private static final String KEY_SOUND_ENABLED = "sound_enabled";
     private static final String KEY_ICON          = "player_icon";
     private static final String KEY_LANGUAGE      = "language";
+    private static final String KEY_USERNAME      = "account_username";
 
     private final NSUserDefaults prefs;
 
@@ -52,4 +53,7 @@ public class IOSPlayerStorage implements PlayerStorage {
     @Override public String  getSavedIcon()                      { String v = prefs.getString(KEY_ICON); return v != null ? v : ""; }
     @Override public void    saveIcon(String icon)               { prefs.put(KEY_ICON, icon); prefs.synchronize(); }
     @Override public void    clearIcon()                         { prefs.remove(KEY_ICON); prefs.synchronize(); }
+    @Override public String  getSavedUsername()                  { String v = prefs.getString(KEY_USERNAME); return v != null ? v : ""; }
+    @Override public void    saveUsername(String username)       { prefs.put(KEY_USERNAME, username); prefs.synchronize(); }
+    @Override public void    clearUsername()                     { prefs.remove(KEY_USERNAME); prefs.synchronize(); }
 }

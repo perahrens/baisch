@@ -1,7 +1,40 @@
 var path = require('path');
+var fs = require('fs');
+var bcrypt = require('bcryptjs');
 var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
+
+// ─── Persistent user account store ───────────────────────────────────────────
+var USERS_FILE = '/data/users.json';
+// In-memory cache: { [username_lower]: { username, passwordHash, icon } }
+var userAccounts = {};
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      var raw = fs.readFileSync(USERS_FILE, 'utf8');
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        userAccounts = parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load users file:', e.message);
+  }
+}
+
+function saveUsers() {
+  try {
+    var dir = path.dirname(USERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(userAccounts), 'utf8');
+  } catch (e) {
+    console.error('Failed to save users file:', e.message);
+  }
+}
+
+loadUsers();
 
 // Serve the mobile-optimised page at /m (canonical URL).
 app.get('/m', function(req, res) {
@@ -1153,6 +1186,41 @@ io.on('connection', function(socket) {
   socket.on('leaveSession', function() {
     console.log('User ' + socket.id + ' left session');
     leaveCurrentSession(socket);
+  });
+
+  socket.on('registerAccount', function(data) {
+    var username = (data && data.username) ? String(data.username).slice(0, 30).trim() : '';
+    var password = (data && data.password) ? String(data.password) : '';
+    var icon     = (data && data.icon)     ? String(data.icon).slice(0, 50) : '';
+    if (!username || !password || password.length < 4) {
+      socket.emit('registerResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    var key = username.toLowerCase();
+    if (userAccounts[key]) {
+      socket.emit('registerResult', { success: false, error: 'username_taken' });
+      return;
+    }
+    var hash = bcrypt.hashSync(password, 10);
+    userAccounts[key] = { username: username, passwordHash: hash, icon: icon };
+    saveUsers();
+    socket.emit('registerResult', { success: true, name: username, icon: icon });
+  });
+
+  socket.on('loginAccount', function(data) {
+    var username = (data && data.username) ? String(data.username).slice(0, 30).trim() : '';
+    var password = (data && data.password) ? String(data.password) : '';
+    if (!username || !password) {
+      socket.emit('loginResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    var key = username.toLowerCase();
+    var account = userAccounts[key];
+    if (!account || !bcrypt.compareSync(password, account.passwordHash)) {
+      socket.emit('loginResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    socket.emit('loginResult', { success: true, name: account.username, icon: account.icon || '' });
   });
 
   socket.on('registerPlayer', function(data) {

@@ -636,17 +636,6 @@ public class MenuScreen extends AbstractScreen {
     return cell;
   }
 
-  /** Wraps a Label with an optional leading avatar icon inside a horizontal Table cell. */
-  private Table buildNameCell(Label nameLabel, String iconName) {
-    Table cell = new Table();
-    Image avatar = createAvatarImage(iconName, 22f);
-    if (avatar != null) {
-      cell.add(avatar).size(22f, 22f).padRight(5f);
-    }
-    cell.add(nameLabel);
-    return cell;
-  }
-
   /**
    * Auth-choice screen — shown on first visit (no saved name and no saved username).
    * Three buttons: Join as guest, Register, Log in with account.

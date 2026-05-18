@@ -228,6 +228,8 @@ public class MenuScreen extends AbstractScreen {
     String savedUsername = MyGdxGame.playerStorage.getSavedUsername();
     if (!savedUsername.isEmpty() && !nameConfirmed) {
       menuState.setMyName(savedUsername);
+      // Ensure baisch_player_name is set so the DOM account button appears.
+      MyGdxGame.playerStorage.saveName(savedUsername);
       nameConfirmed = true;
       authChoiceShown = true;
     } else if (!savedUsername.isEmpty()) {
@@ -792,6 +794,14 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    passwordField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(passwordField, doRegister);
+        return false;
+      }
+    });
+
     // Back button
     TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
     backBtn.pack();
@@ -966,6 +976,14 @@ public class MenuScreen extends AbstractScreen {
       @Override
       public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
         MyGdxGame.keyboardHelper.showKeyboard(usernameField, doLogin);
+        return false;
+      }
+    });
+
+    passwordField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(passwordField, doLogin);
         return false;
       }
     });

@@ -90,10 +90,16 @@ function getPlayerStatus(socketId) {
 }
 
 function broadcastPlayerList() {
+  var seen = {};
   var list = Object.keys(connectedPlayers)
     .filter(function(sid) { return connectedPlayers[sid].name; })
     .map(function(sid) {
       return { id: sid, name: connectedPlayers[sid].name, icon: connectedPlayers[sid].icon || '', status: getPlayerStatus(sid) };
+    })
+    .filter(function(entry) {
+      if (seen[entry.name]) return false;
+      seen[entry.name] = true;
+      return true;
     });
   io.emit('playerList', list);
 }
@@ -1122,11 +1128,19 @@ io.on('connection', function(socket) {
   connectedPlayers[socket.id] = { id: socket.id, name: '' };
   socket.emit('socketID', { id: socket.id });
   socket.emit('sessionList', getSessionList());
-  socket.emit('playerList', Object.keys(connectedPlayers)
-    .filter(function(sid) { return connectedPlayers[sid].name; })
-    .map(function(sid) {
-      return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
-    }));
+  socket.emit('playerList', (function() {
+    var seen = {};
+    return Object.keys(connectedPlayers)
+      .filter(function(sid) { return connectedPlayers[sid].name; })
+      .map(function(sid) {
+        return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
+      })
+      .filter(function(entry) {
+        if (seen[entry.name]) return false;
+        seen[entry.name] = true;
+        return true;
+      });
+  })());
 
   socket.on('chatMessage', function(data) {
     var sess = getSession(socket.id);

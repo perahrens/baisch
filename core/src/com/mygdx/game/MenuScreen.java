@@ -645,14 +645,21 @@ public class MenuScreen extends AbstractScreen {
     if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
-    float btnW = 240f;
-    float btnH = 52f;
-    float gap = 16f;
+    float gap = 12f;
     float bMargin = 24f;
 
     TextButton guestBtn = new TextButton(t("menu.auth.joinGuest"), MyGdxGame.skin);
     TextButton registerBtn = new TextButton(t("menu.auth.register"), MyGdxGame.skin);
     TextButton loginBtn = new TextButton(t("menu.auth.loginWithAccount"), MyGdxGame.skin);
+
+    // Use the skin's preferred dimensions like all other screens do
+    guestBtn.pack();
+    registerBtn.pack();
+    loginBtn.pack();
+    float btnH = guestBtn.getPrefHeight() + 20f;
+    float btnW = Math.max(
+        Math.max(guestBtn.getPrefWidth(), registerBtn.getPrefWidth()),
+        loginBtn.getPrefWidth()) + 60f;
 
     guestBtn.setSize(btnW, btnH);
     registerBtn.setSize(btnW, btnH);
@@ -2831,6 +2838,7 @@ public class MenuScreen extends AbstractScreen {
                 String username = result.optString("name", "");
                 String icon = result.optString("icon", "");
                 MyGdxGame.playerStorage.saveUsername(username);
+                MyGdxGame.playerStorage.saveName(username);
                 menuState.setMyName(username);
                 if (!icon.isEmpty()) {
                   selectedIcon = icon;
@@ -2874,6 +2882,7 @@ public class MenuScreen extends AbstractScreen {
                 String username = result.optString("name", "");
                 String icon = result.optString("icon", "");
                 MyGdxGame.playerStorage.saveUsername(username);
+                MyGdxGame.playerStorage.saveName(username);
                 menuState.setMyName(username);
                 if (!icon.isEmpty()) {
                   selectedIcon = icon;

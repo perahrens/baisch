@@ -1416,6 +1416,9 @@ io.on('connection', function(socket) {
     // the player is already in the lobby and a leaveCurrentSession call here
     // would destroy the session if they are the host.
     if (socketToSession[socket.id] === data.sessionId) return;
+    // Reject if the same display name is already in the session (same user on two devices)
+    var alreadyInSession = sess.users.find(function(u) { return u.name === name && u.id !== socket.id; });
+    if (alreadyInSession) { socket.emit('sessionFull'); return; }
     // Reject if no open slots remain
     var openSlotIdx = -1;
     for (var si = 1; si <= 3; si++) {

@@ -735,6 +735,10 @@ public class MenuScreen extends AbstractScreen {
     usernameField.setMessageText(t("menu.auth.usernamePlaceholder"));
     usernameField.setWidth(250f);
     usernameField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(usernameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      usernameField.setStyle(s); }
 
     final com.badlogic.gdx.scenes.scene2d.ui.TextField passwordField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
@@ -743,6 +747,10 @@ public class MenuScreen extends AbstractScreen {
     passwordField.setPasswordCharacter('*');
     passwordField.setWidth(250f);
     passwordField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(passwordField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      passwordField.setStyle(s); }
 
     final TextButton submitBtn = new TextButton(t("menu.auth.register.submit"), MyGdxGame.skin) {
       @Override public void act(float delta) {
@@ -871,17 +879,21 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
 
-    // Bottom-up layout
+    // Bottom-up layout — Back (left) and Submit (right) share the same row.
     float bMargin = 16f;
-    float elemGap = 10f;
-    float backY     = bMargin;
-    float submitY   = backY + backBtn.getHeight() + elemGap;
-    float avatarY   = submitY + submitBtn.getHeight() + elemGap;
-    float passY     = avatarY + avatarSelector.getHeight() + elemGap;
-    float userY     = passY + passwordField.getHeight() + elemGap;
+    float elemGap = 12f;
+    float hPad    = 14f;
+    float rowH    = Math.max(backBtn.getHeight(), submitBtn.getHeight());
+    float rowY    = bMargin;
+    float avatarY = rowY + rowH + elemGap;
+    float passY   = avatarY + avatarSelector.getHeight() + elemGap;
+    float userY   = passY + passwordField.getHeight() + elemGap;
 
-    backBtn.setPosition(Math.round(cx - backBtn.getWidth() / 2f), Math.round(backY));
-    submitBtn.setPosition(Math.round(cx - submitBtn.getWidth() / 2f), Math.round(submitY));
+    // Back on left, Submit on right — vertically centred within rowH
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    submitBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - submitBtn.getWidth()),
+        Math.round(rowY + (rowH - submitBtn.getHeight()) / 2f));
     avatarSelector.setPosition(Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
     passwordField.setPosition(Math.round(cx - passwordField.getWidth() / 2f), Math.round(passY));
     usernameField.setPosition(Math.round(cx - usernameField.getWidth() / 2f), Math.round(userY));
@@ -903,7 +915,7 @@ public class MenuScreen extends AbstractScreen {
       Label errLabel = new Label(authErrorMessage, MyGdxGame.skin);
       errLabel.setColor(1f, 0.4f, 0.4f, 1f);
       errLabel.pack();
-      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(submitY + submitBtn.getHeight() + 6f));
+      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(rowY + rowH + 4f));
       menuStage.addActor(errLabel);
     }
 
@@ -925,6 +937,10 @@ public class MenuScreen extends AbstractScreen {
     usernameField.setMessageText(t("menu.auth.usernamePlaceholder"));
     usernameField.setWidth(250f);
     usernameField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(usernameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      usernameField.setStyle(s); }
 
     final com.badlogic.gdx.scenes.scene2d.ui.TextField passwordField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
@@ -933,6 +949,10 @@ public class MenuScreen extends AbstractScreen {
     passwordField.setPasswordCharacter('*');
     passwordField.setWidth(250f);
     passwordField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(passwordField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      passwordField.setStyle(s); }
 
     final TextButton submitBtn = new TextButton(t("menu.auth.login.submit"), MyGdxGame.skin) {
       @Override public void act(float delta) {
@@ -1002,16 +1022,19 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
-    // Bottom-up layout
+    // Bottom-up layout — Back (left) and Submit (right) share the same row.
     float bMargin = 16f;
     float elemGap = 12f;
-    float backY   = bMargin;
-    float submitY = backY + backBtn.getHeight() + elemGap;
-    float passY   = submitY + submitBtn.getHeight() + elemGap;
+    float hPad    = 14f;
+    float rowH    = Math.max(backBtn.getHeight(), submitBtn.getHeight());
+    float rowY    = bMargin;
+    float passY   = rowY + rowH + elemGap;
     float userY   = passY + passwordField.getHeight() + elemGap;
 
-    backBtn.setPosition(Math.round(cx - backBtn.getWidth() / 2f), Math.round(backY));
-    submitBtn.setPosition(Math.round(cx - submitBtn.getWidth() / 2f), Math.round(submitY));
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    submitBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - submitBtn.getWidth()),
+        Math.round(rowY + (rowH - submitBtn.getHeight()) / 2f));
     passwordField.setPosition(Math.round(cx - passwordField.getWidth() / 2f), Math.round(passY));
     usernameField.setPosition(Math.round(cx - usernameField.getWidth() / 2f), Math.round(userY));
 
@@ -1030,7 +1053,7 @@ public class MenuScreen extends AbstractScreen {
       Label errLabel = new Label(authErrorMessage, MyGdxGame.skin);
       errLabel.setColor(1f, 0.4f, 0.4f, 1f);
       errLabel.pack();
-      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(submitY + submitBtn.getHeight() + 6f));
+      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(rowY + rowH + 4f));
       menuStage.addActor(errLabel);
     }
 
@@ -1047,6 +1070,10 @@ public class MenuScreen extends AbstractScreen {
     final com.badlogic.gdx.scenes.scene2d.ui.TextField nameField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField(menuState.getMyName(), MyGdxGame.skin);
     nameField.setMessageText(t("menu.namePlaceholder"));
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(nameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      nameField.setStyle(s); }
     final float btnH = button.getPrefHeight();
 
     final Runnable doConfirm = new Runnable() {
@@ -1099,14 +1126,21 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    // ── Back button (returns to auth-choice) ─────────────────────────────────
+    final TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
+    backBtn.pack();
+    backBtn.setSize(backBtn.getPrefWidth() + 20f, backBtn.getPrefHeight() + 10f);
+    backBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
     nameField.setWidth(250f);
     nameField.setHeight(50f);
-    // Position is set after avatarSelector is packed (bottom-up layout below).
 
-    // Avatar selector — shown below the name field.
-    // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
-    // Clicking an avatar updates the selection in-place WITHOUT rebuilding the screen,
-    // so any text the player has typed into the name field is preserved.
+    // Avatar selector — shown above the button row.
     float selectorMaxW = MyGdxGame.WIDTH - 24f;
 
     Label avatarLabel = new Label(t("menu.avatarChoose"), MyGdxGame.skin);
@@ -1132,25 +1166,22 @@ public class MenuScreen extends AbstractScreen {
         public void clicked(InputEvent event, float x, float y) {
           selectedIcon = avName;
           MyGdxGame.playerStorage.saveIcon(avName);
-          // Update avatar border highlights without rebuilding the whole screen.
           for (int j = 0; j < AVATAR_NAMES.length; j++) {
             if (avatarWrappers[j] == null) continue;
             boolean sel = AVATAR_NAMES[j].equals(selectedIcon);
             Color c = sel ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
             avatarWrappers[j].setBackground(MyGdxGame.skin.newDrawable("white", c));
           }
-          // loginBtn state is updated automatically via act() override.
         }
       });
       avatarRow.add(wrapper).padRight(avIdx < AVATAR_NAMES.length - 1 ? 6f : 0f);
     }
 
     ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
-    avatarScroll.setScrollingDisabled(false, true); // horizontal only
+    avatarScroll.setScrollingDisabled(false, true);
     avatarScroll.setFadeScrollBars(false);
     avatarScroll.setOverscroll(false, false);
 
-    // Scroll to show the selected avatar
     if (!selectedIcon.isEmpty()) {
       for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
         if (AVATAR_NAMES[ai].equals(selectedIcon)) {
@@ -1169,16 +1200,19 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
 
-    // ── Bottom-up layout: loginBtn → avatarSelector → nameField ────────────
-    // Building upward from a fixed bottom margin guarantees no overlap.
+    // ── Bottom-up layout: [Back | Play] → avatarSelector → nameField ────────
     final float bMargin = 16f;
     final float elemGap = 10f;
-    float loginY   = bMargin;
-    float avatarY  = loginY  + loginBtn.getHeight()     + elemGap;
-    float nameY    = avatarY + avatarSelector.getHeight() + elemGap;
+    final float hPad    = 14f;
+    float rowH   = Math.max(loginBtn.getHeight(), backBtn.getHeight());
+    float rowY   = bMargin;
+    float avatarY = rowY  + rowH               + elemGap;
+    float nameY   = avatarY + avatarSelector.getHeight() + elemGap;
 
-    loginBtn.setPosition(
-        Math.round(cx - loginBtn.getWidth() / 2f), Math.round(loginY));
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    loginBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - loginBtn.getWidth()),
+        Math.round(rowY + (rowH - loginBtn.getHeight()) / 2f));
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
     nameField.setPosition(
@@ -1187,9 +1221,9 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(nameField);
     menuStage.addActor(avatarSelector);
     menuStage.addActor(loginBtn);
+    menuStage.addActor(backBtn);
 
-    // Subtitle — the DOM overlay (BAISCH + suits) occupies the upper half;
-    // position this label just above the name field.
+    // Subtitle — position just above the name field.
     Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();

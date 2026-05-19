@@ -369,7 +369,8 @@ public class HtmlLauncher extends GwtApplication {
 
         $wnd._baischRefreshAccountBtn = function() {
             var icon = $wnd.localStorage.getItem('baisch_player_icon') || '';
-            var name = $wnd.localStorage.getItem('baisch_player_name') || '';
+            var name = $wnd.localStorage.getItem('baisch_player_name') || ''
+                    || $wnd.localStorage.getItem('baisch_account_username') || '';
             if (icon && name) {
                 btn.style.display = 'block';
                 img.src = '/assets/data/avatars/' + icon + '.png';

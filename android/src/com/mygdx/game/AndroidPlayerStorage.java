@@ -14,6 +14,7 @@ public class AndroidPlayerStorage implements PlayerStorage {
     private static final String KEY_SOUND_ENABLED = "sound_enabled";
     private static final String KEY_ICON          = "player_icon";
     private static final String KEY_LANGUAGE      = "language";
+    private static final String KEY_USERNAME      = "account_username";
 
     private final SharedPreferences prefs;
 
@@ -48,4 +49,7 @@ public class AndroidPlayerStorage implements PlayerStorage {
     @Override public String  getSavedIcon()                      { return prefs.getString(KEY_ICON, ""); }
     @Override public void    saveIcon(String icon)               { prefs.edit().putString(KEY_ICON, icon).apply(); }
     @Override public void    clearIcon()                         { prefs.edit().remove(KEY_ICON).apply(); }
+    @Override public String  getSavedUsername()                  { return prefs.getString(KEY_USERNAME, ""); }
+    @Override public void    saveUsername(String username)       { prefs.edit().putString(KEY_USERNAME, username).apply(); }
+    @Override public void    clearUsername()                     { prefs.edit().remove(KEY_USERNAME).apply(); }
 }

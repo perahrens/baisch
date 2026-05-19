@@ -1,7 +1,40 @@
 var path = require('path');
+var fs = require('fs');
+var bcrypt = require('bcryptjs');
 var app = require('express')();
 var server = require('http').Server(app);
 var io = require('socket.io')(server, { origins: '*:*' });
+
+// ─── Persistent user account store ───────────────────────────────────────────
+var USERS_FILE = '/data/users.json';
+// In-memory cache: { [username_lower]: { username, passwordHash, icon } }
+var userAccounts = {};
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      var raw = fs.readFileSync(USERS_FILE, 'utf8');
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        userAccounts = parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load users file:', e.message);
+  }
+}
+
+function saveUsers() {
+  try {
+    var dir = path.dirname(USERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(userAccounts), 'utf8');
+  } catch (e) {
+    console.error('Failed to save users file:', e.message);
+  }
+}
+
+loadUsers();
 
 // Serve the mobile-optimised page at /m (canonical URL).
 app.get('/m', function(req, res) {
@@ -57,10 +90,16 @@ function getPlayerStatus(socketId) {
 }
 
 function broadcastPlayerList() {
+  var seen = {};
   var list = Object.keys(connectedPlayers)
     .filter(function(sid) { return connectedPlayers[sid].name; })
     .map(function(sid) {
       return { id: sid, name: connectedPlayers[sid].name, icon: connectedPlayers[sid].icon || '', status: getPlayerStatus(sid) };
+    })
+    .filter(function(entry) {
+      if (seen[entry.name]) return false;
+      seen[entry.name] = true;
+      return true;
     });
   io.emit('playerList', list);
 }
@@ -1089,11 +1128,19 @@ io.on('connection', function(socket) {
   connectedPlayers[socket.id] = { id: socket.id, name: '' };
   socket.emit('socketID', { id: socket.id });
   socket.emit('sessionList', getSessionList());
-  socket.emit('playerList', Object.keys(connectedPlayers)
-    .filter(function(sid) { return connectedPlayers[sid].name; })
-    .map(function(sid) {
-      return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
-    }));
+  socket.emit('playerList', (function() {
+    var seen = {};
+    return Object.keys(connectedPlayers)
+      .filter(function(sid) { return connectedPlayers[sid].name; })
+      .map(function(sid) {
+        return { id: sid, name: connectedPlayers[sid].name, status: getPlayerStatus(sid) };
+      })
+      .filter(function(entry) {
+        if (seen[entry.name]) return false;
+        seen[entry.name] = true;
+        return true;
+      });
+  })());
 
   socket.on('chatMessage', function(data) {
     var sess = getSession(socket.id);
@@ -1153,6 +1200,41 @@ io.on('connection', function(socket) {
   socket.on('leaveSession', function() {
     console.log('User ' + socket.id + ' left session');
     leaveCurrentSession(socket);
+  });
+
+  socket.on('registerAccount', function(data) {
+    var username = (data && data.username) ? String(data.username).slice(0, 30).trim() : '';
+    var password = (data && data.password) ? String(data.password) : '';
+    var icon     = (data && data.icon)     ? String(data.icon).slice(0, 50) : '';
+    if (!username || !password || password.length < 4) {
+      socket.emit('registerResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    var key = username.toLowerCase();
+    if (userAccounts[key]) {
+      socket.emit('registerResult', { success: false, error: 'username_taken' });
+      return;
+    }
+    var hash = bcrypt.hashSync(password, 10);
+    userAccounts[key] = { username: username, passwordHash: hash, icon: icon };
+    saveUsers();
+    socket.emit('registerResult', { success: true, name: username, icon: icon });
+  });
+
+  socket.on('loginAccount', function(data) {
+    var username = (data && data.username) ? String(data.username).slice(0, 30).trim() : '';
+    var password = (data && data.password) ? String(data.password) : '';
+    if (!username || !password) {
+      socket.emit('loginResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    var key = username.toLowerCase();
+    var account = userAccounts[key];
+    if (!account || !bcrypt.compareSync(password, account.passwordHash)) {
+      socket.emit('loginResult', { success: false, error: 'invalid_credentials' });
+      return;
+    }
+    socket.emit('loginResult', { success: true, name: account.username, icon: account.icon || '' });
   });
 
   socket.on('registerPlayer', function(data) {
@@ -1348,6 +1430,9 @@ io.on('connection', function(socket) {
     // the player is already in the lobby and a leaveCurrentSession call here
     // would destroy the session if they are the host.
     if (socketToSession[socket.id] === data.sessionId) return;
+    // Reject if the same display name is already in the session (same user on two devices)
+    var alreadyInSession = sess.users.find(function(u) { return u.name === name && u.id !== socket.id; });
+    if (alreadyInSession) { socket.emit('sessionFull'); return; }
     // Reject if no open slots remain
     var openSlotIdx = -1;
     for (var si = 1; si <= 3; si++) {

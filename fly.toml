@@ -25,6 +25,10 @@ primary_region = 'fra'
     hard_limit = 500
     soft_limit = 400
 
+[[mounts]]
+  source = "baisch_data"
+  destination = "/data"
+
 [[vm]]
   memory = '512mb'
   cpu_kind = 'shared'

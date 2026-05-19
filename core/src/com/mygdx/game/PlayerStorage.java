@@ -73,6 +73,18 @@ public interface PlayerStorage {
   /** Clears the saved avatar icon (logout). */
   void clearIcon();
 
+  /**
+   * Returns the last-saved account username, or an empty string if the player is a guest
+   * or has never logged in with a registered account.
+   */
+  String getSavedUsername();
+
+  /** Persists the registered account username (set after a successful register or login). */
+  void saveUsername(String username);
+
+  /** Clears the saved account username (logout from registered account). */
+  void clearUsername();
+
   /** No-op implementation used on desktop and as a safe default. */
   PlayerStorage NOOP = new PlayerStorage() {
     @Override public String  getToken()                          { return ""; }
@@ -93,5 +105,8 @@ public interface PlayerStorage {
     @Override public String  getSavedIcon()                      { return ""; }
     @Override public void    saveIcon(String icon)               { }
     @Override public void    clearIcon()                         { }
+    @Override public String  getSavedUsername()                  { return ""; }
+    @Override public void    saveUsername(String username)       { }
+    @Override public void    clearUsername()                     { }
   };
 }

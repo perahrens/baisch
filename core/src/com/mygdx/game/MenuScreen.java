@@ -66,6 +66,21 @@ public class MenuScreen extends AbstractScreen {
   // Whether the player has entered a name and reached the session-list screen
   private boolean nameConfirmed = false;
 
+  // True once the player has made an auth choice (guest / register / login).
+  // Set to true at startup when a saved name or username is already present.
+  private boolean authChoiceShown = false;
+
+  // Error message to display on the register / login screens; empty string = no error.
+  private String authErrorMessage = "";
+
+  // True while waiting for a registerResult / loginResult response from the server.
+  private boolean authPending = false;
+
+  // True while the register sub-screen is shown (vs. login sub-screen).
+  private boolean inRegisterScreen = false;
+  // True while the login sub-screen is shown.
+  private boolean inLoginScreen = false;
+
   // True while the session-creation sub-screen is shown
   private boolean inSessionCreate = false;
   // Pending game name typed on the create screen (cleared after creation)
@@ -207,6 +222,18 @@ public class MenuScreen extends AbstractScreen {
     if (!savedName.isEmpty()) {
       menuState.setMyName(savedName);
       nameConfirmed = true;
+      authChoiceShown = true;
+    }
+    // Returning registered-account players also skip the auth-choice and name-entry screens.
+    String savedUsername = MyGdxGame.playerStorage.getSavedUsername();
+    if (!savedUsername.isEmpty() && !nameConfirmed) {
+      menuState.setMyName(savedUsername);
+      // Ensure baisch_player_name is set so the DOM account button appears.
+      MyGdxGame.playerStorage.saveName(savedUsername);
+      nameConfirmed = true;
+      authChoiceShown = true;
+    } else if (!savedUsername.isEmpty()) {
+      authChoiceShown = true;
     }
     showPlayersTab = MyGdxGame.playerStorage.getSavedShowPlayersTab();
     selectedIcon = MyGdxGame.playerStorage.getSavedIcon();
@@ -371,6 +398,16 @@ public class MenuScreen extends AbstractScreen {
     } else if (reconnecting) {
       if (MyGdxGame.onNameEntryScreenDone != null) MyGdxGame.onNameEntryScreenDone.run();
       showReconnectingScreen();
+    } else if (!authChoiceShown) {
+      // No prior identity (first visit) — show the auth-choice screen.
+      menuStage.addActor(group);
+      showAuthChoiceScreen();
+    } else if (!nameConfirmed && inRegisterScreen) {
+      menuStage.addActor(group);
+      showRegisterScreen();
+    } else if (!nameConfirmed && inLoginScreen) {
+      menuStage.addActor(group);
+      showLoginScreen();
     } else if (!nameConfirmed) {
       // Logo only shown on the name-entry screen.
       menuStage.addActor(group);
@@ -601,6 +638,429 @@ public class MenuScreen extends AbstractScreen {
     return cell;
   }
 
+  /**
+   * Auth-choice screen — shown on first visit (no saved name and no saved username).
+   * Three buttons: Join as guest, Register, Log in with account.
+   * Layout mirrors the name-entry screen (buttons stacked from bottom).
+   */
+  private void showAuthChoiceScreen() {
+    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
+    float cx = MyGdxGame.WIDTH / 2f;
+    float gap = 12f;
+    float bMargin = 24f;
+
+    TextButton guestBtn = new TextButton(t("menu.auth.joinGuest"), MyGdxGame.skin);
+    TextButton registerBtn = new TextButton(t("menu.auth.register"), MyGdxGame.skin);
+    TextButton loginBtn = new TextButton(t("menu.auth.loginWithAccount"), MyGdxGame.skin);
+
+    // Use the skin's preferred dimensions like all other screens do
+    guestBtn.pack();
+    registerBtn.pack();
+    loginBtn.pack();
+    float btnH = guestBtn.getPrefHeight() + 20f;
+    float btnW = Math.max(
+        Math.max(guestBtn.getPrefWidth(), registerBtn.getPrefWidth()),
+        loginBtn.getPrefWidth()) + 60f;
+
+    guestBtn.setSize(btnW, btnH);
+    registerBtn.setSize(btnW, btnH);
+    loginBtn.setSize(btnW, btnH);
+
+    float loginY    = bMargin;
+    float registerY = loginY + btnH + gap;
+    float guestY    = registerY + btnH + gap;
+
+    guestBtn.setPosition(Math.round(cx - btnW / 2f), Math.round(guestY));
+    registerBtn.setPosition(Math.round(cx - btnW / 2f), Math.round(registerY));
+    loginBtn.setPosition(Math.round(cx - btnW / 2f), Math.round(loginY));
+
+    guestBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = true;
+        authErrorMessage = "";
+        inRegisterScreen = false;
+        inLoginScreen = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
+    registerBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = true;
+        authErrorMessage = "";
+        inRegisterScreen = true;
+        inLoginScreen = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
+    loginBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = true;
+        authErrorMessage = "";
+        inRegisterScreen = false;
+        inLoginScreen = true;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
+    menuStage.addActor(guestBtn);
+    menuStage.addActor(registerBtn);
+    menuStage.addActor(loginBtn);
+
+    Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
+    subtitle.setColor(1f, 1f, 1f, 0.65f);
+    subtitle.pack();
+    subtitle.setPosition(
+        Math.round(cx - subtitle.getWidth() / 2f),
+        Math.round(guestY + btnH + 12f));
+    menuStage.addActor(subtitle);
+
+    addMusicToggleButton(menuStage);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  /**
+   * Register screen — username, password and avatar fields.
+   * On submit emits registerAccount to the server.
+   */
+  private void showRegisterScreen() {
+    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
+    float cx = MyGdxGame.WIDTH / 2f;
+
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField usernameField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
+    usernameField.setMessageText(t("menu.auth.usernamePlaceholder"));
+    usernameField.setWidth(250f);
+    usernameField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(usernameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      usernameField.setStyle(s); }
+
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField passwordField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
+    passwordField.setMessageText(t("menu.auth.passwordPlaceholder"));
+    passwordField.setPasswordMode(true);
+    passwordField.setPasswordCharacter('*');
+    passwordField.setWidth(250f);
+    passwordField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(passwordField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      passwordField.setStyle(s); }
+
+    final TextButton submitBtn = new TextButton(t("menu.auth.register.submit"), MyGdxGame.skin) {
+      @Override public void act(float delta) {
+        super.act(delta);
+        boolean ok = !usernameField.getText().trim().isEmpty()
+                  && !passwordField.getText().isEmpty()
+                  && !selectedIcon.isEmpty()
+                  && !authPending;
+        setDisabled(!ok);
+        getLabel().setColor(ok ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
+      }
+    };
+    submitBtn.pack();
+    submitBtn.setSize(submitBtn.getPrefWidth() + 40f, submitBtn.getPrefHeight() + 20f);
+
+    final Runnable doRegister = new Runnable() {
+      @Override public void run() {
+        String username = usernameField.getText().trim();
+        String password = passwordField.getText();
+        if (username.isEmpty()) { authErrorMessage = t("menu.auth.error.usernameRequired"); show(); return; }
+        if (password.isEmpty()) { authErrorMessage = t("menu.auth.error.passwordRequired"); show(); return; }
+        if (password.length() < 4) { authErrorMessage = t("menu.auth.error.passwordTooShort"); show(); return; }
+        if (selectedIcon.isEmpty()) return;
+        MyGdxGame.keyboardHelper.hideKeyboard();
+        authPending = true;
+        try {
+          JSONObject data = new JSONObject();
+          data.put("username", username);
+          data.put("password", password);
+          data.put("icon", selectedIcon);
+          data.put("token", MyGdxGame.playerStorage.getToken());
+          socket.emit("registerAccount", data);
+        } catch (JSONException e) { authPending = false; }
+      }
+    };
+
+    submitBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        if (submitBtn.isDisabled()) return;
+        doRegister.run();
+      }
+    });
+
+    usernameField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(usernameField, doRegister);
+        return false;
+      }
+    });
+
+    passwordField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(passwordField, doRegister);
+        return false;
+      }
+    });
+
+    // Back button
+    TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
+    backBtn.pack();
+    backBtn.setSize(backBtn.getPrefWidth() + 20f, backBtn.getPrefHeight() + 10f);
+    backBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = false;
+        inRegisterScreen = false;
+        authErrorMessage = "";
+        authPending = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
+    // Avatar selector (reuse same logic as name-entry screen)
+    float selectorMaxW = MyGdxGame.WIDTH - 24f;
+    Label avatarLabel = new Label(t("menu.avatarChoose"), MyGdxGame.skin);
+    avatarLabel.setColor(1f, 1f, 1f, 0.70f);
+    final Table[] avatarWrappers = new Table[AVATAR_NAMES.length];
+    Table avatarRow = new Table();
+    avatarRow.pad(4f, 0f, 0f, 0f);
+    for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
+      final String avName = AVATAR_NAMES[ai];
+      final int avIdx = ai;
+      Texture avTex = getAvatarTexture(avName);
+      if (avTex == null) continue;
+      Image avImg = new Image(avTex);
+      boolean selected = avName.equals(selectedIcon);
+      Color borderCol = selected ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
+      final Table wrapper = new Table();
+      wrapper.setBackground(MyGdxGame.skin.newDrawable("white", borderCol));
+      wrapper.add(avImg).size(88f, 88f).pad(4f);
+      avatarWrappers[avIdx] = wrapper;
+      wrapper.addListener(new ClickListener() {
+        @Override public void clicked(InputEvent event, float x, float y) {
+          selectedIcon = avName;
+          MyGdxGame.playerStorage.saveIcon(avName);
+          for (int j = 0; j < AVATAR_NAMES.length; j++) {
+            if (avatarWrappers[j] == null) continue;
+            Color c = AVATAR_NAMES[j].equals(selectedIcon)
+                ? new Color(0.98f, 0.80f, 0.25f, 1f)
+                : new Color(1f, 1f, 1f, 0.18f);
+            avatarWrappers[j].setBackground(MyGdxGame.skin.newDrawable("white", c));
+          }
+        }
+      });
+      avatarRow.add(wrapper).padRight(avIdx < AVATAR_NAMES.length - 1 ? 6f : 0f);
+    }
+    ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
+    avatarScroll.setScrollingDisabled(false, true);
+    avatarScroll.setFadeScrollBars(false);
+    avatarScroll.setOverscroll(false, false);
+    if (!selectedIcon.isEmpty()) {
+      for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
+        if (AVATAR_NAMES[ai].equals(selectedIcon)) {
+          final float targetX = ai * (88f + 4f + 4f + 6f);
+          avatarScroll.layout();
+          avatarScroll.setScrollX(Math.max(0f, targetX - selectorMaxW / 2f));
+          break;
+        }
+      }
+    }
+    Table avatarSelector = new Table(MyGdxGame.skin);
+    avatarSelector.setBackground(MyGdxGame.skin.newDrawable("white", new Color(0f, 0f, 0f, 0.28f)));
+    avatarSelector.pad(8f, 12f, 8f, 12f);
+    avatarSelector.add(avatarLabel).padBottom(6f).row();
+    avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
+    avatarSelector.pack();
+
+    // Bottom-up layout — Back (left) and Submit (right) share the same row.
+    float bMargin = 16f;
+    float elemGap = 12f;
+    float hPad    = 14f;
+    float rowH    = Math.max(backBtn.getHeight(), submitBtn.getHeight());
+    float rowY    = bMargin;
+    float avatarY = rowY + rowH + elemGap;
+    float passY   = avatarY + avatarSelector.getHeight() + elemGap;
+    float userY   = passY + passwordField.getHeight() + elemGap;
+
+    // Back on left, Submit on right — vertically centred within rowH
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    submitBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - submitBtn.getWidth()),
+        Math.round(rowY + (rowH - submitBtn.getHeight()) / 2f));
+    avatarSelector.setPosition(Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
+    passwordField.setPosition(Math.round(cx - passwordField.getWidth() / 2f), Math.round(passY));
+    usernameField.setPosition(Math.round(cx - usernameField.getWidth() / 2f), Math.round(userY));
+
+    // Title
+    Label titleLabel = new Label(t("menu.auth.registerTitle"), MyGdxGame.skin);
+    titleLabel.setColor(1f, 1f, 1f, 0.85f);
+    titleLabel.pack();
+    titleLabel.setPosition(Math.round(cx - titleLabel.getWidth() / 2f), Math.round(userY + usernameField.getHeight() + 12f));
+
+    menuStage.addActor(usernameField);
+    menuStage.addActor(passwordField);
+    menuStage.addActor(avatarSelector);
+    menuStage.addActor(submitBtn);
+    menuStage.addActor(backBtn);
+    menuStage.addActor(titleLabel);
+
+    if (!authErrorMessage.isEmpty()) {
+      Label errLabel = new Label(authErrorMessage, MyGdxGame.skin);
+      errLabel.setColor(1f, 0.4f, 0.4f, 1f);
+      errLabel.pack();
+      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(rowY + rowH + 4f));
+      menuStage.addActor(errLabel);
+    }
+
+    addMusicToggleButton(menuStage);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
+  /**
+   * Login screen — username and password fields.
+   * On submit emits loginAccount to the server.
+   */
+  private void showLoginScreen() {
+    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
+    MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
+    float cx = MyGdxGame.WIDTH / 2f;
+
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField usernameField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
+    usernameField.setMessageText(t("menu.auth.usernamePlaceholder"));
+    usernameField.setWidth(250f);
+    usernameField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(usernameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      usernameField.setStyle(s); }
+
+    final com.badlogic.gdx.scenes.scene2d.ui.TextField passwordField =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField("", MyGdxGame.skin);
+    passwordField.setMessageText(t("menu.auth.passwordPlaceholder"));
+    passwordField.setPasswordMode(true);
+    passwordField.setPasswordCharacter('*');
+    passwordField.setWidth(250f);
+    passwordField.setHeight(50f);
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(passwordField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      passwordField.setStyle(s); }
+
+    final TextButton submitBtn = new TextButton(t("menu.auth.login.submit"), MyGdxGame.skin) {
+      @Override public void act(float delta) {
+        super.act(delta);
+        boolean ok = !usernameField.getText().trim().isEmpty()
+                  && !passwordField.getText().isEmpty()
+                  && !authPending;
+        setDisabled(!ok);
+        getLabel().setColor(ok ? Color.WHITE : new Color(0.5f, 0.5f, 0.5f, 1f));
+      }
+    };
+    submitBtn.pack();
+    submitBtn.setSize(submitBtn.getPrefWidth() + 40f, submitBtn.getPrefHeight() + 20f);
+
+    final Runnable doLogin = new Runnable() {
+      @Override public void run() {
+        String username = usernameField.getText().trim();
+        String password = passwordField.getText();
+        if (username.isEmpty()) { authErrorMessage = t("menu.auth.error.usernameRequired"); show(); return; }
+        if (password.isEmpty()) { authErrorMessage = t("menu.auth.error.passwordRequired"); show(); return; }
+        MyGdxGame.keyboardHelper.hideKeyboard();
+        authPending = true;
+        try {
+          JSONObject data = new JSONObject();
+          data.put("username", username);
+          data.put("password", password);
+          data.put("token", MyGdxGame.playerStorage.getToken());
+          socket.emit("loginAccount", data);
+        } catch (JSONException e) { authPending = false; }
+      }
+    };
+
+    submitBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        if (submitBtn.isDisabled()) return;
+        doLogin.run();
+      }
+    });
+
+    usernameField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(usernameField, doLogin);
+        return false;
+      }
+    });
+
+    passwordField.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+      @Override
+      public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer, int btn) {
+        MyGdxGame.keyboardHelper.showKeyboard(passwordField, doLogin);
+        return false;
+      }
+    });
+
+    // Back button
+    TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
+    backBtn.pack();
+    backBtn.setSize(backBtn.getPrefWidth() + 20f, backBtn.getPrefHeight() + 10f);
+    backBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = false;
+        inLoginScreen = false;
+        authErrorMessage = "";
+        authPending = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
+    // Bottom-up layout — Back (left) and Submit (right) share the same row.
+    float bMargin = 16f;
+    float elemGap = 12f;
+    float hPad    = 14f;
+    float rowH    = Math.max(backBtn.getHeight(), submitBtn.getHeight());
+    float rowY    = bMargin;
+    float passY   = rowY + rowH + elemGap;
+    float userY   = passY + passwordField.getHeight() + elemGap;
+
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    submitBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - submitBtn.getWidth()),
+        Math.round(rowY + (rowH - submitBtn.getHeight()) / 2f));
+    passwordField.setPosition(Math.round(cx - passwordField.getWidth() / 2f), Math.round(passY));
+    usernameField.setPosition(Math.round(cx - usernameField.getWidth() / 2f), Math.round(userY));
+
+    Label titleLabel = new Label(t("menu.auth.loginTitle"), MyGdxGame.skin);
+    titleLabel.setColor(1f, 1f, 1f, 0.85f);
+    titleLabel.pack();
+    titleLabel.setPosition(Math.round(cx - titleLabel.getWidth() / 2f), Math.round(userY + usernameField.getHeight() + 12f));
+
+    menuStage.addActor(usernameField);
+    menuStage.addActor(passwordField);
+    menuStage.addActor(submitBtn);
+    menuStage.addActor(backBtn);
+    menuStage.addActor(titleLabel);
+
+    if (!authErrorMessage.isEmpty()) {
+      Label errLabel = new Label(authErrorMessage, MyGdxGame.skin);
+      errLabel.setColor(1f, 0.4f, 0.4f, 1f);
+      errLabel.pack();
+      errLabel.setPosition(Math.round(cx - errLabel.getWidth() / 2f), Math.round(rowY + rowH + 4f));
+      menuStage.addActor(errLabel);
+    }
+
+    addMusicToggleButton(menuStage);
+    Gdx.input.setInputProcessor(menuStage);
+  }
+
   private void showNameEntryScreen() {    if (MyGdxGame.onNameEntryScreenActive != null) MyGdxGame.onNameEntryScreenActive.run();
     MyGdxGame.setMusicTrack(MyGdxGame.musicShimmer);
     float cx = MyGdxGame.WIDTH / 2f;
@@ -610,6 +1070,10 @@ public class MenuScreen extends AbstractScreen {
     final com.badlogic.gdx.scenes.scene2d.ui.TextField nameField =
         new com.badlogic.gdx.scenes.scene2d.ui.TextField(menuState.getMyName(), MyGdxGame.skin);
     nameField.setMessageText(t("menu.namePlaceholder"));
+    { com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle s =
+        new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldStyle(nameField.getStyle());
+      s.messageFontColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      nameField.setStyle(s); }
     final float btnH = button.getPrefHeight();
 
     final Runnable doConfirm = new Runnable() {
@@ -662,14 +1126,21 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    // ── Back button (returns to auth-choice) ─────────────────────────────────
+    final TextButton backBtn = new TextButton(t("common.back"), MyGdxGame.skin);
+    backBtn.pack();
+    backBtn.setSize(backBtn.getPrefWidth() + 20f, backBtn.getPrefHeight() + 10f);
+    backBtn.addListener(new ClickListener() {
+      @Override public void clicked(InputEvent event, float x, float y) {
+        authChoiceShown = false;
+        Gdx.app.postRunnable(new Runnable() { @Override public void run() { show(); } });
+      }
+    });
+
     nameField.setWidth(250f);
     nameField.setHeight(50f);
-    // Position is set after avatarSelector is packed (bottom-up layout below).
 
-    // Avatar selector — shown below the name field.
-    // The icons row is placed inside a horizontal ScrollPane so it fits any screen width.
-    // Clicking an avatar updates the selection in-place WITHOUT rebuilding the screen,
-    // so any text the player has typed into the name field is preserved.
+    // Avatar selector — shown above the button row.
     float selectorMaxW = MyGdxGame.WIDTH - 24f;
 
     Label avatarLabel = new Label(t("menu.avatarChoose"), MyGdxGame.skin);
@@ -695,25 +1166,22 @@ public class MenuScreen extends AbstractScreen {
         public void clicked(InputEvent event, float x, float y) {
           selectedIcon = avName;
           MyGdxGame.playerStorage.saveIcon(avName);
-          // Update avatar border highlights without rebuilding the whole screen.
           for (int j = 0; j < AVATAR_NAMES.length; j++) {
             if (avatarWrappers[j] == null) continue;
             boolean sel = AVATAR_NAMES[j].equals(selectedIcon);
             Color c = sel ? new Color(0.98f, 0.80f, 0.25f, 1f) : new Color(1f, 1f, 1f, 0.18f);
             avatarWrappers[j].setBackground(MyGdxGame.skin.newDrawable("white", c));
           }
-          // loginBtn state is updated automatically via act() override.
         }
       });
       avatarRow.add(wrapper).padRight(avIdx < AVATAR_NAMES.length - 1 ? 6f : 0f);
     }
 
     ScrollPane avatarScroll = new ScrollPane(avatarRow, MyGdxGame.skin);
-    avatarScroll.setScrollingDisabled(false, true); // horizontal only
+    avatarScroll.setScrollingDisabled(false, true);
     avatarScroll.setFadeScrollBars(false);
     avatarScroll.setOverscroll(false, false);
 
-    // Scroll to show the selected avatar
     if (!selectedIcon.isEmpty()) {
       for (int ai = 0; ai < AVATAR_NAMES.length; ai++) {
         if (AVATAR_NAMES[ai].equals(selectedIcon)) {
@@ -732,16 +1200,19 @@ public class MenuScreen extends AbstractScreen {
     avatarSelector.add(avatarScroll).width(selectorMaxW - 24f).height(120f);
     avatarSelector.pack();
 
-    // ── Bottom-up layout: loginBtn → avatarSelector → nameField ────────────
-    // Building upward from a fixed bottom margin guarantees no overlap.
+    // ── Bottom-up layout: [Back | Play] → avatarSelector → nameField ────────
     final float bMargin = 16f;
     final float elemGap = 10f;
-    float loginY   = bMargin;
-    float avatarY  = loginY  + loginBtn.getHeight()     + elemGap;
-    float nameY    = avatarY + avatarSelector.getHeight() + elemGap;
+    final float hPad    = 14f;
+    float rowH   = Math.max(loginBtn.getHeight(), backBtn.getHeight());
+    float rowY   = bMargin;
+    float avatarY = rowY  + rowH               + elemGap;
+    float nameY   = avatarY + avatarSelector.getHeight() + elemGap;
 
-    loginBtn.setPosition(
-        Math.round(cx - loginBtn.getWidth() / 2f), Math.round(loginY));
+    backBtn.setPosition(Math.round(hPad),
+        Math.round(rowY + (rowH - backBtn.getHeight()) / 2f));
+    loginBtn.setPosition(Math.round(MyGdxGame.WIDTH - hPad - loginBtn.getWidth()),
+        Math.round(rowY + (rowH - loginBtn.getHeight()) / 2f));
     avatarSelector.setPosition(
         Math.round(cx - avatarSelector.getWidth() / 2f), Math.round(avatarY));
     nameField.setPosition(
@@ -750,9 +1221,9 @@ public class MenuScreen extends AbstractScreen {
     menuStage.addActor(nameField);
     menuStage.addActor(avatarSelector);
     menuStage.addActor(loginBtn);
+    menuStage.addActor(backBtn);
 
-    // Subtitle — the DOM overlay (BAISCH + suits) occupies the upper half;
-    // position this label just above the name field.
+    // Subtitle — position just above the name field.
     Label subtitle = new Label(t("menu.subtitle"), MyGdxGame.skin);
     subtitle.setColor(1f, 1f, 1f, 0.65f);
     subtitle.pack();
@@ -1172,7 +1643,7 @@ public class MenuScreen extends AbstractScreen {
     return data;
   }
 
-  /** Logs the player out: clears saved name, leaves any session, returns to name-entry. */
+  /** Logs the player out: clears saved name, leaves any session, returns to auth-choice. */
   private void logout() {
     if (lobbyJoined) {
       socket.emit("leaveSession", "");
@@ -1180,9 +1651,15 @@ public class MenuScreen extends AbstractScreen {
     MyGdxGame.playerStorage.clearName();
     MyGdxGame.playerStorage.clearSessionId();
     MyGdxGame.playerStorage.clearIcon();
+    MyGdxGame.playerStorage.clearUsername();
     selectedIcon = "";
     menuState.setMyName("");
     nameConfirmed = false;
+    authChoiceShown = false;
+    authErrorMessage = "";
+    authPending = false;
+    inRegisterScreen = false;
+    inLoginScreen = false;
     lobbyJoined = false;
     timerStarted = false;
     gameRunning = false;
@@ -2399,7 +2876,102 @@ public class MenuScreen extends AbstractScreen {
       }
     });
 
+    socket.on("registerResult", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONObject result = (JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            authPending = false;
+            try {
+              boolean success = result.optBoolean("success", false);
+              if (success) {
+                String username = result.optString("name", "");
+                String icon = result.optString("icon", "");
+                MyGdxGame.playerStorage.saveUsername(username);
+                MyGdxGame.playerStorage.saveName(username);
+                menuState.setMyName(username);
+                if (!icon.isEmpty()) {
+                  selectedIcon = icon;
+                  MyGdxGame.playerStorage.saveIcon(icon);
+                }
+                nameConfirmed = true;
+                inRegisterScreen = false;
+                authErrorMessage = "";
+                try {
+                  JSONObject reg = new JSONObject();
+                  reg.put("name", username);
+                  reg.put("token", MyGdxGame.playerStorage.getToken());
+                  reg.put("icon", selectedIcon);
+                  socket.emit("registerPlayer", reg);
+                } catch (JSONException e) { /* ignore */ }
+                show();
+              } else {
+                authErrorMessage = mapAuthError(result.optString("error", ""));
+                show();
+              }
+            } catch (Exception e) {
+              authErrorMessage = "";
+              show();
+            }
+          }
+        });
+      }
+    });
+
+    socket.on("loginResult", new SocketListener() {
+      @Override
+      public void call(Object... args) {
+        final JSONObject result = (JSONObject) args[0];
+        Gdx.app.postRunnable(new Runnable() {
+          @Override
+          public void run() {
+            authPending = false;
+            try {
+              boolean success = result.optBoolean("success", false);
+              if (success) {
+                String username = result.optString("name", "");
+                String icon = result.optString("icon", "");
+                MyGdxGame.playerStorage.saveUsername(username);
+                MyGdxGame.playerStorage.saveName(username);
+                menuState.setMyName(username);
+                if (!icon.isEmpty()) {
+                  selectedIcon = icon;
+                  MyGdxGame.playerStorage.saveIcon(icon);
+                }
+                nameConfirmed = true;
+                inLoginScreen = false;
+                authErrorMessage = "";
+                try {
+                  JSONObject reg = new JSONObject();
+                  reg.put("name", username);
+                  reg.put("token", MyGdxGame.playerStorage.getToken());
+                  reg.put("icon", selectedIcon);
+                  socket.emit("registerPlayer", reg);
+                } catch (JSONException e) { /* ignore */ }
+                show();
+              } else {
+                authErrorMessage = mapAuthError(result.optString("error", ""));
+                show();
+              }
+            } catch (Exception e) {
+              authErrorMessage = "";
+              show();
+            }
+          }
+        });
+      }
+    });
+
     socket.connect();
+  }
+
+  /** Maps a server-side error code to a localized message string. */
+  private String mapAuthError(String errorCode) {
+    if ("username_taken".equals(errorCode)) return t("menu.auth.error.usernameTaken");
+    if ("invalid_credentials".equals(errorCode)) return t("menu.auth.error.invalidCredentials");
+    return errorCode.isEmpty() ? "" : errorCode;
   }
 
 }
